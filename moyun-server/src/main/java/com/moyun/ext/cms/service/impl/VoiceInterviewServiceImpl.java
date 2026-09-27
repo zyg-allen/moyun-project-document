@@ -46,6 +46,7 @@ import com.moyun.ext.aigateway.support.PromptInjectionGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -57,8 +58,8 @@ import java.util.stream.Collectors;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.regex.Pattern;
 
 /**
@@ -307,8 +308,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** 时长制：sys_config 读取（voice.interview.durationMinutes） */
     @Autowired private com.moyun.system.service.ISysConfigService sysConfigService;
 
-    /** SSE 异步线程池（避免阻塞请求线程） */
-    private final ScheduledExecutorService sseExecutor = Executors.newScheduledThreadPool(2);
+    /**
+     * SSE 长任务执行器（core 模块统一管理，见 {@code AsyncTaskConfig#sseStreamExecutor}）。
+     *
+     * <p>v13.5 前此处是实例字段 {@code Executors.newScheduledThreadPool(2)}：
+     * 脱离 Spring 容器（无优雅停机）、线程非守护且无命名、池大小写死 2 ——
+     * 第 3 个并发面试回合会**静默排队**，客户端 SSE 一直等不到首字。
+     * 现改走与架构图/工作流流式同一长任务池，并显式处理拒绝（回明确错误而非静默等待）。</p>
+     */
+    @Autowired
+    @Qualifier("sseStreamExecutor")
+    private Executor sseExecutor;
 
     /** 批量分析运行中标记（断链自愈：analysis 卡 1 且无运行任务时轮询接口重触发） */
     private static final java.util.Set<Long> RUNNING_ANALYSIS = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -701,7 +711,16 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 "[VoiceInterview] SSE 连接异常收尾 interviewId={} qaId={}：{}", interviewId, qaId, t.getMessage()));
 
         // V3：滑窗记忆 + 面试官流式话术（评分/分析统一留到结束批量报告）
-        sseExecutor.execute(() -> runAgentTurn(emitter, interview, qa, isSkip ? "" : transcript, isSkip));
+        // v13.5：长任务池满即拒绝（AbortPolicy），此处必须显式回错——
+        // 否则前端会一直等一个永远不会到来的首字（旧实现是静默排队，症状相同）
+        try {
+            sseExecutor.execute(() -> runAgentTurn(emitter, interview, qa, isSkip ? "" : transcript, isSkip));
+        } catch (RejectedExecutionException ree) {
+            log.warn("[VoiceInterview] 面试回合被拒绝（SSE 线程池已满）interviewId={} qaId={}：{}",
+                    interviewId, qaId, ree.getMessage());
+            sendEvent(emitter, "error", "当前面试请求过多，请稍后重试");
+            emitter.complete();
+        }
         return emitter;
     }
 

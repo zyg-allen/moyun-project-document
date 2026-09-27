@@ -1,14 +1,14 @@
 package com.moyun.ext.ai.engine.tool.builtin;
 
+import com.moyun.core.mail.MailChannelStatus;
 import com.moyun.ext.ai.engine.tool.ToolContext;
 import com.moyun.ext.ai.engine.tool.ToolExecutor;
 import com.moyun.ext.ai.engine.tool.ToolResult;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
@@ -37,13 +37,15 @@ public class SendEmailTool implements ToolExecutor {
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
-    /** 复用门户邮件服务的 SMTP 通道；未配置（MAIL_PASSWORD 未设置）时注入为 null */
-    @Autowired(required = false)
-    private JavaMailSender mailSender;
-
-    /** 发件人，默认取 spring.mail.username */
-    @Value("${spring.mail.username:}")
-    private String defaultFrom;
+    /**
+     * 邮件通道就绪判定（单一事实来源）。
+     *
+     * <p>历史实现用 {@code mailSender == null} 判定未配置——该判据永假：
+     * dev 的 {@code spring.mail.host} 是固定值，JavaMailSender 始终被装配。
+     * 详见 {@link MailChannelStatus} 类注释。</p>
+     */
+    @Autowired
+    private MailChannelStatus mailChannelStatus;
 
     @Override
     public String getName() {
@@ -94,9 +96,11 @@ public class SendEmailTool implements ToolExecutor {
 
     @Override
     public ToolResult execute(ToolContext context, Map<String, Object> params) {
-        // 1. 邮件服务是否就绪
-        if (mailSender == null) {
-            return ToolResult.fail("邮件服务未配置（缺少 spring.mail / MAIL_PASSWORD 配置），无法发送");
+        // 1. 邮件通道是否就绪（配置层判定，先于真正连接 SMTP）
+        String notReady = mailChannelStatus.unavailableReason();
+        if (notReady != null) {
+            log.warn("📧 [send_email 工具] 邮件通道未就绪：{}", notReady);
+            return ToolResult.fail("邮件服务未配置（" + notReady + "），无法发送");
         }
 
         // 2. 参数校验
@@ -135,6 +139,11 @@ public class SendEmailTool implements ToolExecutor {
             log.info("📧 [send_email 工具] {}", result);
             return ToolResult.success(result);
 
+        } catch (MailAuthenticationException e) {
+            // 授权码失效/错误属服务端配置问题，与收件人无关
+            log.error("📧 [send_email 工具] 邮件服务认证失败: host={}, username={}",
+                    mailChannelStatus.host(), mailChannelStatus.from(), e);
+            return ToolResult.fail("邮件服务认证失败（MAIL_USERNAME / MAIL_PASSWORD 配置有误），请联系管理员");
         } catch (Exception e) {
             log.error("📧 [send_email 工具] 邮件发送失败: to={}, subject={}", to, subject, e);
             return ToolResult.fail("邮件发送失败: " + e.getMessage());
@@ -148,7 +157,7 @@ public class SendEmailTool implements ToolExecutor {
     /** 发送纯文本邮件 */
     private void sendSimpleMail(String to, String cc, String bcc, String subject, String content) {
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(defaultFrom);
+        message.setFrom(mailChannelStatus.from());
         message.setTo(to.split(","));
         if (cc != null) {
             message.setCc(cc.split(","));
@@ -158,14 +167,14 @@ public class SendEmailTool implements ToolExecutor {
         }
         message.setSubject(subject);
         message.setText(content);
-        mailSender.send(message);
+        mailChannelStatus.sender().send(message);
     }
 
     /** 发送HTML邮件 */
     private void sendHtmlMail(String to, String cc, String bcc, String subject, String content) throws Exception {
-        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessage message = mailChannelStatus.sender().createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        helper.setFrom(defaultFrom);
+        helper.setFrom(mailChannelStatus.from());
         helper.setTo(to.split(","));
         if (cc != null) {
             helper.setCc(cc.split(","));
@@ -175,6 +184,6 @@ public class SendEmailTool implements ToolExecutor {
         }
         helper.setSubject(subject);
         helper.setText(content, true);
-        mailSender.send(message);
+        mailChannelStatus.sender().send(message);
     }
 }

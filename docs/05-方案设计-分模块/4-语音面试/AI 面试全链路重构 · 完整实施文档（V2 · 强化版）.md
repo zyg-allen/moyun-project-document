@@ -946,7 +946,9 @@ POST /api/portal/interview/voice/{id}/regenerate-report（@RateLimiter 10次/h�
 
 - 代码：AiGatewayService（sanitizeInputChannel 重建 Map）/ AiGlobalSwitch（新建）/ 8 个业务类开关替换 / application.yaml + application-dev.yaml
 - 文档：devlog v11.98 + 本章节
-- SQL：`moyun-server/src/main/resources/sql/20260917-01-ai-global-switch-sysconfig.sql`（sys_config 两键幂等 INSERT，WHERE NOT EXISTS）
+- SQL：`20260917-01-ai-global-switch-sysconfig.sql`（sys_config 两键幂等 INSERT，WHERE NOT EXISTS）
+  —— ⚠️ v13.0 按代码校正：该脚本路径 `resources/sql/` 已不存在，相应 `sys_config` 初始化已并入
+  `init-sql/moyun-db-dml-init.sql`；两键（`ai.global.enabled` 等）可在后台「参数设置」管理。此行为当时实施记录。
 - 菜单：无变更（管理台「参数设置」原生入口管理）
 
 ## 5. 部署与验收

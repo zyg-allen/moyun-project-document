@@ -70,7 +70,7 @@ import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { listVipPackages, getVipStatus, subscribeVip, getPayStatus, mockPay } from '@/api/ledger';
-import QRCode from 'qrcode';
+import drawQrCode from '@/utils/qrcode';
 
 export default {
   components: { NavBar },
@@ -178,13 +178,14 @@ export default {
     },
     async renderQr(codeUrl) {
       if (!codeUrl) return;
-      // #ifdef H5
-      try {
-        const host = document.getElementById('vipQr' + this.cashier.vipOrderId);
-        const el = host instanceof HTMLCanvasElement ? host : (host && host.querySelector('canvas'));
-        if (el) await QRCode.toCanvas(el, codeUrl, { width: 180, height: 180 });
-      } catch (e) { /* 二维码渲染失败时可用 mock 支付 */ }
-      // #endif
+      // H5 与小程序同一套绘制（uni canvas + qrcode 纯计算模块）：
+      // 旧实现用 document.querySelector + QRCode.toCanvas，且被 #ifdef H5 包住
+      // —— 小程序端从来不渲染二维码（异常被吞，只剩空框）
+      await drawQrCode({
+        canvasId: 'vipQr' + this.cashier.vipOrderId,
+        text: codeUrl,
+        instance: this
+      });
     },
     startPolling() {
       this.stopPolling();

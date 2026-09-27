@@ -2,6 +2,544 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.10 (2026-09-27) P1 第八项（收尾）：收银台二维码两端通用渲染（服务端出图方案被依赖卡住的实证）
+
+> P1 队列第 8 项最后一处代码可改项（报告附录 B4 的"支付二维码"行）。
+
+**取证（先看清坏在哪）**
+
+| 事实 | 证据 |
+|---|---|
+| 二维码**只在 H5 渲染** | `pages/mine/{vip,tip}/index.vue` 的 `renderQr` 整体包在 `// #ifdef H5` 内，用 `document.getElementById` + `QRCode.toCanvas(HTMLCanvasElement)` → 小程序端**从不绘制**，异常被 `catch` 吞掉，界面只剩"请使用微信扫一扫"的空框 |
+| `qrcode` 走的是 Node 入口 | 包 `main` = `lib/index.js`（含 `fs`/`stream`），进小程序包占体积且无意义 |
+| 服务端出图本轮不可行 | 报告建议"后端返回二维码图片 URL"，但服务端 QR 需编码器：Hutool 的 `QrCodeUtil` 依赖 **ZXing**，而 `com.google.zxing` 在本地依赖库 `D:\mvn-repository` **不存在**（已递归检索）→ 离线无法编译验证，**不擅自加依赖** |
+
+**修复：两端同一套绘制，零新增依赖**
+
+- 新增 `src/utils/qrcode.js`：只深引用 `qrcode` 的**纯计算**模块 `qrcode/lib/core/qrcode`
+  （内部仅同级纯 JS 模块，无 `fs`/canvas），取模块矩阵后用 `uni.createCanvasContext` + `fillRect` 自行绘制
+  → H5 与小程序共用同一实现；删除两处 `#ifdef H5` 与 `document` 依赖。
+- 两页 `renderQr` 收敛为 `drawQrCode({ canvasId, text, instance: this })`。
+
+**验证**
+
+- **API 契约**（Node 侧）：`QrCore.create('weixin://wxpay/bizpayurl?pr=TEST123')` → `modules.size=29`、
+  `data.length=841=29²`（与绘制循环的 `size/ count²` 假设一致）
+- **小程序构建**：`build:mp-weixin` 成功；产物 `dist/build/mp-weixin/utils/qrcode.js` 存在、
+  vendor 内含 qrcode 纯计算模块（`errorCorrectionLevel`/`reed-solomon`/`maskPattern`）；
+  **无** `HTMLCanvasElement`/`querySelector(` 旧路径、**无** `fs`/`stream`（深引用生效）
+- **H5 构建**：`build:h5` 成功（同一份代码）
+- **后端**：`mvn -o test` **351** 例全绿（本轮未改后端）
+
+**未做（如实记录，不假装完成）**
+
+- **服务端渲染二维码图片**：需新增 ZXing 依赖（离线不可得），且需真实商户 `codeUrl` 才有意义。
+- **小程序原生支付（`uni.requestPayment`）**：手机端扫自己屏幕上的二维码本就不可行，正解是
+  JSAPI/小程序支付；但需微信商户号 + 后端预支付下单接口，属功能改造，**无法在本环境验证，故不擅自实现**。
+- 小程序 `appid`、tabBar 图标：仍需人工提供（v13.9 起列为待人工输入，本轮未变）。
+
+**同步**：报告附录 B4 该行改判 + 新增**附录 T** + 总览第 29 项描述更新；
+`项目开发规范` 新增 **§4.1.3 uni-app 跨端硬约束**（禁止 DOM + 条件编译不得掩盖"某端未实现"）。
+无 DDL、无后端代码变更。
+
+## v13.9 (2026-09-27) P1 第八项（下半）：B4 前端资源与占位域名（构建期注入 + 死代码清理）
+
+> P1 队列第 8 项下半（上半是 SQL `${}`，见 v13.8）。B4 共 5 行，本批处理**代码可改的 3 行**；
+> 另 2 行需要人工提供资源/账号，在报告附录 B4 明确标注为"待人工输入"（不假装完成）。
+
+**取证：把"占位域名"当缺陷逐个坐实（不是看着像问题就改）**
+
+| 位置 | 实测结果 |
+|---|---|
+| `moyun-ledger-app/src/utils/request.js` | 非 H5 分支**硬编码** `http://localhost:8080`，完全忽略 `.env.production` 的 `VITE_API_BASE_URL` → 小程序生产包请求"用户设备自身"，真机必然失败 |
+| `moyun-portal/src/utils/seo.ts` | `SITE_URL` 写死 `https://xulin.example.com` |
+| `moyun-portal/index.html` | canonical / og:url / twitter:url / JSON-LD 共 **5 处**占位域名 |
+| `moyun-portal/public/{robots.txt,sitemap.xml}` | robots 的 Sitemap 行 + sitemap 的 **12 个 `<loc>`** |
+| `moyun-admin-vue` | `VITE_APP_BASE_WS='ws://127.0.0.1:8090'`（生产也写 localhost）→ 追查：**全仓无引用**，端点 `/websocket/message` 后端不存在、8090 无监听 → **死代码** |
+| 后端 `application.yaml` | `moyun.portal.domain: ${PORTAL_DOMAIN:https://xulin.example.com}`，注释里还写着"同步要求：手工替换前端 robots/sitemap 的占位域名" |
+
+**修复（4 处）**
+
+1. **ledger**：H5 与非 H5 **统一读 `VITE_API_BASE_URL`**（删掉条件编译分支）。
+2. **portal 站点域名改构建期注入**：新增 vite 插件 `moyun:site-url`（零新依赖，不改 lockfile）——
+   `index.html` / `robots.txt` / `sitemap.xml` 改用 `%SITE_URL%`、`%OG_IMAGE%` 模板变量，
+   构建时由 `VITE_SITE_URL` / `VITE_DEFAULT_OG_IMAGE` 注入；**production 构建缺 `VITE_SITE_URL` 直接失败**，
+   并在构建结束自检产物（残留模板变量或占位域名即失败）。`seo.ts` 同步改为读环境变量 + 回退当前访问源。
+3. **admin**：删除死代码 `src/utils/websocket.js` + `src/store/modules/wsdata.js`，移除两处 `VITE_APP_BASE_WS`。
+4. **后端对齐**：`ConfigWiringValidator` 新增 **W-5（仅生产阻断）** 断言——`moyun.portal.domain`
+   不得为占位/空域名（动态 sitemap 由后端生成）；`application.yaml` 注释改为描述新机制
+   （**不再要求手工替换前端文件**）。
+
+**验证（红→绿 + 三端构建产物核验）**
+
+- portal **红**：无 `VITE_SITE_URL` 执行 `npm run build` → 失败并给出明确指引；
+  **绿**：带域名构建成功，`dist/index.html`(canonical/og:url)、`dist/robots.txt`(Sitemap 行)、
+  `dist/sitemap.xml`(loc) 均为注入域名，且产物**零残留**（`xulin.example.com` / `%SITE_URL%` 均无命中）
+- ledger：`npm run build:mp-weixin` 成功；产物含 `api.example.com`、**不含** `localhost:8080`（正是原缺陷分支）
+- admin：`npm run build:prod` 成功；产物无 `127.0.0.1:8090` / `websocket/message` 残留
+- 后端 `mvn -o test`：**351** 例全绿（349 → 351，新增 2 例站点域名判定）
+
+**同步**：`部署指南` §4.2 补 `VITE_SITE_URL` 必填与失败行为、后端同源要求；§5.2 记录 WS 死代码清理；
+报告附录 B4 逐行改判 + 总览第 29 项；`00-项目现状总结` 开发铁律新增第 9 条（外部地址/域名禁止留占位）。
+
+**仍待人工输入**：小程序 `appid`（微信公众平台申请）、tabBar 图标资源（设计出图）、
+支付二维码改后端出图（需后端先加接口）——B4 剩余两行，见报告附录 B4。
+
+## v13.8 (2026-09-27) P1 第八项（上半）：SQL `${}` 模板变量收敛（信任契约 + 真库实证）
+
+> P1 队列第 8 项 = 报告的 B3「`${}` 参数化重构」+ B4 前端资源。本批做 **SQL 半边**（安全项），
+> B4 前端半边留下一批。做法沿用既定纪律：**先取证复现 → 再改 → 红绿验证**。
+
+**取证：先清点，再证伪"已经安全"的说法**
+
+全仓 `${}` 共 **24 处**，按信任来源分三类：
+
+| 类别 | 处数 | 原判断 | 实测结论 |
+|---|---|---|---|
+| `${params.dataScope}` | 9 | A-2.1 已白名单收敛，"剩余只是重构" | ⚠️ **仍可注入**：防线依赖切面被调用；`params` 是 `BaseEntity` 上的 `Map`，Spring 可绑 `?params[dataScope]=...`，**只要哪条 SQL 没经过切面**（直连 mapper / 新方法漏注解）客户端串就原样进 SQL |
+| `${params.orderByColumn}` / `${params.isAsc}` | 14 | 报告列为待重构 | ✅ **本就安全**：入参都继承 `PageDomain`（`@Param("params")` 绑定的是查询对象，不是 map），其 setter 自带正则白名单 |
+| `${sql}`（代码生成器建表） | 1 | — | 管理端专用，DDL 无法参数化，登记在案 |
+
+**红（真库实测，不是推断）**：直连 `SysUserMapper.selectUserList` 并塞入
+`params[dataScope] = " AND (no_such_column_zz = 1)"` → SQL 里原样出现该片段：
+
+```
+### SQL: select ... where u.del_flag = '0' AND (no_such_column_zz = 1)
+### Cause: java.sql.SQLSyntaxErrorException: Unknown column 'no_such_column_zz' in 'where clause'
+```
+
+**修复：把"信任"变成显式契约（结构上只有切面能写）**
+
+- `DataScopeAspect` 只写**受信键** `params[trustedDataScope]`（新增常量），不再直接写 `params[dataScope]`；
+- 新增 `core.mybatis.SqlTemplateGuardInterceptor`：语句执行前，有受信键 → 覆盖
+  `params[dataScope]`；没有 → **清空**并告警（客户端值一律丢弃）。顺带对 map 形态的
+  `orderByColumn`（标识符白名单）/`isAsc`（asc/desc）做 **fail-closed** 校验；
+- 注册在 `MyBatisConfig` 的 `setPlugins(mybatisPlusInterceptor, guard)` ——
+  **guard 必须最外层**：`${}` 替换发生在 `MappedStatement#getBoundSql`，
+  而 `InnerInterceptor#beforeQuery` 拿到的 `BoundSql` 已渲染完毕（首版就是这样：
+  告警打了、值也"清"了，SQL 里载荷照旧）。
+
+**绿**：同一真库测试通过；数据权限语义（部门 / 仅本人 / 全部 / 无权限字符）逐个验证未变。
+
+**实测踩到的两个坑（已写进代码注释与规范）**
+
+1. **`MapperMethod.ParamMap` 覆写了 `get()`**：取不存在的键直接抛
+   `BindingException: Parameter 'x' not found` → 首版让所有 Wrapper 形态查询在**启动期**就炸；
+   必须 `containsKey` 守卫后再取值。
+2. **拦截时机**：见上，必须挂在 `Executor` 上做最外层插件。
+
+**新增测试 11 例（全量 338 → 349）**
+
+| 类 | 例 | 覆盖 |
+|---|---|---|
+| `SqlTemplateInjectionGuardDbTest` | 3 | 客户端 `dataScope` 载荷**不得进 SQL**（红→绿的主证据）；数据权限四态语义不变；`PageDomain` 在绑定入口拒绝注入载荷 |
+| `SqlTemplateGuardInterceptorTest` | 5 | `ParamMap` 缺键不抛（启动期回归）；客户端值丢弃；受信值覆盖；嵌套 ParamMap；map 形态 orderBy 合法/非法 |
+| `MapperTemplateGuardTest` | 3 | 全量 mapper XML 的 `${}` **只允许登记在册**的 24 处（新增即失败）+ 登记表无过期条目 |
+
+**同步**：`项目开发规范` §3.3.2 新增「`${}` 模板变量的信任契约」三类口径表 + 两个坑；
+报告 B3 条目改判、新增**附录 R**、总览第 28 项；`00-项目现状总结` 补规则。无 DDL、无前端变更。
+
+## v13.7 (2026-09-27) P1 第七项：Quartz 切 JDBC 集群 JobStore（多实例实证 + 一条根因订正）
+
+> P1 队列第 7 项，也是报告六 §四 中最后一条"部分完成"的 P0（第 12 条）。上一批（附录 A-9.3）
+> 实测受阻后回退、只记录前置条件；本批把 3 条前置条件全部做完，并**用两个真实调度器节点验证**。
+
+**前置条件①：显式 `SchedulerFactoryBean` 注入物理主库（根因修复）**
+
+- 新增 `core.config.QuartzConfig`：`@Qualifier("masterDataSource")` + `PlatformTransactionManager`，
+  `LocalDataSourceJobStore` / `isClustered=true` / `instanceId=AUTO` / `instanceName=moyunScheduler` /
+  `clusterCheckinInterval=10000` / `acquireTriggersWithinLock=true`。
+  根因：`LocalDataSourceJobStore` 要求 Spring 直接注入真实 DataSource，而 Spring Boot 的
+  `QuartzAutoConfiguration` 不设置它，本项目 `@Primary` 又是 `dynamicDataSource` 路由数据源。
+- **被实测打回的两种写法（记录在案）**：① `org.quartz.jobStore.batchTriggerAcquisitionMaxCount`
+  是 **scheduler 级**属性，写成 jobStore 级直接启动失败（`No setter for property`）；
+  ② 手工 `new SchedulerFactoryBean()` 只调 `afterPropertiesSet()` **不会启动调度器**
+  （`start()` 属 `SmartLifecycle`，容器 refresh 时才调用）→ 探针任务一次都不跑。
+
+**前置条件②：启动注册改幂等同步（去掉 `scheduler.clear()`）**
+
+- 共享 JobStore 下 `clear()` 会删掉其他实例正在用的任务，且两实例同时启动会互相清掉对方刚注册的任务。
+- 改为 `sys_job` ↔ JobStore 幂等对齐：缺则建（并发撞 `ObjectAlreadyExistsException` 视为已存在）、
+  cron/misfire/concurrent/invokeTarget 变了才重建、一致则**不动**（按 status 幂等暂停/恢复）、
+  孤儿只在"`sys_job` 出现过的组"内清理。Redis 锁串行化，但**拿不到锁也继续**（同步本身幂等，
+  Quartz 自己的 `qrtz_locks` 保证单条 CRUD 原子）。
+
+**前置条件③：多实例实证（本批核心）**
+
+- 新增 `QuartzClusterSingleExecutionDbTest`：真库起**两个独立节点**（同库、同 `instanceName`、
+  `instanceId=AUTO`、独立 `SCHED_NAME=moyunClusterProbe` 以免污染业务调度器），1 秒 cron 观察 7 秒：
+
+  | 形态 | 7 秒内总执行次数 | 结论 |
+  |---|---|---|
+  | 共享 JDBC 集群 JobStore（新） | **8** | ✅ ≈1 次/秒：同一触发器只被一个节点执行 |
+  | 两实例各自 RAMJobStore（负向对照 `-Dprobe.ramstore=true`） | **16** | ❌ ≈2 次/秒：复现 P0-12 重复执行 |
+
+**根因订正**：负向对照首版用"共享 DB + `isClustered=false`"，实测 **8 次、并不翻倍**——
+`qrtz_triggers.TRIGGER_STATE` 被原子置为 `ACQUIRED`，另一节点抢不到同一触发。故
+**P0-12 重复执行的根因是"每个实例各自一份内存 JobStore"，不是"没开 isClustered"**；
+共享 JobStore 本身即已消除重复执行，集群模式额外提供行锁、失效节点接管与死锁规避。
+
+**环境事实（写进测试注释）**：本库 `qrtz_*` 表带**物理外键**（`qrtz_triggers → qrtz_job_details`、
+`qrtz_{cron,simple,simprop,blob}_triggers → qrtz_triggers`）→ 清理必须**子表在前**，
+否则 `Cannot delete or update a parent row` 并留下残留（首版即踩）。
+
+**测试**：新增 4 例（`QuartzConfigWiringTest` 3 + `QuartzClusterSingleExecutionDbTest` 1），
+全量 **338** 例通过；探针按 `SCHED_NAME` 清理并断言零残留。
+
+**同步**：报告六 §四 第 12 条改判 ✅（P0 闭环 13 → **14** 条）、结论行更新、A-9.3 加"
+已在 v13.7 完成"指针、新增**附录 Q**；`项目开发规范` §1.12 定时任务规范补集群硬约束；
+`00-项目现状总结` 基础平台一节补规则；**DDL 无变更**（11 张 `qrtz_*` 表早已在 DDL 中）。
+
+## v13.6 (2026-09-27) P1 第六项：`/portal/admin/**` 纵深防御（链顺序实证 + 端点注解守卫）
+
+> P1 队列第 6 项。原文判断是"portal 链 `permitAll` + 门户过滤器跳过该前缀 → 保护完全依赖
+> `@PreAuthorize`"。本轮**先量链归属再动手**：结论是"现状判断不成立，但风险判断成立"。
+
+**取证（用 `FilterChainProxy` 实测，不靠读配置猜）**
+
+| 项 | 实测结果 |
+|---|---|
+| 链顺序 | `getFilterChains()` = **[核心链, 门户链]**，与注册顺序一致 |
+| 门户配置类上的 `@Order(1)` | **未生效**（生效的话门户链应在前面）→ 类级 `@Order` 不作用于 SecurityFilterChain bean |
+| `/portal/admin/**` 匹配 | **两条链都匹配**（核心链经 `shouldApplyTo` 显式包含；门户链经 `securityMatcher("/portal/**")`）→ **核心链胜出**（含 `JwtAuthenticationTokenFilter`，解析 admin token） |
+| 门户链那句 `permitAll` | **死规则**，从未生效 |
+
+**判定订正**：不存在"保护仅靠 `@PreAuthorize`"——链级 `anyRequest().authenticated()` 一直生效
+（匿名访问 401）。但**风险判断成立**：链归属是**偶然**的（靠注册顺序），顺序一翻转，
+那句死规则立即变成**匿名放行后台接口**。
+
+**修复（3 处）**
+
+- `SecurityConfig#filterChain` 显式 `@Order(1)`；`PortalSecurityConfig#portalSecurityFilterChain`
+  改 `@Order(2)`；删除门户配置类上的 `@Order(1)`（并写明它为何无效——避免后人再写一遍）。
+- 门户链 `/portal/admin/**` 由 `permitAll()` 改为 **`authenticated()`**：
+  **无论哪条链生效都 fail-closed**。顺序被改动的后果必须是"拒绝所有人"（响亮的失败），
+  不能是"匿名可进"（无声的漏洞）。
+- `PortalCategoryAdminController` 类注释原写"无需额外权限校验（登录即可访问）"，与类内两个
+  `@PreAuthorize('portal:book:list')` **自相矛盾**，已按代码订正。
+
+**新增结构守卫 `PortalAdminAuthorizationGuardTest`（5 例）**
+
+1. `/portal/admin/**` 命中的链必须含核心 `JwtAuthenticationTokenFilter`、不得含门户过滤器（锁归属）；
+2. `/portal/**` 普通路径仍由门户链处理（防误伤门户鉴权）；
+3. 匿名访问 `/portal/admin/categories/list` 必须被拒（链级 fail-closed，不依赖注解）；
+4. 运行期枚举 `/portal/admin/**` 下**全部真实端点**，逐个断言 `@PreAuthorize`（方法级或类级）；
+5. **守卫自检**：扫到的端点数必须 ≥ 40 —— 防止"零违规"其实是"零扫描"（附录 K 的教训）。
+
+**红→绿验证（实证了那条风险）**：篡改成"旧配置"（核心链去掉 `@Order(1)` + 门户链恢复 `permitAll`
++ 新增一个无注解后台端点）后：守卫 **3 条失败**（链归属被夺、漏注解端点被点名、匿名未被拒），
+且匿名 `GET /portal/admin/redproof/ping` 实测 **HTTP 200 直达**；恢复后 5/5 通过。
+
+**测试**：新增 5 例，全量 **334** 例通过。
+
+**同步**：报告六新增**附录 P**（含 §6.4 该行订正 + 总览第 27 项）；`项目开发规范` §3.1 新增
+「双链重叠路径的硬约束」「后台接口权限」两节、§3.2.1 补必须行为；无 SQL/DDL、无前端变更。
+
+## v13.5 (2026-09-27) P1 第五项：异步执行器收口（4 处默认 commonPool + 裸线程/裸线程池）
+
+> P1 队列第 5 项（承接 v13.4 的 `@Async` 自调用，同一 family：**异步执行器收口**）。
+> 本轮先全仓实测点数，**订正了报告 §6.2 的两条计数**（见报告附录 O-1）：
+> 不是"5 处全部无执行器"，也不是"3 处裸线程池都无关闭"。
+
+**缺陷（P1 · 正确性/稳定性）**
+
+- **无执行器的 `CompletableFuture.runAsync` 4 处** → 落在 `ForkJoinPool.commonPool()`
+  （**全 JVM 共享、并行度 = CPU-1，且同时服务 `parallelStream()`**）：
+  `DiagramChatServiceImpl:48`（`latch.await(5, MINUTES)` 长阻塞）、
+  `KnowledgeBaseServiceImpl:224/364`（PDF 转换 + 切片 + 向量化，分钟级）、
+  `VipServiceImpl:323`（权益统计落库，高频权益校验路径上）。
+  症状是**全站并行任务一起变慢/卡住**，且日志里没有任何"线程池满"的痕迹。
+- **裸 `new Thread()` 2 处**：`WorkflowController:214`（工作流流式执行）、
+  `DataAnalysisController:56`（数据源元数据同步）——无命名、无队列上限、无优雅停机、并发不受控。
+- **脱离容器的 `static` 单线程池**：`ContextManager:42`（会话摘要预生成）——**无界队列**，
+  LLM 变慢时摘要任务可无限堆积。
+- **并发写死且无优雅停机的实例池**：`VoiceInterviewServiceImpl:311`
+  `Executors.newScheduledThreadPool(2)`——线程非守护、无 `@PreDestroy`，
+  第 3 个并发面试回合**静默排队**（前端等不到首字，与"请求过多"不可区分）。
+- **死池字段**：`ParallelNodeExecutor:26` 的 `newFixedThreadPool(10)` **全类无使用点**
+  （真正的并行执行在 `WorkflowEngine`，用的是受管池）。
+
+**修复：新增 2 个受管池 + 8 个接线点 + 1 条结构守卫**
+
+- `core.config.AsyncTaskConfig` 新增 **`sseStreamExecutor`**（SSE 长任务：core=2/max=16、
+  **queue=0 满即拒绝**、命名 `sse-stream-`、优雅停机）。拒绝策略刻意选 `AbortPolicy`：
+  CallerRuns 会把 5 分钟长任务压到 Tomcat 请求线程上，比拒绝更糟。
+- `ext.ai.config.AsyncConfig` 新增 **`contextSummaryExecutor`**（会话摘要：core=max=1、
+  queue=200、**满则丢弃并告警**——非关键路径，下一轮滑窗超窗会重新触发）。
+- 接线：架构图对话 / 工作流流式 / 语音面试逐题回合 → `sseStreamExecutor`，
+  三处均显式捕获 `RejectedExecutionException` 并回**明确错误事件**（不再静默排队）；
+  知识库两处 → 既有 `knowledgeProcessExecutor`（其 javadoc 早已写明就是干这个的，属漏接）；
+  VIP 统计 + 元数据同步 → `applicationTaskExecutor`；摘要 → `contextSummaryExecutor`。
+- **新增结构守卫 `ExecutorGovernanceGuardTest`**（`src/test/java/com/moyun/`）：全量扫描源码，
+  ①`CompletableFuture.runAsync/supplyAsync` **必须显式传执行器**；
+  ②`Executors.new*`/`new Thread(` **只允许白名单**（每条须写明"为什么不能池化"，
+  条目失效由"白名单自检"抓出）。扫描前统一剥离注释与字符串字面量（避免文档里的历史写法误报）。
+- **白名单 4 处**，均为"池化会改变语义或引入更糟后果"：`JudgeAsyncWorker`（常驻 BLPOP
+  worker loop + `@PreDestroy` 生命周期完整）、`AsrStreamRelayHandler`（ASR 会话级超时守护）、
+  `DistributedLockUtil`（锁看门狗续期）、`CodeExecutorService`（OJ 子进程排水线程——
+  池化会让"既不输出也不退出"的子进程永久占死池线程）。
+
+**测试**：新增 5 例（2 条全量守卫 + 白名单自检 + 2 组扫描器 fixture 自检），全量 **329** 例通过。
+
+**环境记录（非代码问题，但会误读成回归）**：本机 Windows 服务 `Redis` 注册的二进制是
+`D:\Dev_EN\Redis-x64-5.0.14.1\redis-server.exe`，而该目录已不存在（实际安装在
+`D:\Dev_EN\Redis-8.6.6-Windows-x64-cygwin`）→ `Start-Service Redis` 失败（且非管理员无法启动服务）。
+此时跑 `mvn -o test` 会出现 **18 个 ApplicationContext 报错**（`Unable to connect to Redis` 冒泡到
+`sysDictTypeServiceImpl` 初始化），**不是代码回归**。临时办法：以当前用户直接起
+`redis-server.exe redis.conf`（本批验证即如此），Redis 起来后 329 例全绿。
+
+**同步**：报告六新增**附录 O**（含 §6.2 两条订正）；`项目开发规范` §1.12 把"禁止手写 `new Thread()`"
+一条扩为完整「异步执行器硬约束」；无 SQL/DDL、无前端、无接口契约变更。
+
+## v13.4 (2026-09-27) P1 第四项：`@Async` 同类自调用静默失效（含全量源码结构守卫）
+
+> P1 队列第 4 项原记作"`LLMServiceImpl` 的 `@Async` 死重载"——**实际位置记错了**。
+> 定位后真实情况更严重：不是一个死重载，而是**两处 `@Async` 因同类自调用而静默退化为同步**。
+
+**缺陷（P1 · 正确性/性能，且文档与实现相反）**
+
+- `ToolRegistry#logToolCallAsync`：标了 `@Async`，类头、方法 javadoc、`AsyncConfig`、
+  `AsyncTaskConfig` 四处文档都称"异步记录、不阻塞主流程"，但它被**同一个类**的
+  `executeTool` 两处直接调用 → **绕过 Spring 代理 → 一直是同步执行**（工具调用日志的
+  DB 插入跑在请求线程上）。不报错、无日志，只默默变慢。
+- `AiExecuteLogService#record(10 参重载)`：方法体内直接调用 11 参重载（同为同类自调用），
+  且该重载**已无任何调用方**（全部调用点都传 userId）→ 死代码 + 自调用陷阱。
+
+**修复**
+
+- 新增 `ToolCallLogWriter`（独立 Bean，`@Async` 落在其中），`ToolRegistry` 注入后调用；
+  同步清理 `ToolRegistry` 中不再使用的 `ToolCallLog`/`ToolCallLogMapper`/`@Async`/`LocalDateTime` 与字段。
+  此修法与本项目既有先例一致（`AiTaskAsyncExecutor` 的类注释即为该结论）。
+- 删除 `AiExecuteLogService` 的 10 参死重载（自调用陷阱随之消失；删除后全量编译通过，
+  反证确无调用方）。
+- 更正 `AsyncConfig` / `AsyncTaskConfig` 中指向旧类名的文档，并补"自调用会绕过代理"的显式告诫。
+
+**新增结构守卫（防复发，本批最有价值的部分）**
+
+- `AsyncSelfInvocationGuardTest`：静态扫描 `src/main/java` 全部源码，**任何 `@Async` 方法
+  不得在其声明文件内被调用**（注释提及不算）。覆盖 `@Async` 与 `@Async("executor")` 两种写法
+  （后者是最常见的带独立线程池形式，初版漏检，已修）。
+- **红→绿验证**：修复前该守卫**失败**并精确列出 3 处违规
+  （`ToolRegistry:245`、`AiExecuteLogService:39`、`AiExecuteLogService:52`）；修复后通过。
+- 扫描器本身另有 fixture 自检（自调用 / 重载互调 / 外部调用 / 注释提及 / 带执行器名）。
+
+**同步**
+
+- 报告六：新增**附录 N**；总览新增第 25 项；**订正 §五订正 3 的 `@Async` 清单**
+  （原列 4 处，含已删除的死重载；现为 3 处且 `ToolRegistry` → `ToolCallLogWriter`）
+- `项目开发规范` §1.12 异步规范新增硬约束：`@Async` 禁止同类自调用，必须抽独立 Bean；
+  命名含 `Async` 的方法必须真异步（否则改名）
+- 无 SQL/DDL 变更、无前端变更
+
+**测试**：新增 2 例（结构守卫 + 扫描器自检），全量 **324** 例通过。
+
+## v13.3 (2026-09-27) P1 第三项：流式链路 Token 漏计（成本熔断被绕过 + 成本看板失真）
+
+> v13 起点后 P1 队列第 3 项。先定位到**根因在依赖库**，再决定修法（不猜、按证据）。
+
+**缺陷（P1 · 成本治理）**
+
+- langchain4j `1.0.0-beta3` 的 `OpenAiStreamingChatModel` **既不下发
+  `stream_options: {"include_usage": true}`，builder 也无该选项**
+  （用 `javap` 查 builder 方法 + 检索该 jar 全部 class 常量池确认无相关字样）。
+  因此 OpenAI 兼容端点的**流式回调里 `ChatResponse.tokenUsage()` 恒为 null**。
+- 而网关原实现只在 `tokenUsage != null` 时才 `tokenCostGuard.consume(...)`：
+  ① **流式 Token 全部漏计** → 场景日配额（成本熔断）被绕过；
+  ② `ai_execute_log.token_used` 流式恒为 0 → **成本看板/报表失真**。
+- 影响面正是**语音面试主干**（`executeConversationStream`，高消耗场景）；网关里那句
+  "流式由 Handler 直发 emitter 无汇总——记为已知局限"即是此缺口的自述。
+
+**修复：新增 `TokenMeter`（真实优先，缺失则本地分词估算并显式标记）**
+
+- 规则：服务端 usage 可用 → 真实值 `estimated=false`；不可用 → 用 `OpenAiTokenizer`
+  （jtokkit，已是 langchain4j-open-ai 编译期依赖）对**提示词消息 + 完整输出**本地分词，
+  `estimated=true`；分词器异常 → CJK/字符粗估兜底并告警。
+- 接入两条路径：**会话流式**（`onCompleteResponse` 统一计量后 consume）与**同步路径兜底**
+  （Handler 未回传 usage 时估算，避免静默 0）。
+- **估算值必须可区分**：`AiMetadata.tokenEstimated`（API 响应可见）+ `ai_execute_log.token_estimated`
+  落库 + 日志提示；admin「AI 执行日志」Token 列/详情显示橙色「估算」标记。
+- 历史键/数据无需处理：历史行 `token_estimated=0/NULL`，与新语义一致（历史值都是真实回传的）。
+
+**同步**
+
+- DDL：`ai_execute_log` 追加 `token_estimated`（沿用文件既有"末尾 ALTER"惯例）
+- 增量脚本：`increment-sql/20260927-02-ai_execute_log-token估算标记.sql`（dev 库已执行并复核）
+- admin 前端：「AI 执行日志」列表 Token 列加「估算」标签、详情说明估算来源
+- 文档：报告六新增附录 M；`00-项目现状总结` AI 网关章节补 Token 计量规则
+
+**测试（新增 8 例）**
+
+- `TokenMeterTest`（7 例）：真实 usage（含"仅合计""仅输入"两种部分回传）→ 用真实值不标估算；
+  usage 缺失 → 估算且 >0；空输入输出 → 0 不伪造；估算单调性
+- `AiGatewayStreamTokenAccountingTest`（1 例，**接线回归**）：构造"服务端不回 usage"的流式模型，
+  断言网关仍调用 `tokenCostGuard.consume(scene, >0)` —— 直接锁死"流式绕过日配额"这一缺陷
+
+## v13.2 (2026-09-27) P1 第二项：语义缓存跨用户泄漏 + 记账模块遗留项收口
+
+> 两项：① v13 起点后 P1 队列第 2 项（AI 网关语义缓存）；② 把 v13.1 明确列为"待决策/未改"的
+> 记账遗留项一并做掉（用户要求"发现问题不要遗留"）。
+
+**① 语义缓存跨用户泄漏（安全 · 潜在 P0）**
+
+- 缺陷：缓存键为 `ai2:cache:{scene}:{md5(input)}`、语义扫描模式为 `ai2:cache:{scene}:*`，
+  **都不区分用户**；而缓存存的是**完整响应体**（简历解析/优化、财务分析、面试对话等私有内容）。
+  一旦某场景打开 `enable_cache`，A 用户的响应就可能被当作 B 用户的命中山返回
+  —— 输入相同即精确命中，输入相似（余弦 > 0.95）即语义命中。
+- 现状：`ai_scene_config` 全部 20 个场景 `enable_cache=0`，属**一枚只在管理后台点一下就会引爆的雷**。
+- 修复：键与扫描模式统一改为 **`ai2:cache:u:{userId}:{scene}:...`**；**userId 为空则不查也不写**（fail-closed）；
+  前缀由 `ai2:cache:` 升为 `ai2:cache:u:`，历史无隔离键不再被读取。
+  将来若确有"可跨用户共享"的公共知识场景，应在 `ai_scene_config` 增显式字段放开，**不得收回用户隔离**。
+- 同步：`AiGatewayService` 两处调用补传 `request.getUserId()`。
+- 测试：`Ai2InfraSupportTest` 新增 3 例（跨用户不命中 / userId 空则完全不落键 / 扫描模式必须带 userId），
+  原有 5 例适配新签名，共 19 例通过。
+
+**② 记账模块遗留项收口**
+
+- **还款进度永远 0 期（用户可见）**：App 负债卡片显示 `{paidTerms}/{totalTerms}期`，
+  但 `paid_terms` **全项目无写入方**。现于还款的**同一条原子 UPDATE** 中 `paid_terms + 1`
+  （`COALESCE` 兜底 null、`GREATEST(...,0)` 防负），冲正（删除）一笔还款 `−1`；借款不计期数。
+  `paid_terms` 同时从"可更新列"中移除（与 `balance` 同属记账联动维护，不得由改属性接口改写）。
+- **清空静默失效（用户可见）**：App 清空"每期还款额/还款日/总期数"时显式发 `null`，
+  旧 `updateById`（null 则跳过）使清空不生效。两个账户更新接口改为
+  **`@RequestBody Map` + 白名单显式映射**，并把 `body.keySet()`（显式出现的字段名）透传给 service：
+  **可空业务列**显式提供即以传入值为准（null=清空），未提供则保持原值；NOT NULL 列维持"非 null 才更新"。
+- **`refreshSnapshot` 同族抹账（低危）**：由"读整行 → `updateById`"改为**只写资产侧两列**
+  （`total_asset`/`net_worth`），不再把读到的 `total_liability` 写回。
+- 测试：新增 `LedgerLiabilityTermsAndProgressDbTest`（5 例，真库）覆盖上述三项。
+
+**验证**：`mvn -o test` 全绿；无 DDL/SQL 变更、无前端变更（前端字段与接口契约保持不变）。
+
+## v13.1 (2026-09-27) P1 第一项：记账账户"改属性"抹账（P0 资金）——修复 + 自我推翻
+
+> v13 起点后的第一项 P1，沿用 VIP 那套流程：**先真库复现 → 再改代码 → 最后红→绿验证**。
+> 过程中推翻了本报告 D-1 / §6.6 的原有结论（这是我第三次纠正自己的结论）。
+
+**缺陷（P0 · 资金）**
+
+- `LedgerAssetAccountServiceImpl.updateAccount` / `LedgerLiabilityAccountServiceImpl.updateAccount`
+  为"读整表 → 改字段 → `updateById` 写回整表"：把**读到的** `balance`/`version` 一起写回。
+- 后果①**抹账**：改账户名期间并发记账 → 余额被写回记账前旧值（流水记 +50、余额没变，账实不符）；
+- 后果②**乐观锁 ABA**：`version` 被写回旧值，"读到的 version"重新可用 → 并发记账可能同时命中 `WHERE version = ?`。
+- 同源问题：两处 `deleteAccount` 归档时同样写回整表。
+
+**修复**
+
+- `updateAccount` / `deleteAccount` 改为**列级 UPDATE**（`LambdaUpdateWrapper`）：只写业务属性列，
+  永久排除 `balance`（记账联动维护）、`version`（并发控制）、`user_id`/`status`/`settle_flag`（归属与状态）；
+- 未提供（null）则跳过 → **零能力回退**；归属校验下沉到 `WHERE user_id = ?`；无列可更新时短路返回；
+- `@Version` + 全局乐观锁拦截器**仍然不注册**（与手写 `eq(version)` 机制冲突）。
+
+**测试（新增 5 例，301 → 306 全绿）**
+
+- 新增 `LedgerAccountMetaUpdateIsolationDbTest`：用 **MySQL REPEATABLE READ 一致性快照**把
+  service 内部的 TOCTOU 窗口变成**确定性**复现（T1 固定 read view → T2 真实记账链路提交 → T1 改属性 → T1 内读回）；
+- **红→绿验证**：临时还原旧实现后测试失败并打印"实际 balance=100.00"，恢复修复后 5/5 通过；
+- 第一版测试用 `@SpyBean` 拦 mapper 实测 `fired=false`（装置失效），故改为上述快照方案 —— 教训记入报告 §十。
+
+**同步**
+
+- 报告六：§6.6 尾注与附录 D-1 表**订正**（原判"低危、不涉及资金、不作为待修"错误）；新增**附录 K**；
+  总览新增第 21 项；§十 评审纪律新增 2 条（"写前重读≠安全"、"验证装置必须先证有效"）。
+- 项目开发规范 §2.7 并发更新硬约束新增"改字段接口不得 `updateById` 写回整表"条款。
+- 无 DDL/SQL 变更、无前端变更。
+
+**待决策（未擅自改）**
+
+- 负债"清空"`monthlyPayment`/`repaymentDay`/`totalTerms` 静默不生效：服务层无法区分"未传"与"传 null"，
+  需把 Controller 入参改为 `Map`/`containsKey` 判定（接口契约调整）。
+- `ledger_liability_account.paid_terms` / `due_date` 全项目**无写入方**（死列）：补写入逻辑或删列。
+
+## v13.0 (2026-09-27) 文档基线校正 + 变更铁律确立（**后续开发起点**）
+
+> 用户决策：**文档一律以代码为准** —— 回审代码后校正全部过期文档；自此以 v13 为起点开发，进入 P1 与后续。
+> 本版**不含业务代码变更**（代码基线即 v12.3 整改后的状态），只做文档校正与规则固化。
+
+**文档校正（逐项回审代码后修正）**
+
+- 版本横幅统一 `v11.98` → **`v13.0`（2026-09-27）**：`README.md`、`技术架构`、`项目介绍`、`00-项目现状总结`、`开发进度与规划`、`docs/README.md`
+- **AI 网关表述校正**：包名 `com.moyun.ext.ai2` → **`com.moyun.ext.aigateway`**（`ext/ai2` 实际已不存在）；
+  "7/7 场景逐一手写 Handler / 全收口"作废 → 实际为**配置驱动**：路由核心 `AiSceneRegistry`（Handler Bean 注册 + `ai_scene_config` 读取，旧 `ai2_scene_registry` 已废弃）+ 通用 `DefaultSceneExecutor`，`aigateway/handler` 下仅 `AbstractAiSceneHandler`/`AiSceneHandler` 两个文件
+- **SQL 路径校正**：`resources/sql/`、`cd .../sql`、DML"4 分片 `202608201435-*`"全部作废 → 实际为 `init-sql/`（`moyun-db-ddl` / `moyun-db-dml-init` / `moyun-menu-redo`）+ `increment-sql/`；README 项目结构树同步
+- `README.md` 版本历史表补齐 **v12.0 / v12.1~12.2.3 / v12.3 / v13.0** 四行（原表停在 v11.98）
+- `部署指南` MinIO 端口按代码统一为 **9001**；`项目开发规范` §3.10 密钥示例按代码真实键重写（v12.3 项）
+- `项目开发规范` §2.10 建表自检 / §1.15 提交前自检：补"表结构变更只改 DDL、已有库另交 `increment-sql`"与下方变更管理四项
+
+**规则固化：新增「变更铁律」（`00-项目现状总结` → 开发铁律章节，v13 起强制执行）**
+
+1. **devlog 逐次记录**：每一次修改都必须登记（版本 + 类目 + 简介），不允许改了不记或事后补记
+2. **大改动必须同步文档**：接口契约 / 配置键 / 表结构 / 状态机 / 外部通道行为 / 菜单权限 → 更新 README、部署指南、开发规范、方案文档（即四同步：代码、文档、SQL、菜单）
+3. **代码是唯一事实来源**：文档与代码冲突，一律**回审代码后改文档**，绝不改代码去迁就文档；校正须在 devlog 写明
+4. **提交前对照 git 提交记录自检**：`git log` / `git diff` 与 devlog 相互对照，"提交内容 / devlog / 文档"三者自洽
+5. 文档只写可验证行为，不替作者断言设计意图；无法判断的列为待确认项
+6. 方案文档按模块归位 `05-方案设计-分模块/`；旧版/评估/排查类文档及时删除或归档
+
+**遗留（不阻塞本版）**
+
+- devlog 在 **2026-09-19 ~ 09-25** 区间仍缺条目（`aigateway` 配置驱动重构、token 拆分、`portal_user` 增量脚本等），待原作者回填
+- 报告六 §8.1 中属"历史报告当时结论"的条目（如报告四/五中的旧表述）保留原样，**不追改历史报告**
+
+## v12.3 (2026-09-27) 全项目架构评审整改（三轮验证 · 附录 A~I）
+
+> 依据：`docs/09-临时报告/报告六：全项目架构与代码评审（三轮验证合并版）.md`（含逐项证据、误判订正与方法论）。本条目只记类目，细节以该报告为准。
+> 本条目由评审执行者**回溯补记**（评审期间未同步 devlog，属流程缺口，已记入报告 §8.1）。
+
+**资金与安全（P0）**
+
+- SQL 注入止血：`params.dataScope` 拼接面收敛（`DataScopeAspect` 改为按 `BaseEntity` 参数解析 + `SysUser/SysRole` 6 个方法补 `@DataScope`）。
+- 支付回调验签可自签 → 修；提现"假打款" → fail-closed；`AesGcmUtils` 空口令由静默回落公开常量改为 fail-fast。
+- 客户端可伪造 `userId` → 修；流式方法缺 `return` → 修；回调审计日志列名不匹配 → 修。
+- 任意文件读取（简历解析落盘路径穿越）→ 修 + `ResumeParseDiskReadPathTest`。
+- admin 端存储型 XSS 消毒；记账 App 接口修复。
+- **支付渠道降级不对称**（微信 fail-closed 但代付静默降级 mock）→ 修；**短信默认落到 `MockSmsSender`** → prod 启动阻断（`ConfigWiringValidator`）。
+
+**正确性与一致性**
+
+- 金额口径统一：DDL 5 表 7 列 → `decimal(18,2)`（元）；同表分/元混算一并消除。
+- 幂等与并发：新增 `DistributedLockUtil`（Lua 比对 owner + 看门狗）并迁移三处定时任务；`PayGatewayImpl` 并发下单保护（用锁而非唯一键——加唯一键会打坏"关单后重下单"）。
+- 唯一键修正：`uk_client_uuid` → `uk_user_client (user_id, client_uuid)`；`ledger_schedule_log` → `uk_task_date`。
+- **VIP 发卡**：`duration_days = NULL` 导致支付回调事务内 NPE（"钱收了、卡没发"）→ 修（前端必填 + 后台写入口校验 + 发卡明确报错）；**续费 read-modify-write 丢更新** → 改为单条原子续期 SQL + `uk_user_platform`，存量库走 `increment-sql/20260927-01`。
+- Redis `INCR`+`EXPIRE` 非原子（限流器 / Token 熔断）、`ThreadLocal` 残留 → 修。
+- 定时记账确定性幂等键 `sched:{taskId}:{execDate}` 补齐。
+
+**配置接线（"被声明但零消费"）**
+
+- 新增 `ConfigWiringValidator` 启动期断言（分必需档/可空档，prod 阻断）。
+- `ImageFilter` 接线 `ImageFilterConfig` + 删除 175 行死代码；`GenConfig` 三重缺陷（static 字段 / 顶层键 / properties 语义解析 YAML）根因修复。
+- 敏感凭据全部环境变量化：`MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY`、`MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY`、`MOYUN_AI_API_KEY`、`MINIO_*`、`MAIL_*`；`TOKEN_ADMIN_SECRET`/`TOKEN_PORTAL_SECRET` 真正接线（此前配了不生效）。
+
+**通道抽象与联调可用性**
+
+- 代付做成 `PayoutChannel` 渠道抽象（与收款方向 `PayChannel` 对称）：dev 走 `MockPayoutChannel` 打通提现闭环，生产强制关闭 mock 且未接真实通道时**明确拒绝出金**。
+- 邮件通道：新增 `MailChannelStatus` 统一"就绪判定"。**原三处 `mailSender == null` 判据恒假**（Spring Boot 只以 `spring.mail.host` 为条件），导致"服务端未配置"被误报成"请检查邮箱地址"；现按 host/username/password 判定，认证失败与收件人错误分开报，邮件节点不再假成功。
+- 明确：**邮件 dev 与生产共用真实 SMTP，不设 mock**；短信/代付/微信支付在 dev 走 mock 且日志显式标注。
+
+**数据模型 / 脚本**
+
+- `moyun-db-ddl.sql` 同步上述全部索引与字段类型；新增 `increment-sql/20260927-01-vip_user_card唯一键与发卡原子化.sql`（含备份/合并/校验/ALTER）。
+- `increment-sql/20260925-01`（portal_user 唯一索引 + 存量清洗）、`20260925-02`（画像扩展字段）。
+
+**前端（三端）**
+
+- admin：VIP 等级"有效天数"必填 + 脏数据显式标红；代付渠道展示由布尔开关改为"实际装配渠道"（mock 显示橙字"资金未实际划出"）；存储型 XSS 消毒。
+- portal / ledger-app：SSE POST 流式解析、记账 App 契约修复等（见报告 §七）。
+
+**文档（四同步）**
+
+- `README.md`（SQL 初始化与变更惯例、环境变量清单）、`部署指南`（MinIO 端口按代码统一为 9001、邮件变量）、`项目开发规范`（§1.13.1 外部通道就绪判定硬约束 / §2.7 并发更新硬约束（含 MySQL `SET` 求值顺序与 matched-rows 坑）/ §3.10 密钥清单按代码真实键重写）、`报告六`（含对本报告自身错误的订正）。
+- VIP 体系设计方案-v2 建表片段同步为 `UNIQUE INDEX uk_user_platform`。
+
+**验证**
+
+- 后端 `mvn -o test`：**301 例全绿 / BUILD SUCCESS**（254 → 301）；admin `vite build` 通过且产物含新增校验文案。
+- 关键资金/并发改动配真库测试（`VipGrantCardDbTest` 等），MySQL 8.0.37 实测确认 `SET` 赋值顺序、`INTERVAL ?` 预处理、1062 后可继续更新等语义。
+
+**仍需人工 / 待决策（不阻塞本版）**
+
+- 吊销并轮换已入 git 历史的阿里云 MaaS API Key 与 163 邮箱授权码（代码侧已完成环境变量化；**凭据本身必须人工轮换**）。
+- Quartz JDBC 集群：实测受阻已回退，启用前置条件见报告附录 A-9.3。
+- VIP 双事实源（成长体系读 `portal_user.vip_expire_at`，购买只写 `vip_user_card`）——属业务语义，待决策。
+- devlog 在 **2026-09-19 ~ 09-25** 区间仍缺条目（网关配置驱动重构、token 拆分、portal_user 增量脚本等），本条目未代写（无第一手依据）。
+
 ## v12.2.3 (2026-09-18) AI 统一入口落地——业务端直连 LLM 收编
 
 > 前端 AI 调用全貌扫描：3 端 17 端点，8 网关 Handler + 7 直连 LLM + 2 langchain4j 设计决策。综合评分 6.2/10。

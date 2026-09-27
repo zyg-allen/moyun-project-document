@@ -3,11 +3,14 @@ package com.moyun.ext.aigateway.support;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 
 /**
  * 场景日 Token 成本熔断
@@ -15,7 +18,7 @@ import java.time.format.DateTimeFormatter;
  * <p>语义：场景级日累计（所有用户共享额度），保护平台总成本——一个死循环调用或注入攻击
  * 最多烧掉当日配额。参数来自 ai_scene_config.daily_token_limit（null/0=不限）。</p>
  *
- * <p>计数：Redis INCR，键含日期（ai2:token:{scene}:{yyyyMMdd}），跨日自然切换；
+ * <p>计数：Redis 原子 INCRBY，键含日期（ai2:token:{scene}:{yyyyMMdd}），跨日自然切换；
  * TTL 2 天兜底清理。与 {@link SceneRateLimiter} 同风格：Redis 异常放行（熔断降级为不限），
  * 避免基础设施抖动阻断业务。</p>
  *
@@ -29,6 +32,26 @@ import java.time.format.DateTimeFormatter;
 @Component
 @RequiredArgsConstructor
 public class TokenCostGuard {
+
+    /**
+     * 原子"累加 + 首次设 TTL"。
+     *
+     * <p>历史实现是两次独立命令（INCRBY 后判断结果再 EXPIRE）。若在两步之间进程崩溃/
+     * 连接中断，键将**永久无 TTL**：既不会跨日清理，值也永不重置 → 该场景日额度被
+     * 一次异常永久占满，且 Redis 内存无限累积。改为 Lua 单次往返保证原子性。</p>
+     *
+     * <p>KEYS[1]=计数键，ARGV[1]=增量，ARGV[2]=TTL 秒。返回累加后的值。</p>
+     */
+    private static final RedisScript<Long> INCR_WITH_TTL_SCRIPT = new DefaultRedisScript<>(
+            "local v = redis.call('incrby', KEYS[1], ARGV[1]) "
+                    + "if redis.call('ttl', KEYS[1]) < 0 then "
+                    + "  redis.call('expire', KEYS[1], ARGV[2]) "
+                    + "end "
+                    + "return v",
+            Long.class);
+
+    /** 计数键 TTL：键含日期，2 天足够跨日清理 */
+    private static final Duration KEY_TTL = Duration.ofDays(2);
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -85,16 +108,26 @@ public class TokenCostGuard {
         if (tokenUsed == null || tokenUsed <= 0) {
             return;
         }
-        String key = key(scene);
         try {
-            Long count = redisTemplate.opsForValue().increment(key, tokenUsed.longValue());
-            if (count != null && count == tokenUsed.longValue()) {
-                // 该键首次写入：设置 TTL（键含日期，2 天足够跨日清理）
-                redisTemplate.expire(key, Duration.ofDays(2));
-            }
+            // 原子：incrby + 首次设 TTL（避免两次命令之间崩溃导致键永久无 TTL）
+            incrWithTtl(key(scene), tokenUsed);
         } catch (Exception e) {
             log.warn("[aigateway:cost] Token累计失败（不影响业务）: scene={}, {}", scene, e.getMessage());
         }
+    }
+
+    /**
+     * 执行"累加 + 首次设 TTL"脚本（包级可见，便于单测 stub）。
+     *
+     * <p>用实例方法包装 varargs 调用：Mockito 对 {@code execute(RedisScript, List, Object...)}
+     * 这类泛型 varargs 的参数匹配不可靠（matcher 与实际调用记录对不上，
+     * 表现为 stub 不生效 / verify 报 "Argument(s) are different"），
+     * 包装为固定参数的实例方法后即可稳定 stub/verify。</p>
+     */
+    Long incrWithTtl(String key, int tokenUsed) {
+        return redisTemplate.execute(INCR_WITH_TTL_SCRIPT,
+                Collections.singletonList(key),
+                String.valueOf(tokenUsed), String.valueOf(KEY_TTL.getSeconds()));
     }
 
     private String key(String scene) {

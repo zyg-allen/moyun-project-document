@@ -35,19 +35,14 @@ public class AiExecuteLogService {
      * 异步记录执行日志（响应 metadata 的模型/Agent/token 同步落 ai_execute_log，
      * 与响应可观测性闭环——日志表 model_used/agent_used/token_used 列自此有数据；
      * cost_yuan 按 metadata 细分 token × 模型单价核算落库）
-     */
-    @Async
-    public void record(String requestId, String sceneCode, String handlerName, String bindType,
-                       com.moyun.ext.aigateway.model.AiMetadata metadata,
-                       String inputSummary, String outputSummary,
-                       String status, String errorMsg, long elapsedMs) {
-        record(requestId, null, sceneCode, handlerName, bindType, metadata,
-                inputSummary, outputSummary, status, errorMsg, elapsedMs);
-    }
-
-    /**
-     * 异步记录执行日志（带用户维度——网关 request.getUserId() 直取，
-     * 支撑 AI 消费按用户统计；系统内部调用 userId 为空）
+     *
+     * <p>带用户维度（网关 {@code request.getUserId()} 直取，支撑 AI 消费按用户统计；
+     * 系统内部调用 userId 为空）。</p>
+     *
+     * <p><b>v13.4 清理</b>：原有一个不带 userId 的 10 参重载，其方法体内直接调用本方法
+     * —— 属"同类自调用"，会绕过 Spring 代理使 {@code @Async} 静默失效；且该重载**
+     * 已无任何调用方**（全部调用点都传 userId），故连同自调用陷阱一并删除。
+     * 结构守卫：{@code AsyncSelfInvocationGuardTest} 会禁止任何 {@code @Async} 方法被同类自调用。</p>
      */
     @Async
     public void record(String requestId, Long userId, String sceneCode, String handlerName, String bindType,
@@ -67,6 +62,8 @@ public class AiExecuteLogService {
                 logEntry.setTokenUsed(metadata.getTokenUsed());
                 logEntry.setInputTokens(metadata.getInputTokens());
                 logEntry.setOutputTokens(metadata.getOutputTokens());
+                // 估算标记（v13.3）：区分"服务端真实 usage"与"本地分词估算"，报表/看板不得混用
+                logEntry.setTokenEstimated(Boolean.TRUE.equals(metadata.getTokenEstimated()) ? 1 : 0);
                 logEntry.setCostYuan(calculateCostYuan(metadata));
             }
             logEntry.setInputSummary(abbreviate(inputSummary, 500));

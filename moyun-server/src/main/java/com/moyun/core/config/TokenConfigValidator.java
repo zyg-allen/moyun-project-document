@@ -28,12 +28,22 @@ public class TokenConfigValidator implements ApplicationRunner {
         validateSecret(adminSecret, "token.admin.secret");
         validateSecret(portalSecret, "token.portal.secret");
 
-        // 密钥分离检查：管理端与门户端密钥相同时（即未分别配置专用密钥，回退共用 token.secret），
-        // 存在门户 Token 伪造管理端请求的提权风险，log.warn 提示尽快分离
+        // 密钥分离检查。
+        // 背景（已接线）：TokenService 读 token.admin.secret、PortalTokenService 读 token.portal.secret，
+        // 两者均回退 token.secret。因此"密钥相同"等价于"未做分离"——此时任一端的合法令牌
+        // 都可用同一密钥伪造另一端的签名令牌（实际拦截依赖 Redis key 前缀 login_tokens: /
+        // portal_login_tokens: 这一实现细节，属偶然约定，不应作为安全边界）。
+        // 故：生产环境把"未分离"视为配置缺陷并阻断启动；非生产仅告警，保留本地零配置体验。
         if (isNotEmpty(adminSecret) && adminSecret.equals(portalSecret)) {
-            log.warn("Admin and Portal JWT secrets are identical (token.admin.secret == token.portal.secret)! "
-                + "A portal token could be forged as an admin request. "
-                + "Please set separate strong secrets via TOKEN_ADMIN_SECRET and TOKEN_PORTAL_SECRET environment variables.");
+            String message = "Admin and Portal JWT secrets are identical "
+                    + "(token.admin.secret == token.portal.secret)! Admin/portal token isolation "
+                    + "currently relies only on the Redis key prefix, not on key separation.";
+            if (isProd()) {
+                throw new IllegalStateException(message
+                        + " Please set separate strong secrets via TOKEN_ADMIN_SECRET and TOKEN_PORTAL_SECRET.");
+            }
+            log.warn("{} Please set separate strong secrets via TOKEN_ADMIN_SECRET and TOKEN_PORTAL_SECRET "
+                    + "(non-prod: warning only; production will fail fast).", message);
         }
     }
 

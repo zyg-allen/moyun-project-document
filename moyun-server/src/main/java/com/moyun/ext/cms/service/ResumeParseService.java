@@ -283,26 +283,56 @@ public class ResumeParseService {
     }
 
     /**
-     * 从磁盘读取文件（兜底）
+     * 从磁盘读取文件（local 存储模式 / MinIO 不可用时的兜底）
+     *
+     * <p><b>安全约束（本方法的关键点）</b>：{@code fileUrl} 可能来自客户端
+     * （{@code PortalAiTaskController.submit} 的 {@code bizRef.fileUrl} 未做来源校验），
+     * 因此**绝不允许把它当作任意绝对路径使用**。历史实现走的是
+     * {@code fileUrl.startsWith("/profile") ? profile + 后缀 : fileUrl}，
+     * 那个 {@code else} 分支等于开放了"服务器任意文件读取"
+     * （可读 {@code application-prod.yaml}、{@code /etc/passwd} 等，再经 AI 任务结果回吐）。</p>
+     *
+     * <p>现统一约束为：**只允许读取上传根目录（{@code /profile}）之下的文件**，
+     * 并做路径规范化 + 前缀复检以阻断 {@code ../} 穿越。该口径与
+     * {@code SysFileServiceImpl} 下载链路既有的 "localPath.startsWith("/profile") → 
+     * resolveLocalRootPath() + 后缀" 处理保持一致。</p>
      */
     private byte[] readFromDisk(String fileUrl) {
         try {
-            String diskPath = fileUrl.startsWith(Constants.RESOURCE_PREFIX)
-                    ? RuoYiConfig.getProfile() + fileUrl.substring(Constants.RESOURCE_PREFIX.length())
-                    : fileUrl;
+            File profileRoot = new File(RuoYiConfig.getProfile()).getCanonicalFile();
+            String relative = fileUrl.startsWith(Constants.RESOURCE_PREFIX)
+                    ? fileUrl.substring(Constants.RESOURCE_PREFIX.length())
+                    : null;
+            if (relative == null) {
+                // 非 /profile 前缀一律拒绝：local 模式的上传结果必然是 /profile/**，
+                // 其余形态（绝对路径 / 相对路径 / 反斜杠路径）均非本链路的合法输入
+                throw new ServiceException("附件路径非法（仅允许上传目录下的文件）");
+            }
 
-            File source = new File(diskPath);
+            // 规范化后复检前缀：阻断 /profile/../../ 之类的穿越
+            File source = new File(profileRoot, relative).getCanonicalFile();
+            String sourcePath = source.toPath().toString();
+            String rootPath = profileRoot.toPath().toString();
+            if (!sourcePath.equals(rootPath)
+                    && !sourcePath.startsWith(rootPath + File.separator)) {
+                throw new ServiceException("附件路径越界（仅允许上传目录下的文件）");
+            }
+
             if (!source.exists() || !source.isFile()) {
-                throw new ServiceException("附件源文件不存在或已被删除: " + diskPath);
+                throw new ServiceException("附件源文件不存在或已被删除");
             }
             if (source.length() > MAX_SIZE) {
                 throw new ServiceException("附件不能超过 10MB");
             }
 
             byte[] bytes = Files.readAllBytes(source.toPath());
-            log.info("磁盘读取成功: {}, size={} bytes", diskPath, bytes.length);
+            log.info("磁盘读取成功: {}, size={} bytes", sourcePath, bytes.length);
             return bytes;
 
+        } catch (ServiceException e) {
+            // 业务性拒绝（路径非法/越界/超限/不存在）原样抛出，避免被下方包装后丢失语义
+            log.warn("磁盘读取被拒绝: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("磁盘读取失败: {}", e.getMessage());
             throw new ServiceException("读取附件源文件失败: " + e.getMessage());

@@ -74,12 +74,28 @@ public class PortalLedgerAssetController {
         return AjaxResult.success(assetAccountService.createAccount(userId, account, initialBalance));
     }
 
-    /** 修改资产账户（不含 balance，余额校准走 adjust 记账） */
+    /**
+     * 修改资产账户（不含 balance，余额校准走 adjust 记账）
+     *
+     * <p>入参用 {@code Map} 而非实体绑定：需要区分"**未传**某字段"与"传了 null"——
+     * 后者代表用户主动清空（可空列才允许清空）。原实体绑定 + {@code updateById} 的
+     * "null 则跳过"语义会让"清空"静默失效，且会把整表写回（详见 service 内注释）。
+     * 这里把 {@code body.keySet()}（显式出现的字段名）一并透传给 service。</p>
+     */
     @PutMapping("/{id:[0-9]+}")
-    public AjaxResult update(@PathVariable("id") Long id, @RequestBody LedgerAssetAccount account) {
+    public AjaxResult update(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
+        LedgerAssetAccount account = new LedgerAssetAccount();
         account.setId(id);
-        assetAccountService.updateAccount(userId, account);
+        // 白名单字段显式映射：不在白名单里的键（如 balance/version/status/initialBalance）一律忽略
+        if (body.containsKey("name")) account.setName(LedgerAccountFields.asString(body.get("name")));
+        if (body.containsKey("type")) account.setType(LedgerAccountFields.asString(body.get("type")));
+        if (body.containsKey("icon")) account.setIcon(LedgerAccountFields.asString(body.get("icon")));
+        if (body.containsKey("includeInTotal")) account.setIncludeInTotal(LedgerAccountFields.asInt(body.get("includeInTotal")));
+        if (body.containsKey("hideBalance")) account.setHideBalance(LedgerAccountFields.asInt(body.get("hideBalance")));
+        if (body.containsKey("sortOrder")) account.setSortOrder(LedgerAccountFields.asInt(body.get("sortOrder")));
+        if (body.containsKey("valuation")) account.setValuation(LedgerAccountFields.asDecimal(body.get("valuation")));
+        assetAccountService.updateAccount(userId, account, body.keySet());
         return AjaxResult.success("修改成功");
     }
 

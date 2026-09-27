@@ -55,6 +55,18 @@ public interface IVipService {
     /**
      * 支付成功发卡/续费顺延（VipPayCallbackHandler 调用）
      *
+     * <p><b>契约要点</b>（调用方与后续维护者必读）：</p>
+     * <ul>
+     *   <li>幂等于 {@code (userId, platformCode)}：<b>一个端恒只有一行会员卡</b>
+     *       （DDL 侧由 {@code uk_user_platform} 保证）。续费/升级为**就地续期**，
+     *       不会新增行；过期卡续费同样就地续期，起点取 {@code GREATEST(原到期, NOW())}。</li>
+     *   <li>并发安全：续期是**单条原子 UPDATE**（{@code VipUserCardMapper.renewCard}），
+     *       两笔订单并发不会丢更新；首购竞态由唯一键兜底后转为续期。</li>
+     *   <li>本方法在**支付回调事务内**执行。抛异常 = 支付单回滚、渠道重试；
+     *       因此"配置类错误"必须给可操作文案（如等级缺有效天数），而不是让它变成一行 NPE。</li>
+     *   <li>副作用（有意）：后台"作废会员卡"（{@code status=0}）后再次购买，会在同一行恢复有效。</li>
+     * </ul>
+     *
      * @param orderId pay_order.id
      */
     void grantCard(Long userId, String platformCode, String tierCode, Long orderId);

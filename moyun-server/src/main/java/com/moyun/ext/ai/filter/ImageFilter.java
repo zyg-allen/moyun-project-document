@@ -1,10 +1,12 @@
 package com.moyun.ext.ai.filter;
 
+import com.moyun.ext.ai.config.ImageFilterConfig;
 import com.moyun.ext.ai.dto.ImageFilterContext;
 import com.moyun.ext.ai.dto.ImagePosition;
 import com.moyun.ext.ai.stats.ImageFilterStats;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.awt.image.BufferedImage;
@@ -29,7 +31,17 @@ import java.util.*;
 @Slf4j
 @Component
 public class ImageFilter {
-    
+
+    /**
+     * 图片过滤配置（前缀 {@code image.filter}）。
+     *
+     * <p>此前本类完全未消费该配置：positionWeight/sizeWeight/complexityWeight/
+     * comprehensiveScoreThreshold 在 {@code passComprehensiveScore} 里是硬编码常量，
+     * 配置类另有同值默认值，运维调整不生效。现已接线。</p>
+     */
+    @Autowired
+    private ImageFilterConfig filterConfig;
+
     /**
      * 图片hash计数器，用于统计重复次数
      */
@@ -215,32 +227,39 @@ public class ImageFilter {
     
     /**
      * 综合评分过滤
-     * 
-     * <p>综合位置、尺寸、复杂度三个维度计算加权评分</p>
-     * <p>评分公式：位置权重×0.4 + 尺寸权重×0.3 + 复杂度权重×0.3</p>
-     * 
+     *
+     * <p>综合位置、尺寸、复杂度三个维度计算加权评分。
+     * 权重与阈值来自 {@link ImageFilterConfig}（配置前缀 {@code image.filter}），
+     * <b>不再硬编码</b>——此前该配置类的 positionWeight/sizeWeight/complexityWeight/
+     * comprehensiveScoreThreshold 三个字段从未被本类读取，运维改配置不生效。</p>
+     *
      * @param context 过滤上下文
      * @return true-通过，false-过滤
      */
     private boolean passComprehensiveScore(ImageFilterContext context) {
-        // 计算各维度权重
-        double positionWeight = calculatePositionWeight(context.getPosition());
-        double sizeWeight = Math.min(1.0, context.getArea() / 100000.0);
-        double complexityWeight = calculateComplexityWeight(context);
-        
-        // 加权计算最终评分
-        double finalScore = positionWeight * 0.4 + sizeWeight * 0.3 + complexityWeight * 0.3;
-        
-        // 评分低于阈值则过滤
-        if (finalScore < 0.25) {
-            log.debug("过滤：综合评分过低 score={:.2f}, pos={:.2f}, size={:.2f}, complex={:.2f}", 
-                finalScore, positionWeight, sizeWeight, complexityWeight);
+        // 各维度权重值（0-1）由算法计算，配置只提供"维度之间的相对重要程度"
+        double positionScore = calculatePositionWeight(context.getPosition());
+        double sizeScore = Math.min(1.0, context.getArea() / 100000.0);
+        double complexityScore = calculateComplexityWeight(context);
+
+        // 加权计算最终评分（权重取自配置）
+        double finalScore = positionScore * filterConfig.getPositionWeight()
+                + sizeScore * filterConfig.getSizeWeight()
+                + complexityScore * filterConfig.getComplexityWeight();
+
+        // 评分低于阈值则过滤（阈值取自配置）
+        if (finalScore < filterConfig.getComprehensiveScoreThreshold()) {
+            // 修正：原写法 score={:.2f} 是 Python format 语法，SLF4J 只识别 {}，
+            // 导致该日志实际输出字面量 {:.2f} 且四个参数被静默丢弃（排查时完全无用）。
+            log.debug("过滤：综合评分过低 score={}, pos={}, size={}, complex={}",
+                    String.format("%.2f", finalScore), String.format("%.2f", positionScore),
+                    String.format("%.2f", sizeScore), String.format("%.2f", complexityScore));
             if (stats != null) {
                 stats.setFilteredByLowScore(stats.getFilteredByLowScore() + 1);
             }
             return false;
         }
-        
+
         return true;
     }
     

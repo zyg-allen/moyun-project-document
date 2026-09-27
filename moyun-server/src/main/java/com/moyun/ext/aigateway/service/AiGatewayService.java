@@ -23,6 +23,7 @@ import com.moyun.ext.aigateway.support.PromptInjectionGuard;
 import com.moyun.ext.aigateway.support.SceneRateLimiter;
 import com.moyun.ext.aigateway.support.SemanticCache;
 import com.moyun.ext.aigateway.support.TokenCostGuard;
+import com.moyun.ext.aigateway.support.TokenMeter;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -64,6 +65,8 @@ public class AiGatewayService {
     private final AiExecuteLogService executeLogService;
     /** 场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
     private final TokenCostGuard tokenCostGuard;
+    /** Token 计量（真实 usage 优先，缺失则本地分词估算并标记；v13.3） */
+    private final TokenMeter tokenMeter;
     /** 输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
     private final AiOutputFilter outputFilter;
     /** Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
@@ -157,7 +160,9 @@ public class AiGatewayService {
             String inputKey = canonicalInputKey(request);
             String inputText = primaryInputText(request);
             if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)) {
-                AiExecuteResponse<Object> cached = semanticCache.get(sceneCode, inputKey, inputText);
+                // userId 必须传入：缓存按用户隔离，未传则缓存层自动跳过（防跨用户泄漏）
+                AiExecuteResponse<Object> cached = semanticCache.get(
+                        request.getUserId(), sceneCode, inputKey, inputText);
                 if (cached != null) {
                     // 输出过滤：命中路径同样过滤——兜底过滤功能上线前的存量旧缓存
                     if (outputFilter.isEnabled(config)) {
@@ -215,13 +220,17 @@ public class AiGatewayService {
             long elapsed = System.currentTimeMillis() - startTime;
             fillCommon(response, request, elapsed);
             fillAgentMetadata(response, agentName);
-            // 按实际消耗累计场景日 Token（未回传 token 不计）
+            // Token 计量兜底（v13.3）：Handler 未回传 usage（部分端点/Agent 链路）时本地估算并标记，
+            // 避免"静默 0"——0 会让成本熔断与成本报表失真
+            ensureTokenMetered(response, request, sceneCode);
+            // 按实际消耗累计场景日 Token（真实或估算；两者都不存在时不计）
             if (response.getMetadata() != null && response.getMetadata().getTokenUsed() != null) {
                 tokenCostGuard.consume(sceneCode, response.getMetadata().getTokenUsed());
             }
             if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)
                     && response.getCode() != null && response.getCode() == AiErrorCodes.SUCCESS) {
-                semanticCache.put(sceneCode, inputKey, inputText, response, config.getCacheTtl());
+                semanticCache.put(request.getUserId(), sceneCode, inputKey, inputText,
+                        response, config.getCacheTtl());
             }
             executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     handler.getClass().getSimpleName(), resolveBindType(config), response.getMetadata(),
@@ -269,6 +278,8 @@ public class AiGatewayService {
             AiSceneConfig config = registry.getConfig(scene, task);
             if (config == null) {
                 sendErrorAndComplete(emitter, "场景未注册或未启用: " + scene);
+                // 必须 return：否则继续执行会在 handler/config 为空时 NPE 并重复向已完成的 emitter 发事件
+                return;
             } else {
                 scene = config.getSceneCode();
             }
@@ -283,6 +294,7 @@ public class AiGatewayService {
                     log.warn("[aigateway:网关] 流式注入拦截: scene={}, requestId={}, pattern={}",
                             scene, request.getRequestId(), guard.getPattern());
                     sendErrorAndComplete(emitter, "输入包含不允许的指令内容");
+                    return;
                 }
             }
 
@@ -290,9 +302,11 @@ public class AiGatewayService {
             String supported = handler.getSupportedOutputMode();
             if (!"stream".equals(supported) && !"both".equals(supported)) {
                 sendErrorAndComplete(emitter, "场景 [" + scene + "] 不支持流式输出");
+                return;
             }
             if ("sync".equals(config.getOutputMode())) {
                 sendErrorAndComplete(emitter, "场景 [" + scene + "] 配置为仅同步输出（output_mode=sync）");
+                return;
             }
 
             // 限流
@@ -302,11 +316,17 @@ public class AiGatewayService {
             int window = config.getRateLimitTime() != null ? config.getRateLimitTime() : 60;
             if (!rateLimiter.tryAcquire(scene, identity, limit, window).allowed()) {
                 sendErrorAndComplete(emitter, "请求过于频繁，请稍后再试");
+                // 必须 return：否则被限流后仍会继续调用模型
+                return;
             }
-            // 成本熔断：流式路径同样前置配额检查；
-            // 消费累计依赖响应 metadata，流式由 Handler 直发 emitter 无汇总——记为已知局限
+            // 成本熔断：流式路径同样前置配额检查。
+            // 消费累计见下方（v13.3 起由 TokenMeter 汇总真实/估算 Token 后 tokenCostGuard.consume），
+            // 不再有"流式不计量"的缺口。注意 emitter 流式端点（/api/ai/execute/stream）
+            // 目前无任何场景声明 support stream（getSupportedOutputMode 默认 sync），会在上方被拒绝。
             if (!tokenCostGuard.checkQuota(scene, config.getDailyTokenLimit()).allowed()) {
                 sendErrorAndComplete(emitter, "当前场景今日AI额度已用完，请明天再试");
+                // 必须 return：否则熔断后仍会继续调用模型
+                return;
             }
 
             handler.validate(request);
@@ -435,21 +455,28 @@ public class AiGatewayService {
                         return;
                     }
                     AiMetadata metadata = new AiMetadata();
-                    Integer tokenUsed = null;
                     try {
-                        if (response != null && response.tokenUsage() != null
-                                && response.tokenUsage().totalTokenCount() != null) {
-                            tokenUsed = response.tokenUsage().totalTokenCount();
-                            metadata.setTokenUsed(tokenUsed);
-                        }
+                        // Token 计量（v13.3）：langchain4j 流式不下发 stream_options.include_usage，
+                        // 服务端通常不回 usage → tokenUsage 为 null。原实现只在非 null 时累计，
+                        // 导致**流式 Token 全部漏计**（绕过日配额、成本报表恒为 0）。
+                        // 现改为 TokenMeter：真实优先，缺失则本地分词估算并标记 estimated。
+                        TokenMeter.Metered metered = tokenMeter.meter(
+                                response == null ? null : response.tokenUsage(),
+                                messages, buffer.toString());
+                        metadata.setInputTokens(metered.inputTokens());
+                        metadata.setOutputTokens(metered.outputTokens());
+                        metadata.setTokenUsed(metered.totalTokens());
+                        metadata.setTokenEstimated(metered.estimated());
                         if (response != null && response.metadata() != null
                                 && response.metadata().modelName() != null) {
                             metadata.setModelUsed(response.metadata().modelName());
                         }
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        log.warn("[aigateway:网关] 流式 Token 计量失败（不影响业务）: {}", e.getMessage());
                     }
-                    // Token 累计（流式消费补缺：完成回调汇总 tokenUsage）
-                    if (tokenUsed != null) {
+                    // Token 累计：真实值或估算值都要计入（否则流式绕过场景日配额）
+                    Integer tokenUsed = metadata.getTokenUsed();
+                    if (tokenUsed != null && tokenUsed > 0) {
                         try {
                             tokenCostGuard.consume(scene, tokenUsed);
                         } catch (Exception e) {
@@ -608,6 +635,38 @@ public class AiGatewayService {
         if (metadata.getAgentUsed() == null) {
             metadata.setAgentUsed(agentName);
         }
+    }
+
+    /**
+     * 同步路径的 Token 计量兜底（v13.3）
+     *
+     * <p>Handler 通过 {@code ChatOutcome.tokenUsage} 填了真实值就保持不动；
+     * 未填（部分端点不回 usage、或 Agent 链路未透传）时用 {@link TokenMeter#meterTexts} 估算并打标，
+     * 避免记账为 0 —— <b>0 会让场景日配额（成本熔断）与成本报表同时失真</b>。</p>
+     *
+     * <p>估算口径是**保守低估**：网关只能拿到请求 input 与响应摘要，拿不到 Handler 内部
+     * 渲染后的完整提示词（系统人设等），故输入侧偏小。数值带 {@code tokenEstimated=true}，
+     * 与真实值区分。</p>
+     */
+    private void ensureTokenMetered(AiExecuteResponse<?> response, AiExecuteRequest request, String sceneCode) {
+        if (response == null) {
+            return;
+        }
+        AiMetadata metadata = response.getMetadata();
+        if (metadata == null) {
+            return;
+        }
+        Integer current = metadata.getTokenUsed();
+        if (current != null && current > 0) {
+            return; // 服务端真实值，保持不动
+        }
+        TokenMeter.Metered metered = tokenMeter.meterTexts(canonicalInputKey(request), summarizeOutput(response));
+        metadata.setInputTokens(metered.inputTokens());
+        metadata.setOutputTokens(metered.outputTokens());
+        metadata.setTokenUsed(metered.totalTokens());
+        metadata.setTokenEstimated(true);
+        log.info("[aigateway:网关] Token 本地估算（服务端未回传 usage）: scene={}, estimatedTotal={}",
+                sceneCode, metered.totalTokens());
     }
 
     /**

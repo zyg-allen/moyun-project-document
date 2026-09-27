@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
+import com.moyun.core.mybatis.SqlTemplateGuardInterceptor;
 import com.moyun.util.string.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.io.VFS;
@@ -132,7 +133,10 @@ public class MyBatisConfig {
         sessionFactory.setDataSource(dataSource);
         sessionFactory.setTypeAliasesPackage(typeAliasesPackage);
         // ✅ 注入分页插件——这一行是唯一缺少的
-        sessionFactory.setPlugins(mybatisPlusInterceptor);
+        // 插件顺序即包装顺序：**最后一个最外层、最先执行**。
+        // SqlTemplateGuardInterceptor 必须在最外层——它要在 MyBatis 构建 BoundSql
+        // （即完成 ${} 文本替换）之前清洗参数；放在内层会"改了参数但 SQL 已渲染"（实测踩过）。
+        sessionFactory.setPlugins(mybatisPlusInterceptor, new SqlTemplateGuardInterceptor());
         sessionFactory.setMapperLocations(resolveMapperLocations(StringUtils.split(mapperLocations, ",")));
 
         if (StringUtils.isNotEmpty(configLocation)) {

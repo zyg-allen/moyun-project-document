@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.core.mvc.handler.BusinessException;
+import com.moyun.pay.channel.PayoutChannel;
+import com.moyun.pay.channel.PayoutResult;
 import com.moyun.pay.config.PayProperties;
 import com.moyun.pay.domain.entity.LedgerEntry;
 import com.moyun.pay.domain.entity.UserAccount;
@@ -41,8 +43,9 @@ import java.util.stream.Collectors;
  * <p>资金模型：公账商户号集中真钱，虚拟余额记账。申请即冻结
  * （可用余额 = balance - frozen_amount，原子 SQL 防并发超提）；
  * 审核通过事务内条件更新 auditing→paying（幂等）+ 原子扣减冻结
- * （balance/frozen/total_withdraw 三联动）+ 复式流水 debit + 代付通道出金；
- * 真实代付通道（银行/三方）当前未配置，调用点以 todo 标注，未配置时模拟打款成功并 log.warn。
+ * （balance/frozen/total_withdraw 三联动）+ 复式流水 debit + 代付渠道出金；
+ * 出金由 {@code PayoutChannel} 实现承担（联调装配 {@code MockPayoutChannel}，生产接入真实实现）；
+ * **无可用渠道 Bean 时 fail-closed 拒绝出金并回滚整个审核事务**，不做隐式模拟打款。
  *
  * @author moyun
  */
@@ -67,6 +70,15 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
 
     @Autowired
     private PayProperties payProperties;
+
+    /**
+     * 代付渠道实现（Spring 按 {@code moyun.pay.payout.mock-enabled} 条件装配）。
+     *
+     * <p>联调环境装配 MockPayoutChannel；接入真实通道后新增实现并在 mock 关闭时装配；
+     * 两者都不满足时该集合为空 → 出金明确拒绝（不隐式模拟）。</p>
+     */
+    @Autowired
+    private List<PayoutChannel> payoutChannels;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -158,38 +170,56 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
         entry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(entry);
 
-        // 4. 代付通道出金（银行/三方代付；未配置 → 模拟打款成功，见 payout 内 todo 标注）
+        // 4. 代付渠道出金（联调 mock / 生产真实 PayoutChannel）。
+        //    受理失败或无可用渠道时 payout() 抛异常，使整个 auditPass 事务回滚
+        //    （上面的余额扣减/冻结/流水一并退回）。
         payout(order);
     }
 
     /**
-     * 代付通道出金（审核通过后、事务内调用）：
-     * 真实通道受理成功 → 单据保持 paying，由通道异步回执/对账推进 paid；
-     * 受理失败 → 抛异常整体回滚（记账/流水/状态一并回退，单据回 auditing）。
+     * 代付通道出金（审核通过后、事务内调用）
+     *
+     * <p>口径与 {@code PayChannel} 对称：**出金由 {@link PayoutChannel} 实现承担**，
+     * 本方法只负责"路由渠道 → 按结果推进状态"：</p>
+     * <ul>
+     *   <li>受理成功 → 单据推进 {@code paying → paid}（条件更新，幂等），记录通道流水号；</li>
+     *   <li>受理失败 → 抛异常使整个审核事务回滚（余额/冻结/流水一并退回），单据回 {@code auditing}；</li>
+     *   <li>**无可用渠道 Bean → 明确拒绝**，绝不做隐式模拟打款。</li>
+     * </ul>
+     *
+     * <p><b>与历史实现的区别</b>：历史上"未配置通道即模拟打款成功"是写在业务方法里的**隐式降级**，
+     * 生产漏配也会走到假打款。现改为渠道抽象 + 显式装配（{@code moyun.pay.payout.mock-enabled}）：
+     * 联调环境装配 {@code MockPayoutChannel}（日志显式标注"资金未实际划出"），
+     * 生产接入真实实现后替换即可，业务代码零改动。</p>
      */
     private void payout(WithdrawOrder order) {
+        PayoutChannel channel = resolvePayoutChannel();
         UserBankCard card = bankCardMapper.selectById(order.getBankCardId());
         // 收款要素（服务端 AES-GCM 解密，仅打款组装使用，禁止外泄/落日志/回传前端）：
         // String cardNo = AesGcmUtils.decrypt(card.getCardNoEncrypted(),
         //         payProperties.getSecurity().getBankCardEncryptKey());
 
         // todo：配置第三方：代付通道（银行/三方代付）配置
-        // 真实接入骨架（以三方代付为例，接入时替换下方模拟逻辑）：
-        //   1. PayProperties 新增 payout 配置段：通道商编号/网关地址/签名密钥或证书（生产环境变量注入）
-        //   2. 组装代付请求：out_biz_no = withdrawNo（通道幂等键，重试防重复出金）、
-        //      pay_amount = order.getAmount()（元，按通道口径换算）、
-        //      收款人 card.getHolderName()、收款卡号 cardNo（解密后）、
-        //      银行编码 card.getBankCode()、异步通知地址（打款结果回调入口）
-        //   3. 发起代付调用：HTTP(S) + 报文签名（RSA2/HMAC-SM3 等，按通道规范），
+        // 真实接入方式：新增 PayoutChannel 实现（通道商编号/网关地址/签名密钥或证书从配置注入），
+        // 在 moyun.pay.payout.mock-enabled=false 时装配，即可自动替换本处路由到的渠道。实现要点：
+        //   1. 组装代付请求：out_biz_no = withdrawNo（通道幂等键，重试防重复出金）、
+        //      pay_amount = amount（元，按通道口径换算）、收款人 card.getHolderName()、
+        //      收款卡号 cardNo（解密后）、银行编码 card.getBankCode()、异步通知地址（打款结果回调入口）
+        //   2. 发起代付调用：HTTP(S) + 报文签名（RSA2/HMAC-SM3 等，按通道规范），
         //      设置连接/读超时（如 5s/15s），超时视为"受理未知"，以查单接口核对终态，禁止盲目重发
-        //   4. 响应解析：受理成功 → return（单据保持 paying，等异步回执推进 paid）；
-        //      明确失败 → 抛 BusinessException 回滚本事务
-        //   5. 打款结果回调：新增回调入口验签 → 条件更新 paying → paid（成功）/ paying → auditing
+        //   3. 响应解析：受理成功 → PayoutResult.accepted(...)（本方法保持 paying，等异步回执推进 paid）；
+        //      明确失败 → PayoutResult.failed(...)（本方法抛异常回滚）
+        //   4. 打款结果回调：新增回调入口验签 → 条件更新 paying → paid（成功）/ paying → auditing
         //      并回补余额与流水（失败退回，需冲正 debit 流水）——与支付回调同幂等规范
-        log.warn("[withdraw] 代付通道（银行/三方代付）未配置，单号{} 模拟打款成功（todo：配置第三方：代付通道（银行/三方代付）配置）",
-                order.getWithdrawNo());
+        PayoutResult result = channel.pay(order.getWithdrawNo(), order.getAmount(),
+                order.getBankCardId(), order.getUserId());
+        if (!result.success()) {
+            // 受理失败：抛异常整体回滚，避免"余额已扣、实际未出金"
+            throw new BusinessException("WITHDRAW_PAYOUT_REJECTED",
+                    "代付通道受理失败：" + result.message());
+        }
 
-        // 模拟打款：paying → paid（条件更新，幂等）
+        // 受理成功：paying → paid（条件更新，幂等）
         boolean rows = this.update(new LambdaUpdateWrapper<WithdrawOrder>()
                 .eq(WithdrawOrder::getId, order.getId())
                 .eq(WithdrawOrder::getStatus, WithdrawOrder.STATUS_PAYING)
@@ -198,9 +228,35 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
         if (!rows) {
             throw new BusinessException("WITHDRAW_STATUS_INVALID", "提现单打款状态推进失败：" + order.getWithdrawNo());
         }
-        log.info("[withdraw] 打款完成，单号{} 用户{} 出金{}元 卡={} 收款人={}",
+        log.info("[withdraw] 出金受理完成，单号{} 用户{} 出金{}元 渠道={} 通道流水={} 卡={} 收款人={}",
                 order.getWithdrawNo(), order.getUserId(), order.getAmount(),
+                channel.channelCode(), result.channelOrderNo(),
                 card == null ? "-" : card.getCardNoMasked(), card == null ? "-" : card.getHolderName());
+    }
+
+    /**
+     * 选择代付渠道：Spring 按条件装配通常只有一个实现；
+     * 若有多个（联调 mock + 真实通道并存）则按 {@code moyun.pay.payout.channel} 指定，缺省取第一个。
+     *
+     * <p>无可用渠道 → 明确拒绝出金（fail-closed），绝不隐式模拟打款。</p>
+     */
+    private PayoutChannel resolvePayoutChannel() {
+        if (payoutChannels == null || payoutChannels.isEmpty()) {
+            // 无渠道 Bean：未接入真实通道且 mock 已关闭
+            throw new BusinessException("WITHDRAW_PAYOUT_DISABLED",
+                    "代付通道未开通，无法出金（请接入真实代付通道，或联调环境开启 moyun.pay.payout.mock-enabled）");
+        }
+        String preferred = payProperties.getPayout() != null ? payProperties.getPayout().getChannel() : null;
+        if (preferred != null && !preferred.isBlank()) {
+            for (PayoutChannel c : payoutChannels) {
+                if (preferred.equalsIgnoreCase(c.channelCode())) {
+                    return c;
+                }
+            }
+            log.warn("[withdraw] 指定代付渠道 {} 未装配，回退到可用渠道 {}",
+                    preferred, payoutChannels.get(0).channelCode());
+        }
+        return payoutChannels.get(0);
     }
 
     @Override

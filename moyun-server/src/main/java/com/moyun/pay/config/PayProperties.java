@@ -41,9 +41,17 @@ public class PayProperties {
     /** 微信支付商户参数 */
     private Wechat wechat = new Wechat();
 
+    /** 代付通道配置（提现出金，与收款方向的 wechat 对称） */
+    private Payout payout = new Payout();
+
     /**
      * 生产环境安全守卫：spring.profiles.active 含 prod/production 时，
-     * 强制关闭 mock 支付，防止配置遗漏导致模拟支付在生产可用。
+     * 强制关闭 mock 支付**与 mock 代付**，防止配置遗漏导致"模拟资金"在生产可用。
+     *
+     * <p>代付关掉 mock 的连带效果（期望行为）：{@code MockPayoutChannel} 因
+     * {@code @ConditionalOnProperty} 不匹配而不装配；若此时又未接入真实代付通道，
+     * 则 {@code WithdrawOrderServiceImpl} 的渠道集合为空 → 审核通过时**明确拒绝出金**，
+     * 即生产"要么真实出金、要么拒绝"，不存在"假装打款成功"的中间态。</p>
      */
     @PostConstruct
     void init() {
@@ -51,6 +59,7 @@ public class PayProperties {
             for (String p : env.getActiveProfiles()) {
                 if ("prod".equalsIgnoreCase(p) || "production".equalsIgnoreCase(p)) {
                     wechat.mockEnabled = false;
+                    payout.mockEnabled = false;
                     break;
                 }
             }
@@ -105,6 +114,34 @@ public class PayProperties {
         public void setNotifyUrl(String notifyUrl) { this.notifyUrl = notifyUrl; }
     }
 
+    /**
+     * 代付通道配置（提现出金方向，与 {@link Wechat} 收款方向对称）
+     *
+     * <p>由 {@code moyun.pay.payout.*} 绑定；对应 Bean 为 {@code PayoutChannel} 实现。</p>
+     */
+    public static class Payout {
+        /**
+         * 是否装配模拟代付渠道（{@code MockPayoutChannel}）。
+         *
+         * <p><b>默认 true</b>：与 {@code wechat.mock-enabled} 取向一致，便于联调环境零配置跑通
+         * 提现闭环。生产由 {@link PayProperties#init()} 强制置 false →
+         * mock 渠道不装配，未接入真实通道时审核通过会**明确拒绝出金**（不假打款）。</p>
+         */
+        private boolean mockEnabled = true;
+
+        /**
+         * 指定使用的代付渠道标识（可空）。
+         *
+         * <p>联调 mock 与真实通道并存时用于择一；留空则取装配到的第一个实现。</p>
+         */
+        private String channel;
+
+        public boolean isMockEnabled() { return mockEnabled; }
+        public void setMockEnabled(boolean mockEnabled) { this.mockEnabled = mockEnabled; }
+        public String getChannel() { return channel; }
+        public void setChannel(String channel) { this.channel = channel; }
+    }
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public int getOrderExpireMinutes() { return orderExpireMinutes; }
@@ -115,4 +152,6 @@ public class PayProperties {
     public void setSecurity(Security security) { this.security = security; }
     public Wechat getWechat() { return wechat; }
     public void setWechat(Wechat wechat) { this.wechat = wechat; }
+    public Payout getPayout() { return payout; }
+    public void setPayout(Payout payout) { this.payout = payout; }
 }

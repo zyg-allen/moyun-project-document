@@ -21,10 +21,13 @@ public class ScheduleUtils {
     /**
      * 得到quartz任务类
      *
+     * <p>v13.7 起由 {@code private} 改为 {@code public}：启动同步需要用它判断
+     * "JobStore 中已存在的任务类是否与当前 sys_job 配置（concurrent 标记）一致"。</p>
+     *
      * @param sysJob 执行计划
      * @return 具体执行任务类
      */
-    private static Class<? extends Job> getQuartzJobClass(SysJob sysJob) {
+    public static Class<? extends Job> getQuartzJobClass(SysJob sysJob) {
         boolean isConcurrent = "0".equals(sysJob.getConcurrent());
         return isConcurrent ? QuartzJobExecution.class : QuartzDisallowConcurrentExecution.class;
     }

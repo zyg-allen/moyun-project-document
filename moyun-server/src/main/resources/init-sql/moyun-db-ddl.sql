@@ -710,7 +710,7 @@ CREATE TABLE `ledger_schedule_log` (
                                        `retry_count` int NOT NULL DEFAULT '0' COMMENT '重试次数',
                                        `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                        PRIMARY KEY (`id`),
-                                       KEY `idx_task` (`task_id`,`exec_date`),
+                                       UNIQUE KEY `uk_task_date` (`task_id`,`exec_date`),
                                        KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-定时记账执行日志';
 
@@ -759,7 +759,7 @@ CREATE TABLE `ledger_tip_order` (
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '打赏时间',
                                     `paid_time` datetime DEFAULT NULL COMMENT '支付完成时间（网关回调置 paid 时写入，v11.80）',
                                     PRIMARY KEY (`id`),
-                                    UNIQUE KEY `uk_client_uuid` (`client_uuid`),
+                                    UNIQUE KEY `uk_user_client` (`user_id`,`client_uuid`),
                                     KEY `idx_user` (`user_id`,`create_time`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-打赏记录';
 
@@ -790,7 +790,7 @@ CREATE TABLE `ledger_transaction` (
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                       `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                       PRIMARY KEY (`id`),
-                                      UNIQUE KEY `uk_client_uuid` (`client_uuid`),
+                                      UNIQUE KEY `uk_user_client` (`user_id`,`client_uuid`),
                                       KEY `idx_user_status_id` (`user_id`,`status`,`id`),
                                       KEY `idx_user_date` (`user_id`,`transaction_date`),
                                       KEY `idx_account` (`account_id`),
@@ -809,8 +809,8 @@ CREATE TABLE `pay_ledger_entry` (
                                     `user_id` bigint DEFAULT NULL COMMENT '用户ID（PLATFORM 分录为 NULL）',
                                     `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
                                     `direction` varchar(8) COLLATE utf8mb4_general_ci NOT NULL COMMENT '方向：credit=收入 / debit=支出',
-                                    `amount` bigint NOT NULL COMMENT '金额（分）',
-                                    `balance_after` bigint DEFAULT NULL COMMENT '交易后余额（分；PLATFORM 分录不追踪余额，为 NULL）',
+                                    `amount` decimal(18,2) NOT NULL COMMENT '金额（元）',
+                                    `balance_after` decimal(18,2) DEFAULT NULL COMMENT '交易后余额（元；PLATFORM 分录不追踪余额，为 NULL）',
                                     `summary` varchar(255) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务摘要，如"打赏收入-作者所得" / "平台服务费"',
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     PRIMARY KEY (`id`),
@@ -866,7 +866,7 @@ CREATE TABLE `pay_order` (
                              `user_id` bigint DEFAULT NULL COMMENT '下单用户（portal_user.id，v11.79 对账维度）',
                              `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码（sys_platform.platform_code）',
                              `channel` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '支付渠道：wechat / alipay（预留）',
-                             `amount` bigint NOT NULL COMMENT '支付金额（分）',
+                             `amount` decimal(18,2) NOT NULL COMMENT '支付金额（元）',
                              `subject` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '商品描述',
                              `status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'CREATED' COMMENT '状态机：CREATED→PAID→SETTLED / CREATED→CLOSED',
                              `code_url` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '微信 native 支付二维码链接（code_url）',
@@ -893,9 +893,9 @@ CREATE TABLE `pay_order` (
 drop table if exists `pay_user_account`;
 CREATE TABLE `pay_user_account` (
                                     `user_id` bigint NOT NULL COMMENT '用户ID（sys_user.user_id）',
-                                    `balance` bigint NOT NULL DEFAULT '0' COMMENT '可用余额（分）',
-                                    `total_income` bigint NOT NULL DEFAULT '0' COMMENT '累计收入（分，含打赏所得）',
-                                    `total_withdraw` bigint NOT NULL DEFAULT '0' COMMENT '累计提现（分）',
+                                    `balance` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '可用余额（元）',
+                                    `total_income` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '累计收入（元，含打赏所得）',
+                                    `total_withdraw` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '累计提现（元）',
                                     `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本号',
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -931,8 +931,8 @@ CREATE TABLE `pay_withdraw_order` (
                                       `withdraw_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '提现单号',
                                       `user_id` bigint NOT NULL COMMENT '用户ID',
                                       `bank_card_id` bigint NOT NULL COMMENT '收款银行卡ID',
-                                      `amount` bigint NOT NULL COMMENT '提现金额（分）',
-                                      `fee` bigint NOT NULL DEFAULT '0' COMMENT '手续费（分）',
+                                      `amount` decimal(18,2) NOT NULL COMMENT '提现金额（元）',
+                                      `fee` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '手续费（元）',
                                       `status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'auditing' COMMENT '状态：auditing=审核中 paid=已打款 rejected=已驳回（v11.79 统一小写）',
                                       `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
                                       `reject_reason` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '驳回原因',
@@ -3945,7 +3945,7 @@ CREATE TABLE `vip_user_card` (
                                  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                  PRIMARY KEY (`id`),
-                                 KEY `idx_user_platform` (`user_id`,`platform_code`),
+                                 UNIQUE KEY `uk_user_platform` (`user_id`,`platform_code`),
                                  KEY `idx_expire` (`expire_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户会员卡（类比 sys_user_role，一端一卡续费顺延）';
 
@@ -4425,3 +4425,14 @@ ALTER TABLE `ai_scene_config`
 ALTER TABLE `ai_execute_log`
     ADD COLUMN `input_tokens` int DEFAULT NULL COMMENT '输入Token（模型回传细分；未回传为NULL）' AFTER `token_used`,
     ADD COLUMN `output_tokens` int DEFAULT NULL COMMENT '输出Token（模型回传细分；未回传为NULL）' AFTER `input_tokens`;
+
+-- =====================================================================
+-- AI 模块补充（v13.3 Token 计量兜底 · 2026-09-27）：
+-- ai_execute_log 增加 token_estimated 标记列。
+-- 背景：langchain4j 1.0.0-beta3 的流式模型不下发 stream_options.include_usage，
+-- 服务端通常不回 usage → 流式调用的 token_used 原先恒为 0（漏计，绕过日配额）。
+-- 现由 TokenMeter 在 usage 缺失时用本地分词估算，**必须显式区分**估算值与真实值，
+-- 否则成本看板会把估算当精确值用。
+-- =====================================================================
+ALTER TABLE `ai_execute_log`
+    ADD COLUMN `token_estimated` tinyint(1) DEFAULT 0 COMMENT 'Token是否为本地估算：1=估算（服务端未回传usage，本地分词得出），0/NULL=服务端真实值' AFTER `output_tokens`;

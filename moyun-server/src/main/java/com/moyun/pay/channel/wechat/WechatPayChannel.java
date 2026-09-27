@@ -14,19 +14,18 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 微信支付渠道（首个公共支付通道实现）
  *
  * <p><b>当前形态：mock 模拟 + 真实 API 完整骨架（注释）。</b>
  * <ol>
- *   <li>mock 模式（wechat.mock-enabled=true，默认）：prepay 生成 codeUrl（weixin://wxpay/mock/...），
+ *   <li>mock 模式（wechat.mock-enabled=true）：prepay 生成 codeUrl（weixin://wxpay/mock/...），
  *       query 由前端"模拟支付"按钮触发（/portal/pay/mock/{payNo}）置为已支付，回调链路全真演练。</li>
- *   <li>未配置商户参数（mock-enabled=false 但 appId/mchId/merchantSerial/privateKeyPath/apiV3Key/notifyUrl
- *       任一缺失或仍为 todo- 占位）：自动降级为 mock 模拟逻辑并 log.warn 提示（每个场景仅告警一次，
- *       避免收银台 3s 轮询刷屏）。</li>
+ *   <li><b>未配置商户参数（mock-enabled=false 但 appId/mchId/merchantSerial/privateKeyPath/apiV3Key/notifyUrl
+ *       任一缺失或仍为 todo- 占位）：四处入口（prepay / query / close / verifyNotify）一律
+ *       fail-closed 明确拒绝，绝不静默降级为 mock。</b>（2026-09-27 收紧；此前只有 verifyNotify
+ *       收敛，prepay 会返回假二维码并让网关落库"无法支付的假支付单"，与回调 fail-closed 自相矛盾）</li>
  *   <li>商户参数齐备：进入真实 API 分支。因工程按规范未引入 wechatpay-java SDK 依赖
  *       （pom 无 com.github.wechatpay-apiv3:wechatpay-java），真实调用以完整注释骨架给出
  *       （SDK 调用组装 / 参数构造 / 响应解析 / 异常处理），实际发起调用的位置统一标注
@@ -45,9 +44,6 @@ public class WechatPayChannel implements PayChannel {
 
     private static final Logger log = LoggerFactory.getLogger(WechatPayChannel.class);
 
-    /** 降级告警去重（scene → 已告警）：每个调用场景仅告警一次，避免轮询刷屏 */
-    private static final Set<String> DEGRADE_WARNED = ConcurrentHashMap.newKeySet();
-
     @Autowired
     private PayProperties payProperties;
 
@@ -60,17 +56,24 @@ public class WechatPayChannel implements PayChannel {
     public PayChannelResponse prepay(PayChannelRequest request) {
         PayChannelResponse response = new PayChannelResponse();
         PayProperties.Wechat wechat = payProperties.getWechat();
-        if (wechat.isMockEnabled() || !isConfigured(wechat)) {
-            if (!wechat.isMockEnabled()) {
-                warnDegrade("prepay");
-            }
-            // ===== mock/降级模式：生成模拟二维码链接，前端收银台渲染为二维码 =====
+        // mock 分支仅当显式开启 mock-enabled 时进入；真实模式参数缺失一律 fail-closed。
+        // 历史实现用 `isMockEnabled() || !isConfigured()`，使"真实模式但商户参数漏配"
+        // 静默降级为 mock：
+        //   ① prepay 会返回假二维码（weixin://wxpay/mock/...）并让网关落库 CREATED 单，
+        //      用户看到支付码却无法真正付款，留下无法支付的"假支付单"；
+        //   ② 与 verifyNotify 的 fail-closed 形成不对称 —— 订单按 mock 建但回调按真实模式
+        //      拒绝，链路自相矛盾。故四处（prepay/query/close/verifyNotify）统一 fail-closed。
+        if (wechat.isMockEnabled()) {
+            // ===== mock 模式：生成模拟二维码链接，前端收银台渲染为二维码 =====
             response.setPaid(false);
             response.setCodeUrl("weixin://wxpay/mock/" + request.getPayNo());
             response.setTradeState("NOTPAY");
             response.setRawResponse("{\"mock\":true,\"scene\":\"prepay\"}");
             log.info("[wechat-mock] prepay payNo={} amount={}元", request.getPayNo(), request.getAmount());
             return response;
+        }
+        if (!isConfigured(wechat)) {
+            throw new IllegalStateException(realModeNotConfigured("prepay"));
         }
 
         // ===== 真实 API：native 下单（POST v3/transactions/native） =====
@@ -114,16 +117,18 @@ public class WechatPayChannel implements PayChannel {
     public PayChannelResponse query(String payNo) {
         PayChannelResponse response = new PayChannelResponse();
         PayProperties.Wechat wechat = payProperties.getWechat();
-        if (wechat.isMockEnabled() || !isConfigured(wechat)) {
-            if (!wechat.isMockEnabled()) {
-                warnDegrade("query");
-            }
+        if (wechat.isMockEnabled()) {
             // mock：本地无支付语义，状态由 /portal/pay/mock/{payNo} 模拟器写入 pay_order，
             // 网关 queryStatus 直接回读库表；渠道侧恒回 NOTPAY
             response.setPaid(false);
             response.setTradeState("NOTPAY");
             response.setRawResponse("{\"mock\":true,\"scene\":\"query\"}");
             return response;
+        }
+        if (!isConfigured(wechat)) {
+            // fail-closed：不允许在"真实模式未配置"时假装查单成功（恒 NOTPAY 会让调用方
+            // 误以为渠道确认了未支付状态）
+            throw new IllegalStateException(realModeNotConfigured("query"));
         }
 
         // ===== 真实 API：查单（GET v3/transactions/out-trade-no/{outTradeNo}?mchid={mchId}） =====
@@ -149,14 +154,20 @@ public class WechatPayChannel implements PayChannel {
     @Override
     public boolean verifyNotify(Map<String, String> headers, String body) {
         PayProperties.Wechat wechat = payProperties.getWechat();
-        if (wechat.isMockEnabled() || !isConfigured(wechat)) {
-            if (!wechat.isMockEnabled()) {
-                warnDegrade("verifyNotify");
-            }
+        // mock 分支：仅当显式开启 mock-enabled 时进入（历史实现用 `isMockEnabled() || !isConfigured()`，
+        // 使"真实模式但商户参数漏配"静默降级为 mock，验签退化为自算 sha256(body)，可被攻击者任意伪造回调）。
+        if (wechat.isMockEnabled()) {
             // mock：约定头 X-Mock-Signature = sha256(body)，模拟验签通过
             String expect = sha256(body == null ? "" : body);
             String actual = headers == null ? null : headers.get("X-Mock-Signature");
             return expect != null && expect.equalsIgnoreCase(actual);
+        }
+
+        // 真实模式：商户参数缺失属部署错误 → fail-closed 明确拒绝，绝不降级
+        if (!isConfigured(wechat)) {
+            String reason = realModeNotConfigured("verifyNotify");
+            log.error(reason);
+            return false;
         }
 
         // ===== 真实 API：回调验签 + 报文解密（NotificationParser） =====
@@ -201,12 +212,14 @@ public class WechatPayChannel implements PayChannel {
     @Override
     public void close(String payNo) {
         PayProperties.Wechat wechat = payProperties.getWechat();
-        if (wechat.isMockEnabled() || !isConfigured(wechat)) {
-            if (!wechat.isMockEnabled()) {
-                warnDegrade("close");
-            }
+        if (wechat.isMockEnabled()) {
             log.info("[wechat-mock] close payNo={}", payNo);
             return;
+        }
+        if (!isConfigured(wechat)) {
+            // fail-closed：不允许假装关单成功。调用方 closeOrderInternal 已对该异常做
+            // "仅记日志不阻断"处理（本地关单已先行完成），故抛出能让日志如实反映渠道未关单。
+            throw new IllegalStateException(realModeNotConfigured("close"));
         }
 
         // ===== 真实 API：关单（POST v3/transactions/out-trade-no/{outTradeNo}/close） =====
@@ -242,15 +255,19 @@ public class WechatPayChannel implements PayChannel {
     }
 
     /**
-     * 未配置商户参数时的降级告警（每场景仅一次）：
-     * 降级期间走 mock 模拟逻辑，资金不落地，仅供联调演练
+     * 真实模式但商户参数未配置时的统一拒绝原因（fail-closed）。
+     *
+     * <p>prepay / query / close / verifyNotify 四处共用同一口径：**mock 关闭且商户参数缺失
+     * 即视为部署错误并显式拒绝**，绝不静默降级为 mock 模拟逻辑。
+     * 历史实现只在 verifyNotify 收敛（见该类注释），其余三处仍会降级，
+     * 其中 prepay 降级会返回假二维码并让网关落库"无法支付的假支付单"。</p>
+     *
+     * <p>保留 {@code todo：配置第三方：} 标记，便于沿用既有的配置位检索约定。</p>
      */
-    private void warnDegrade(String scene) {
-        if (!DEGRADE_WARNED.add(scene)) {
-            return;
-        }
-        log.warn("[wechat] 微信支付商户参数未配置，{} 已降级为 mock 模拟逻辑（资金不落地，仅联调）。"
-                + "todo：配置第三方：微信支付商户号/APIv3密钥/商户证书序列号配置后启用真实调用", scene);
+    private String realModeNotConfigured(String scene) {
+        return "[wechat] 商户参数未配置，真实模式已拒绝执行 " + scene + "（fail-closed）。"
+                + "请检查 appId/mchId/merchantSerial/privateKeyPath/apiV3Key/notifyUrl 六项；"
+                + "todo：配置第三方：微信支付商户号/APIv3密钥/商户证书序列号配置后启用真实调用";
     }
 
     private String firstNonNull(String a, String b) {

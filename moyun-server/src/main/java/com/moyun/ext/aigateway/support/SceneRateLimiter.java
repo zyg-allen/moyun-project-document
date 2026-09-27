@@ -3,9 +3,11 @@ package com.moyun.ext.aigateway.support;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
+import java.util.Collections;
 
 /**
  * 场景限流器（Redis 固定窗口计数）
@@ -22,6 +24,23 @@ import java.time.Duration;
 @Component
 @RequiredArgsConstructor
 public class SceneRateLimiter {
+
+    /**
+     * 原子"自增 + 首次设 TTL"固定窗口计数。
+     *
+     * <p>历史实现是 INCR 后判断是否为 1 再 EXPIRE 两次独立命令：若在两步之间崩溃/断开，
+     * 键将**永久无 TTL** → 该窗口计数永不重置，用户会被限流到 Redis 手动清理为止。
+     * 改为 Lua 单次往返保证原子性。</p>
+     *
+     * <p>KEYS[1]=计数键，ARGV[1]=窗口秒数。返回自增后的值。</p>
+     */
+    private static final RedisScript<Long> FIXED_WINDOW_SCRIPT = new DefaultRedisScript<>(
+            "local v = redis.call('incr', KEYS[1]) "
+                    + "if v == 1 then "
+                    + "  redis.call('expire', KEYS[1], ARGV[1]) "
+                    + "end "
+                    + "return v",
+            Long.class);
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -45,10 +64,8 @@ public class SceneRateLimiter {
         }
         String key = "ai2:rate:" + scene + ":" + identity;
         try {
-            Long count = redisTemplate.opsForValue().increment(key);
-            if (count != null && count == 1L) {
-                redisTemplate.expire(key, Duration.ofSeconds(windowSeconds));
-            }
+            // 原子：incr + 首次设 TTL（避免两次命令之间崩溃导致窗口永不重置）
+            Long count = incrWithWindow(key, windowSeconds);
             int current = count != null ? count.intValue() : 1;
             boolean allowed = current <= limit;
             if (!allowed) {
@@ -61,5 +78,17 @@ public class SceneRateLimiter {
             log.warn("[aigateway:rate] 限流检查异常（放行）: {}", e.getMessage());
             return new RateResult(true, limit, 0, windowSeconds);
         }
+    }
+
+    /**
+     * 执行固定窗口脚本（包级可见，便于单测 spy/stub）。
+     *
+     * <p>用实例方法包装 {@code redisTemplate.execute(RedisScript, List, Object...)}：
+     * 该类调用是泛型 varargs，Mockito 会把 varargs <b>展开</b>记录（实测 1 个可变参数被记成
+     * 独立实参，argCount=3），matcher 数量极难对齐；包装为固定签名实例方法后可稳定 stub。</p>
+     */
+    Long incrWithWindow(String key, int windowSeconds) {
+        return redisTemplate.execute(FIXED_WINDOW_SCRIPT,
+                Collections.singletonList(key), String.valueOf(windowSeconds));
     }
 }

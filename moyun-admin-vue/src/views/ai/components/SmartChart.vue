@@ -54,6 +54,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as echarts from 'echarts'
 import { TrendCharts, Download, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { sanitizeHtml } from '@/utils/index'
 
 const props = defineProps({
   data: {
@@ -578,7 +579,8 @@ const generateChartInsight = (analysis) => {
     insights.push(`分类维度：<strong>${categoryCol.comment}</strong>（${categoryCol.uniqueCount} 个类别）`)
   }
   
-  chartInsight.value = insights.join(' | ')
+  // 安全：本函数自行拼接 HTML 且绑定到 v-html，统一净化（与其余 v-html 位点口径一致）
+  chartInsight.value = sanitizeHtml(insights.join(' | '))
 }
 
 // 下载图表

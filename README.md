@@ -1,8 +1,8 @@
 # 旭林知行 — AI 驱动的求职面试与学习成长平台
 
-**项目版本**：v11.98（AI 网关链路根治 + 运行时开关 sys_config 化）  
-**最后更新**：2026-09-17  
-**项目状态**：✅ v11.98 AI 统一网关全链路收口 + 语音面试报告 LLM 复盘 + 记账 App（三端）+ 公共支付通道完成 | ⏳ 数据填充与商业化接入推进中
+**项目版本**：v13.0（文档基线校正 + 开发铁律确立；代码侧为三轮评审整改后的稳定基线）  
+**最后更新**：2026-09-27  
+**项目状态**：✅ v13.0 基线就绪（AI 统一网关配置驱动 + 公共支付/VIP/提现闭环 + 记账 App 三端） | ⏳ 自 v13 起进入 P1 与后续开发 | 🧭 **变更铁律见 [00-项目现状总结 · 开发铁律](docs/06-规划路线/00-项目现状总结.md)**
 
 ---
 
@@ -139,25 +139,87 @@ npm run dev:mp-weixin   # 小程序端（微信开发者工具导入 dist/dev/mp
 
 **默认后台账号**：admin / admin123
 
-### SQL 初始化（按顺序执行，全部幂等可重复执行）
+### SQL 初始化（⚠️ 仅用于**全新库投产初始化**，会清空同名表）
+
+> **重要**：本节脚本是**破坏性初始化脚本，不是增量迁移脚本**。
+> `moyun-db-ddl.sql` 对多数表执行 `DROP TABLE IF EXISTS` 后再 `CREATE TABLE`，
+> `moyun-menu-redo.sql` 以 `TRUNCATE TABLE sys_menu` 重建菜单。
+> **严禁在已有数据的库上重复执行**（会清空业务数据与菜单改动）。
+> 已有库的表结构变更请走增量脚本，见本节第 4 步说明。
 
 ```bash
-# 1. 建表（基础 DDL：188 张表，create table if not exists 幂等，按业务模块分组）
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/moyun-db-ddl.sql
+cd moyun-server/src/main/resources
 
-# 2. 初始化数据（DML 按 4 个分片执行，幂等：每表先 DELETE FROM 再 INSERT）
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-dml-1.sql
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-dml-2.sql
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-dml-3.sql
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-dml-4.sql
+# 1. 建表（DDL：187 张表。实测：48 张表为 DROP TABLE IF EXISTS + CREATE TABLE（破坏性重建），
+#    其余为裸 CREATE TABLE（重复执行会因"表已存在"报错）；**全脚本 0 处 CREATE TABLE IF NOT EXISTS，
+#    因此整体非幂等、只能用于新库初始化一次**）
+mysql -u root -p moyun-db < init-sql/moyun-db-ddl.sql
 
-# 3. 增量补丁（20260830 起：记账/支付/AI统一网关/面试VIP 等，按文件名日期顺序执行，均幂等）
-#    命名规范：YYYYMMDD-NN-描述.sql
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/20260830-moyun-interview-growth.sql
-# ……依次执行至最新（当前最新：20260917-01-ai-global-switch-sysconfig.sql）
+# 2. 基础数据（DML 单文件，70 条 INSERT：字典/参数/角色等；sys_menu 不在其中）
+mysql -u root -p moyun-db < init-sql/moyun-db-dml-init.sql
+
+# 3. 菜单初始化（见下方「菜单初始化策略」）
+mysql -u root -p moyun-db < init-sql/moyun-menu-redo.sql
+
+# 4. 存量库增量补丁（仅在**已有库**升级时使用，按文件名日期顺序执行，幂等）
+mysql -u root -p moyun-db < increment-sql/20260925-01-portal_user唯一索引升级与存量清洗.sql
+mysql -u root -p moyun-db < increment-sql/20260925-02-portal_user画像扩展字段-AI财务分析.sql
+mysql -u root -p moyun-db < increment-sql/20260927-01-vip_user_card唯一键与发卡原子化.sql
+mysql -u root -p moyun-db < increment-sql/20260927-02-ai_execute_log-token估算标记.sql
 ```
 
-> 说明：后续表结构变更，在 DDL 文件对应模块末尾追加增量 `ALTER TABLE`，不改动原 `CREATE TABLE`；独立变更以带日期前缀的增量 SQL 脚本交付（菜单/配置类变更走 `UPDATE` + 少量新增 `INSERT`，不动原始 `INSERT`）。
+> `20260927-01` 说明：把 `vip_user_card` 的 `idx_user_platform` 升级为
+> `UNIQUE KEY uk_user_platform(user_id, platform_code)`，落实表注释"一端一卡，续费顺延"。
+> 代码侧配套 `VipUserCardMapper.renewCard`（单条原子续期 SQL）——
+> **该唯一键是发卡逻辑的正确性前提，已有库必须执行本脚本**（否则并发首购会重复插卡）。
+> 脚本会先备份 `vip_user_card_bak_20260927` 并合并每组"最优到期/状态"再删冗余行，重复执行会在 `ALTER` 处报索引已存在（属预期）。
+
+#### 菜单初始化策略（`moyun-menu-redo.sql`）
+
+菜单表 `sys_menu` 的 `menu_id` 由脚本**显式指定**（当前 107 条，id 1~108 连续），
+菜单项之间通过 `parent_id` 引用这些固定 id。该脚本开头执行 `TRUNCATE TABLE sys_menu`
+后以显式 id 全量重插 —— **这是有意的投产初始化设计**，用于保证菜单 id 编号可复现。
+
+> **运维注意（重要）**：该脚本会**丢弃所有后台手工调整过的菜单**（新增/改名/排序/权限字符）。
+> 因此**只应在初始化时执行一次**；投产后再有菜单变更，请改用
+> `UPDATE sys_menu ...` + 少量 `INSERT ...`（并显式指定 `menu_id`），**不要重跑本脚本**。
+>
+> 关于该脚本的完整设计意图，以 `docs/07-变更日志/devlog.md` 与脚本本身为准；
+> 本文档只描述可验证的脚本行为。
+
+#### 变更惯例
+
+后续表结构变更，在 DDL 文件对应模块末尾追加增量 `ALTER TABLE`，不改动原 `CREATE TABLE`；
+独立变更以带日期前缀的增量脚本交付到 `increment-sql/`（命名 `YYYYMMDD-NN-描述.sql`）；
+菜单/配置类变更走 `UPDATE` + 少量新增 `INSERT`，不动原始 `INSERT`。
+
+### 环境变量清单（生产部署必读）
+
+生产配置模板为 `moyun-server/src/main/resources/application-prod.yaml.example`
+（复制为 `application-prod.yaml` 后填值；该文件已被 `.gitignore` 忽略，禁止提交）。
+下表列出**必须显式注入**的变量——**缺失会导致启动被 `ConfigWiringValidator` 阻断**：
+
+| 变量 | 用途 | 缺失后果 |
+|---|---|---|
+| `TOKEN_SECRET` | JWT 签名密钥（≥64 字符） | 启动失败（`TokenConfigValidator` fail-fast） |
+| `TOKEN_ADMIN_SECRET` / `TOKEN_PORTAL_SECRET` | 管理端/门户端独立签名密钥 | 生产建议分离；两者相同会被判"未隔离"并阻断启动 |
+| `MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY` | 证件号 AES-GCM 口令 | **启动阻断**；且变更后已加密数据不可解密 |
+| `MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY` | 银行卡号/手机号 AES-GCM 口令 | **启动阻断** |
+| `MYSQL_URL` / `MYSQL_USERNAME` / `MYSQL_PASSWORD` | 数据库连接 | 启动失败 |
+| `REDIS_PASSWORD` | Redis 密码 | 启动失败 |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` / `MINIO_ENDPOINT` / `MINIO_ACCESS_URL` | 对象存储凭据 | 上传功能不可用（`admin123` 等示例值会被判定为凭据不安全） |
+| `PAY_PAYOUT_CHANNEL` | 指定代付渠道标识（可空，mock 与真实通道并存时择一） | 留空取装配到的第一个渠道。**代付 mock 在生产由 `PayProperties.init()` 强制关闭**：未接入真实代付通道时，提现审核通过会被拒绝并回滚（防假打款），不会实际出金 |
+| `WECHAT_PAY_APP_ID` / `MCH_ID` / `MERCHANT_SERIAL` / `PRIVATE_KEY_PATH` / `API_V3_KEY` / `NOTIFY_URL` | 微信支付商户参数 | 六项须全部非 `todo` 开头，否则回调验签 fail-closed 拒绝 |
+| `MOYUN_SMS_ALIYUN_ACCESSKEYID` / `ACCESSKEYSECRET` / `SMS_ALIYUN_TEMPLATE_CODE` | 阿里云短信 | 验证码发送失败（`SMS_MOCK_ENABLED` 必须为 false） |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | 163 SMTP 发件账号与授权码（邮箱注册/找回密码验证码） | 邮件通道判为**未就绪**：接口明确返回"邮件服务暂未开启"，**不会**去连 SMTP（`MailChannelStatus`）。邮箱注册/找回密码不可用；**手机号 + 短信验证码注册仍可用** |
+
+**可选变量**：`MOYUN_AI_API_KEY`（AI/ASR 兜底密钥，留空则视为未配置并由代码给出明确提示）、
+`MAIL_HEALTH_ENABLED=true`（配置了真实 SMTP 授权码后再打开 `/actuator/health` 的 mail 指示器；
+默认为 `false`，否则健康检查会因 535 认证失败而整体 DOWN，掩盖 MySQL/Redis 的真实故障）、
+`KNIFE4J_PRODUCTION=true`（关闭生产 Swagger 文档）、`PORTAL_DOMAIN`（门户站点域名，用于 SEO）。
+
+> 完整说明见 [部署指南](docs/03-部署运维/部署指南.md)；
+> 启动期校验逻辑见 `core/config/ConfigWiringValidator` 与 `core/config/TokenConfigValidator`。
 
 ---
 
@@ -174,7 +236,8 @@ moyun-project-document/
 │   │   ├── system/             # 系统基础
 │   │   └── core/               # 核心配置（Security/Filter/Base）
 │   └── src/main/resources/
-│       ├── sql/                # SQL脚本（基础 DDL + DML 4 分片 + 日期前缀增量补丁）
+│       ├── init-sql/           # 建库初始化脚本（DDL / DML / 菜单重做；破坏性，仅新库执行一次）
+│       ├── increment-sql/      # 存量库增量补丁（YYYYMMDD-NN-描述.sql，幂等）
 │       └── application*.yaml   # 配置文件
 │
 ├── moyun-portal/               # 前端门户（Vue3 + TS + Tailwind）
@@ -252,6 +315,10 @@ moyun-project-document/
 | **v11.96** | **2026-09-16** | **语音面试时长制（20 分钟倒计时）+ 报告生成 P0 竞态修复 + 历史页异步进度** |
 | **v11.97** | **2026-09-16** | **报告整场 LLM 复盘（基于简历+对话内容）+ 报告页重设计 + 重新生成链路** |
 | **v11.98** | **2026-09-17** | **AI 网关链路根治（不可变 Map 击穿输入清洗修复）+ 运行时开关全面 sys_config 热配置化** |
+| **v12.0** | **2026-09-17** | **统一 VIP 体系（端级粒度 + 全局公共端 + `@VipOnly` 注解驱动），替代三套旧 VIP** |
+| **v12.1~12.2.3** | **2026-09-18** | **Mapper 内联 SQL 全量外置 XML（消除手写注入面）→ AI 调度层语义化与统一入口原则 → 业务端直连 LLM 收编** |
+| **v12.3** | **2026-09-27** | **全项目架构评审整改（三轮验证 · 报告六附录 A~I）：SQL 注入止血 / 金额口径统一 / 幂等与并发 / 配置接线校验器 / 通道 fail-closed 与 mock 边界 / VIP 发卡原子化 等 20 项 P0 闭环** |
+| **v13.0** | **2026-09-27** | **文档基线校正（一律以代码为准）+ 开发铁律确立（devlog 逐次记录 / 大改动同步文档 / 代码保持最新 / 结合 git 提交核对）——自本版起进入 P1 与后续开发** |
 
 ---
 

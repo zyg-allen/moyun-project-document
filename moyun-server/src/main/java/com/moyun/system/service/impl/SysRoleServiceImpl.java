@@ -57,11 +57,15 @@ public class SysRoleServiceImpl implements ISysRoleService {
     /**
      * 根据条件分页查询角色数据（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
      *
+     * <p><b>必须标注 {@code @DataScope}</b>：本方法对应的 SQL 含 {@code ${query.params.dataScope}} 拼接，
+     * 标注后切面才会清空请求传入的 {@code params[dataScope]}（防注入）并写入数据范围片段。</p>
+     *
      * @param page 分页对象
      * @param role 角色信息
      * @return 分页结果
      */
     @Override
+    @DataScope(deptAlias = "d")
     public IPage<SysRole> selectRolePage(IPage<SysRole> page, SysRole role) {
         return roleMapper.selectRolePage(page, role);
     }

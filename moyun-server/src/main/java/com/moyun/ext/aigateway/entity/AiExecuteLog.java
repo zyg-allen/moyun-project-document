@@ -63,6 +63,14 @@ public class AiExecuteLog {
     @TableField("output_tokens")
     private Integer outputTokens;
 
+    /**
+     * Token 是否为本地估算（v13.3）：1=估算（服务端未回传 usage，由 TokenMeter 本地分词得出），
+     * 0/NULL=服务端真实值。流式调用因 langchain4j 未下发 stream_options.include_usage 而拿不到
+     * 真实 usage，故流式场景通常为 1。
+     */
+    @TableField("token_estimated")
+    private Integer tokenEstimated;
+
     /** 本次调用成本（元，metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
     @TableField("cost_yuan")
     private java.math.BigDecimal costYuan;

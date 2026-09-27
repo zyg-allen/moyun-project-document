@@ -2,6 +2,7 @@ package com.moyun.pay.gateway;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.moyun.core.redis.DistributedLockUtil;
 import com.moyun.pay.channel.PayChannel;
 import com.moyun.pay.channel.PayChannelRequest;
 import com.moyun.pay.channel.PayChannelResponse;
@@ -42,6 +43,18 @@ public class PayGatewayImpl implements IPayGateway {
     private static final Logger log = LoggerFactory.getLogger(PayGatewayImpl.class);
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /**
+     * 下单锁 TTL。取值需覆盖「DB 查询 + 渠道预下单（远程调用）」的正常耗时；
+     * 超时由看门狗按 TTL/3 续期兜住，异常退出后自动释放。
+     */
+    private static final java.time.Duration ORDER_LOCK_TTL = java.time.Duration.ofSeconds(15);
+
+    /** 下单等待锁的最长时间：超时即拒绝（不允许降级为"无锁继续执行"，否则等于放弃幂等） */
+    private static final java.time.Duration ORDER_LOCK_WAIT = java.time.Duration.ofSeconds(30);
+
+    @Autowired
+    private DistributedLockUtil lockUtil;
+
     @Autowired
     private PayOrderMapper payOrderMapper;
 
@@ -69,6 +82,36 @@ public class PayGatewayImpl implements IPayGateway {
         }
         PayChannel payChannel = routeChannel(channel);
 
+        // 0. 并发保护：本方法整体是「先查未终态单 → 无则渠道预下单 → 落库」的
+        //    check-then-insert，两个并发请求会同时查到 null 并各自落库，产生同一
+        //    业务单的重复支付单（用户可能扫两次码付两笔）。
+        //
+        //    为何用分布式锁而不是 (biz_type,biz_no) 唯一键：本方法的既有语义允许
+        //    「CREATED 超时关单后重新下单」（见下方 isExpired 分支），即同一业务单
+        //    在时间轴上可以有合法多条记录。若加无条件唯一键，关单后重下单会直接
+        //    DuplicateKeyException 把合法流程打坏；而 MySQL 无法对「仅活跃状态唯一」
+        //    建部分索引。故改用「同一业务对象串行化」的锁，既消除并发重复，又保留
+        //    原有复用/重下单语义，且无需改表结构。
+        //
+        //    锁键按业务对象划分，不同业务单互不阻塞；仅重复下单才会竞争。
+        String lockKey = "moyun:lock:pay:create:" + bizType + ":" + bizNo;
+        try (DistributedLockUtil.Lock lock =
+                     lockUtil.lock(lockKey, ORDER_LOCK_TTL, ORDER_LOCK_WAIT)) {
+            if (lock == null) {
+                // 等待超时说明另一并发请求长时间占用（如渠道预下单缓慢）：不允许降级为
+                // 「无锁继续执行」（那等于放弃幂等），明确拒绝让调用方重试
+                log.warn("[pay-gateway] 同一业务单下单锁等待超时，本次请求被拒绝 bizType={} bizNo={}", bizType, bizNo);
+                throw new IllegalStateException("该业务单正在创建支付单，请稍后重试");
+            }
+            return doCreateOrder(bizType, bizNo, userId, platformCode, channel, amount, subject, payChannel);
+        }
+    }
+
+    /**
+     * 下单主体（已在 {@code moyun:lock:pay:create:{bizType}:{bizNo}} 锁内执行）。
+     */
+    private PayOrder doCreateOrder(String bizType, String bizNo, Long userId, String platformCode,
+                                   String channel, BigDecimal amount, String subject, PayChannel payChannel) {
         // 1. 幂等复用：同业务单存在未终态单据直接返回
         PayOrder existing = payOrderMapper.selectOne(new LambdaQueryWrapper<PayOrder>()
                 .eq(PayOrder::getBizType, bizType)

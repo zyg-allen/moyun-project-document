@@ -315,6 +315,7 @@ import { getArticle, addArticle, updateArticle } from "@/api/cms/article";
 import ImageUpload from "@/components/ImageUpload/index.vue";
 import Editor from "@/components/Editor/index.vue";
 import { MagicStick } from "@element-plus/icons-vue";
+import { sanitizeHtml } from "@/utils/index";
 
 const { proxy } = getCurrentInstance();
 const router = useRouter();
@@ -399,11 +400,13 @@ watch(() => form.value.isCategoryRecommended, (val) => {
   }
 });
 
-// Markdown 预览
-const markdownPreview = computed(() => {
-  if (!form.value.contentMarkdown) return '<p class="empty-tip">预览区域</p>';
-  // 简单的 Markdown 到 HTML 转换
-  return form.value.contentMarkdown
+// Markdown → HTML 转换（保留原语义：纯正则、不转义）
+// 注意：本函数的输出含未转义的用户输入，**只能**经 sanitizeHtml 后用于展示；
+// 若需写回 form.content（提交入库），请调用本函数而非 markdownPreview，
+// 否则会把展示用的净化结果当作正文持久化，破坏作者原始 HTML。
+function markdownToHtml(md) {
+  if (!md) return '<p class="empty-tip">预览区域</p>';
+  return md
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
     .replace(/^# (.*$)/gim, '<h1>$1</h1>')
@@ -412,7 +415,10 @@ const markdownPreview = computed(() => {
     .replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>')
     .replace(/`([^`]+)`/gim, '<code>$1</code>')
     .replace(/\n/g, '<br>');
-});
+}
+
+// Markdown 预览（安全：经白名单净化后绑定 v-html，防 XSS）
+const markdownPreview = computed(() => sanitizeHtml(markdownToHtml(form.value.contentMarkdown)));
 
 // 递归过滤分类：只保留 navRouteType 为 home/category（首页/文章类型），过滤 static/external 等特殊页面
 function filterArticleCategories(list) {
@@ -714,7 +720,7 @@ function handleEditorModeChange(newMode) {
       } else if (oldMode === 'markdown' && newMode === 'richtext') {
         // Markdown → 富文本：复用预览生成的 HTML
         if (form.value.contentMarkdown) {
-          form.value.content = markdownPreview.value;
+          form.value.content = markdownToHtml(form.value.contentMarkdown);
         }
       }
       proxy.$modal.msgSuccess(`已切换到${newMode === 'richtext' ? '富文本' : 'Markdown'}编辑器`);
@@ -738,7 +744,7 @@ function submitForm() {
 
       // Markdown 模式：将 Markdown 转换为 HTML 存入 content，同时保留 contentMarkdown 原文
       if (form.value.editorMode === "markdown" && form.value.contentMarkdown) {
-        form.value.content = markdownPreview.value;
+        form.value.content = markdownToHtml(form.value.contentMarkdown);
       }
 
       const submitData = { ...form.value };

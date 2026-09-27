@@ -69,7 +69,8 @@
 | `constant` | 错误码 | `AiErrorCodes`（0 成功；1000+ 通用；2000+ AI 相关；3000+ 业务） |
 | `entity` / `mapper` | 日志落库 | `AiExecuteLog`（ai_execute_log 表） |
 
-> 历史注记：测试目录包名为 `ext.ai2`，日志前缀 `[aigateway:...]` 均为早期命名遗留，主代码包名是 `aiapp`。
+> 历史注记：包名经历 `ext.ai2`（早期）→ `ext.aiapp`（v12.2）→ **`ext.aigateway`（现行，v12.x 起）** 两次改名；
+> 日志前缀 `[aigateway:...]` 与目录名一致。测试目录同步为 `ext/aigateway`。**以代码为准：现行主包名是 `aigateway`。**
 
 ### 2.3 业务消费包（调用网关，非底座）
 

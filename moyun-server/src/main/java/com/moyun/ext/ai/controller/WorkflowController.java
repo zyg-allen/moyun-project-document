@@ -14,6 +14,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -24,6 +26,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -36,6 +40,15 @@ public class WorkflowController {
 
     private final WorkflowService workflowService;
     private final ObjectMapper objectMapper;
+
+    /**
+     * SSE 长任务执行器（core 模块统一管理，见 {@code AsyncTaskConfig#sseStreamExecutor}）。
+     * <p>v13.5 前工作流流式执行直接 {@code new Thread(...).start()}：裸线程、无命名、
+     * 无队列上限、无优雅停机，且并发数完全不受控。</p>
+     */
+    @Autowired
+    @Qualifier("sseStreamExecutor")
+    private Executor sseStreamExecutor;
 
     @Operation(summary = "获取工作流列表", description = "返回所有工作流，按创建时间降序")
     @GetMapping("/list")
@@ -210,8 +223,8 @@ public class WorkflowController {
         final Map<String, Object> inputMap = parsedInput;
         
         SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
-        
-        new Thread(() -> {
+
+        Runnable streamTask = () -> {
             try {
                 Consumer<WorkflowExecutionEvent> eventCallback = event -> {
                     try {
@@ -255,8 +268,26 @@ public class WorkflowController {
                 }
                 emitter.completeWithError(e);
             }
-        }).start();
-        
+        };
+
+        // v13.5：原先这里是裸 new Thread(...).start()——线程无命名、无队列上限、无优雅停机。
+        // 现提交到 SSE 长任务池；池满即拒绝，并给客户端一个明确错误（不降级到请求线程）。
+        try {
+            sseStreamExecutor.execute(streamTask);
+        } catch (RejectedExecutionException ree) {
+            log.warn("⚠️ 工作流流式执行被拒绝（SSE 线程池已满）: id={}, {}", id, ree.getMessage());
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("error")
+                        .data(objectMapper.writeValueAsString(
+                                WorkflowExecutionEvent.error("服务繁忙，请稍后重试")
+                        )));
+            } catch (IOException ex) {
+                log.warn("发送繁忙提示失败: {}", ex.getMessage());
+            }
+            emitter.complete();
+        }
+
         return emitter;
     }
 

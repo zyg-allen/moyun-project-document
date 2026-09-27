@@ -2,6 +2,7 @@ package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.moyun.common.annotation.DataScope;
 import com.moyun.core.base.entity.SysRole;
 import com.moyun.core.base.entity.SysUser;
 import com.moyun.core.mvc.handler.BusinessException;
@@ -62,14 +63,24 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @return 用户信息集合信息
      */
     @Override
+    @DataScope(deptAlias = "d", userAlias = "u")
     public List<SysUser> selectUserList(SysUser user) {
         return userMapper.selectUserList(user);
     }
 
     /**
      * 分页查询用户列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * <p><b>必须标注 {@code @DataScope}</b>：本方法对应的 SQL 含 {@code ${query.params.dataScope}} 拼接。
+     * 数据权限切面在标注后才会</p>
+     * <ol>
+     *   <li>{@code clearDataScope} 清空请求传入的 {@code params[dataScope]} —— 若不标注，
+     *       拥有 {@code system:user:list} 的非超管可通过 {@code ?params[dataScope]=...} 注入任意 SQL；</li>
+     *   <li>{@code dataScopeFilter} 写入按角色的数据范围片段。</li>
+     * </ol>
      */
     @Override
+    @DataScope(deptAlias = "d", userAlias = "u")
     public IPage<SysUser> selectUserPage(IPage<SysUser> page, SysUser user) {
         return userMapper.selectUserPage(page, user);
     }
@@ -81,6 +92,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @return 用户信息集合信息
      */
     @Override
+    @DataScope(deptAlias = "d", userAlias = "u")
     public List<SysUser> selectAllocatedList(SysUser user) {
         return userMapper.selectAllocatedList(user);
     }
@@ -92,6 +104,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @return 用户信息集合信息
      */
     @Override
+    @DataScope(deptAlias = "d", userAlias = "u")
     public List<SysUser> selectUnallocatedList(SysUser user) {
         return userMapper.selectUnallocatedList(user);
     }
@@ -104,6 +117,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @return 分页结果
      */
     @Override
+    @DataScope(deptAlias = "d", userAlias = "u")
     public IPage<SysUser> selectAllocatedPage(IPage<SysUser> page, SysUser user) {
         return userMapper.selectAllocatedPage(page, user);
     }
@@ -116,6 +130,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @return 分页结果
      */
     @Override
+    @DataScope(deptAlias = "d", userAlias = "u")
     public IPage<SysUser> selectUnallocatedPage(IPage<SysUser> page, SysUser user) {
         return userMapper.selectUnallocatedPage(page, user);
     }

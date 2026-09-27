@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.vip.mapper.VipUserCardMapper">
+
+    <!--
+      单条原子续期（付款发卡 / 续费顺延）。
+
+      ⚠️⚠️ 赋值顺序是**语义正确的必要条件**，不要重排：
+        MySQL 的 UPDATE ... SET 按书写顺序「从左到右」求值，且后面的表达式会读到
+        前面**已经更新后**的列值。因此 `start_time` 必须写在 `expire_time` **之前**。
+        实测（MySQL 8.0.37，探针见报告附录 I-6）：
+          · 正确顺序：原到期 +10 天、续 30 天 → start=+10、expire=+40（span=30）✅
+          · 反序写法：同一行 → expire=+40（先算），start 读到**已更新**的 +40 → start=+40，
+            再次执行后 start=expire=+70，span=0 —— 「续费后立刻到期」❌
+        即：顺序写反不会报错，只会静默毁掉续费语义。
+
+      ⚠️ 占位符位置均已用服务端预处理语句实测通过（`useServerPrepStmts=true` 已开启）：
+        `DATE_ADD(x, INTERVAL ? DAY)` 与 `CASE WHEN ? = -1` 均可用 ? 参数化。
+
+      ⚠️ 不按 status/是否过期过滤：一个 (user_id, platform_code) 恒一行（uk_user_platform）。
+        若按"仅有效卡"过滤，过期卡续费会走 0 行 → 插入，反而撞唯一键。
+    -->
+    <update id="renewCard">
+        UPDATE vip_user_card
+        SET tier_code   = #{tierCode},
+            order_id    = #{orderId},
+            status      = 1,
+            start_time  = GREATEST(COALESCE(expire_time, NOW()), NOW()),
+            expire_time = CASE WHEN #{durationDays} = -1 THEN NULL
+                               ELSE DATE_ADD(GREATEST(COALESCE(expire_time, NOW()), NOW()),
+                                             INTERVAL #{durationDays} DAY) END
+        WHERE user_id = #{userId}
+          AND platform_code = #{platformCode}
+    </update>
+
+</mapper>

@@ -88,7 +88,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { getTipTotal, listMyTips, createTip, getPayStatus, mockPay } from '@/api/ledger';
 import { toFixedYuan } from '@/utils/money';
-import QRCode from 'qrcode';
+import drawQrCode from '@/utils/qrcode';
 
 export default {
   components: { NavBar },
@@ -216,15 +216,12 @@ export default {
     },
     async renderQr(codeUrl) {
       if (!codeUrl) return;
-      // H5 canvas 渲染二维码（qrcode 包，与门户收银台一致；小程序端后续适配）
-      // #ifdef H5
-      try {
-        const host = document.getElementById('tipQr' + this.cashier.tipOrderId);
-        // uni-app H5 编译后 canvas 外层是宿主元素，需取内部原生 canvas
-        const el = host instanceof HTMLCanvasElement ? host : (host && host.querySelector('canvas'));
-        if (el) await QRCode.toCanvas(el, codeUrl, { width: 180, height: 180 });
-      } catch (e) { /* 二维码渲染失败时可用 mock 支付 */ }
-      // #endif
+      // H5 与小程序同一套绘制（uni canvas + qrcode 纯计算模块）——旧实现仅 H5 有效
+      await drawQrCode({
+        canvasId: 'tipQr' + this.cashier.tipOrderId,
+        text: codeUrl,
+        instance: this
+      });
     },
     startPolling() {
       this.stopPolling();

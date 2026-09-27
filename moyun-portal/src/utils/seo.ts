@@ -2,8 +2,18 @@
 // 全站基础配置
 // ============================================================
 const SITE_NAME = '旭林知行'
-const SITE_URL = 'https://xulin.example.com'   // 正式环境请替换为实际域名
-const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=630&fit=crop'
+// 站点域名走环境变量（VITE_SITE_URL）；未配置时回退"当前访问源"，
+// 避免把占位域名（xulin.example.com）带进生产构建的 canonical / JSON-LD
+const SITE_URL = (import.meta.env.VITE_SITE_URL || '').replace(/\/+$/, '')
+const DEFAULT_IMAGE = import.meta.env.VITE_DEFAULT_OG_IMAGE
+  || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=630&fit=crop'
+
+/** 站点根地址：优先环境变量，其次当前访问源（非浏览器环境下退化为空串） */
+function siteOrigin(): string {
+  if (SITE_URL) return SITE_URL
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin
+  return ''
+}
 
 // ============================================================
 // SEO 参数接口
@@ -44,7 +54,7 @@ export function fromSlug(slug: string): string {
 export function buildCanonicalUrl(path: string): string {
   // 确保 path 以 / 开头且不以 / 结尾
   const normalized = '/' + path.replace(/^\/+|\/+$/g, '')
-  return `${SITE_URL}${normalized}`
+  return `${siteOrigin()}${normalized}`
 }
 
 // ============================================================

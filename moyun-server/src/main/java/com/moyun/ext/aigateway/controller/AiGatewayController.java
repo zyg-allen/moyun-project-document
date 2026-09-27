@@ -123,12 +123,14 @@ public class AiGatewayController {
      * 注入调用上下文（当前用户）
      */
     private void injectContext(AiExecuteRequest request) {
-        if (request.getUserId() == null) {
-            try {
-                request.setUserId(SecurityUtils.getUserId());
-            } catch (Exception ignored) {
-                // 未登录上下文（如匿名调试），保持 null，限流按 anonymous 处理
-            }
+        // 安全：userId 一律以服务端登录态为准，无条件覆盖客户端传入值。
+        // 历史实现仅在 userId == null 时注入，而 AiExecuteRequest.userId 是公开可传字段，
+        // 客户端可伪造身份影响限流维度、ai_execute_log.user_id 与按用户 AI 消费统计。
+        try {
+            request.setUserId(SecurityUtils.getUserId());
+        } catch (Exception ignored) {
+            // 未登录上下文（如匿名调试）：强制置空，限流按 anonymous 处理，防止伪造
+            request.setUserId(null);
         }
     }
 }

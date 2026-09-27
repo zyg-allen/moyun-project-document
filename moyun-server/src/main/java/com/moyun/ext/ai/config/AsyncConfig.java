@@ -19,7 +19,11 @@ import java.util.concurrent.ThreadPoolExecutor;
  * 导致 AI 模块越界承担系统级职责。重构后该职责回归 core 模块。</p>
  *
  * <p>{@code @EnableAsync} 同步迁至 core 模块，避免本类被拆分/移除时
- * 项目内 {@code @Async} 方法（如 ToolRegistry#logToolCallAsync）静默退化为同步执行。</p>
+ * 项目内 {@code @Async} 方法（如 ToolCallLogWriter#logToolCallAsync）静默退化为同步执行。</p>
+ *
+ * <p><b>注意</b>：{@code @Async} 依赖 AOP 代理，**同类内部调用会绕过代理**导致退化为同步执行。
+ * 因此 {@code @Async} 方法必须抽到独立 Bean，由调用方注入后调用；
+ * 结构守卫见 {@code AsyncSelfInvocationGuardTest}（v13.4 起全量源码扫描）。</p>
  *
  * <p>本类提供的 Bean：</p>
  * <ul>
@@ -152,6 +156,45 @@ public class AsyncConfig {
         log.info("✅ 通用 AI 异步任务线程池初始化完成: core={}, max={}, queue={}",
                 corePoolSize, maxPoolSize, 20);
         return executor;
+    }
+
+    /**
+     * 会话摘要异步预生成线程池（AI 网关 {@code ContextManager} 使用）。
+     *
+     * <p><strong>语义</strong>：非关键路径——本轮不等待摘要；且<strong>允许丢弃</strong>：
+     * 队列满时直接丢弃并告警，下一轮滑窗再次超窗时会重新触发，不影响任何业务正确性。</p>
+     *
+     * <p>单线程是有意的：摘要是对 Redis 同一 key 的覆盖写，并发生成没有收益。</p>
+     *
+     * <p><strong>v13.5 前的问题</strong>：该池是 {@code ContextManager} 内的 {@code static}
+     * 字段（{@code Executors.newSingleThreadExecutor}）——脱离 Spring 容器、无优雅停机、
+     * 无界队列（LLM 变慢时任务可无限堆积）。</p>
+     *
+     * @return 会话摘要预生成线程池
+     */
+    @Bean(name = "contextSummaryExecutor")
+    public ThreadPoolTaskExecutor contextSummaryExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("ai-context-summary-");
+        executor.setRejectedExecutionHandler(new LoggingDiscardPolicy());
+        executor.initialize();
+
+        log.info("✅ 会话摘要预生成线程池初始化完成: core=1, max=1, queue=200（满则丢弃）");
+        return executor;
+    }
+
+    /**
+     * 拒绝策略：丢弃并告警（只用于"允许丢弃"的非关键路径，如会话摘要预生成）。
+     */
+    private static class LoggingDiscardPolicy implements RejectedExecutionHandler {
+        @Override
+        public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+            log.warn("⚠️ 会话摘要队列已满，本轮摘要预生成被丢弃: active={}, queue={}（下一轮会重新触发）",
+                    executor.getActiveCount(), executor.getQueue().size());
+        }
     }
 
     /**

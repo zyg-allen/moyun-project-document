@@ -81,12 +81,38 @@ public class PortalLedgerLiabilityController {
         return AjaxResult.success(liabilityAccountService.createAccount(userId, account, initialBalance));
     }
 
-    /** 修改负债账户（不含 balance，欠款变动走 borrow/repayment 记账） */
+    /**
+     * 修改负债账户（不含 balance / paid_terms，欠款与已还期数走 borrow/repayment 记账）
+     *
+     * <p>入参用 {@code Map} 而非实体绑定：需要区分"**未传**某字段"与"传了 null"——
+     * App 清空"每期还款额 / 还款日 / 总期数"时**显式发 null** 表示清空，而实体绑定 +
+     * {@code updateById} 的"null 则跳过"语义会让清空**静默失效**（用户保存后旧值又回来）。
+     * 这里显式映射白名单字段，并把 {@code body.keySet()} 透传给 service。</p>
+     */
     @PutMapping("/{id:[0-9]+}")
-    public AjaxResult update(@PathVariable("id") Long id, @RequestBody LedgerLiabilityAccount account) {
+    public AjaxResult update(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
+        LedgerLiabilityAccount account = new LedgerLiabilityAccount();
         account.setId(id);
-        liabilityAccountService.updateAccount(userId, account);
+        // 白名单字段显式映射：balance/paid_terms/version/status/settle_flag 不在其中，客户端传了也无效
+        if (body.containsKey("name")) account.setName(LedgerAccountFields.asString(body.get("name")));
+        if (body.containsKey("type")) account.setType(LedgerAccountFields.asString(body.get("type")));
+        if (body.containsKey("icon")) account.setIcon(LedgerAccountFields.asString(body.get("icon")));
+        if (body.containsKey("includeInTotal")) account.setIncludeInTotal(LedgerAccountFields.asInt(body.get("includeInTotal")));
+        if (body.containsKey("sortOrder")) account.setSortOrder(LedgerAccountFields.asInt(body.get("sortOrder")));
+        if (body.containsKey("principal")) account.setPrincipal(LedgerAccountFields.asDecimal(body.get("principal")));
+        if (body.containsKey("annualRate")) account.setAnnualRate(LedgerAccountFields.asDecimal(body.get("annualRate")));
+        if (body.containsKey("monthlyPayment")) account.setMonthlyPayment(LedgerAccountFields.asDecimal(body.get("monthlyPayment")));
+        if (body.containsKey("totalTerms")) account.setTotalTerms(LedgerAccountFields.asInt(body.get("totalTerms")));
+        if (body.containsKey("dueDate")) account.setDueDate(LedgerAccountFields.asLocalDate(body.get("dueDate")));
+        if (body.containsKey("repaymentDay")) {
+            Integer day = LedgerAccountFields.asInt(body.get("repaymentDay"));
+            if (day != null && (day < 1 || day > 28)) {
+                return AjaxResult.error("还款日必须在 1-28 之间");
+            }
+            account.setRepaymentDay(day);
+        }
+        liabilityAccountService.updateAccount(userId, account, body.keySet());
         return AjaxResult.success("修改成功");
     }
 

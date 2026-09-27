@@ -40,7 +40,10 @@ public class TokenService {
     private String header;
 
     // 令牌秘钥
-    @Value("${token.secret:}")
+    // 兼容既有部署：优先专用密钥 token.admin.secret；未单独配置时回退到通用 token.secret。
+    // 回退保兼容，但 TokenConfigValidator 会在两者不一致（即真的分离了）时于启动期告知，
+    // ConfigWiringValidator 亦会断言"配了专用密钥必须真的被消费"。
+    @Value("${token.admin.secret:${token.secret:}}")
     private String secret;
 
     // 当前激活 profile（与 TokenConfigValidator 策略对齐）

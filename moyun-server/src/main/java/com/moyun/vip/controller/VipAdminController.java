@@ -100,6 +100,10 @@ public class VipAdminController extends BaseController {
         if (exists > 0) {
             return error("同端下等级代码已存在：" + tier.getTierCode());
         }
+        String durationError = validateTierDuration(tier);
+        if (durationError != null) {
+            return error(durationError);
+        }
         tier.setId(null);
         return toAjax(tierMapper.insert(tier));
     }
@@ -112,7 +116,39 @@ public class VipAdminController extends BaseController {
         if (tier.getId() == null) {
             return error("等级ID不能为空");
         }
+        String durationError = validateTierDuration(tier);
+        if (durationError != null) {
+            return error(durationError);
+        }
         return toAjax(tierMapper.updateById(tier));
+    }
+
+    /**
+     * 校验等级"有效天数"（写入口 fail-fast）
+     *
+     * <p><b>为什么必须挡在这里</b>：{@code vip_tier.duration_days} 在 DDL 里是
+     * {@code int DEFAULT NULL}，而下游发卡 {@code VipServiceImpl.grantCard} 需要用它做
+     * {@code start.plusDays(durationDays)}。为 {@code null} 时该处会抛 NPE，
+     * 且异常发生在**支付回调事务内**：支付单回滚回 CREATED，渠道反复重试仍失败，
+     * 表现为 <b>"用户已付款、却永远拿不到会员卡"</b>——一个后台配置疏漏等于一笔收钱不发货。
+     * 故在此处拦住，而不是等回调时才炸。</p>
+     *
+     * <p><b>取值语义</b>（与 DDL 注释、前端提示一致）：{@code -1}=永久，{@code 0}=免费等级，
+     * 正整数=有效天数；小于 {@code -1} 无意义，一并拒绝。</p>
+     *
+     * <p>注：{@code tierEdit} 走 {@code updateById}，MyBatis-Plus 默认忽略 null 字段，
+     * 若不校验则"把有效天数清空"会**静默不生效**；此处明确报错比静默忽略更诚实。</p>
+     *
+     * @return 校验通过的返回 {@code null}，否则返回面向操作者的错误文案
+     */
+    private String validateTierDuration(VipTier tier) {
+        if (tier.getDurationDays() == null) {
+            return "有效天数不能为空（-1 表示永久，0 表示免费等级，正数表示有效天数）";
+        }
+        if (tier.getDurationDays() < -1) {
+            return "有效天数不合法：" + tier.getDurationDays() + "（只支持 -1 永久 / 0 免费 / 正整数）";
+        }
+        return null;
     }
 
     @Operation(summary = "删除等级（有会员卡/权益配置时禁止）")

@@ -10,6 +10,20 @@ spring:
     name: moyun-server
   profiles:
     active: dev
+    # profile 组（2026-09-27 新增）：激活 prod 时自动带上 dev 的**结构性配置**
+    # （数据源/Redis/Druid/日志等非敏感项），使"只设 SPRING_PROFILES_ACTIVE=prod"也能启动。
+    #
+    # 为何需要：原先数据源与连接池参数只存在于 application-dev.yaml / application-local.yaml，
+    # 单独激活 prod 会直接以 `maxActive can't not set zero` 启动失败（DruidConfig）。
+    # 生产部署仍需落地 application-prod.yaml（已 gitignore）覆盖敏感项与差异项；
+    # 本组只是保证"prod 未落地完整文件"时失败原因清晰（走到配置校验），
+    # 而不是莫名其妙的连接池报错。
+    #
+    # 注意：dev 内的开发默认口令/示例凭据不会削弱生产安全——ConfigWiringValidator
+    # 在 prod 下会对"开发默认口令/危险开关"直接阻断启动（见该类）。
+    group:
+      prod: dev
+      production: dev
   # 文件上传配置（AI 知识库文档最大 50MB，与原 moyun-ai 配置对齐）
   servlet:
     multipart:
@@ -29,6 +43,15 @@ spring:
     deserialization:
       # 忽略未知字段
       fail-on-unknown-properties: false
+
+  # Quartz 调度：**JDBC 集群 JobStore**（v13.7 起启用，配置在 Java 侧）
+  #   见 com.moyun.core.config.QuartzConfig：显式定义 SchedulerFactoryBean，把**物理主库**
+  #   masterDataSource 注入进去（不能用 @Primary 的 dynamicDataSource 路由数据源，否则启动抛
+  #   "No local DataSource found for configuration"），并开启 isClustered=true / instanceId=AUTO。
+  #   前置条件：目标库 qrtz_* 表（Quartz 2.x schema，11 张）已就绪 —— init-sql/moyun-db-ddl.sql 已含。
+  #   多实例语义：同一触发器同一时刻只在一个节点执行（qrtz_locks 行锁竞争）；
+  #   启动注册改为 sys_job → JobStore 的**幂等同步**（不再 scheduler.clear()，见 SysJobServiceImpl#init）。
+  #   @Scheduled 注解类任务（ledger 三个等）不走 Quartz，仍由 DistributedLockUtil 互斥。
 
 # 日志配置（公共格式，各环境共享）
 logging:
@@ -62,8 +85,11 @@ moyun:
   portal:
     # 站点正式域名（用于 sitemap.xml / og:url / canonical 等绝对 URL 生成）
     # 必须以 http:// 或 https:// 开头，结尾不要带 /
-    # 本地默认占位为 https://xulin.example.com；生产环境必须通过环境变量 PORTAL_DOMAIN 覆盖
-    # 同步要求：moyun-portal/public/robots.txt 与 moyun-portal/public/sitemap.xml 中的占位域名一并替换
+    # 本地默认占位为 https://xulin.example.com；生产环境必须通过环境变量 PORTAL_DOMAIN 覆盖，
+    # 否则 ConfigWiringValidator 的 W-5 断言会在 prod 启动时阻断（占位域名会被写进动态 sitemap）。
+    # 前端同源要求：moyun-portal 的 VITE_SITE_URL / VITE_DEFAULT_OG_IMAGE（构建期注入
+    #   index.html / robots.txt / sitemap.xml，production 构建缺 VITE_SITE_URL 直接失败——
+    #   不再需要手工替换 public/ 下的占位域名）
     domain: ${PORTAL_DOMAIN:https://xulin.example.com}
 
 # Token 配置

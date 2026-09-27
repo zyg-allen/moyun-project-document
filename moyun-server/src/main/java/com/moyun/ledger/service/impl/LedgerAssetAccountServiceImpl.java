@@ -1,6 +1,7 @@
 package com.moyun.ledger.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerNetWorthSnapshot;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 资产账户服务实现
@@ -77,15 +79,105 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
 
     @Override
     public void updateAccount(Long userId, LedgerAssetAccount account) {
+        updateAccount(userId, account, java.util.Set.of());
+    }
+
+    @Override
+    public void updateAccount(Long userId, LedgerAssetAccount account, Set<String> providedFields) {
         LedgerAssetAccount exist = getOwned(userId, account.getId());
         if (exist == null) {
             throw new IllegalArgumentException("资产账户不存在或无权操作");
         }
-        // balance 由记账联动维护，此处强制保持原值
-        account.setBalance(exist.getBalance());
-        account.setUserId(userId);
-        account.setVersion(exist.getVersion());
-        updateById(account);
+        LambdaUpdateWrapper<LedgerAssetAccount> uw = metaUpdateWrapper(userId, account, providedFields);
+        if (uw == null) {
+            return; // 无可更新字段 = 无变化（避免生成 `UPDATE t SET WHERE ...` 的非法 SQL）
+        }
+        int rows = baseMapper.update(null, uw);
+        if (rows == 0) {
+            throw new IllegalStateException("资产账户更新失败（记录可能已被删除），请刷新后重试");
+        }
+    }
+
+    /**
+     * 「账户业务属性」列级更新条件 —— **只更新可编辑列**
+     *
+     * <h4>为什么不再用 {@code updateById(account)}（原实现）</h4>
+     * 原实现是 <b>读整行 → 改字段 → {@code updateById} 写回整行</b>：
+     * <pre>
+     * exist = getOwned(...);                      // 快照读（含 balance / version）
+     * account.setBalance(exist.getBalance());     // 把"读到的"余额塞回待写实体
+     * account.setVersion(exist.getVersion());
+     * updateById(account);                        // 写回整行 → balance / version 一起被覆盖
+     * </pre>
+     * 而余额的真正维护方是 {@code LedgerTransactionServiceImpl.applyAssetDelta}
+     * （{@code balance = balance + delta} + {@code version = version + 1} + {@code WHERE version = ?} 乐观锁）。
+     * 两者叠加会造成两个后果（均已在 {@code LedgerAccountMetaUpdateIsolationDbTest} 真库复现）：
+     * <ol>
+     *   <li><b>抹账</b>：用户改账户名期间并发记了一笔账，改属性会把余额<strong>写回记账前的旧值</strong>
+     *       —— 流水记着 +50、余额却没变，账实不符；</li>
+     *   <li><b>乐观锁 ABA</b>：把 {@code version} 写回旧值后，"读到的 version"重新可用，
+     *       两个并发记账都可能命中 {@code WHERE version = ?} → 重复叠加或丢更新。</li>
+     * </ol>
+     *
+     * <h4>列范围规则</h4>
+     * 可写 = 账户的<b>业务属性列</b>；永久排除三类：
+     * <ul>
+     *   <li>由记账联动维护：{@code balance}；</li>
+     *   <li>并发控制：{@code version}；</li>
+     *   <li>归属与状态：{@code user_id}、{@code status}（归档只能走 {@code deleteAccount}）。</li>
+     * </ul>
+     * 其余列沿用原 {@code updateById} 的"未提供（null）则不更新"语义，故**不产生能力回退**。
+     *
+     * <h4>可空列的"显式清空"</h4>
+     * <p>{@code valuation} / {@code icon} 是可空列：{@code providedFields} 里出现即以其为准
+     * （{@code null} = 清空）——这样"清空估值/图标"能真正落库，同时避免"未传就清空"的数据丢失。</p>
+     *
+     * @param providedFields 请求体中**显式出现**的字段名（camelCase，如 {@code valuation}）
+     * @return 已构建好 SET 子句的更新条件；调用方需先确认非空（全 null 时不产生 SET，SQL 非法）
+     */
+    private LambdaUpdateWrapper<LedgerAssetAccount> metaUpdateWrapper(Long userId, LedgerAssetAccount account,
+                                                                     Set<String> providedFields) {
+        Set<String> provided = providedFields == null ? Set.of() : providedFields;
+        LambdaUpdateWrapper<LedgerAssetAccount> uw = new LambdaUpdateWrapper<>();
+        uw.eq(LedgerAssetAccount::getId, account.getId())
+                // 归属校验下沉到 WHERE：与 getOwned 同源，避免"先查后改"之间被改归属
+                .eq(LedgerAssetAccount::getUserId, userId);
+        boolean any = false;
+        // —— NOT NULL 业务列：非 null 才更新（传 null 无法置空，也无需置空）——
+        if (account.getName() != null) {
+            uw.set(LedgerAssetAccount::getName, account.getName());
+            any = true;
+        }
+        if (account.getType() != null) {
+            uw.set(LedgerAssetAccount::getType, account.getType());
+            any = true;
+        }
+        if (account.getIncludeInTotal() != null) {
+            uw.set(LedgerAssetAccount::getIncludeInTotal, account.getIncludeInTotal());
+            any = true;
+        }
+        if (account.getHideBalance() != null) {
+            uw.set(LedgerAssetAccount::getHideBalance, account.getHideBalance());
+            any = true;
+        }
+        if (account.getSortOrder() != null) {
+            uw.set(LedgerAssetAccount::getSortOrder, account.getSortOrder());
+            any = true;
+        }
+        // —— 可空业务列：显式提供即以传入值为准（null = 清空）——
+        if (provided.contains("valuation")) {
+            uw.set(LedgerAssetAccount::getValuation, account.getValuation());
+            any = true;
+        }
+        if (provided.contains("icon")) {
+            uw.set(LedgerAssetAccount::getIcon, account.getIcon());
+            any = true;
+        }
+        if (!any) {
+            // 没有可更新字段：直接返回空条件，由调用方短路（避免生成 `UPDATE t SET WHERE ...` 的非法 SQL）
+            return null;
+        }
+        return uw;
     }
 
     @Override
@@ -95,8 +187,15 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
         if (exist == null) {
             throw new IllegalArgumentException("资产账户不存在或无权操作");
         }
-        exist.setStatus(LedgerAssetAccount.STATUS_ARCHIVED);
-        updateById(exist);
+        // 归档同理只改 status：原实现 updateById(exist) 会把快照里的 balance/version 一起写回，
+        // 并发记账的结果会被抹掉（见 LedgerAccountMetaUpdateIsolationDbTest#assetArchive...）
+        int rows = baseMapper.update(null, new LambdaUpdateWrapper<LedgerAssetAccount>()
+                .eq(LedgerAssetAccount::getId, accountId)
+                .eq(LedgerAssetAccount::getUserId, userId)
+                .set(LedgerAssetAccount::getStatus, LedgerAssetAccount.STATUS_ARCHIVED));
+        if (rows == 0) {
+            throw new IllegalStateException("资产账户归档失败（记录可能已被删除），请刷新后重试");
+        }
         refreshSnapshot(userId, LocalDate.now());
     }
 
@@ -138,7 +237,12 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
             return; // 快照由记账服务/定时任务统一维护，此处仅已有快照时刷新资产侧
         }
         exist.setTotalAsset(totalAsset);
-        exist.setNetWorth(totalAsset.subtract(exist.getTotalLiability()));
-        snapshotMapper.updateById(exist);
+        // 只写资产侧两列：原 updateById(exist) 会把读到的 total_liability 一起写回，
+        // 与负债侧并发时可能写入陈旧值（下一笔记账会双边重算，属短暂不一致，但没必要留这个面）
+        snapshotMapper.update(null, new LambdaUpdateWrapper<LedgerNetWorthSnapshot>()
+                .eq(LedgerNetWorthSnapshot::getId, exist.getId())
+                .set(LedgerNetWorthSnapshot::getTotalAsset, totalAsset)
+                .set(LedgerNetWorthSnapshot::getNetWorth,
+                        totalAsset.subtract(exist.getTotalLiability())));
     }
 }

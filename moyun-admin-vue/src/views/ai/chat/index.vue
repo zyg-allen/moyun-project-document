@@ -365,6 +365,7 @@ import { onMounted, onBeforeUnmount, ref, watch, computed, onUnmounted, nextTick
 import { useRoute } from 'vue-router'
 import request from '@/utils/request'
 import { fetchStream } from '@/utils/stream'
+import { sanitizeHtml } from '@/utils/index'
 import { v4 as uuidv4 } from 'uuid'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -582,7 +583,10 @@ window.copyCode = function(button) {
 const renderMarkdown = (content) => {
   if (!content) return ''
   try {
-    const html = marked.parse(content)
+    // 安全：content 来自 LLM 输出与知识库检索（不可信），
+    // 且下方 marked 配置 sanitize:false（marked 4+ 该选项已废弃、不再提供任何保护），
+    // 因此必须在输出侧做白名单净化，否则 v-html 会执行注入的 HTML/脚本。
+    const html = sanitizeHtml(marked.parse(content))
     // 添加点击事件监听
     setTimeout(() => {
       attachReferenceClickHandlers()
@@ -590,7 +594,7 @@ const renderMarkdown = (content) => {
     return html
   } catch (e) {
     console.error('Markdown 渲染错误:', e)
-    return content
+    return sanitizeHtml(content)
   }
 }
 

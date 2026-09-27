@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -102,6 +103,18 @@ public class SecurityConfig {
 
     /**
      * 判断请求路径是否应该被当前 SecurityFilterChain 处理
+     *
+     * <p><b>为什么显式包含 {@code /portal/admin/**}</b>（v13.6 补证）：该前缀虽然落在
+     * {@code /portal/**} 之下，但它是**后台管理接口**（用 admin token），必须由本链
+     * （核心链，含 {@code JwtAuthenticationTokenFilter}）处理，而不是门户链
+     * （门户链的 {@code PortalJwtAuthenticationTokenFilter} 会主动跳过该前缀）。
+     * 生产配置 {@code security.exclude-modules: /portal/**,...} 会把整个 {@code /portal/**}
+     * 排除出本链，因此这里必须先于排除逻辑返回 true。</p>
+     *
+     * <p><b>顺序要求</b>：本链与门户链（{@code PortalSecurityConfig#portalSecurityFilterChain}）
+     * 对 {@code /portal/admin/**} **同时匹配**，谁生效取决于链顺序。故两条链的 {@code @Bean}
+     * 方法都显式标了 {@code @Order}（本链 1、门户链 2）——实测把 {@code @Order} 标在
+     * {@code @Configuration} 类上**不生效**（链顺序退化为注册顺序），不要再用那种写法。</p>
      */
     private boolean shouldApplyTo(HttpServletRequest request) {
         String uri = request.getRequestURI();
@@ -138,8 +151,15 @@ public class SecurityConfig {
      * rememberMe          |   允许通过remember-me登录的用户访问
      * authenticated       |   用户登录后可访问
      */
+    /**
+     * 核心安全链（**必须排在门户链之前**，{@code @Order(1)}）。
+     *
+     * <p>它负责 {@code /portal/admin/**}（后台管理接口，admin token）以及除被
+     * {@code security.exclude-modules} 排除路径之外的全部请求。</p>
+     */
     @Bean
     @Primary
+    @Order(1)
     protected SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity
                 // 排除配置的模块路径，这些路径使用独立的认证配置

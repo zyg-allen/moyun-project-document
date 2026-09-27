@@ -104,8 +104,12 @@
             <el-tag v-if="row.agentUsed" size="small" type="warning" class="agent-tag">{{ row.agentUsed }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Token" prop="tokenUsed" width="90" align="right">
-          <template #default="{ row }">{{ row.tokenUsed != null ? formatNumber(row.tokenUsed) : '-' }}</template>
+        <el-table-column label="Token" prop="tokenUsed" width="120" align="right">
+          <template #default="{ row }">
+            <span>{{ row.tokenUsed != null ? formatNumber(row.tokenUsed) : '-' }}</span>
+            <!-- 估算标记：流式调用拿不到服务端 usage，由网关本地分词估算（tokenEstimated=1） -->
+            <el-tag v-if="row.tokenEstimated === 1" type="warning" size="small" style="margin-left: 4px">估算</el-tag>
+          </template>
         </el-table-column>
         <el-table-column label="成本(¥)" width="100" align="right">
           <template #default="{ row }">{{ row.costYuan != null ? formatCost(row.costYuan) : '-' }}</template>
@@ -150,7 +154,12 @@
         <el-descriptions-item label="模型">{{ detail.modelUsed || '-' }}</el-descriptions-item>
         <el-descriptions-item label="Agent">{{ detail.agentUsed || '-' }}</el-descriptions-item>
         <el-descriptions-item label="Token / 成本">
-          {{ detail.tokenUsed != null ? detail.tokenUsed : '-' }} / ¥{{ detail.costYuan != null ? formatCost(detail.costYuan) : '-' }}
+          {{ detail.tokenUsed != null ? detail.tokenUsed : '-' }}
+          <el-tag v-if="detail.tokenEstimated === 1" type="warning" size="small">估算</el-tag>
+          <span v-if="detail.tokenEstimated === 1" style="color: #e6a23c; margin-left: 4px">
+            （服务端未回传 usage，网关本地分词估算）
+          </span>
+          / ¥{{ detail.costYuan != null ? formatCost(detail.costYuan) : '-' }}
         </el-descriptions-item>
         <el-descriptions-item label="耗时">{{ detail.elapsedMs != null ? detail.elapsedMs + 'ms' : '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">

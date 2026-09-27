@@ -68,10 +68,13 @@
         <div v-for="block in contentBlocks" :key="block.key" class="content-block">
           <div class="content-label">{{ block.label }}</div>
           <!-- 富文本内容 -->
+          <!-- 安全：block.value 为门户用户投稿的正文/摘要（不可信），必须净化后再渲染，
+               否则攻击者可借投稿触发存储型 XSS 劫持管理员会话。
+               净化后仍保留 img[src]，下方 handleContentClick 的图片预览不受影响。 -->
           <div
             v-if="block.type === 'html'"
             class="html-content content-panel"
-            v-html="block.value"
+            v-html="sanitizeHtml(block.value)"
             @click="handleContentClick"
           ></div>
           <!-- 多图证据 -->
@@ -154,6 +157,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Link } from '@element-plus/icons-vue'
 import { getAuditTask, handleAuditTask } from '@/api/system/auditTask'
+import { sanitizeHtml } from '@/utils/index'
 
 const props = defineProps({
   // 控制弹窗显示

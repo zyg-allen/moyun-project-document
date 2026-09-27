@@ -321,6 +321,7 @@ INSERT INTO ledger_category (user_id,name,`type`,group_name,parent_id,icon,color
 	 (0,'其他收入','income',NULL,NULL,'other','#BDC3C7',9,1,1,'2026-09-08 13:37:08','2026-09-08 13:37:08'),
 	 (0,'士大夫但是','adjust',NULL,17,'','#6a4fd4',0,1,1,'2026-09-14 13:23:47','2026-09-14 13:23:47'),
 	 (6,'哈哈哈','expense',NULL,NULL,NULL,NULL,0,0,1,'2026-09-14 13:47:13','2026-09-14 13:47:13');
+
 INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('首页','home','精选推荐、双轨轮播','fa-home',1,0,'0',1,'home','/',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
 	 ('面试专区','interview','AI 语音面试、面经复盘、简历优化','fa-briefcase',2,0,'0',1,'static','/interview',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),

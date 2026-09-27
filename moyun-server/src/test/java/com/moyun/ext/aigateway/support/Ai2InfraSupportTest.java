@@ -6,6 +6,7 @@ import com.moyun.ext.aigateway.support.FallbackStrategy;
 import com.moyun.ext.aigateway.support.SceneRateLimiter;
 import com.moyun.ext.aigateway.support.SemanticCache;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -15,6 +16,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 import java.time.Duration;
 import java.util.Map;
@@ -23,13 +25,19 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +56,12 @@ class Ai2InfraSupportTest {
 
     @Mock private RedisTemplate<String, String> redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
+
+    /** 由 {@link #stubIncrement()} 创建并 stub 好的限流器（测试须复用此实例，勿另建） */
+    private SceneRateLimiter stubLimiter;
+
+    /** 由 {@link #stubIncrement()} 填充：key → 首次计数时设置的窗口秒数（供 TTL 断言） */
+    private Map<String, Long> rateExpireStub;
 
     // ==================== FallbackStrategy（内置兜底分场景） ====================
 
@@ -123,19 +137,22 @@ class Ai2InfraSupportTest {
     @Test
     void rateLimiter_firstRequest_setsExpire() {
         stubIncrement();
-        SceneRateLimiter limiter = new SceneRateLimiter(redisTemplate);
+        SceneRateLimiter limiter = stubLimiter;
 
         SceneRateLimiter.RateResult r = limiter.tryAcquire("resume_parse", "u1", 5, 60);
         assertTrue(r.allowed());
         assertEquals(1, r.current());
-        // 首次计数应设置窗口过期时间（固定窗口的窗口边界）
-        verify(redisTemplate).expire(anyString(), eq(Duration.ofSeconds(60)));
+        // 首次计数应在同一 Lua 脚本内设置窗口过期时间（固定窗口边界）。
+        // 断言 stub 记录的窗口秒数，而非两步式的 redisTemplate.expire(...)
+        assertEquals(1, rateExpireStub.size(), "首次计数应恰好设置一次窗口 TTL");
+        assertEquals(60L, rateExpireStub.values().iterator().next(),
+                "窗口 TTL 应等于 rateLimitTime（60s）");
     }
 
     @Test
     void rateLimiter_withinLimit_allowed() {
         stubIncrement();
-        SceneRateLimiter limiter = new SceneRateLimiter(redisTemplate);
+        SceneRateLimiter limiter = stubLimiter;
 
         for (int i = 1; i <= 5; i++) {
             SceneRateLimiter.RateResult r = limiter.tryAcquire("resume_parse", "u1", 5, 60);
@@ -156,9 +173,9 @@ class Ai2InfraSupportTest {
 
     @Test
     void rateLimiter_redisException_failsOpen() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.increment(anyString())).thenThrow(new RedisConnectionFailureException("down"));
-        SceneRateLimiter limiter = new SceneRateLimiter(redisTemplate);
+        SceneRateLimiter limiter = spy(new SceneRateLimiter(redisTemplate));
+        doThrow(new RedisConnectionFailureException("down"))
+                .when(limiter).incrWithWindow(anyString(), anyInt());
 
         SceneRateLimiter.RateResult r = limiter.tryAcquire("resume_parse", "u1", 1, 60);
         assertTrue(r.allowed(), "Redis 异常应放行（限流不阻断业务）");
@@ -194,9 +211,9 @@ class Ai2InfraSupportTest {
         resp.setCode(AiErrorCodes.SUCCESS);
         resp.setData("分析结果");
 
-        cache.put("finance_analysis", "{\"range\":\"month\"}", "本月数据", resp, 300);
+        cache.put(1L, "finance_analysis", "{\"range\":\"month\"}", "本月数据", resp, 300);
 
-        AiExecuteResponse<Object> hit = cache.get("finance_analysis", "{\"range\":\"month\"}", "本月数据");
+        AiExecuteResponse<Object> hit = cache.get(1L, "finance_analysis", "{\"range\":\"month\"}", "本月数据");
         assertNotNull(hit, "相同 inputKey 应精确命中");
         assertEquals("分析结果", hit.getData());
         assertNotNull(hit.getMetadata(), "命中响应应携带 metadata");
@@ -206,7 +223,7 @@ class Ai2InfraSupportTest {
     @Test
     void semanticCache_miss_returnsNull() {
         SemanticCache cache = newCache();
-        assertNull(cache.get("finance_analysis", "never-seen-key", "任意文本"));
+        assertNull(cache.get(1L, "finance_analysis", "never-seen-key", "任意文本"));
     }
 
     @Test
@@ -214,9 +231,9 @@ class Ai2InfraSupportTest {
         SemanticCache cache = newCache();
         AiExecuteResponse<Object> resp = new AiExecuteResponse<>();
         resp.setCode(AiErrorCodes.SUCCESS);
-        cache.put("finance_analysis", "k", "t", resp, 0);
-        cache.put("finance_analysis", "k", "t", resp, null);
-        assertNull(cache.get("finance_analysis", "k", "t"), "ttl<=0 不应写入缓存");
+        cache.put(1L, "finance_analysis", "k", "t", resp, 0);
+        cache.put(1L, "finance_analysis", "k", "t", resp, null);
+        assertNull(cache.get(1L, "finance_analysis", "k", "t"), "ttl<=0 不应写入缓存");
     }
 
     @Test
@@ -224,15 +241,61 @@ class Ai2InfraSupportTest {
         SemanticCache cache = newCache();
         AiExecuteResponse<Object> resp = new AiExecuteResponse<>();
         resp.setCode(AiErrorCodes.SUCCESS);
-        cache.put("scene_a", "same-input-key", "t", resp, 300);
-        assertNull(cache.get("scene_b", "same-input-key", "t"), "不同场景缓存应隔离");
+        cache.put(1L, "scene_a", "same-input-key", "t", resp, 300);
+        assertNull(cache.get(1L, "scene_b", "same-input-key", "t"), "不同场景缓存应隔离");
     }
 
     @Test
     void semanticCache_redisReadException_degradesToNull() {
         when(valueOperations.get(anyString())).thenThrow(new RedisConnectionFailureException("down"));
         SemanticCache cache = newCache();
-        assertNull(cache.get("finance_analysis", "k", "t"), "缓存查询异常应降级直连（返回 null 不抛错）");
+        assertNull(cache.get(1L, "finance_analysis", "k", "t"), "缓存查询异常应降级直连（返回 null 不抛错）");
+    }
+
+    // ==================== SemanticCache（v13.2 用户隔离，安全修复） ====================
+
+    @Test
+    @DisplayName("语义缓存必须按用户隔离：A 用户的缓存不得被 B 用户命中（跨用户数据泄漏）")
+    void semanticCache_userIsolated() {
+        SemanticCache cache = newCache();
+        AiExecuteResponse<Object> resp = new AiExecuteResponse<>();
+        resp.setCode(AiErrorCodes.SUCCESS);
+        resp.setData("A 的简历分析结果");
+
+        cache.put(1001L, "resume_parse", "{\"text\":\"同一份简历\"}", "同一份简历", resp, 300);
+
+        assertNotNull(cache.get(1001L, "resume_parse", "{\"text\":\"同一份简历\"}", "同一份简历"),
+                "同一用户应命中自己的缓存");
+        assertNull(cache.get(1002L, "resume_parse", "{\"text\":\"同一份简历\"}", "同一份简历"),
+                "不同用户输入完全相同也不得命中——响应体可能含他人私有数据");
+    }
+
+    @Test
+    @DisplayName("userId 为空时既不查也不写（无法隔离就不用缓存，fail-closed）")
+    void semanticCache_nullUser_skipsCache() {
+        SemanticCache cache = newCache();
+        AiExecuteResponse<Object> resp = new AiExecuteResponse<>();
+        resp.setCode(AiErrorCodes.SUCCESS);
+
+        cache.put(null, "finance_analysis", "k", "t", resp, 300);
+        assertNull(cache.get(null, "finance_analysis", "k", "t"), "无 userId 不应命中缓存");
+
+        // 且确实没有写入任何"无用户命名空间"的键：否则会退化成跨用户共享
+        verify(valueOperations, never()).set(anyString(), anyString(), any(Duration.class));
+    }
+
+    @Test
+    @DisplayName("语义扫描模式必须带 userId（防止有人改回跨用户扫描）")
+    void semanticCache_scanPattern_isUserScoped() {
+        SemanticCache cache = newCache();
+
+        String p1 = cache.scanPattern(1001L, "resume_parse");
+        String p2 = cache.scanPattern(1002L, "resume_parse");
+
+        assertTrue(p1.contains(":u:1001:"), "扫描模式须带用户命名空间，实际: " + p1);
+        assertTrue(p1.startsWith("ai2:cache:u:"), "键前缀须为 ai2:cache:u:（历史无隔离键不再被读取），实际: " + p1);
+        assertNotEquals(p1, p2, "不同用户的扫描范围必须不同");
+        assertTrue(p1.endsWith(":" + "resume_parse" + ":*"), "扫描范围限定在本场景，实际: " + p1);
     }
 
     // ==================== 辅助 ====================
@@ -244,15 +307,34 @@ class Ai2InfraSupportTest {
         return cache;
     }
 
-    /** increment 用独立计数器模拟（按 key 区分），首次 set expire 不必验证（put 不依赖） */
+    /**
+     * 限流器的 Lua 原子计数用独立计数器模拟（按 key 区分）。
+     *
+     * <p>限流器已改为单次 Lua 调用完成 "incr + 首次 expire"，替代原先 INCR 与 EXPIRE
+     * 两条独立命令（两步之间崩溃会导致窗口永不重置）。此处 stub 其包级可见的
+     * {@code incrWithWindow(key, windowSeconds)} 包装方法——Mockito 对泛型 varargs 的
+     * {@code execute(RedisScript, List, Object...)} 匹配不可靠，故代码侧已包装为固定参数方法。</p>
+     */
     private void stubIncrement() {
+        // 用 spy + 固定签名方法 incrWithWindow(key, windowSeconds) 做 stub：
+        // redisTemplate.execute(RedisScript, List, Object...) 是泛型 varargs，
+        // Mockito 会把可变参数展开记录（实测 argCount=3），matcher 数量无法稳定对齐
+        SceneRateLimiter limiter = spy(new SceneRateLimiter(redisTemplate));
+        this.stubLimiter = limiter;
         Map<String, AtomicLong> counters = new ConcurrentHashMap<>();
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.increment(anyString())).thenAnswer(inv -> {
+        Map<String, Long> expiredWindows = new ConcurrentHashMap<>();
+        this.rateExpireStub = expiredWindows;
+        lenient().doAnswer(inv -> {
             String key = inv.getArgument(0);
+            int window = inv.getArgument(1);
             long v = counters.computeIfAbsent(key, k -> new AtomicLong()).incrementAndGet();
+            if (v == 1L) {
+                expiredWindows.put(key, (long) window);
+            }
             return v;
-        });
+        }).when(limiter).incrWithWindow(anyString(), anyInt());
+        // 历史两步式命令不应再被调用（回归守卫）
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().doAnswer(inv -> null).when(valueOperations).set(anyString(), anyString(), any(Duration.class));
     }
 }

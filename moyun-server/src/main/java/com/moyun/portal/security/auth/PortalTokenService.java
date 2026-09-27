@@ -41,7 +41,10 @@ public class PortalTokenService {
     private String header;
 
     // 令牌秘钥
-    @Value("${token.secret:}")
+    // 兼容既有部署：优先专用密钥 token.portal.secret；未单独配置时回退到通用 token.secret。
+    // 回退保兼容，但 TokenConfigValidator 会在两者不一致（即真的分离了）时于启动期告知，
+    // ConfigWiringValidator 亦会断言"配了专用密钥必须真的被消费"。
+    @Value("${token.portal.secret:${token.secret:}}")
     private String secret;
 
     // 令牌有效期（默认720分钟 - 12小时，门户可以设置稍长一些）

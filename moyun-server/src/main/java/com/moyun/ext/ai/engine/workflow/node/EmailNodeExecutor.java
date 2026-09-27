@@ -1,13 +1,13 @@
 package com.moyun.ext.ai.engine.workflow.node;
 
+import com.moyun.core.mail.MailChannelStatus;
 import com.moyun.ext.ai.engine.workflow.WorkflowContext;
 import com.moyun.ext.ai.engine.workflow.WorkflowNode;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
@@ -31,11 +31,9 @@ import java.util.Map;
 @Component
 public class EmailNodeExecutor extends BaseNodeExecutor {
 
-    @Autowired(required = false)
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:}")
-    private String defaultFrom;
+    /** 邮件通道就绪判定（单一事实来源，详见 {@link MailChannelStatus} 类注释） */
+    @Autowired
+    private MailChannelStatus mailChannelStatus;
 
     @Override
     public String getType() {
@@ -49,14 +47,14 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
             return NodeResult.fail("邮件节点配置为空");
         }
 
-        // 检查邮件服务
-        if (mailSender == null) {
-            log.warn("📧 邮件服务未配置，模拟发送成功");
-            String to = (String) config.get("to");
-            String subject = (String) config.get("subject");
-            context.setVariable((String) config.getOrDefault("outputVariable", "email_result"), 
-                    Map.of("success", true, "message", "邮件服务未配置，模拟发送", "to", to, "subject", subject));
-            return NodeResult.success(Map.of("success", true, "simulated", true));
+        // 检查邮件通道是否就绪（配置层判定，先于真正连接 SMTP）
+        // 历史实现此处返回"模拟发送成功"（success=true + simulated=true）——属 fail-open 假成功：
+        // 工作流上游会认为邮件已送达，而实际上什么都没发。与项目"不伪装成功"的取向相反，
+        // 故改为明确失败，由调用方/编排决定是否走错误分支。
+        String notReady = mailChannelStatus.unavailableReason();
+        if (notReady != null) {
+            log.warn("📧 邮件节点无法执行，邮件通道未就绪：{}", notReady);
+            return NodeResult.fail("邮件服务未配置（" + notReady + "），邮件节点无法执行");
         }
 
         try {
@@ -64,7 +62,7 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
             String to = (String) config.get("to");
             String subject = (String) config.get("subject");
             String content = (String) config.get("content");
-            String from = (String) config.getOrDefault("from", defaultFrom);
+            String from = (String) config.getOrDefault("from", mailChannelStatus.from());
             String cc = (String) config.get("cc");
             String bcc = (String) config.get("bcc");
             boolean isHtml = Boolean.TRUE.equals(config.get("isHtml"));
@@ -104,6 +102,10 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
             context.setVariable(outputVariable, result);
             return NodeResult.success(result);
 
+        } catch (MailAuthenticationException e) {
+            log.error("📧 邮件服务认证失败: host={}, username={}",
+                    mailChannelStatus.host(), mailChannelStatus.from(), e);
+            return NodeResult.fail("邮件服务认证失败（MAIL_USERNAME / MAIL_PASSWORD 配置有误），请联系管理员");
         } catch (Exception e) {
             log.error("邮件发送失败", e);
             return NodeResult.fail("邮件发送失败: " + e.getMessage());
@@ -126,7 +128,7 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
         }
         message.setSubject(subject);
         message.setText(content);
-        mailSender.send(message);
+        mailChannelStatus.sender().send(message);
     }
 
     /**
@@ -134,7 +136,7 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
      */
     private void sendHtmlMail(String from, String to, String cc, String bcc,
                                String subject, String content) throws Exception {
-        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessage message = mailChannelStatus.sender().createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
         helper.setFrom(from);
         helper.setTo(to.split(","));
@@ -146,6 +148,6 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
         }
         helper.setSubject(subject);
         helper.setText(content, true);
-        mailSender.send(message);
+        mailChannelStatus.sender().send(message);
     }
 }

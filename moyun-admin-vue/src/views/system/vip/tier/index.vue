@@ -58,7 +58,9 @@
          </el-table-column>
          <el-table-column label="有效天数" align="center" prop="durationDays" width="90">
             <template #default="scope">
-               <span>{{ scope.row.durationDays === -1 ? '永久' : scope.row.durationDays + '天' }}</span>
+               <!-- 有效天数为 null 属历史脏数据：显式标红提示，避免显示成 "null天" 或 "undefined天" -->
+               <el-tag v-if="scope.row.durationDays === null || scope.row.durationDays === undefined" type="danger">未设置</el-tag>
+               <span v-else>{{ scope.row.durationDays === -1 ? '永久' : scope.row.durationDays + '天' }}</span>
             </template>
          </el-table-column>
          <el-table-column label="热门" align="center" prop="popular" width="80">
@@ -169,7 +171,11 @@ const data = reactive({
     platformCode: [{ required: true, message: "所属端不能为空", trigger: "change" }],
     tierCode: [{ required: true, message: "等级编码不能为空", trigger: "blur" }],
     tierName: [{ required: true, message: "等级名称不能为空", trigger: "blur" }],
-    price: [{ required: true, message: "售价不能为空", trigger: "blur" }]
+    price: [{ required: true, message: "售价不能为空", trigger: "blur" }],
+    // 有效天数必填：留空会以 null 落库，下游发卡（VipServiceImpl.grantCard）在支付回调
+    // 事务内 unbox 会抛 NPE → 支付单回滚、渠道重试持续失败 = "钱收了、卡没发"。
+    // 后端 VipAdminController.validateTierDuration 亦有同样校验（双保险）。
+    durationDays: [{ required: true, message: "有效天数不能为空（-1 表示永久）", trigger: "change" }]
   }
 });
 

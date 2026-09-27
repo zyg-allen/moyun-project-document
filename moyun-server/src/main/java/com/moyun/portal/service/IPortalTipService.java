@@ -63,8 +63,11 @@ public interface IPortalTipService {
     /**
      * 发起微信支付打赏（公共支付通道接入）
      *
-     * <p>流程：实名/对象/防自赏/金额校验 → 落 pending 打赏单 → 网关统一下单（元转分）
-     * → 返回收银台所需 payNo/codeUrl/amount/expireTime/tipOrderId。
+     * <p>流程：实名/对象/防自赏/金额校验 → 落 pending 打赏单 → 网关统一下单
+     * → 返回收银台所需 payNo/codeUrl/amount/expireTime/tipOrderId。</p>
+     *
+     * <p>金额口径：全链路人民币<b>元</b>（DB decimal(18,2) + Java BigDecimal）。
+     * 仅在与微信 v3 API 交互的边界（WechatPayChannel.yuanToFen）才换算为整数分。</p>
      *
      * @param userId 当前登录用户
      * @param order  打赏订单（targetType/targetId/amount 元/message）

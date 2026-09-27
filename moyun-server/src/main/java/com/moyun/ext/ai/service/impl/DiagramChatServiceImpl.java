@@ -7,13 +7,16 @@ import com.moyun.ext.ai.service.DiagramChatService;
 import com.moyun.ext.ai.service.LLMService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,7 +37,19 @@ import java.util.concurrent.TimeUnit;
 public class DiagramChatServiceImpl implements DiagramChatService {
 
     private final LLMService llmService;
-    
+
+    /**
+     * SSE 长任务执行器（core 模块统一管理）。
+     *
+     * <p>v13.5 前此处是 {@code CompletableFuture.runAsync(task)}——未指定执行器即落在
+     * {@code ForkJoinPool.commonPool()}（并行度 = CPU-1）。而本任务会 {@code latch.await(5, MINUTES)}
+     * 阻塞到流式结束，几个并发的架构图对话就能把公共池占满，导致全站并行流/并行任务饿死。
+     * 现改走 {@code sseStreamExecutor}（长任务专用、满即拒绝，见 {@code AsyncTaskConfig}）。</p>
+     */
+    @Autowired
+    @Qualifier("sseStreamExecutor")
+    private Executor sseStreamExecutor;
+
     /**
      * 是否使用 ELK 模式（V3）
      * true: AI 输出语义 JSON，前端 ELK 计算布局（推荐）
@@ -45,7 +60,7 @@ public class DiagramChatServiceImpl implements DiagramChatService {
     @Override
     public void generateStreamResponse(DiagramChatDTO dto, SseEmitter emitter) {
         // 异步执行，避免阻塞 HTTP 线程
-        CompletableFuture.runAsync(() -> {
+        Runnable task = () -> {
             try {
                 // 0. 参数校验
                 if (dto == null || !StringUtils.hasText(dto.getMessage())) {
@@ -135,7 +150,23 @@ public class DiagramChatServiceImpl implements DiagramChatService {
                     log.warn("SSE 发送错误失败");
                 }
             }
-        });
+        };
+
+        // 提交到长任务专用池；池满即拒绝（AbortPolicy）——此时给客户端一个明确错误，
+        // 而不是降级到请求线程把这个 5 分钟长任务压在 Tomcat 线程上。
+        try {
+            sseStreamExecutor.execute(task);
+        } catch (RejectedExecutionException ree) {
+            log.warn("🎨 架构图流式请求被拒绝（SSE 线程池已满）: {}", ree.getMessage());
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("error")
+                        .data("服务繁忙，请稍后重试"));
+            } catch (IOException ex) {
+                log.warn("SSE 繁忙提示发送失败: {}", ex.getMessage());
+            }
+            emitter.complete();
+        }
     }
 
     /**

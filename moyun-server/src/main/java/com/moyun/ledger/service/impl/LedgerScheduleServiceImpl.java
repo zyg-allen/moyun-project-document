@@ -356,6 +356,15 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         dto.setTransactionDate(execDate);
         dto.setTransactionTime(task.getExecTime());
         dto.setIsBudget(1);
+        // 幂等键（资金铁律）：同一「任务 + 执行日」只允许入账一笔。
+        // 为什么必须补：定时链路的下一步 advance()/updateById 与外层不在同一事务
+        // （见 executeOnce 注释），若在"流水已生成、nextExecDate 尚未推进"之间崩溃/重启，
+        // 下一轮 runDueTasks 会再次扫到同一 execDate 并重复入账。
+        // 该值确定性可复现，因此：
+        //   ① 应用层 —— createTransaction 查到同 (user_id, client_uuid) 即返回已有流水 id（幂等命中，不重复入账）；
+        //   ② 数据层 —— ledger_transaction 的 uk_user_client(user_id, client_uuid) 唯一索引兜底并发。
+        // runNow 强制用今天，故同一任务当日重复点击"立即执行"也只会入账一笔。
+        dto.setClientUuid("sched:" + task.getId() + ":" + execDate);
         return dto;
     }
 

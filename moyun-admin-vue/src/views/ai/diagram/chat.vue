@@ -187,6 +187,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { convertToDrawioXml, extractJsonFromContent, isJsonComplete } from '@/utils/diagramRenderer'
+import { sanitizeHtml } from '@/utils/index'
 // ELK 布局引擎
 import { 
   UnifiedProcessor, 
@@ -1174,8 +1175,11 @@ const formatMessage = (text) => {
   // 清理多余的 <br>
   formatted = formatted.replace(/<\/h(\d)><br>/g, '</h$1>')
   formatted = formatted.replace(/<\/li><br>/g, '</li>')
-  
-  return formatted
+
+  // 安全：text 为 LLM 输出（不可信），且本函数自行拼接 HTML，
+  // 必须在返回前做白名单净化，否则 v-html 会执行注入的 HTML/脚本。
+  // 净化保留了上面构造的 div/li/h2-h5/code 及 class 属性。
+  return sanitizeHtml(formatted)
 }
 
 // 用户是否手动滚动了

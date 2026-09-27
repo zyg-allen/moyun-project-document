@@ -35,8 +35,9 @@ import java.util.concurrent.ThreadPoolExecutor;
  * <p>Bean 矩阵：</p>
  * <ul>
  *   <li>{@code applicationTaskExecutor}（{@code @Primary}）— Spring Boot 3.x 默认异步执行器约定名，
- *       同时作为项目内 {@code @Async} 默认执行器（如 ToolRegistry#logToolCallAsync）</li>
+ *       同时作为项目内 {@code @Async} 默认执行器（如 ToolCallLogWriter#logToolCallAsync）</li>
  *   <li>{@code threadPoolTaskExecutor} — 通用业务线程池（保留 RuoYi 兼容）</li>
+ *   <li>{@code sseStreamExecutor} — SSE 长任务池（架构图/工作流流式/语音面试逐题回合；queue=0、满即拒绝）</li>
  *   <li>{@code scheduledExecutorService} — 定时任务调度池（AsyncManager 登录日志/操作日志）</li>
  * </ul>
  *
@@ -58,7 +59,7 @@ public class AsyncTaskConfig {
      * <ol>
      *   <li>Spring Boot 3.x 自动配置通过 {@code @Qualifier("applicationTaskExecutor")}
      *       解析 {@code AsyncTaskExecutor}</li>
-     *   <li>项目内未显式指定 executor 的 {@code @Async} 方法（如 ToolRegistry#logToolCallAsync）</li>
+     *   <li>项目内未显式指定 executor 的 {@code @Async} 方法（如 ToolCallLogWriter#logToolCallAsync）</li>
      * </ol>
      *
      * <p>使用 {@code @Primary} 确保按类型注入时优先命中本 Bean，
@@ -86,6 +87,50 @@ public class AsyncTaskConfig {
 
         log.info("✅ 系统级 applicationTaskExecutor 初始化完成: core={}, max={}, queue={}",
                 corePoolSize, maxPoolSize, 500);
+        return executor;
+    }
+
+    /**
+     * SSE 长任务执行器（架构图对话 / 工作流流式执行 / 语音面试逐题 agent 回合）。
+     *
+     * <p><strong>语义</strong>：任务会一直阻塞到流式输出结束（最长 5~10 分钟），属"长占用"型任务；
+     * 与 {@code applicationTaskExecutor}（短任务、队列 500）语义不同，故单独成池，
+     * 避免长任务把短任务队列拖垮。</p>
+     *
+     * <p><strong>为什么必须有执行器</strong>（v13.5 前的问题）：这些调用点原先直接
+     * {@code CompletableFuture.runAsync(task)} 或 {@code new Thread(task)}——
+     * 前者落在 {@code ForkJoinPool.commonPool()}（并行度仅 CPU-1），
+     * 被 5 分钟长任务占满后，全站并行流与并行任务一起饿死；后者是脱离容器的裸线程，
+     * 无命名、无队列、无优雅停机。</p>
+     *
+     * <p><strong>为何用 {@code AbortPolicy} 而不是 {@code CallerRunsPolicy}</strong>：
+     * 队列满时若降级到调用线程，等于让这个 5 分钟长任务占死 Tomcat 请求线程（比拒绝更糟）。
+     * 因此这里 fail-fast：调用方必须捕获 {@code RejectedExecutionException}，
+     * 向客户端回一个明确的"服务繁忙"错误事件后 {@code complete()}。</p>
+     *
+     * @return SSE 长任务执行器
+     */
+    @Bean(name = "sseStreamExecutor")
+    public ThreadPoolTaskExecutor sseStreamExecutor() {
+        int corePoolSize = 2;
+        int maxPoolSize = 16;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        // queue=0 → SynchronousQueue：不排队，直接扩容到 maxPoolSize，再满即拒绝。
+        // 长任务一旦排进大队列，客户端往往已断连而任务还在跑，故不提供排队能力。
+        executor.setQueueCapacity(0);
+        executor.setThreadNamePrefix("sse-stream-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setKeepAliveSeconds(60);
+        executor.setAllowCoreThreadTimeOut(true);
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.initialize();
+
+        log.info("✅ SSE 长任务线程池初始化完成: core={}, max={}, queue=0(满即拒绝)",
+                corePoolSize, maxPoolSize);
         return executor;
     }
 

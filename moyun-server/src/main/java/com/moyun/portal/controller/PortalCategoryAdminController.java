@@ -20,8 +20,12 @@ import com.moyun.portal.service.IPortalCategoryService;
  * <p>供后台管理页面（书籍/书单管理）调用，返回扁平分类列表用于下拉筛选。
  * 复用现有 PortalCategoryService.selectPortalCategoryList 方法。</p>
  *
- * <p>路径前缀 /portal/admin/categories，无需额外权限校验（登录即可访问，
- * 因为分类是公共元数据，所有 admin 都可读）。</p>
+ * <p>路径前缀 {@code /portal/admin/**} 由核心安全链处理（admin token，见
+ * {@code SecurityConfig#shouldApplyTo}），链级要求"已认证"；
+ * **权限粒度由本类各方法上的 {@code @PreAuthorize} 决定**（当前两个查询端点复用
+ * {@code portal:book:list}：分类是公共元数据，凡能进书籍管理的 admin 都可读）。
+ * 注意：v13.6 之前本注释写作"无需额外权限校验（登录即可访问）"，与方法上的
+ * {@code @PreAuthorize} 相矛盾，已按代码订正。</p>
  *
  * @author moyun
  */

@@ -19,6 +19,8 @@ import com.moyun.vip.service.IVipService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -29,7 +31,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -75,6 +77,15 @@ public class VipServiceImpl implements IVipService {
 
     @Autowired
     private RedisCache redisCache;
+
+    /**
+     * 系统级通用执行器（v13.5：权益使用记录异步落库用）。
+     * <p>原实现 {@code CompletableFuture.runAsync(task)} 未指定执行器 → 落
+     * {@code ForkJoinPool.commonPool()}（并行度 = CPU-1），与全站并行任务互相抢占。</p>
+     */
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private Executor applicationTaskExecutor;
 
     // ==================== 开关 ====================
 
@@ -319,7 +330,10 @@ public class VipServiceImpl implements IVipService {
 
     /** 异步落库（Redis 是周期内计数事实源，DB 仅统计口径，可容忍短暂延迟） */
     private void asyncPersistUsage(Long userId, String platformCode, String benefitCode) {
-        CompletableFuture.runAsync(() -> {
+        // v13.5：原先未指定执行器 → 落在 ForkJoinPool.commonPool()（并行度 = CPU-1）。
+        // 权益校验是高频路径，把统计落库塞进公共池会与全站并行任务互相拖累；
+        // 现走系统级通用执行器（有界队列 + CallerRuns 兜底，不丢统计）。
+        applicationTaskExecutor.execute(() -> {
             try {
                 usageMapper.upsertUsage(userId, platformCode, benefitCode, LocalDate.now());
             } catch (Exception e) {
@@ -442,30 +456,48 @@ public class VipServiceImpl implements IVipService {
         if (tier == null) {
             throw new ServiceException("VIP等级不存在：" + platformCode + "/" + tierCode);
         }
-        LocalDateTime now = LocalDateTime.now();
-        VipUserCard card = selectActiveCard(userId, platformCode);
-        // 续费顺延：从 max(now, 现有到期) 起 + duration（升级覆盖 tier；永久置空到期）
-        if (card != null) {
-            LocalDateTime start = card.getExpireTime() != null && card.getExpireTime().isAfter(now)
-                    ? card.getExpireTime() : now;
-            card.setTierCode(tierCode);
-            card.setOrderId(orderId);
-            card.setStartTime(start);
-            card.setExpireTime(tier.getDurationDays() != null && tier.getDurationDays() == -1
-                    ? null : start.plusDays(tier.getDurationDays()));
-            card.setStatus(1);
-            cardMapper.updateById(card);
+        // 有效天数必须已配置：下面要参与天数计算，为 null 会抛 NPE；
+        // 而本方法运行在**支付回调事务内**，NPE 会让支付单回滚回 CREATED，
+        // 渠道重试仍失败 → "钱收了、卡没发"。故给出可操作的明确错误：
+        // 后台补全 duration_days 后，渠道重试即可自动完成发卡。
+        Integer durationDays = tier.getDurationDays();
+        if (durationDays == null) {
+            throw new ServiceException("VIP等级未配置有效天数，无法发卡（请到后台 VIP等级 补全有效天数）："
+                    + platformCode + "/" + tierCode);
+        }
+
+        // ① 原子续期：把"读-算-写"压进一条 UPDATE（见 VipUserCardMapper.renewCard 的注释）。
+        //    返回 0 行 = 该端无卡（从未购买）；>0 = 续期完成（含"卡已过期"的情况，
+        //    因为续期不看 status/是否过期，一个 (user,platform) 恒一行）。
+        if (cardMapper.renewCard(userId, platformCode, tierCode, orderId, durationDays) > 0) {
             return;
         }
+
+        // ② 无卡 → 插入首卡
+        LocalDateTime now = LocalDateTime.now();
         VipUserCard newCard = new VipUserCard();
         newCard.setUserId(userId);
         newCard.setPlatformCode(platformCode);
         newCard.setTierCode(tierCode);
         newCard.setOrderId(orderId);
         newCard.setStartTime(now);
-        newCard.setExpireTime(tier.getDurationDays() != null && tier.getDurationDays() == -1
-                ? null : now.plusDays(tier.getDurationDays()));
+        newCard.setExpireTime(durationDays == -1 ? null : now.plusDays(durationDays));
         newCard.setStatus(1);
-        cardMapper.insert(newCard);
+        try {
+            cardMapper.insert(newCard);
+        } catch (DuplicateKeyException e) {
+            // ③ 并发首购竞态：两笔订单同时走到这里，另一个事务已插入该行（uk_user_platform 拦截）。
+            //    此时改按"续期"处理——与串行执行的结果完全一致（顺延语义由 SQL 保证）。
+            //
+            //    为什么可以继续用同一事务：MySQL 的 1062 是**语句级**错误，不会像 PostgreSQL 那样
+            //    把整个事务标记为 aborted，事务内后续语句照常执行（本项目 MySQL-only）。
+            log.info("[vip] 并发首购竞态，转为续期已存在的卡 userId={} platform={} orderId={}",
+                    userId, platformCode, orderId);
+            if (cardMapper.renewCard(userId, platformCode, tierCode, orderId, durationDays) == 0) {
+                // 理论上不可达：唯一键冲突已证明该行存在，续期必然命中
+                throw new ServiceException("VIP发卡失败：唯一键冲突后未找到会员卡，请重试："
+                        + userId + "/" + platformCode + "/" + tierCode);
+            }
+        }
     }
 }

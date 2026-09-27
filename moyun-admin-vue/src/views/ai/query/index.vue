@@ -250,6 +250,7 @@ import {
   Grid, Download, TrendCharts, ArrowDown, FolderOpened, Close
 } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { sanitizeHtml } from '@/utils/index'
 import { v4 as uuidv4 } from 'uuid'
 import SmartChart from '../components/SmartChart.vue'
 import QueryTemplates from '../components/QueryTemplates.vue'
@@ -630,7 +631,8 @@ const exportToExcel = async () => {
 }
 
 const formatAnalysis = (text) => {
-  return text.replace(/\n/g, '<br>')
+  // 安全：analysis 来自 LLM 输出（不可信），必须净化后再 v-html，防 XSS
+  return sanitizeHtml((text || '').replace(/\n/g, '<br>'))
 }
 
 const getSeverityType = (severity) => {

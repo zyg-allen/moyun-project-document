@@ -10,20 +10,23 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
 
 /**
  * 并行执行节点
  *
  * <p>同时执行多个分支，等待全部完成后继续</p>
  *
+ * <p><b>v13.5</b>：删除历史遗留的实例字段
+ * {@code private final ExecutorService executorService = Executors.newFixedThreadPool(10)}——
+ * 该字段自始至终<strong>无任何使用点</strong>（真正的并行执行在 {@code WorkflowEngine}，
+ * 用的是受 Spring 管理的 {@code workflowParallelExecutor}）。它的存在只是白占 10 个线程
+ * 的池对象，且每个实例一份。</p>
+ *
  * @author laomao
  */
 @Slf4j
 @Component
 public class ParallelNodeExecutor implements NodeExecutor {
-
-    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     @Override
     public String getType() {

@@ -47,7 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -109,6 +109,18 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      */
     @Autowired
     private KnowledgeDefaults knowledgeDefaults;
+
+    /**
+     * 知识库文档处理执行器（CPU 密集型：PDF 转换 / 切片 / 向量化 / 图片提取）。
+     *
+     * <p>v13.5 前 {@code uploadFile} 与 {@code reprocessFile} 两处异步处理直接
+     * {@code CompletableFuture.runAsync(task)}——未指定执行器即落在
+     * {@code ForkJoinPool.commonPool()}（并行度 = CPU-1）。文档处理是分钟级长任务，
+     * 会把公共池占满，导致全站并行流与并行任务一起饿死；且无命名、无队列上限、无优雅停机。</p>
+     */
+    @Autowired
+    @Qualifier("knowledgeProcessExecutor")
+    private Executor knowledgeProcessExecutor;
 
     // ==================== 配置属性 ====================
 
@@ -221,7 +233,10 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         this.save(knowledge);
 
         // 异步处理 PDF 转换和向量化
-        CompletableFuture.runAsync(() -> {
+        // v13.5：原先未指定执行器 → 落在 ForkJoinPool.commonPool()（并行度 = CPU-1，
+        // 且文档处理是长任务，会把公共池占满导致全站并行任务饿死）。
+        // 现走本模块专用池 knowledgeProcessExecutor（CPU 密集型、有界队列、优雅停机）。
+        knowledgeProcessExecutor.execute(() -> {
             try {
                 log.info("开始异步处理文档，ID: {}", knowledge.getId());
 
@@ -361,7 +376,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         //
         // 注意：不能直接调 processKnowledgeWithConfig(id, null)，因为后者在 config=null 时会回调 reprocessFile
         // 形成无限递归；这里直接调 resolveEffectiveConfig + processKnowledge 跳过 null 守卫
-        CompletableFuture.runAsync(() -> {
+        // v13.5：同 uploadFile，原先落 commonPool，现走本模块专用池
+        knowledgeProcessExecutor.execute(() -> {
             try {
                 log.info("开始重新处理文档，ID: {}", knowledge.getId());
 

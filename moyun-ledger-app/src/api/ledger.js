@@ -222,7 +222,7 @@ export const uploadVoucher = (filePath) => {
 
 /** 财务分析报告：画像/指标/收入来源/债务风险/建议/LLM 综述（LLM 综述经统一网关 finance_analysis 场景生成） */
 export const getAiAnalysis = (params) => get('/portal/ledger/ai/analysis', params);
-export const listAiReports = (params) => httpGet('/portal/ledger/ai/reports', params);
+export const listAiReports = (params) => get('/portal/ledger/ai/reports', params);
 
 /** v11.55 异步分析任务：提交（立即返回 taskId）+ 轮询状态（success 时带 report） */
 export const submitAiAnalysisTask = (data) => post('/portal/ledger/ai/analysis/task', data);

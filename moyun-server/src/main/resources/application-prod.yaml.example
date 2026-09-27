@@ -227,6 +227,109 @@ moyun:
       drop-all-caps: true
       container-timeout-seconds: ${JUDGE_DOCKER_CONTAINER_TIMEOUT:30}
 
+  # =============================================
+  # 敏感字段加密（证件号，AES-GCM）
+  # =============================================
+  # ⚠️ 生产**必须**注入，否则 ConfigWiringValidator 会阻断启动：
+  #   - AesGcmUtils 已改为"口令为空即抛异常"（不再回落公开常量密钥）；
+  #   - prod profile 下该口令为空或仍为 moyun-dev-* 会被判定为配置缺陷。
+  # 口令变更会导致已加密证件号无法解密（可继续以脱敏值展示），务必妥善备份。
+  security:
+    cert-no-encrypt-key: ${MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY}
+
+  # =============================================
+  # 公共支付通道（v11.0 单钱包 + 公账记账 + 提现闭环）
+  # =============================================
+  # ⚠️ 三点注意：
+  #   1) payout.mock-enabled 在生产由 PayProperties.init() **强制关闭**（无需也无法在此开启）。
+  #      效果：MockPayoutChannel 不装配；若尚未接入真实代付通道，则提现审核通过时
+  #      **明确拒绝出金并回滚**（余额/冻结/流水一并退回），不会出现"假装打款成功"。
+  #      接入真实通道：新增 PayoutChannel 实现（mock-enabled=false 时装配），业务代码零改动。
+  #      可用 payout.channel 指定渠道标识（mock 与真实并存时择一，留空取第一个）。
+  #   2) wechat.mock-enabled 在生产同样由 init() 强制关闭，此处不应设为 true。
+  #   3) 商户参数齐备性：appId/mchId/merchantSerial/privateKeyPath/apiV3Key/notifyUrl
+  #      六项须全部非 "todo" 开头，否则回调验签 fail-closed 拒绝（不再降级 mock）。
+  pay:
+    enabled: ${PAY_ENABLED:true}
+    order-expire-minutes: ${PAY_ORDER_EXPIRE_MINUTES:30}
+    platform-fee-rate: ${PAY_PLATFORM_FEE_RATE:0.10}
+    payout:
+      # 生产强制 false（init() 兜底），此处显式声明以免误以为可开启
+      mock-enabled: false
+      channel: ${PAY_PAYOUT_CHANNEL:}
+    security:
+      # 银行卡卡号/手机号 AES-GCM 加密口令（与 cert-no-encrypt-key 同等：必填、强随机）
+      bank-card-encrypt-key: ${MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY}
+      bank-card-max-count: ${PAY_BANK_CARD_MAX_COUNT:5}
+      # 绑定银行卡强制短信验证码（企业级默认开启，不建议关闭）
+      bank-card-sms-verify: ${PAY_BANK_CARD_SMS_VERIFY:true}
+    wechat:
+      mock-enabled: false
+      app-id: ${WECHAT_PAY_APP_ID}
+      mch-id: ${WECHAT_PAY_MCH_ID}
+      merchant-serial: ${WECHAT_PAY_MERCHANT_SERIAL}
+      private-key-path: ${WECHAT_PAY_PRIVATE_KEY_PATH}
+      api-v3-key: ${WECHAT_PAY_API_V3_KEY}
+      notify-url: ${WECHAT_PAY_NOTIFY_URL}
+
+  # =============================================
+  # 短信验证码（注册/找回密码/绑卡/提现，v11.1）
+  # =============================================
+  # ⚠️ 生产必须 mock-enabled=false 且注入阿里云凭据，否则：
+  #   - 保持 mock=true 时验证码只写服务日志，用户收不到；
+  #   - 漏配 moyun.sms 段则 @ConditionalOnProperty 不匹配 → 无 SmsSender Bean，
+  #     验证码接口直接报"服务未开启"。
+  sms:
+    enabled: ${SMS_ENABLED:true}
+    mock-enabled: ${SMS_MOCK_ENABLED:false}
+    code-expire-minutes: ${SMS_CODE_EXPIRE_MINUTES:5}
+    send-interval-seconds: ${SMS_SEND_INTERVAL_SECONDS:60}
+    daily-limit: ${SMS_DAILY_LIMIT:10}
+    max-verify-attempts: ${SMS_MAX_VERIFY_ATTEMPTS:5}
+    aliyun:
+      access-key-id: ${MOYUN_SMS_ALIYUN_ACCESSKEYID}
+      access-key-secret: ${MOYUN_SMS_ALIYUN_ACCESSKEYSECRET}
+      sign-name: ${SMS_ALIYUN_SIGN_NAME:moyun}
+      template-code: ${SMS_ALIYUN_TEMPLATE_CODE}
+      endpoint: ${SMS_ALIYUN_ENDPOINT:dysmsapi.aliyuncs.com}
+
+  # =============================================
+  # 邮件通道（163 SMTP：邮箱注册 / 找回密码验证码）
+  # =============================================
+  # host/port/protocol 由 dev 段继承（spring.profiles.group.prod=dev），此处只显式声明账号与授权码。
+  # ⚠️ MAIL_PASSWORD 为空 **不会** 让 JavaMailSender 不装配——Spring Boot 的
+  #    MailSenderAutoConfiguration 只以 spring.mail.host 为条件（dev 段已固化 host）。
+  #    就绪判定由 com.moyun.core.mail.MailChannelStatus 按 host/username/password 三项完成：
+  #    未就绪时接口明确返回"邮件服务暂未开启"，**不会**去连 SMTP，因此不会把
+  #    "服务端未配置" 误报成 "用户邮箱地址有问题"。
+  # ⚠️ MAIL_PASSWORD 是 163 邮箱的 **授权码**（非登录密码），到 mail.163.com → 设置 →
+  #    POP3/SMTP/IMAP 生成；若账号被判异常登录，旧授权码会失效并触发 535（此时接口返回
+  #    "邮件服务认证失败"，与"未配置"文案区分开）。
+  # 未配置邮件时：邮箱注册/找回密码不可用，手机号 + 短信验证码注册仍可用。
+  # /actuator/health 的 mail 指示器默认关闭（见 application-dev.yaml），
+  # 确认授权码可用后再用 MAIL_HEALTH_ENABLED=true 打开。
+  mail:
+    host: ${MAIL_HOST:smtp.163.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    protocol: smtps
+
+  # =============================================
+  # AI 兜底密钥（可选）
+  # =============================================
+  # 仅当后台「AI 模块 → 模型配置」未配置 ASR 模型时作为兜底；留空即视为未配置
+  # （VoiceAsrService 会抛出明确异常提示如何配置）。
+  # **不要**填开发占位值——prod 下会被 ConfigWiringValidator 判定为凭据不安全。
+  ai:
+    enabled: true
+    api-key: ${MOYUN_AI_API_KEY:}
+    asr-base-url: ${MOYUN_AI_ASR_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    asr-model: ${MOYUN_AI_ASR_MODEL:qwen3-asr-flash}
+    asr-realtime-url: ${MOYUN_AI_ASR_REALTIME_URL:wss://dashscope.aliyuncs.com/api-ws/v1/inference/}
+    asr-realtime-model: ${MOYUN_AI_ASR_REALTIME_MODEL:fun-asr-realtime}
+
 # =============================================
 # 项目配置（兼容原 ruoyi 配置，部分旧代码可能读取）
 # =============================================

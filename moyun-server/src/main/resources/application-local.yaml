@@ -118,6 +118,18 @@ moyun:
   # 慢 SQL 治理配置
   slow-sql:
     threshold-millis: 3000
+  # =============================================
+  # 敏感字段加密口令（AES-GCM）
+  # =============================================
+  # ⚠️ 必须显式配置：AesGcmUtils 已改为"口令为空即抛异常"，不再回落公开常量密钥。
+  # 未配置时，绑定银行卡 / 提交创作者认证会直接报"加密口令未配置"。
+  # 以下为**仅限本地开发**的默认值；生产改用环境变量注入强随机口令
+  # （MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY / MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY）。
+  security:
+    cert-no-encrypt-key: ${MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY:moyun-dev-cert-key-2026}
+  pay:
+    security:
+      bank-card-encrypt-key: ${MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY:moyun-dev-pay-bank-card-key-2026}
 
 # =============================================
 # MyBatis-Plus 配置

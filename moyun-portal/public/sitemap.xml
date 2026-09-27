@@ -4,88 +4,89 @@
   说明：
   1. 主用动态 sitemap：GET /portal/sitemap （由 PortalSitemapController 实时生成，覆盖文章/书籍/书单/话题/专栏/面经等）
   2. 本静态文件仅作为后端不可用时的兜底，仅包含固定页面
-  3. 部署时请将 https://xulin.example.com 替换为实际正式域名（与后端 moyun.portal.domain 配置保持一致）
+  3. 域名由构建期注入：%SITE_URL% ← VITE_SITE_URL（见 vite.config.ts 的 moyun:site-url 插件），
+     须与后端 moyun.portal.domain 配置保持一致
   4. robots.txt 已将 Sitemap 行指向动态接口 /portal/sitemap
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- 首页 -->
   <url>
-    <loc>https://xulin.example.com/</loc>
+    <loc>%SITE_URL%/</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <!-- 语义化分类列表页 -->
   <url>
-    <loc>https://xulin.example.com/category</loc>
+    <loc>%SITE_URL%/category</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <!-- 语义化标签列表页 -->
   <url>
-    <loc>https://xulin.example.com/tag</loc>
+    <loc>%SITE_URL%/tag</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 特殊页面：读书空间 -->
   <url>
-    <loc>https://xulin.example.com/reading</loc>
+    <loc>%SITE_URL%/reading</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 特殊页面：面试指南 -->
   <url>
-    <loc>https://xulin.example.com/interview</loc>
+    <loc>%SITE_URL%/interview</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 话题列表页 -->
   <url>
-    <loc>https://xulin.example.com/topics</loc>
+    <loc>%SITE_URL%/topics</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 专栏列表页 -->
   <url>
-    <loc>https://xulin.example.com/columns</loc>
+    <loc>%SITE_URL%/columns</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 搜索页 -->
   <url>
-    <loc>https://xulin.example.com/search</loc>
+    <loc>%SITE_URL%/search</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <!-- 作者列表页 -->
   <url>
-    <loc>https://xulin.example.com/authors</loc>
+    <loc>%SITE_URL%/authors</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <!-- 帮助与信息页 -->
   <url>
-    <loc>https://xulin.example.com/help</loc>
+    <loc>%SITE_URL%/help</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://xulin.example.com/about</loc>
+    <loc>%SITE_URL%/about</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://xulin.example.com/agreement</loc>
+    <loc>%SITE_URL%/agreement</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>

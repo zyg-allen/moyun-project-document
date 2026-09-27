@@ -59,8 +59,12 @@ public class LedgerTipServiceImpl extends ServiceImpl<LedgerTipOrderMapper, Ledg
         }
 
         // 2. clientUuid 幂等（对齐记一笔防重机制）
+        //    安全：必须叠加 userId 约束。clientUuid 由客户端传入且无格式约束，
+        //    仅按 clientUuid 查询会命中他人的 pending 单，随后复用其 userId/amount 下单
+        //    并经 cashierParams 回显他人的 payNo/金额 → 跨用户订单信息泄露。
         if (clientUuid != null && !clientUuid.isBlank()) {
             LedgerTipOrder existing = this.getOne(new LambdaQueryWrapper<LedgerTipOrder>()
+                    .eq(LedgerTipOrder::getUserId, userId)
                     .eq(LedgerTipOrder::getClientUuid, clientUuid)
                     .orderByDesc(LedgerTipOrder::getId)
                     .last("LIMIT 1"));

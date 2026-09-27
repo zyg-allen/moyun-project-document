@@ -27,7 +27,21 @@
             <el-descriptions-item label="APIv3 密钥">{{ configuredText(wechatStatus.apiV3KeyConfigured) }}</el-descriptions-item>
             <el-descriptions-item label="回调通知地址">{{ configuredText(wechatStatus.notifyUrlConfigured) }}</el-descriptions-item>
             <el-descriptions-item label="银行卡单用户绑定上限">{{ config.bankCardMaxCount }} 张</el-descriptions-item>
+            <!-- 代付渠道（提现出金）：显示实际装配到的渠道；为空表示未接入真实通道 →
+                 审核通过会被拒绝并回滚（防假打款） -->
+            <el-descriptions-item label="提现代付渠道">
+              <el-tag :type="payoutConfigured ? (payoutMock ? 'warning' : 'success') : 'danger'" size="small">
+                {{ payoutConfigured ? (payoutMock ? '模拟渠道（资金未实际划出，仅联调）' : payoutChannel) : '未接入（提现将被拒绝）' }}
+              </el-tag>
+            </el-descriptions-item>
           </el-descriptions>
+          <el-alert
+            v-if="!payoutConfigured"
+            title="未接入代付通道：用户提现审核通过时会被拒绝并回滚（余额/冻结/流水一并退回），不会产生实际出金。请接入真实代付通道（新增 PayoutChannel 实现），联调环境可开启 moyun.pay.payout.mock-enabled。"
+            type="error"
+            :closable="false"
+            style="margin-top: 12px;"
+          />
           <el-alert
             v-if="isMock"
             title="当前为微信支付模拟模式：支付流程（验签/回调/分账/通知）与真实通道一致，接入真实商户时仅需替换配置并完成 wechatpay-java SDK 接入（代码内已标注 TODO）"
@@ -78,6 +92,11 @@ const feeForm = reactive({ feeRatePercent: 10 });
 const wechatStatus = computed(() => (config.value && config.value.wechat) || {});
 /** 是否模拟模式 */
 const isMock = computed(() => !!wechatStatus.value.mockEnabled);
+
+/** 代付渠道（后端 /cms/pay/config/view 下发）：channelCode 为空=未接入真实通道 */
+const payoutChannel = computed(() => (config.value && config.value.payoutChannel) || "");
+const payoutMock = computed(() => !!(config.value && config.value.payoutMock));
+const payoutConfigured = computed(() => !!(config.value && config.value.payoutConfigured));
 /** 当前生效费率（后端 platformFeeRate 小数 → 百分比展示） */
 const feeRatePercentText = computed(() => {
   const rate = Number(config.value && config.value.platformFeeRate) || 0;

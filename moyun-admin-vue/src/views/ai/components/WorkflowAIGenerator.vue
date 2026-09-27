@@ -267,6 +267,7 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { sanitizeHtml } from '@/utils/index'
 
 const emit = defineEmits(['generated', 'apply'])
 
@@ -405,11 +406,14 @@ watch(description, () => {
 
 // 格式化说明
 const formatExplanation = (text) => {
-  return text
-    .replace(/## (.*)/g, '<h4>$1</h4>')
-    .replace(/### (.*)/g, '<h5>$1</h5>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>')
+  // 安全：explanation 来自 LLM 输出（不可信），必须净化后再 v-html，防 XSS
+  return sanitizeHtml(
+    (text || '')
+      .replace(/## (.*)/g, '<h4>$1</h4>')
+      .replace(/### (.*)/g, '<h5>$1</h5>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>')
+  )
 }
 
 // 保存到历史记录

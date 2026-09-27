@@ -14,11 +14,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
 @Slf4j
 @RestController
@@ -28,6 +30,11 @@ public class DataAnalysisController {
 
     @Autowired
     private DataSourceService dataSourceService;
+
+    /** 系统级通用执行器（元数据同步等短任务；避免裸线程） */
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private Executor applicationTaskExecutor;
 
     @Autowired
     private DataQueryService dataQueryService;
@@ -53,13 +60,15 @@ public class DataAnalysisController {
 
         dataSourceService.save(config);
 
-        new Thread(() -> {
+        // v13.5：原先为裸 new Thread(...).start()（无命名、无队列、无优雅停机、并发不受控），
+        // 现改走系统级通用执行器 applicationTaskExecutor。
+        applicationTaskExecutor.execute(() -> {
             try {
                 dataSourceService.syncTableMetadata(config.getId());
             } catch (Exception e) {
                 log.error("同步元数据失败", e);
             }
-        }).start();
+        });
 
         return AjaxResult.success(config);
     }

@@ -4,17 +4,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.ai.engine.workflow.WorkflowToolFactory;
 import com.moyun.ext.ai.entity.AgentTool;
-import com.moyun.ext.ai.entity.ToolCallLog;
 import com.moyun.ext.ai.mapper.AgentToolMapper;
-import com.moyun.ext.ai.mapper.ToolCallLogMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,8 +54,15 @@ public class ToolRegistry {
     @Autowired
     private AgentToolMapper agentToolMapper;
 
+    /**
+     * 工具调用日志写入器（独立 Bean）
+     *
+     * <p>{@code @Async} 依赖 AOP 代理，**同类内部调用会绕过代理**导致退化为同步执行。
+     * 故写入方法放在 {@link ToolCallLogWriter} 中，由本类注入后调用；
+     * 结构守卫见 {@code AsyncSelfInvocationGuardTest}。</p>
+     */
     @Autowired
-    private ToolCallLogMapper toolCallLogMapper;
+    private ToolCallLogWriter toolCallLogWriter;
 
     /** 自动注入所有实现了 ToolExecutor 接口的 Bean */
     @Autowired(required = false)
@@ -172,7 +175,7 @@ public class ToolRegistry {
             log.warn("❌ 工具参数校验失败: {}, 参数: {}, 原因: {}", toolName, params, detail);
             ToolResult fail = ToolResult.fail("参数校验失败：" + detail + "。请对照工具参数格式修正后重新生成 [TOOL_CALL] 调用");
             fail.setDurationMs(System.currentTimeMillis() - startTime);
-            logToolCallAsync(context, toolName, params, fail, "failed", detail);
+            toolCallLogWriter.logToolCallAsync(context, toolName, params, fail, "failed", detail);
             return fail;
         }
 
@@ -202,8 +205,8 @@ public class ToolRegistry {
             errorMessage = e.getMessage();
         }
 
-        // 异步记录日志
-        logToolCallAsync(context, toolName, params, result, status, errorMessage);
+        // 异步记录日志（独立 Bean，@Async 真正生效）
+        toolCallLogWriter.logToolCallAsync(context, toolName, params, result, status, errorMessage);
 
         return result;
     }
@@ -227,43 +230,6 @@ public class ToolRegistry {
         } catch (Exception e) {
             log.error("解析工具调用失败: {}", toolCallJson, e);
             return null;
-        }
-    }
-
-    /**
-     * 异步记录工具调用日志
-     *
-     * <p>使用 @Async 注解异步执行，不阻塞主流程</p>
-     *
-     * @param context 执行上下文
-     * @param toolName 工具名称
-     * @param params 调用参数
-     * @param result 执行结果
-     * @param status 状态（success/failed）
-     * @param errorMessage 错误信息（如果失败）
-     */
-    @Async
-    public void logToolCallAsync(ToolContext context, String toolName,
-                                 Map<String, Object> params, ToolResult result,
-                                 String status, String errorMessage) {
-        try {
-            ToolCallLog callLog = ToolCallLog.builder()
-                    .conversationId(context.getConversationId())
-                    .messageId(context.getMessageId())
-                    .agentId(context.getAgentId())
-                    .toolName(toolName)
-                    .inputParams(objectMapper.writeValueAsString(params))
-                    .outputResult(result.getContent())
-                    .status(status)
-                    .errorMessage(errorMessage)
-                    .durationMs((int) result.getDurationMs())
-                    .createTime(LocalDateTime.now())
-                    .build();
-
-            toolCallLogMapper.insert(callLog);
-        } catch (Exception e) {
-            // 日志记录失败不影响主流程
-            log.debug("工具调用日志记录失败: {}", e.getMessage());
         }
     }
 

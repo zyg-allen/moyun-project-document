@@ -9,13 +9,13 @@ import dev.langchain4j.data.message.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,12 +38,17 @@ public class ContextManager {
     private final ChatMemoryProvider memoryProvider;
     private final RedisTemplate<String, String> redisTemplate;
 
-    /** 摘要异步预生成线程（单线程足够：非关键路径，失败静默降级为无摘要） */
-    private static final ExecutorService SUMMARY_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ai-context-summary");
-        t.setDaemon(true);
-        return t;
-    });
+    /**
+     * 会话摘要异步预生成执行器（AI 模块专用池，见 {@code AsyncConfig#contextSummaryExecutor}）。
+     *
+     * <p>v13.5 前是 {@code static final ExecutorService}（{@code Executors.newSingleThreadExecutor}）：
+     * 脱离 Spring 容器、无优雅停机、**无界队列**（LLM 变慢时摘要任务可无限堆积）。
+     * 现由容器管理：单线程语义不变，队列 200 且有界，满则丢弃并告警——
+     * 摘要属非关键路径，下一轮滑窗超窗会重新触发。</p>
+     */
+    @Autowired
+    @Qualifier("contextSummaryExecutor")
+    private Executor contextSummaryExecutor;
 
     @Autowired(required = false)
     private LLMService llmService;
@@ -91,7 +96,7 @@ public class ContextManager {
         memoryProvider.append(sessionId, maxMessages, List.of(AiMessage.from(aiText)));
         int total = memoryProvider.size(sessionId);
         if (total > RedisChatMemoryProvider.resolveMax(maxMessages)) {
-            SUMMARY_EXECUTOR.execute(() -> refreshSummary(sessionId));
+            contextSummaryExecutor.execute(() -> refreshSummary(sessionId));
         }
     }
 

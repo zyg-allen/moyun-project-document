@@ -2,6 +2,7 @@ package com.moyun.portal.service.impl;
 
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.redis.RedisCache;
+import com.moyun.core.mail.MailChannelStatus;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.PortalEmailService;
@@ -10,9 +11,8 @@ import com.moyun.util.string.StringUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -43,11 +43,15 @@ public class PortalEmailServiceImpl implements PortalEmailService {
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
-    @Autowired(required = false)
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:}")
-    private String from;
+    /**
+     * 邮件通道就绪判定（单一事实来源）。
+     *
+     * <p><b>不要</b>改成"判断 mailSender 是否为 null"：dev 的 {@code spring.mail.host}
+     * 是固定值，JavaMailSender 始终被装配，该判据永远不成立（详见
+     * {@link MailChannelStatus} 类注释）。</p>
+     */
+    @Autowired
+    private MailChannelStatus mailChannelStatus;
 
     @Autowired
     private RedisCache redisCache;
@@ -90,9 +94,11 @@ public class PortalEmailServiceImpl implements PortalEmailService {
             return AjaxResult.error("发送过于频繁，请 " + (remain > 0 ? remain : 60) + " 秒后再试");
         }
 
-        // 4. 邮件服务是否就绪
-        if (mailSender == null) {
-            log.warn("📧 邮件服务未配置（MAIL_PASSWORD 未设置），无法发送验证码到 {}", email);
+        // 4. 邮件通道是否就绪（配置层判定，先于真正连接 SMTP）
+        //    就绪判定由 MailChannelStatus 统一承担，不再用 mailSender == null（该判据永假）
+        String notReady = mailChannelStatus.unavailableReason();
+        if (notReady != null) {
+            log.warn("📧 邮件通道未就绪，无法发送验证码: email={}, 原因={}", email, notReady);
             return AjaxResult.error("邮件服务暂未开启，请联系管理员");
         }
 
@@ -102,12 +108,17 @@ public class PortalEmailServiceImpl implements PortalEmailService {
         // 6. 发送邮件（失败不写 Redis，用户可立即重试）
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(from);
+            message.setFrom(mailChannelStatus.from());
             message.setTo(email);
             message.setSubject("register".equals(type) ? "旭林知行 - 注册验证码" : "旭林知行 - 找回密码验证码");
             message.setText(buildContent(code, type));
-            mailSender.send(message);
+            mailChannelStatus.sender().send(message);
             log.info("📧 邮件验证码已发送: email={}, type={}", email, type);
+        } catch (MailAuthenticationException e) {
+            // 授权码失效/错误属服务端配置问题：不能回落成"请检查邮箱地址"，否则误导用户与排查方向
+            log.error("📧 邮件服务认证失败: host={}, username={}（请检查 MAIL_USERNAME / MAIL_PASSWORD）",
+                    mailChannelStatus.host(), mailChannelStatus.from(), e);
+            return AjaxResult.error("邮件服务认证失败，请联系管理员");
         } catch (Exception e) {
             log.error("邮件发送失败: email={}", email, e);
             return AjaxResult.error("邮件发送失败，请稍后重试或检查邮箱地址");

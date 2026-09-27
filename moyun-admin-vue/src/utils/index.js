@@ -154,6 +154,97 @@ export function html2Text(val) {
 }
 
 /**
+ * HTML 白名单净化（用于 v-html 安全渲染，防 XSS）
+ *
+ * <p>背景：管理后台存在多处 `v-html` 渲染来自<b>不可信来源</b>的内容 ——
+ * 用户投稿的文章正文/摘要（审核弹窗）、LLM 生成文本（AI 对话/洞察/图表分析）。
+ * 若直接渲染，攻击者可通过投稿触发存储型 XSS 劫持管理员会话。</p>
+ *
+ * <p>实现对齐门户端 `moyun-portal/src/utils/security.ts` 的 `sanitizeHTML`
+ * （已在生产验证），不引入额外依赖，避免改动 lockfile：</p>
+ * <ol>
+ *   <li>标签白名单：非白名单标签（含 `script`/`iframe`/`svg`/`object`）整体替换为其文本内容；</li>
+ *   <li>属性白名单：白名单外的属性一律移除 —— `on*` 事件处理器因此天然被剥离；</li>
+ *   <li>协议白名单：`href`/`src` 经 URL 解析校验，阻断 `javascript:` / `data:` 等；</li>
+ *   <li>`<a>` 强制补 `rel="noopener noreferrer"`。</li>
+ * </ol>
+ *
+ * <p><b>注意</b>：解析使用的是<b>游离文档</b>（非当前 document），游离文档无浏览上下文，
+ * `img onerror` / `script` 等不会触发；且本函数只用于「净化后渲染」，
+ * <b>不得</b>用于把净化结果回写为待持久化内容（见 cms/article/edit.vue 的说明）。</p>
+ *
+ * @param {string} html 待净化 HTML
+ * @returns {string} 净化后 HTML；入参非字符串时返回空串
+ */
+export function sanitizeHtml(html) {
+  if (typeof html !== 'string' || html === '') return ''
+
+  const allowedTags = [
+    'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'del', 'sup', 'sub', 'span', 'hr',
+    'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+    'table', 'thead', 'tbody', 'tr', 'td', 'th', 'div'
+  ]
+  const allowedAttributes = [
+    'href', 'src', 'alt', 'title', 'target', 'class', 'style',
+    'colspan', 'rowspan', 'width', 'height', 'loading'
+  ]
+  const allowedSchemes = ['http:', 'https:', 'mailto:', 'tel:']
+
+  const doc = document.implementation.createHTMLDocument('sanitize')
+  doc.body.innerHTML = html
+
+  const cleanNode = (node) => {
+    if (node.nodeType !== 1) return
+    const element = node
+    const tagName = element.tagName.toLowerCase()
+
+    if (!allowedTags.includes(tagName)) {
+      // 非白名单标签：用其文本内容替换（script/svg/iframe 等整体失效）
+      const text = doc.createTextNode(element.textContent || '')
+      element.parentNode?.replaceChild(text, element)
+      return
+    }
+
+    Array.from(element.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase()
+      if (!allowedAttributes.includes(name)) {
+        element.removeAttribute(attr.name)
+        return
+      }
+      if (name === 'href' || name === 'src') {
+        const value = (attr.value || '').trim()
+        // 先剥离控制字符与空白，防 "java\nscript:" 之类的绕过
+        const probe = value.replace(/[\u0000-\u0020]/g, '')
+        try {
+          const url = new URL(probe, doc.baseURI)
+          if (!allowedSchemes.includes(url.protocol)) {
+            element.removeAttribute(attr.name)
+          }
+        } catch {
+          // 相对路径（/x、#x、x.png）放行，其余移除
+          if (!value.startsWith('/') && !value.startsWith('#')) {
+            element.removeAttribute(attr.name)
+          }
+        }
+      }
+    })
+
+    if (tagName === 'a') {
+      element.setAttribute('rel', 'noopener noreferrer')
+      if (!element.getAttribute('target')) {
+        element.setAttribute('target', '_blank')
+      }
+    }
+
+    Array.from(element.childNodes).forEach(cleanNode)
+  }
+
+  Array.from(doc.body.childNodes).forEach(cleanNode)
+  return doc.body.innerHTML
+}
+
+/**
  * Merges two objects, giving the last one precedence
  * @param {Object} target
  * @param {(Object|Array)} source

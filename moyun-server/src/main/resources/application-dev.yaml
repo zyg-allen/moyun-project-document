@@ -1,10 +1,23 @@
 spring:
   # 邮件服务（163 SMTP）—— 注册验证码 / 找回密码；授权码非登录密码，登录 mail.163.com → 设置 → POP3/SMTP/IMAP 生成
+  # ⚠ 此处原提交了真实 163 授权码，已移除并改为空默认。该授权码已进入 git 历史，必须到
+  #   163 邮箱后台重新生成（旧授权码作废）。就绪判定与发信消费点：
+  #   com.moyun.core.mail.MailChannelStatus → PortalEmailServiceImpl / SendEmailTool / EmailNodeExecutor。
+  #   ⚠ 注意：MAIL_PASSWORD 为空**不会**让 mailSender 不装配——Spring Boot 的
+  #   MailSenderAutoConfiguration 只以 spring.mail.host 为条件（本文件 host 是固定值
+  #   smtp.163.com），因此 JavaMailSender 始终存在。就绪与否由 MailChannelStatus
+  #   按 host / username / password 三项判定；未就绪时接口返回"邮件服务暂未开启，请联系管理员"，
+  #   **不会**再去连 SMTP 拿 535 认证失败。回归测试：MailSenderAutoConfigurationConditionTest。
+  #   本地联调邮件链路：export MAIL_USERNAME=<你的163邮箱> MAIL_PASSWORD=<新授权码>
+  #   ⚠ 项目决定：**邮件通道 dev 与生产同一套真实 SMTP，不做邮件 mock**
+  #     （短信有 MockSmsSender 是因为它是付费通道；邮件不另设 mock 实现，避免"以为发了其实没发"）。
+  #     因此本机必须注入真实 MAIL_USERNAME / MAIL_PASSWORD 才能跑通邮箱注册与找回密码。
+  #   未配置时仍可走"手机号 + 短信验证码"注册（短信为 mock，验证码打印在服务日志）。
   mail:
     host: smtp.163.com
     port: 465
-    username: ${MAIL_USERNAME:19987671567@163.com}
-    password: ${MAIL_PASSWORD:YTgU8Dk2jT7BEL87}  # dev 默认值，生产务必通过环境变量覆盖
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     default-encoding: UTF-8
     protocol: smtps
     properties:
@@ -86,12 +99,14 @@ spring:
       uri: ${MONGODB_URI:mongodb://localhost:27017/moyun}
       auto-index-creation: true
 
-# Actuator 健康检查（dev 已配置 MAIL_PASSWORD 授权码，启用 MailHealthIndicator 验证 SMTP 连通性）
-# 若临时移除授权码导致 535 认证失败 WARN，可将 mail.enabled 改为 false 临时关闭
+# Actuator 健康检查
+# ⚠ mail 健康指示器默认关闭：MAIL_PASSWORD 默认是空（见上方 spring.mail），
+#   MailHealthIndicator 会真的去连 SMTP，必然 535 认证失败并把 /actuator/health 打成 DOWN/503，
+#   从而掩盖 MySQL/Redis 等真正的故障。配置了真实授权码后再用 MAIL_HEALTH_ENABLED=true 打开。
 management:
   health:
     mail:
-      enabled: true
+      enabled: ${MAIL_HEALTH_ENABLED:false}
 
 # 日志配置（SQL 日志仅本地开启）
 logging:
@@ -119,15 +134,22 @@ moyun:
   ai:
     enabled: true
     # 语音识别（ASR）兜底配置（V10.1 语音面试官）：后台未配置 ASR 模型时生效，模型 qwen3-asr-flash
-    api-key: ${MOYUN_AI_API_KEY:sk-ws-H.PMYRPDE.gLUY.MEYCIQC4-pMKFM1Vf6a2CsKIyzlI5jChxMkThEF3MLQ7sXQMFgIhAKJ1u5-xncxrzX1nR3rFMihRMNZkc0A0UOPoKt31kiHf}
+    # ⚠ 此处原提交了真实阿里云百炼（MaaS）API Key，已移除并改为空默认。
+    #   该 Key 已进入 git 历史，必须到阿里云控制台吊销并轮换（见 docs/09-临时报告/报告六 §4.3）。
+    #   本地开发：export MOYUN_AI_API_KEY=<你的 Key>（优先级：后台「AI 模块 → 模型配置」> 本项 > langchain4j.dashscope.api-key）
+    #   未配置时 VoiceAsrService:97 会抛出明确异常提示如何配置，不会静默失败。
+    api-key: ${MOYUN_AI_API_KEY:}
     asr-base-url: ${MOYUN_AI_ASR_BASE_URL:https://ws-vmchn4kxmyw0dzgf.cn-beijing.maas.aliyuncs.com/compatible-mode/v1}
     asr-model: ${MOYUN_AI_ASR_MODEL:qwen3-asr-flash}
     # 实时流式识别（fun-asr-realtime，WebSocket 双工）走公共百炼 WS 网关，Key 复用上方 asr 配置
     asr-realtime-url: ${MOYUN_AI_ASR_REALTIME_URL:wss://dashscope.aliyuncs.com/api-ws/v1/inference/}
     asr-realtime-model: ${MOYUN_AI_ASR_REALTIME_MODEL:fun-asr-realtime}
   # 证件号 AES-GCM 加密口令（v10.8 实名合规）；口令变更会导致已加密证件号无法解密（脱敏展示值不受影响）
+  # ⚠ 消费点：CertSecurityProperties → PortalCreatorCertificationServiceImpl:77 → AesGcmUtils.encrypt
+  #   AesGcmUtils 已改为口令为空即抛异常（不再回落公开常量密钥）。
+  #   ConfigWiringValidator 会在 prod 下拒绝空值/开发默认口令；非 prod 允许本默认值，便于本地零配置启动。
   security:
-    cert-no-encrypt-key: moyun-dev-cert-key-2026
+    cert-no-encrypt-key: ${MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY:moyun-dev-cert-key-2026}
   # 慢 SQL 治理（DataQueryServiceImpl 阈值更严格以提前发现问题，配合 Druid filter.stat 5000ms 形成双重防护）
   slow-sql:
     threshold-millis: 3000
@@ -138,13 +160,29 @@ moyun:
     enabled: true
     order-expire-minutes: 30  # 订单有效期（分钟），过期未支付自动关单
     platform-fee-rate: 0.10  # 平台抽成兜底费率（0.10 = 10%）
+    # 代付通道（提现出金，与上方 wechat 收款方向对称）：
+    # mock-enabled=true → 装配 MockPayoutChannel（日志显式标注"资金未实际划出"，仅联调）。
+    # 这样"申请→审核通过→出金→已打款"整条提现链路可在 dev 端到端跑通；
+    # 生产由 PayProperties.init() 强制 mock-enabled=false → mock 渠道不装配，
+    # 未接入真实代付通道时审核通过会**明确拒绝出金**（不假打款）。
+    # 接入真实通道：新增 PayoutChannel 实现，在 mock-enabled=false 时装配即可，业务代码零改动。
+    payout:
+      mock-enabled: true
     security:
-      # 银行卡卡号/手机号 AES-GCM 加密口令，生产务必用环境变量 MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY 注入
-      bank-card-encrypt-key: moyun-dev-pay-bank-card-key-2026
+      # 银行卡卡号/手机号 AES-GCM 加密口令。
+      # ⚠ 消费点：PayProperties.Security → BankCardServiceImpl:125,127,190 → AesGcmUtils.encrypt/decrypt
+      #   AesGcmUtils 已改为口令为空即抛异常（不再回落公开常量密钥）。
+      #   ConfigWiringValidator 在 prod 会拒绝空值/开发默认口令；非 prod 允许本默认值。
+      #   生产注入：MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY（勿用 . 分隔的环境变量名写法）
+      bank-card-encrypt-key: ${MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY:moyun-dev-pay-bank-card-key-2026}
       bank-card-max-count: 5  # 每用户最多绑定银行卡数
       bank-card-sms-verify: true  # 绑定银行卡强制短信验证码（V11.1 企业级默认开启）
     wechat:
-      mock-enabled: true  # true=模拟支付，false=真实 API（当前 TODO）
+      # ⚠ 开发环境必须为 true：下方商户参数全是 todo 占位，属"未配置"。
+      #   自 2026-09-27 起 WechatPayChannel 的 prepay/query/close/verifyNotify 四处统一
+      #   **fail-closed**（mock 关闭且商户参数缺失即拒绝执行，不再静默降级为 mock）。
+      #   若此处改为 false，本地下单会直接报"商户参数未配置"——本地联调请保持 true。
+      mock-enabled: true  # true=模拟支付（本地联调）；生产由 PayProperties.init() 强制 false
       # 微信支付商户参数（真实接入时替换，TODO 保留配置位）
       app-id: todo-wx-appid
       mch-id: todo-mch-id
@@ -242,7 +280,10 @@ mybatis-plus:
       logic-delete-value: "2"
       logic-not-delete-value: "0"
 
-# MinIO 文件存储配置（凭据通过环境变量注入，默认值仅用于开发环境）
+# MinIO 文件存储配置（凭据通过环境变量注入）
+# ⚠ access-key/secret-key 的 admin123 是 MinIO 官方示例凭据，仅限本地开发。
+#   ConfigWiringValidator 在 prod 会拒绝 admin123；非 prod 允许，便于本地零配置启动。
+#   消费点：common/config/MinioConfig（prefix = "minio"）→ MinioUtils
 minio:
   enabled: true  # false=本地文件系统，true=MinIO 对象存储
   endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9001}

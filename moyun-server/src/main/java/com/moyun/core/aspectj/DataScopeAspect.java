@@ -52,9 +52,19 @@ public class DataScopeAspect {
     public static final String DATA_SCOPE_SELF = "5";
 
     /**
-     * 数据权限过滤关键字
+     * 数据权限过滤关键字（**不受信**：XML 里 {@code ${params.dataScope}} 读的就是这个键）
      */
     public static final String DATA_SCOPE = "dataScope";
+
+    /**
+     * 数据权限过滤关键字（**受信**）：切面产出的片段只写这个键。
+     *
+     * <p>v13.8 起把"信任"变成显式契约：{@link com.moyun.core.mybatis.SqlTemplateGuardInterceptor}
+     * 在语句执行前用本键覆盖 {@code params[dataScope]}；没有本键时一律把
+     * {@code params[dataScope]} 清空——客户端通过 {@code ?params[dataScope]=...}
+     * 绑进来的值结构上无法进入 SQL（此前只有在切面被调用时才安全）。</p>
+     */
+    public static final String TRUSTED_DATA_SCOPE = "trustedDataScope";
 
     @Before("@annotation(controllerDataScope)")
     public void doBefore(JoinPoint point, DataScope controllerDataScope) throws Throwable {
@@ -134,21 +144,46 @@ public class DataScopeAspect {
         }
 
         if (StringUtils.isNotBlank(sqlString.toString())) {
-            Object params = joinPoint.getArgs()[0];
-            if (StringUtils.isNotNull(params) && params instanceof BaseEntity) {
-                BaseEntity baseEntity = (BaseEntity) params;
-                baseEntity.getParams().put(DATA_SCOPE, " AND (" + sqlString.substring(4) + ")");
+            BaseEntity baseEntity = resolveDataScopeParam(joinPoint);
+            if (baseEntity != null) {
+                // 只写"受信键"：真正落到 ${params.dataScope} 的值由 SqlTemplateGuardInterceptor 从本键复制
+                baseEntity.getParams().put(TRUSTED_DATA_SCOPE, " AND (" + sqlString.substring(4) + ")");
             }
         }
+    }
+
+    /**
+     * 定位承载 dataScope 的实体参数：返回方法参数中第一个 {@link BaseEntity}。
+     *
+     * <p>历史实现固定取 {@code joinPoint.getArgs()[0]}，对
+     * {@code selectUserPage(IPage, SysUser)} 这类「分页对象在前、查询实体在后」的方法会取错对象，
+     * 导致 {@code clearDataScope} 未清空用户传入的 {@code params[dataScope]}、
+     * {@code dataScopeFilter} 也未写入权限片段 —— 非超管可借
+     * {@code ?params[dataScope]=...} 注入任意 SQL。</p>
+     *
+     * <p>遍历参数定位实体，使 {@code @DataScope} 可安全用于任意参数位置。</p>
+     *
+     * @return 承载参数；方法参数中无 BaseEntity 时返回 null
+     */
+    private static BaseEntity resolveDataScopeParam(final JoinPoint joinPoint) {
+        Object[] args = joinPoint.getArgs();
+        if (args == null) {
+            return null;
+        }
+        for (Object arg : args) {
+            if (arg instanceof BaseEntity baseEntity) {
+                return baseEntity;
+            }
+        }
+        return null;
     }
 
     /**
      * 拼接权限sql前先清空params.dataScope参数防止注入
      */
     private void clearDataScope(final JoinPoint joinPoint) {
-        Object params = joinPoint.getArgs()[0];
-        if (StringUtils.isNotNull(params) && params instanceof BaseEntity) {
-            BaseEntity baseEntity = (BaseEntity) params;
+        BaseEntity baseEntity = resolveDataScopeParam(joinPoint);
+        if (baseEntity != null) {
             baseEntity.getParams().put(DATA_SCOPE, "");
         }
     }

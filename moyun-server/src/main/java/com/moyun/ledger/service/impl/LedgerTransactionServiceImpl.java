@@ -76,7 +76,11 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     public Long createTransaction(Long userId, TransactionCreateDTO dto) {
         validate(dto);
         // 幂等防重（资金铁律）：clientUuid 重复=同一笔的重复提交（双击/网络重试），
-        // 直接返回已入账的流水ID；并发极端场景由 DB 唯一索引 uk_client_uuid 兜底拒绝
+        // 直接返回已入账的流水ID；并发极端场景由 DB 唯一索引 uk_user_client
+        // (user_id, client_uuid) 兜底拒绝。
+        // 注意索引是 (user_id, client_uuid) 复合唯一而非 client_uuid 全局唯一——
+        // clientUuid 由客户端生成，全局唯一会让两个用户偶然撞同一 uuid 时报
+        // DuplicateKeyException(500)，与"每用户各自幂等"的语义不符。
         if (dto.getClientUuid() != null && !dto.getClientUuid().isEmpty()) {
             LedgerTransaction exist = getOne(new LambdaQueryWrapper<LedgerTransaction>()
                     .eq(LedgerTransaction::getClientUuid, dto.getClientUuid())
@@ -443,7 +447,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     BigDecimal assetAfter = applyAssetDelta(txn.getAccountId(), amount.negate(), txn.getUserId());
                     txn.setBalanceAfter(assetAfter);
                 }
-                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount.negate(), txn.getUserId());
+                // 还款 = 已还期数 +1（与欠款原子同写，避免读到旧值）
+                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount.negate(), txn.getUserId(), 1);
                 txn.setLiabilityBalanceAfter(liabilityAfter);
                 break;
             }
@@ -471,7 +476,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     liabilityAccountMapper.insert(newAccount);
                     txn.setLiabilityId(newAccount.getId());
                 }
-                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount, txn.getUserId());
+                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount, txn.getUserId(), 0);
                 txn.setLiabilityBalanceAfter(liabilityAfter);
                 break;
             }
@@ -506,7 +511,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 if (old.getAccountId() != null) {
                     applyAssetDelta(old.getAccountId(), amount, old.getUserId());
                 }
-                applyLiabilityDelta(old.getLiabilityId(), amount, old.getUserId());
+                // 冲正一笔还款 = 已还期数 -1
+                applyLiabilityDelta(old.getLiabilityId(), amount, old.getUserId(), -1);
                 break;
             case LedgerTransaction.TYPE_BORROW:
                 if (old.getAccountId() != null) {
@@ -514,7 +520,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 }
                 // 自动创建的负债账户冲正时也回退；理论上现在借款总会产生负债账户
                 if (old.getLiabilityId() != null) {
-                    applyLiabilityDelta(old.getLiabilityId(), amount.negate(), old.getUserId());
+                    applyLiabilityDelta(old.getLiabilityId(), amount.negate(), old.getUserId(), 0);
                 }
                 break;
             case LedgerTransaction.TYPE_ADJUST:
@@ -553,9 +559,12 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     }
 
     /**
-     * 负债账户欠款原子增减（乐观锁 + 超额拒绝 + 结清判定），返回交易后欠款
+     * 负债账户欠款原子增减（乐观锁 + 超额拒绝 + 结清判定 + 已还期数），返回交易后欠款
+     *
+     * @param termDelta 已还期数增量：还款 +1、冲正一笔还款 -1、借款 0。
+     *                  与欠款写在**同一条 UPDATE** 里，避免"读旧值 +1 写回"的丢更新。
      */
-    private BigDecimal applyLiabilityDelta(Long liabilityId, BigDecimal delta, Long userId) {
+    private BigDecimal applyLiabilityDelta(Long liabilityId, BigDecimal delta, Long userId, int termDelta) {
         LedgerLiabilityAccount liability = liabilityAccountMapper.selectById(liabilityId);
         if (liability == null || !liability.getUserId().equals(userId)) {
             throw new IllegalArgumentException("负债账户不存在或无权操作");
@@ -579,6 +588,10 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             uw.set(LedgerLiabilityAccount::getSettleFlag, 1);
         } else {
             uw.set(LedgerLiabilityAccount::getSettleFlag, 0);
+        }
+        // 已还期数：nullable 列用 COALESCE 兜底；GREATEST 保证不会被冲正减成负数
+        if (termDelta != 0) {
+            uw.setSql("paid_terms = GREATEST(COALESCE(paid_terms, 0) + (" + termDelta + "), 0)");
         }
         int rows = liabilityAccountMapper.update(null, uw);
         if (rows == 0) {

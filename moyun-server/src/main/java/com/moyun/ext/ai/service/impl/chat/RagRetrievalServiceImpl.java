@@ -142,10 +142,22 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
 
     /**
      * 清空当前线程的重排分数映射
+     *
+     * <p><b>为何用 {@code remove()} 而不是 {@code get().clear()}：</b></p>
+     * <ol>
+     *   <li><b>防池化线程残留</b>：{@code clear()} 只清空内容，ThreadLocal 仍持有那个（已空的）
+     *       Map 引用，Tomcat 工作线程长期存活 → 该引用与历史键对象一直被持有。
+     *       {@code remove()} 断开整个引用，下次 {@code get()} 由 {@code withInitial} 惰性重建。</li>
+     *   <li><b>保护已外传的引用</b>：{@code DynamicChatServiceImpl:466} 会把
+     *       {@code getContentRerankScores()} 的<b>同一个 Map 实例</b>捕获给流式异步回调使用。
+     *       若此处用 {@code clear()}，会把异步线程正在读的数据一并清空；
+     *       {@code remove()} 只解除当前线程的绑定，原实例成为孤儿但<b>内容仍在</b>，
+     *       异步回调仍可正常读取。</li>
+     * </ol>
      */
     @Override
     public void clearContentRerankScores() {
-        contentRerankScoresHolder.get().clear();
+        contentRerankScoresHolder.remove();
     }
     
     /**

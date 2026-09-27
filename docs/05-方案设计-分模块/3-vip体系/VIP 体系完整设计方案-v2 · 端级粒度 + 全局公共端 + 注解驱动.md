@@ -174,7 +174,7 @@ CREATE TABLE vip_user_card (
     status TINYINT DEFAULT 1 COMMENT '1有效 0过期',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_user_platform (user_id, platform_code),
+    UNIQUE INDEX uk_user_platform (user_id, platform_code),   -- 一端一卡：由数据库保证（原为普通 INDEX，已升级）
     INDEX idx_expire (expire_time)
 ) COMMENT '用户会员卡';
 

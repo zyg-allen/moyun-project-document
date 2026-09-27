@@ -664,10 +664,6 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         return rank;
     }
 
-    private String centToYuan(long cent) {
-        return BigDecimal.valueOf(cent, 2).setScale(2, RoundingMode.HALF_UP).toPlainString();
-    }
-
     /** CSV 单元格转义：含逗号/引号/换行时加引号并转义内部引号 */
     private String csv(String v) {
         if (v == null || v.isEmpty()) return "";

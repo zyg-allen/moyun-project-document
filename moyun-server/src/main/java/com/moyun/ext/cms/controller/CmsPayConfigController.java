@@ -39,6 +39,14 @@ public class CmsPayConfigController extends BaseController {
     @Autowired
     private ISysConfigService configService;
 
+    /**
+     * 已装配的代付渠道（由 {@code moyun.pay.payout.mock-enabled} 条件装配）。
+     *
+     * <p>空集合 = 未接入真实通道且 mock 已关闭 → 提现审核通过会被明确拒绝出金。</p>
+     */
+    @Autowired
+    private java.util.List<com.moyun.pay.channel.PayoutChannel> payoutChannels;
+
     @Operation(summary = "支付配置总览", description = "通道开关/超时/费率/微信商户参数配置状态（脱敏，仅布尔）")
     @PreAuthorize("@ss.hasPermi('cms:payConfig:view')")
     @GetMapping("/view")
@@ -49,6 +57,13 @@ public class CmsPayConfigController extends BaseController {
         data.put("orderExpireMinutes", payProperties.getOrderExpireMinutes());
         data.put("platformFeeRate", resolveFeeRate());
         data.put("bankCardMaxCount", payProperties.getSecurity().getBankCardMaxCount());
+        // 代付通道状态（提现出金）：以"实际装配到哪个渠道"为准，而非单一开关。
+        // 联调环境为 mock（资金不实际划出）；生产未接入真实通道时为空 → 提现会被拒绝。
+        String payoutChannel = (payoutChannels == null || payoutChannels.isEmpty())
+                ? null : payoutChannels.get(0).channelCode();
+        data.put("payoutChannel", payoutChannel);
+        data.put("payoutMock", payoutChannel != null && "mock".equalsIgnoreCase(payoutChannel));
+        data.put("payoutConfigured", payoutChannel != null);
         // 微信商户参数：仅返回是否已配置，绝不下发值
         Map<String, Object> wechatStatus = new HashMap<>();
         wechatStatus.put("mockEnabled", wechat.isMockEnabled());

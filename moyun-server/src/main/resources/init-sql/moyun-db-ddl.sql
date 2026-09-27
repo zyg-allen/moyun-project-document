@@ -2876,7 +2876,7 @@ CREATE TABLE `portal_user` (
                                `identity_tag` varchar(32) DEFAULT NULL COMMENT '身份标签（字典 ledger_identity_tag，AI 财务分析画像维度）',
                                `wechat` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '微信号',
                                `gender` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '性别：male-男，female-女，other-其他',
-                               `birthday` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '生日：YYYY-MM-DD格式',
+                               `birthday` date DEFAULT NULL COMMENT '生日（v13.23 由 varchar(20) 改为 date：可索引比较、可直接 TIMESTAMPDIFF 算年龄）',
                                `location` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '所在城市：如北京市',
                                `website` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '个人网站URL',
                                `github` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'GitHub用户名或完整URL',

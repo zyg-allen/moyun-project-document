@@ -1,64 +1,49 @@
 package com.moyun.system.service.handler;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.moyun.core.portal.AuditContentPort;
+import com.moyun.system.service.AuditBizHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.moyun.ext.cms.service.ICmsColumnService;
-import com.moyun.portal.domain.entity.PortalColumn;
-import com.moyun.portal.mapper.PortalColumnMapper;
-import com.moyun.system.service.AuditBizHandler;
+import java.util.Map;
 
 /**
  * 专栏审核业务处理器
- * <p>
- * 委托 {@link ICmsColumnService#auditColumn} 处理，业务表通过态 published，驳回态 rejected。
+ *
+ * <p><b>v13.22 防腐层</b>：本类不再直接依赖门户实体 / Mapper（迁移前 {@code system -> portal}
+ * 共 24 条边，其中 8 个 AuditBizHandler 占 18 条）。详情读取与审核落地一律经
+ * {@link AuditContentPort}（依赖倒置；实现见 {@code com.moyun.portal.audit.AuditContentAdapter}）。
+ * 各业务的状态取值（如 published/rejected/active/resolved）与字段口径均由适配器按原实现搬运，
+ * 本类只负责"任务类型 → 端口调用"的映射。</p>
  *
  * @author moyun
  */
 @Component
 public class ColumnAuditBizHandler implements AuditBizHandler {
 
+    /** 审核任务类型（与 ai/审核中心的任务类型一致） */
+    private static final String TASK_TYPE = "column";
+
     @Autowired
-    private ICmsColumnService cmsColumnService;
-    @Autowired
-    private PortalColumnMapper columnMapper;
+    private AuditContentPort auditContentPort;
 
     @Override
     public String supportedTaskType() {
-        return "column";
+        return TASK_TYPE;
     }
 
     @Override
     public void approve(Long bizId, Long auditorId, String auditorName, String opinion) {
-        cmsColumnService.auditColumn(bizId, "published", opinion, auditorId);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, true, auditorId, auditorName, opinion);
     }
 
     @Override
     public void reject(Long bizId, Long auditorId, String auditorName, String opinion) {
-        cmsColumnService.auditColumn(bizId, "rejected", opinion, auditorId);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, false, auditorId, auditorName, opinion);
     }
 
     @Override
     public Map<String, Object> getBizDetail(Long bizId) {
-        PortalColumn c = columnMapper.selectById(bizId);
-        if (c == null) {
-            return null;
-        }
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("id", c.getId());
-        detail.put("title", c.getTitle());
-        detail.put("subtitle", c.getSubtitle());
-        detail.put("description", c.getDescription());
-        detail.put("cover", c.getCover());
-        detail.put("status", c.getStatus());
-        detail.put("userId", c.getUserId());
-        detail.put("categoryId", c.getCategoryId());
-        detail.put("auditorId", c.getAuditorId());
-        detail.put("auditRemark", c.getAuditRemark());
-        detail.put("auditTime", c.getAuditTime());
-        return detail;
+        return auditContentPort.loadDetail(TASK_TYPE, bizId);
     }
 }

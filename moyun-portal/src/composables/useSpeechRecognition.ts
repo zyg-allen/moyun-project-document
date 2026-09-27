@@ -1,5 +1,6 @@
 import { ref, readonly, onUnmounted } from 'vue';
 import { httpPost, getToken } from '@/api/client';
+import { requestWsTicket } from '@/utils/websocket';
 
 /**
  * Web Speech API 类型声明（TS DOM lib 未内置）
@@ -377,10 +378,13 @@ export function useSpeechRecognition(options: SpeechRecognitionOptions = {}) {
 
     let ws: WebSocket;
     try {
-      ws = new WebSocket(`${buildStreamWsUrl()}?token=${encodeURIComponent(token)}`);
+      // v13.21：用一次性票据建连（浏览器 WS 无法自定义请求头，而 ?token= 会让门户 JWT
+      // 进 Nginx access log / 浏览器历史，且 JWT 有效期内可重放）
+      const ticket = await requestWsTicket();
+      ws = new WebSocket(`${buildStreamWsUrl()}?ticket=${encodeURIComponent(ticket)}`);
       ws.binaryType = 'arraybuffer';
     } catch (e) {
-      console.warn('[ASR] 流式 WS 创建失败，降级批式', e);
+      console.warn('[ASR] 流式 WS 创建失败（票据获取或建连失败），降级批式', e);
       streamMode.value = false;
       void startRecorder();
       return;

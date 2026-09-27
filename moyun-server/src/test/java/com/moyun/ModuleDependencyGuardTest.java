@@ -87,15 +87,21 @@ class ModuleDependencyGuardTest {
         FROZEN_EDGES.put("common -> core", 1);
         FROZEN_REASONS.put("common -> core", "@Sensitive 注解→序列化器配对，序列化器需登录态；重复副本已删，剩 1 处不可消除");
 
-        // 管理端直连门户数据层：8 个 *AuditBizHandler + SysDashboardServiceImpl + SysNotificationServiceImpl。
-        // 正确做法是 system 侧定义端口、portal 侧实现（防腐层），涉及审核中心主干，需独立批次。
-        FROZEN_EDGES.put("system -> portal", 24);
-        FROZEN_REASONS.put("system -> portal", "管理端直连门户数据层（审核中心/看板/通知），防腐层待建");
+        // 管理端直连门户数据层：v13.22 已为 8 个 *AuditBizHandler 建好防腐层
+        // （system 侧只依赖 core.portal.AuditContentPort，实现落在 portal.audit.AuditContentAdapter），
+        // 24 → 6。剩余 6 条：SysDashboardServiceImpl(2: 门户文章/浏览 Mapper)、
+        // SysNotificationServiceImpl(1: 门户用户 Mapper)、SysMessageController(3: 门户用户服务/实体/DTO)
+        // —— 属看板聚合、通知收件人与"管理员代发私信"，各需独立端口，列为后续批次。
+        FROZEN_EDGES.put("system -> portal", 6);
+        FROZEN_REASONS.put("system -> portal", "管理端直连门户数据层：审核中心 8 个 Handler 已于 v13.22 走防腐层端口"
+                + "（24→6）；余 6 条为看板聚合/通知收件人/管理员代发私信，待各自建端口");
 
         // portal ⇄ ext.cms 双向咬合：共享实体与查询对象、控制器互调。
         // 拆分需要抽出共享领域模块，属架构级改造，需独立批次。
-        FROZEN_EDGES.put("portal -> ext.cms", 78);
-        FROZEN_REASONS.put("portal -> ext.cms", "CMS 与门户共享实体/查询对象（拆分需抽公共领域模块）");
+        // v13.22：防腐层适配器落在门户侧，需调用 CMS 的文章/专栏/面试/举报下架服务，故 78 → 82（+4，ACL 的合理代价）。
+        FROZEN_EDGES.put("portal -> ext.cms", 82);
+        FROZEN_REASONS.put("portal -> ext.cms", "CMS 与门户共享实体/查询对象（拆分需抽公共领域模块）；"
+                + "v13.22 防腐层适配器 AuditContentAdapter 调用 CMS 4 个业务服务，78→82");
         FROZEN_EDGES.put("ext.cms -> portal", 278);
         FROZEN_REASONS.put("ext.cms -> portal", "同上（反向）；v13.11 迁入 ImportExportHelper 后为 280，"
                 + "v13.16 删掉 CmsInterviewController 两个已失效的 portal 依赖（PortalUserStatsMapper/IPortalGrowthService）后降至 278");

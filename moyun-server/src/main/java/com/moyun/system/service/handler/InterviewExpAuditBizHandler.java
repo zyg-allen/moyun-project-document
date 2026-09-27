@@ -1,63 +1,49 @@
 package com.moyun.system.service.handler;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.moyun.core.portal.AuditContentPort;
+import com.moyun.system.service.AuditBizHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.moyun.ext.cms.service.IPortalInterviewService;
-import com.moyun.portal.domain.entity.PortalInterviewExperience;
-import com.moyun.portal.mapper.PortalInterviewExperienceMapper;
-import com.moyun.system.service.AuditBizHandler;
+import java.util.Map;
 
 /**
- * 面经审核业务处理器
- * <p>
- * 委托 {@link IPortalInterviewService#auditExperience} 处理。
- * 注意：原方法无 auditorId 参数，内部用 SecurityUtils 取当前 sys_user.id（审核中心调用时即处理人）。
+ * 面试经验审核业务处理器
+ *
+ * <p><b>v13.22 防腐层</b>：本类不再直接依赖门户实体 / Mapper（迁移前 {@code system -> portal}
+ * 共 24 条边，其中 8 个 AuditBizHandler 占 18 条）。详情读取与审核落地一律经
+ * {@link AuditContentPort}（依赖倒置；实现见 {@code com.moyun.portal.audit.AuditContentAdapter}）。
+ * 各业务的状态取值（如 published/rejected/active/resolved）与字段口径均由适配器按原实现搬运，
+ * 本类只负责"任务类型 → 端口调用"的映射。</p>
  *
  * @author moyun
  */
 @Component
 public class InterviewExpAuditBizHandler implements AuditBizHandler {
 
+    /** 审核任务类型（与 ai/审核中心的任务类型一致） */
+    private static final String TASK_TYPE = "interview_exp";
+
     @Autowired
-    private IPortalInterviewService portalInterviewService;
-    @Autowired
-    private PortalInterviewExperienceMapper experienceMapper;
+    private AuditContentPort auditContentPort;
 
     @Override
     public String supportedTaskType() {
-        return "interview_exp";
+        return TASK_TYPE;
     }
 
     @Override
     public void approve(Long bizId, Long auditorId, String auditorName, String opinion) {
-        portalInterviewService.auditExperience(bizId, "published", opinion);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, true, auditorId, auditorName, opinion);
     }
 
     @Override
     public void reject(Long bizId, Long auditorId, String auditorName, String opinion) {
-        portalInterviewService.auditExperience(bizId, "rejected", opinion);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, false, auditorId, auditorName, opinion);
     }
 
     @Override
     public Map<String, Object> getBizDetail(Long bizId) {
-        PortalInterviewExperience e = experienceMapper.selectById(bizId);
-        if (e == null) {
-            return null;
-        }
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("id", e.getId());
-        detail.put("title", e.getTitle());
-        detail.put("content", e.getContent());
-        detail.put("status", e.getStatus());
-        detail.put("userId", e.getUserId());
-        detail.put("auditorId", e.getAuditorId());
-        detail.put("auditRemark", e.getAuditRemark());
-        detail.put("auditTime", e.getAuditTime());
-        detail.put("createTime", e.getCreateTime());
-        return detail;
+        return auditContentPort.loadDetail(TASK_TYPE, bizId);
     }
 }

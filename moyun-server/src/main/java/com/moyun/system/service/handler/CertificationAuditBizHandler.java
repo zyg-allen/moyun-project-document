@@ -1,79 +1,49 @@
 package com.moyun.system.service.handler;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.moyun.core.portal.AuditContentPort;
+import com.moyun.system.service.AuditBizHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.moyun.portal.domain.entity.PortalCreatorCertification;
-import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
-import com.moyun.portal.service.IPortalCreatorCertificationService;
-import com.moyun.system.service.AuditBizHandler;
+import java.util.Map;
 
 /**
  * 创作者认证审核业务处理器
- * <p>
- * 委托 {@link IPortalCreatorCertificationService#audit} 处理。
- * 注意：通过态是 approved（不是 published），参数顺序 (id, auditorId, status, remark)。
+ *
+ * <p><b>v13.22 防腐层</b>：本类不再直接依赖门户实体 / Mapper（迁移前 {@code system -> portal}
+ * 共 24 条边，其中 8 个 AuditBizHandler 占 18 条）。详情读取与审核落地一律经
+ * {@link AuditContentPort}（依赖倒置；实现见 {@code com.moyun.portal.audit.AuditContentAdapter}）。
+ * 各业务的状态取值（如 published/rejected/active/resolved）与字段口径均由适配器按原实现搬运，
+ * 本类只负责"任务类型 → 端口调用"的映射。</p>
  *
  * @author moyun
  */
 @Component
 public class CertificationAuditBizHandler implements AuditBizHandler {
 
+    /** 审核任务类型（与 ai/审核中心的任务类型一致） */
+    private static final String TASK_TYPE = "certification";
+
     @Autowired
-    private IPortalCreatorCertificationService certificationService;
-    @Autowired
-    private PortalCreatorCertificationMapper certificationMapper;
+    private AuditContentPort auditContentPort;
 
     @Override
     public String supportedTaskType() {
-        return "certification";
+        return TASK_TYPE;
     }
 
     @Override
     public void approve(Long bizId, Long auditorId, String auditorName, String opinion) {
-        // 通过态是 approved
-        certificationService.audit(bizId, auditorId, "approved", opinion);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, true, auditorId, auditorName, opinion);
     }
 
     @Override
     public void reject(Long bizId, Long auditorId, String auditorName, String opinion) {
-        certificationService.audit(bizId, auditorId, "rejected", opinion);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, false, auditorId, auditorName, opinion);
     }
 
     @Override
     public Map<String, Object> getBizDetail(Long bizId) {
-        PortalCreatorCertification cert = certificationMapper.selectById(bizId);
-        if (cert == null) {
-            return null;
-        }
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("id", cert.getId());
-        detail.put("userId", cert.getUserId());
-        detail.put("realName", cert.getRealName());
-        // 实名合规：证件号仅返回脱敏值，密文与明文均不外泄
-        if (cert.getCertNoMask() != null && !cert.getCertNoMask().isEmpty()) {
-            detail.put("certNo", cert.getCertNoMask());
-        } else if (cert.getCertNo() != null && !cert.getCertNo().isEmpty()
-                && !com.moyun.util.crypto.AesGcmUtils.isEncrypted(cert.getCertNo())) {
-            // 存量明文兼容：运行时脱敏
-            detail.put("certNo", com.moyun.util.string.IdCardUtil.mask(cert.getCertNo()));
-        } else {
-            detail.put("certNo", null);
-        }
-        detail.put("certType", cert.getCertType());
-        detail.put("derivedGender", cert.getDerivedGender());
-        detail.put("derivedBirth", cert.getDerivedBirth());
-        detail.put("verifyChannel", cert.getVerifyChannel());
-        detail.put("certImageFront", cert.getCertImageFront());
-        detail.put("certImageBack", cert.getCertImageBack());
-        detail.put("status", cert.getStatus());
-        detail.put("auditorId", cert.getAuditorId());
-        detail.put("auditRemark", cert.getAuditRemark());
-        detail.put("auditedTime", cert.getAuditedTime());
-        detail.put("createTime", cert.getCreateTime());
-        return detail;
+        return auditContentPort.loadDetail(TASK_TYPE, bizId);
     }
 }

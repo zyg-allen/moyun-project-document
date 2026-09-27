@@ -2,6 +2,108 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.24 (2026-09-27) 第三批③：交付与验收清单（给验收人的一页速查）
+
+> 第三批收尾：把 v13.11~v13.24 十三批的**问题 → 改动 → 验证命令 → 关联守卫**汇成一份可复跑的清单，
+> 并明确"未完成项/需人工输入项"，便于人工复核而不是只看结论。
+
+- 新增 `docs/09-临时报告/整改交付与验证清单（v13.11~v13.24）.md`：① 一分钟速查（3 条命令）② 逐批表格
+  （含每批的单独复跑命令与预期）③ 关键设计取舍（请求级记忆化 vs TTL / WS 为何用票据 / 防腐层落点 / 脚本幂等判定标准）
+  ④ 未完成与需人工输入项 ⑤ 验收建议顺序（含"反向验证"做法：改回缺陷看守卫是否变红）；
+- README 文档导航加入该清单；`mvn -o test` **422 例全绿**。
+
+## v13.23 (2026-09-27) 第三批②：WS Origin 收紧 + `birthday` 改 `date`
+
+**① WebSocket 握手 Origin 校验**（§6.4 / 附录 AE 残留项）
+
+- 背景：`/ws-asr` 与 `/ws-message` 原本 `setAllowedOriginPatterns("*")`。WebSocket 不受同源策略保护，
+  浏览器允许任意站点发起握手，服务端必须自判 Origin；
+- 做法：新增 `ResourcesConfig.isWsOriginAllowed(origin)`（口径与 CORS 完全一致：**无 Origin 放行**
+  （小程序/原生/服务端）→ 回环 → 环境变量精确白名单 → 显式开启的私网 IP 字面量；其余拒绝），
+  在 `PortalWebSocketAuthInterceptor` **最早**执行（先于票据消费）；`isPrivateNetworkOrigin` 提升为 `public`
+  供 WS 复用（CORS 侧行为不变）；
+- 4 例新单测：`192.168.evil.com`（带合法票据也拒绝）、`localhost:5173` 放行、无 Origin 放行、
+  合法 Origin 但无凭证仍 401（Origin 不替代鉴权）。
+
+**② `portal_user.birthday`：`varchar(20)` → `date`**（§6.5）
+
+- 问题：日期语义却按字符串存 → 比较/排序按字符串、无法有效索引，年龄统计必须逐行
+  `STR_TO_DATE(u.birthday,'%Y-%m-%d')`；非法值（`''`/`1995/01/01`/`未知`）静默留在列里；
+- 改动：DDL 改 `date`；新增幂等增量脚本 `20260927-06`（**先建备份表** → 仅当当前仍是字符串类型时
+  把空串/非法日期清成 NULL → `MODIFY COLUMN` 为 `date` → 可执行复核 SQL）；
+  `PortalCreatorMapper.xml` 的年龄分桶去掉 `STR_TO_DATE`，直接用 `u.birthday`（`IS NULL` 归 unknown 桶）；
+  **Java 侧 `PortalUser.birthday` 仍为 String**（Connector/J 对 DATE 列 `getString` 返回 `YYYY-MM-DD`）→ JSON 契约与前端表单不变；
+- 验证：dev 库执行两次均 `exit 0`，复核 `DATA_TYPE=date`、`invalid_remaining=0`、`future_dates=0`；
+- 备注：管理端"生日"当前是文本输入（占位"如 1995-01-01"），改 date 后**非法输入会被 MySQL 拒绝**（更安全），
+  后续可换成日期选择器（已记入清单）。
+
+**同步**：报告 §6.4 行（WS 行补 Origin 收口）+ §6.5 birthday 行改判 + 总览第 41 项 + 附录 AF；
+`项目开发规范` §3.3.4 补"WebSocket Origin"与"日期语义列用 date"；`00-项目现状总结` 铁律 18 扩展；README；本条目。
+
+## v13.22 (2026-09-27) 第三批①：`system→portal` 防腐层（审核中心 8 个 Handler，24→6 条边）
+
+> 报告 §6.3："`system`（管理端）直连 `portal`（用户端）数据层 8 处无防腐层"。
+> 实测 `system -> portal` 共 **24 条 import 边**，其中 **8 个 `*AuditBizHandler` 占 18 条**
+> （每个 = 门户实体 + 门户 Mapper，两个还带门户服务）。
+
+**做法（依赖倒置，同 v13.11 的 `core.security.principal` 手法）**
+
+| 位置 | 内容 |
+|---|---|
+| `core` 新增端口 | `com.moyun.core.portal.AuditContentPort`：只暴露中性类型 —— `Map<String,Object> loadDetail(taskType, bizId)` 与 `applyAudit(taskType, bizId, approved, auditorId, auditorName, opinion)`，**门户实体/Mapper 不出现在签名里** |
+| `portal` 新增适配器 | `com.moyun.portal.audit.AuditContentAdapter`：按 taskType 分派到 8 类业务（文章/专栏/认证/反馈/面试评论/面试经验/举报/话题），**逐条搬运**原 Handler 的详情字段与状态取值（published/rejected/active/resolved…）与日志文案 |
+| 8 个 Handler 瘦身 | 只保留 `supportedTaskType()` 与三个端口调用（约 50 行 → 30 行），**不再 import 任何 `com.moyun.portal.*`** |
+
+**边数变化（守卫实测）**：`system -> portal` **24 → 6**（余 6 条：看板聚合 2、通知收件人 1、管理员代发私信 3，
+已在 `ModuleDependencyGuardTest` 登记为后续批次）；`portal -> ext.cms` **78 → 82**（+4：适配器需调用 CMS 的
+文章/专栏/面试/举报下架服务，属 ACL 的合理代价，理由已登记）；`system -> ext.cms` 的 2 条（文章/下架服务）随之消失。
+
+**验证**：`ModuleDependencyGuardTest` 5/5（冻结清单精确计数）✓；`mvn -o test` 见"同步"行内实测计数；
+`grep '^import com.moyun.portal.' system/**` 实测仅剩 6 条（即上面登记的三处）。
+
+**同步**：报告 §6.3 行改判 + 总览第 40 项 + 附录 AF；`项目开发规范` §1.3.1 补"防腐层端口约定"；
+`00-项目现状总结` 铁律 10 扩展（模块依赖方向）；README 版本历史；本条目。
+
+## v13.21 (2026-09-27) 第二批⑩：WebSocket 握手改「一次性短时效票据」（§6.4 最后一行）
+
+> §6.4 最后一行："WebSocket token 走 URL query"。浏览器 {@code new WebSocket()} **不能自定义请求头**，
+> 所以这条路只能"换凭证形态"，不能靠加 header 解决。方案取舍随后端取证定案。
+
+**取证**
+
+- 服务端 `PortalWebSocketAuthInterceptor` 原本 `?token=` 优先、`Authorization` 兜底 —— **头方式后端早就支持**，
+  问题纯在前端（浏览器限制）；
+- 两个前端建连点：`utils/websocket.ts:104`（`/ws-message` STOMP 私信）、
+  `composables/useSpeechRecognition.ts:380`（`/ws-asr` ASR 实时流）；记账小程序/后台**无** WS 客户端；
+- 门户链 `/portal/**` 是 `anyRequest().authenticated()`，新端点放这里默认需登录（**不能**放 `/portal/interview/**`，那是 permitAll）；
+- 前端 `utils/websocket.ts` 类注释里其实早写着"生产环境建议：后端为 ws 握手单独签发短时效的一次性 token"。
+
+**方案选择（两个候选）**
+
+| 方案 | 优点 | 为何未选 |
+|---|---|---|
+| A. 子协议 `Sec-WebSocket-Protocol` 传 token | 零新增状态、不占 URL | 依赖"服务端必须回显子协议"与"代理转发该头"，失败是**连接级失败**；小程序/原生支持不一致 |
+| **B. 一次性短时效票据（选定）** | 与协议/代理解耦、浏览器/小程序/原生一致、可单测 | URL 里仍有凭证（但一次性 + 60s，价值从"账号接管"降到"极短窗口内一次握手"） |
+
+**改动**
+
+| 层 | 内容 |
+|---|---|
+| 后端 | 新增 `WsTicketService`（`SecureRandom` 16 字节 → 32 hex；Redis `ws:ticket:{t}` 存 userId，**TTL 60s**；消费走 **Lua GET+DEL 原子取并删** → 只能用一次）；新增 `POST /portal/ws-ticket`（需登录，返回 ticket + expiresIn）；`PortalWebSocketAuthInterceptor` 改为 ①`?ticket=` ②**显式拒绝 `?token=`**（告警 + 401，防老客户端把漏洞带回来）③`Authorization` 头 |
+| 前端 | `utils/websocket.ts` 新增并导出 `requestWsTicket()`；两处建连改为先换票据再 `?ticket=`；票据获取失败**保持轮询降级**（不退回明文 token） |
+
+**残留风险（如实记录）**：票据仍出现在 URL，访问日志留痕依旧存在，但一次性 + 60 秒；
+彻底消除需改子协议传参或 Cookie 会话，属独立议题。另记：`/ws-asr` 的 `setAllowedOriginPatterns("*")`
+未收紧（鉴权独立于 Origin，风险低），已列入待办。
+
+**验证**：`WsTicketServiceTest` 5 例（随机性/32hex/必须带 TTL/原子脚本键/空票据不碰 Redis）；
+`PortalWebSocketAuthInterceptorTest` 8 例（票据放行、重放/过期拒绝、**`?token=` 一律拒绝的回归锁**、
+Authorization 可用、无凭证 401、票据优先、非 Servlet 请求安全拒绝）；门户 `vue-tsc + vite build` 通过；
+后端 `mvn -o test` 见"同步"行内实测计数。
+
+**同步**：报告 §6.4 行改判 ✅ + 总览第 39 项 + 新增附录 AE；`项目开发规范` §3.3.4 补"WebSocket 握手凭证"；
+`00-项目现状总结` 铁律 18；README 版本历史；本条目。
+
 ## v13.20 (2026-09-27) 第二批⑨：LLM JSON 提取收敛为唯一实现（守卫比报告多抓 1 处，且守住了提示词模板）
 
 > §6.1 那行原文："`LlmJsonExtractor` 死代码，同类逻辑 5 份实现"。取证后：**死代码属实**，

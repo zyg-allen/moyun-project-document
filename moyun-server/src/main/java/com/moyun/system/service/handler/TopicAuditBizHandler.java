@@ -1,63 +1,49 @@
 package com.moyun.system.service.handler;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.moyun.core.portal.AuditContentPort;
+import com.moyun.system.service.AuditBizHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.moyun.portal.domain.entity.PortalTopic;
-import com.moyun.portal.mapper.PortalTopicMapper;
-import com.moyun.portal.service.IPortalTopicService;
-import com.moyun.system.service.AuditBizHandler;
+import java.util.Map;
 
 /**
  * 话题审核业务处理器
- * <p>
- * 委托 {@link IPortalTopicService#auditTopic} 处理。
- * 注意：话题通过态是 {@code active}（不是 published）。
+ *
+ * <p><b>v13.22 防腐层</b>：本类不再直接依赖门户实体 / Mapper（迁移前 {@code system -> portal}
+ * 共 24 条边，其中 8 个 AuditBizHandler 占 18 条）。详情读取与审核落地一律经
+ * {@link AuditContentPort}（依赖倒置；实现见 {@code com.moyun.portal.audit.AuditContentAdapter}）。
+ * 各业务的状态取值（如 published/rejected/active/resolved）与字段口径均由适配器按原实现搬运，
+ * 本类只负责"任务类型 → 端口调用"的映射。</p>
  *
  * @author moyun
  */
 @Component
 public class TopicAuditBizHandler implements AuditBizHandler {
 
+    /** 审核任务类型（与 ai/审核中心的任务类型一致） */
+    private static final String TASK_TYPE = "topic";
+
     @Autowired
-    private IPortalTopicService portalTopicService;
-    @Autowired
-    private PortalTopicMapper topicMapper;
+    private AuditContentPort auditContentPort;
 
     @Override
     public String supportedTaskType() {
-        return "topic";
+        return TASK_TYPE;
     }
 
     @Override
     public void approve(Long bizId, Long auditorId, String auditorName, String opinion) {
-        // 话题审核通过态是 active
-        portalTopicService.auditTopic(bizId, "active", opinion, auditorId);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, true, auditorId, auditorName, opinion);
     }
 
     @Override
     public void reject(Long bizId, Long auditorId, String auditorName, String opinion) {
-        portalTopicService.auditTopic(bizId, "rejected", opinion, auditorId);
+        auditContentPort.applyAudit(TASK_TYPE, bizId, false, auditorId, auditorName, opinion);
     }
 
     @Override
     public Map<String, Object> getBizDetail(Long bizId) {
-        PortalTopic t = topicMapper.selectById(bizId);
-        if (t == null) {
-            return null;
-        }
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("id", t.getId());
-        detail.put("title", t.getTitle());
-        detail.put("description", t.getDescription());
-        detail.put("status", t.getStatus());
-        detail.put("creatorId", t.getCreatorId());
-        detail.put("auditorId", t.getAuditorId());
-        detail.put("auditRemark", t.getAuditRemark());
-        detail.put("auditTime", t.getAuditTime());
-        return detail;
+        return auditContentPort.loadDetail(TASK_TYPE, bizId);
     }
 }

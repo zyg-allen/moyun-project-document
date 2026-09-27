@@ -1,25 +1,41 @@
 import type { MessageVO } from '@/types/api'
+import { httpPost } from '@/api/client'
 
 /**
  * 私信 WebSocket 工具
  *
- * 后端契约：端点 /ws-message?token=xxx（STOMP 协议），订阅 /user/queue/message，
+ * 后端契约：端点 /ws-message?ticket=xxx（STOMP 协议），订阅 /user/queue/message，
  * 收到消息格式为 MessageVO。
  *
  * 说明：当前项目未引入 @stomp/stompjs，这里采用「原生 WebSocket + STOMP 握手」尝试连接，
  * 若连接失败（浏览器不支持、跨域、握手失败等），自动降级为轮询（每 5 秒拉取一次新消息），
  * 以保证私信实时接收功能可用。
  *
- * 安全提示：token 通过 URL query 传递属于 STOMP 浏览器端的常见限制（无法在握手阶段
- * 自定义 HTTP Header）。生产环境建议：
- *   1. 后端为 ws 握手单独签发短时效的「一次性 token」，握手后立即作废；
- *   2. 或在 Nginx/网关层基于 Cookie 转发鉴权，避免 token 出现在 URL 中。
- * 当前实现仅作最小可用方案，待引入 stompjs 后可改用 Authorization Header。
+ * 安全（v13.21 已落地）：浏览器 `new WebSocket()` 无法自定义请求头，因此**不能**把门户 JWT 明文放进 URL
+ * （会进 Nginx access log / 浏览器历史 / 代理日志，而 JWT 有效期内可重放 = 账号接管）。
+ * 现改为「一次性短时效票据」：先用受保护的普通 HTTP（POST /portal/ws-ticket，带 Authorization）换取
+ * 30 位随机票据（服务端 60s TTL、原子消费一次），再用 ?ticket= 建连。详见 requestWsTicket()。
  *
  * 待引入 stompjs 后，可将 connect 内部替换为 Stomp.client()，轮询可保留为兜底。
  */
 
 const STOMP_SUBSCRIPTION = '/user/queue/message'
+
+/**
+ * 获取 WebSocket 握手用的一次性票据（v13.21）
+ *
+ * <p>服务端：{@code POST /portal/ws-ticket}（需登录）→ 返回 60 秒有效、只能消费一次的票据；
+ * 握手时 {@code ?ticket=xxx}，服务端原子取并删。这样 URL 里出现的凭证一次即废，
+ * 与门户 JWT 解耦。</p>
+ */
+export async function requestWsTicket(): Promise<string> {
+    const res = await httpPost<{ ticket: string; expiresIn: number }>('/portal/ws-ticket')
+    const ticket = res?.data?.ticket
+    if (!ticket) {
+        throw new Error('WebSocket 握手票据获取失败')
+    }
+    return ticket
+}
 
 export interface MessageWebSocketOptions {
     /** 轮询间隔（毫秒），默认 5000 */
@@ -94,14 +110,16 @@ export class MessageWebSocket {
         this.pollFn = null
     }
 
-    private tryConnectWebSocket(): void {
+    private async tryConnectWebSocket(): Promise<void> {
         if (typeof WebSocket === 'undefined' || !this.token || !this.wsBaseUrl) {
             return
         }
 
         let ws: WebSocket
         try {
-            const url = `${this.wsBaseUrl}/ws-message?token=${encodeURIComponent(this.token)}`
+            // v13.21：先换取一次性票据（失败则保持轮询降级，不把 token 放进 URL）
+            const ticket = await requestWsTicket()
+            const url = `${this.wsBaseUrl}/ws-message?ticket=${encodeURIComponent(ticket)}`
             ws = new WebSocket(url)
         } catch {
             return

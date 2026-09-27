@@ -176,26 +176,54 @@ public class ResourcesConfig implements WebMvcConfigurer
         return enabled && !isProdProfile();
     }
 
-    private static boolean isProdProfile()
+    /**
+     * WebSocket 握手 Origin 校验（v13.23，供 {@code PortalWebSocketAuthInterceptor} 调用）
+     *
+     * <p>WebSocket 不受同源策略保护，浏览器允许任意站点发起握手，因此服务端必须自己判定 Origin。
+     * 判定口径与 CORS 保持一致：</p>
+     * <ul>
+     *   <li>**无 Origin**（小程序 / 原生 / 服务端客户端）→ 放行，交由票据或 Authorization 鉴权；</li>
+     *   <li>回环（{@code localhost}/{@code 127.0.0.1}/{@code ::1}，含任意端口）→ 放行；</li>
+     *   <li>环境变量 {@code CORS_ALLOWED_ORIGINS} 里的精确源 → 放行；</li>
+     *   <li>显式开启 {@code CORS_ALLOW_LAN_DEV_ORIGINS=true} 且非生产时的**私网 IP 字面量** → 放行；</li>
+     *   <li>其余（含 {@code http://192.168.evil.com} 这类"像内网"的可注册域名）→ 拒绝。</li>
+     * </ul>
+     */
+    public static boolean isWsOriginAllowed(String origin)
     {
-        String profiles = System.getenv("SPRING_PROFILES_ACTIVE");
-        if (profiles == null || profiles.isBlank())
+        if (origin == null || origin.isBlank())
         {
-            profiles = System.getProperty("spring.profiles.active", "");
+            return true;
         }
-        for (String p : String.valueOf(profiles).split(","))
+        try
         {
-            String trimmed = p.trim().toLowerCase();
-            if ("prod".equals(trimmed) || "production".equals(trimmed))
+            java.net.URI uri = java.net.URI.create(origin);
+            String host = uri.getHost();
+            if (host != null && ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host)))
             {
                 return true;
             }
         }
-        return false;
+        catch (Exception ignored)
+        {
+            return false;
+        }
+        String envOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (envOrigins != null && !envOrigins.trim().isEmpty())
+        {
+            for (String allowed : envOrigins.split(","))
+            {
+                if (allowed.trim().equals(origin))
+                {
+                    return true;
+                }
+            }
+        }
+        return isLanDevOriginsAllowed() && isPrivateNetworkOrigin(origin);
     }
 
     /** Origin 的 host 是否为**私网 IP 字面量**或回环（拒绝任何域名，杜绝 {@code 192.168.evil.com} 这类伪造） */
-    static boolean isPrivateNetworkOrigin(String origin)
+    public static boolean isPrivateNetworkOrigin(String origin)
     {
         try
         {
@@ -230,5 +258,23 @@ public class ResourcesConfig implements WebMvcConfigurer
         {
             return false;
         }
+    }
+
+    private static boolean isProdProfile()
+    {
+        String profiles = System.getenv("SPRING_PROFILES_ACTIVE");
+        if (profiles == null || profiles.isBlank())
+        {
+            profiles = System.getProperty("spring.profiles.active", "");
+        }
+        for (String p : String.valueOf(profiles).split(","))
+        {
+            String trimmed = p.trim().toLowerCase();
+            if ("prod".equals(trimmed) || "production".equals(trimmed))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

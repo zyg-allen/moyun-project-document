@@ -253,7 +253,7 @@ public class CmsInterviewController extends BaseController {
     // ========================================================================
 
     @Operation(summary = "获取分类列表", description = "获取题目分类列表")
-    @PreAuthorize("@ss.hasPermi('cms:interview:list')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:category:list')")
     @GetMapping("/category/list")
     public AjaxResult listCategory() {
         List<InterviewCategoryVO> list = portalInterviewService.selectCategoryList();
@@ -261,14 +261,14 @@ public class CmsInterviewController extends BaseController {
     }
 
     @Operation(summary = "获取分类详情", description = "根据分类ID获取详细信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:query')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:category:query')")
     @GetMapping("/category/{id}")
     public AjaxResult getCategory(@Parameter(description = "分类ID") @PathVariable Long id) {
         return success(portalInterviewService.selectCategoryById(id));
     }
 
     @Operation(summary = "新增分类", description = "创建新分类")
-    @PreAuthorize("@ss.hasPermi('cms:interview:add')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:category:add')")
     @Log(title = "面试分类", businessType = BusinessType.INSERT)
     @PostMapping("/category")
     public AjaxResult addCategory(@Validated @RequestBody PortalInterviewCategory category) {
@@ -276,7 +276,7 @@ public class CmsInterviewController extends BaseController {
     }
 
     @Operation(summary = "修改分类", description = "更新分类信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:category:edit')")
     @Log(title = "面试分类", businessType = BusinessType.UPDATE)
     @PutMapping("/category")
     public AjaxResult editCategory(@Validated @RequestBody PortalInterviewCategory category) {
@@ -284,7 +284,7 @@ public class CmsInterviewController extends BaseController {
     }
 
     @Operation(summary = "删除分类", description = "删除分类")
-    @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:category:remove')")
     @Log(title = "面试分类", businessType = BusinessType.DELETE)
     @DeleteMapping("/category/{ids}")
     public AjaxResult removeCategory(@Parameter(description = "分类ID数组") @PathVariable Long[] ids) {
@@ -296,7 +296,7 @@ public class CmsInterviewController extends BaseController {
     // ========================================================================
 
     @Operation(summary = "获取公司列表", description = "获取公司标签列表")
-    @PreAuthorize("@ss.hasPermi('cms:interview:list')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:company:list')")
     @GetMapping("/company/list")
     public AjaxResult listCompany(InterviewCompanyQuery query) {
         List<InterviewCompanyVO> list = portalInterviewService.selectCompanyList(query);
@@ -304,14 +304,14 @@ public class CmsInterviewController extends BaseController {
     }
 
     @Operation(summary = "获取公司详情", description = "根据公司ID获取详细信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:query')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:company:query')")
     @GetMapping("/company/{id}")
     public AjaxResult getCompany(@Parameter(description = "公司ID") @PathVariable Long id) {
         return success(portalInterviewService.selectCompanyById(id));
     }
 
     @Operation(summary = "新增公司", description = "创建新公司标签")
-    @PreAuthorize("@ss.hasPermi('cms:interview:add')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:company:add')")
     @Log(title = "公司标签", businessType = BusinessType.INSERT)
     @PostMapping("/company")
     public AjaxResult addCompany(@Validated @RequestBody PortalInterviewCompany company) {
@@ -319,7 +319,7 @@ public class CmsInterviewController extends BaseController {
     }
 
     @Operation(summary = "修改公司", description = "更新公司标签信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:company:edit')")
     @Log(title = "公司标签", businessType = BusinessType.UPDATE)
     @PutMapping("/company")
     public AjaxResult editCompany(@Validated @RequestBody PortalInterviewCompany company) {
@@ -327,7 +327,7 @@ public class CmsInterviewController extends BaseController {
     }
 
     @Operation(summary = "删除公司", description = "删除公司标签")
-    @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
+    @PreAuthorize("@ss.hasPermi('cms:interview:company:remove')")
     @Log(title = "公司标签", businessType = BusinessType.DELETE)
     @DeleteMapping("/company/{ids}")
     public AjaxResult removeCompany(@Parameter(description = "公司ID数组") @PathVariable Long[] ids) {

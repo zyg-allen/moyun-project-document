@@ -154,7 +154,7 @@ function goBack() {
   // 返回路径三级回退：来源路径（query.from）> activeMenu > 默认题库页
   // 菜单调整后来源路径自动跟随，无需改代码
   const from = route.query.from;
-  const fallback = (route.meta && route.meta.activeMenu) || '/portal/interview/questionTab';
+  const fallback = (route.meta && route.meta.activeMenu) || '/portal/interview/question';
   router.push(typeof from === 'string' && from ? from : fallback);
 }
 

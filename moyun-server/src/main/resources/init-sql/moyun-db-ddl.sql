@@ -1954,11 +1954,15 @@ CREATE TABLE `portal_interview_category` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `name` varchar(200) NOT NULL COMMENT '分类名称',
                                              `slug` varchar(200) DEFAULT NULL COMMENT '分类标识',
+                                             `bank_type` varchar(32) NOT NULL DEFAULT 'interview' COMMENT '题库类型：interview=面试/certification=职业资格/civil-service=公务员/postgraduate=考研/other=其他',
+                                             `parent_id` bigint NOT NULL DEFAULT '0' COMMENT '上级分类ID（0=顶级）',
+                                             `job_family` varchar(64) DEFAULT NULL COMMENT '职业族群：后端/前端/测试/产品/运维…',
                                              `description` text COMMENT '分类描述',
                                              `icon` varchar(500) DEFAULT NULL COMMENT '图标URL',
                                              `sort` int DEFAULT '0' COMMENT '排序',
                                              `question_count` int DEFAULT '0' COMMENT '题目数量',
                                              `status` varchar(20) DEFAULT 'active' COMMENT '状态:active,inactive',
+                                             `visible` char(1) NOT NULL DEFAULT '0' COMMENT '前台展示：0=展示 1=隐藏',
                                              `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                              `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -1967,6 +1971,8 @@ CREATE TABLE `portal_interview_category` (
                                              `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                              PRIMARY KEY (`id`),
                                              KEY `idx_status` (`status`),
+                                             KEY `idx_bank_type` (`bank_type`,`visible`,`sort`),
+                                             KEY `idx_parent_id` (`parent_id`,`sort`),
                                              KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目分类表';
 
@@ -2562,25 +2568,6 @@ CREATE TABLE `portal_resume_optimize_history` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-优化历史表';
 
 
--- `moyun-db`.portal_resume_optimize_task definition
-
-CREATE TABLE `portal_resume_optimize_task` (
-                                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
-                                               `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
-                                               `resume_id` bigint NOT NULL COMMENT '简历ID（portal_user_resume.id）',
-                                               `job_target_id` bigint NOT NULL COMMENT '岗位目标ID',
-                                               `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '任务状态：pending(已提交)/running(执行中)/success(成功)/failed(失败)',
-                                               `result_json` json DEFAULT NULL COMMENT '优化结果 JSON（status=success 时填充，对应 ResumeDeepOptimizeVO 序列化）',
-                                               `error_msg` varchar(1000) DEFAULT NULL COMMENT '失败原因（status=failed 时填充）',
-                                               `ai_powered` tinyint(1) DEFAULT '1' COMMENT '是否 LLM 生成：0=规则兜底 1=LLM',
-                                               `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '任务提交时间',
-                                               `start_time` datetime DEFAULT NULL COMMENT '任务开始执行时间（pending→running 时写入）',
-                                               `finish_time` datetime DEFAULT NULL COMMENT '任务结束时间（成功或失败时写入）',
-                                               PRIMARY KEY (`id`),
-                                               KEY `idx_user_id` (`user_id`),
-                                               KEY `idx_resume_id` (`resume_id`),
-                                               KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历深度优化异步任务表（v10.19）';
 
 
 -- `moyun-db`.portal_resume_score_report definition
@@ -3480,32 +3467,6 @@ CREATE TABLE `sys_job_log` (
                                `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                PRIMARY KEY (`job_log_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务调度日志表';
-
-
--- `moyun-db`.sys_job_scan_issue definition
-
-CREATE TABLE `sys_job_scan_issue` (
-                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                      `job_id` bigint DEFAULT NULL COMMENT '触发扫描的定时任务ID',
-                                      `job_name` varchar(64) DEFAULT NULL COMMENT '定时任务名称',
-                                      `issue_type` varchar(32) NOT NULL COMMENT '问题类型：sensitive_word/pending_overdue/anomaly/other',
-                                      `issue_desc` varchar(500) NOT NULL COMMENT '问题描述',
-                                      `target_type` varchar(32) DEFAULT NULL COMMENT '目标对象类型',
-                                      `target_id` bigint DEFAULT NULL COMMENT '目标对象ID',
-                                      `target_title` varchar(255) DEFAULT NULL COMMENT '目标对象标题/摘要',
-                                      `log_excerpt` text COMMENT '日志摘要',
-                                      `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/handled/ignored',
-                                      `handler_id` bigint DEFAULT NULL COMMENT '处理人ID',
-                                      `handler_name` varchar(64) DEFAULT NULL COMMENT '处理人用户名',
-                                      `handle_result` varchar(500) DEFAULT NULL COMMENT '处理结果说明',
-                                      `handle_time` datetime DEFAULT NULL COMMENT '处理时间',
-                                      `create_time` datetime DEFAULT NULL COMMENT '扫描发现时间',
-                                      PRIMARY KEY (`id`),
-                                      KEY `idx_scan_status` (`status`),
-                                      KEY `idx_scan_job` (`job_id`),
-                                      KEY `idx_scan_target` (`target_type`,`target_id`),
-                                      KEY `idx_scan_create_time` (`create_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务扫描结果表（v8.1）';
 
 
 -- `moyun-db`.sys_logininfor definition

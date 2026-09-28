@@ -49,6 +49,127 @@ public class DashboardVO implements Serializable {
     /** 系统配置概览 */
     private SystemConfigOverview configOverview;
 
+    /** 平台定位（品牌条：定位/战略/端清单） */
+    private PlatformIdentity platformIdentity;
+
+    /** 分平台分模块运营统计（按端分组，端内按模块分组） */
+    private List<PlatformStats> platformStats;
+
+    /** 运营警报（待办积压/AI异常/通道异常；无异常时为空列表） */
+    private List<OpsAlert> alerts;
+
+    /**
+     * 平台定位与品牌信息
+     */
+    @Data
+    public static class PlatformIdentity implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** 平台名称 */
+        private String name;
+        /** 品牌口号 */
+        private String slogan;
+        /** 平台定位一句话 */
+        private String positioning;
+        /** 产品战略（内容先行引流 → 体验留存 → 优质内容促进消费） */
+        private String strategy;
+        /** 端清单（含预留端） */
+        private List<PlatformBrief> platforms;
+    }
+
+    /**
+     * 端简介（来自 sys_platform，预留端 dataReady=false）
+     */
+    @Data
+    public static class PlatformBrief implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** 端编码 */
+        private String code;
+        /** 端名称 */
+        private String name;
+        /** 端类型：b端/c端 */
+        private String type;
+        /** 定位描述 */
+        private String description;
+        /** 域名（仅展示用） */
+        private String domain;
+        /** 图标标识 */
+        private String icon;
+        /** 是否已接入业务数据（预留端为 false，前端灰显） */
+        private Boolean dataReady;
+        /** 该端汇总的关键数字（如"12 模块"），便于端卡片一眼可读 */
+        private String summary;
+    }
+
+    /**
+     * 单个平台的运营统计（端 → 模块 → 指标卡）
+     */
+    @Data
+    public static class PlatformStats implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** 端编码 */
+        private String platformCode;
+        /** 端名称 */
+        private String platformName;
+        /** 端类型：b端/c端 */
+        private String platformType;
+        /** 定位描述 */
+        private String description;
+        /** 图标标识 */
+        private String icon;
+        /** 是否已接入业务数据（预留端为 false） */
+        private Boolean dataReady;
+        /** 端级 KPI（该端最关键的 3~4 个数字，置顶大字展示） */
+        private List<MetricCard> kpis;
+        /** 端内模块统计 */
+        private List<ModuleStats> modules;
+    }
+
+    /**
+     * 模块统计（一个业务模块的一组指标）
+     */
+    @Data
+    public static class ModuleStats implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** 模块编码 */
+        private String moduleCode;
+        /** 模块名称 */
+        private String moduleName;
+        /** 模块图标 */
+        private String icon;
+        /** 该模块的指标卡 */
+        private List<MetricCard> metrics;
+        /** 模块下钻路由（点击"查看"跳转） */
+        private String routePath;
+    }
+
+    /**
+     * 运营警报项
+     */
+    @Data
+    public static class OpsAlert implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** 警报级别：danger/warning/info */
+        private String level;
+        /** 来源端 */
+        private String platformCode;
+        /** 警报标题 */
+        private String title;
+        /** 警报详情 */
+        private String detail;
+        /** 处理入口路由 */
+        private String routePath;
+    }
+
     /**
      * 核心指标卡片
      */
@@ -63,6 +184,10 @@ public class DashboardVO implements Serializable {
         private String label;
         /** 指标数值 */
         private Long value;
+        /** 指标主题色：blue/green/orange/purple/red/cyan/gray（前端按此上色） */
+        private String tone;
+        /** 数值单位后缀（如"次""%"），为空则纯数字 */
+        private String unit;
         /** 图标标识 */
         private String icon;
         /** 趋势百分比（正数上升，负数下降） */

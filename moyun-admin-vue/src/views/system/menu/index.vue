@@ -161,13 +161,17 @@
                   <el-form-item prop="path">
                      <template #label>
                         <span>
-                           <el-tooltip content="访问的路由地址，如：`user`，如外网地址需内链访问则以`http(s)://`开头" placement="top">
+                           <el-tooltip content="访问的路由地址，如：`user`。须为**单段相对路径**：不得以 `/` 开头（会被 vue-router 当绝对路径提升到顶层导致 404），也不得含 `/`（会使路由 name 非法）" placement="top">
                               <el-icon><question-filled /></el-icon>
                            </el-tooltip>
                            路由地址
                         </span>
                      </template>
-                     <el-input v-model="form.path" placeholder="请输入路由地址" />
+                     <el-input v-model="form.path" placeholder="请输入路由地址（单段，如 user）" @input="pathTip = ''" />
+                     <div v-if="pathTip" class="path-tip">
+                        <span>{{ pathTip }}</span>
+                        <el-button v-if="pathSuggestion" link type="primary" @click="applyPathSuggestion">{{ pathSuggestion }}</el-button>
+                     </div>
                   </el-form-item>
                </el-col>
                <el-col :span="12" v-if="form.menuType == 'C'">
@@ -283,6 +287,14 @@ import IconSelect from "@/components/IconSelect";
 const { proxy } = getCurrentInstance();
 const { sys_show_hide, sys_normal_disable } = proxy.useDict("sys_show_hide", "sys_normal_disable");
 
+const props = defineProps({
+  // keep-alive 缓存需要匹配组件的 name 和地址保持一致
+  name: {
+    type: String,
+    default: "Menu"
+  }
+});
+
 const menuList = ref([]);
 const open = ref(false);
 const loading = ref(true);
@@ -292,6 +304,111 @@ const menuOptions = ref([]);
 const isExpandAll = ref(false);
 const refreshTable = ref(true);
 const iconSelectRef = ref(null);
+// 路由地址校验提示（唯一性冲突 / 命名规范）
+const pathTip = ref("");
+const pathSuggestion = ref("");
+
+/**
+ * 把菜单树拍平成节点数组（含 menuId / parentId / path）
+ * 用于路由地址唯一性校验：既要查同级重复，也要查跨父节点同名段（会撞路由 name）
+ */
+function flattenMenus(nodes, out = []) {
+  (nodes || []).forEach(node => {
+    out.push(node);
+    if (node.children && node.children.length) {
+      flattenMenus(node.children, out);
+    }
+  });
+  return out;
+}
+
+/** 路由地址是否为内链 / 外链（原逻辑由后端 isInnerLink 判定，前端仅作提示跳过） */
+function isExternalPath(path) {
+  return /^(https?:|mailto:|tel:)/.test(path);
+}
+
+/** 路由 name = capitalize(path)，同段 path 会产生同名路由 → vue-router 丢弃先注册者 → 菜单 404 */
+function collideKey(path) {
+  return path.trim().charAt(0).toUpperCase() + path.trim().slice(1);
+}
+
+/** 生成建议的备选路由地址：归一为单段 kebab-case，并避开**全表**已用段
+ *  注意：路由 name = capitalize(path) 是**全局唯一**约束（不限于同级），
+ *  故建议值必须与全表所有菜单的 path 都不同，否则依然会撞路由 name。 */
+function suggestPath(path, nodes, selfId) {
+  let base = String(path || "").trim().replace(/^\/+|\/+$/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!base) return "";
+  const used = new Set(
+    nodes.filter(node => node.menuId !== selfId).map(node => collideKey(String(node.path || "").trim()))
+  );
+  if (!used.has(collideKey(base))) return base;
+  for (let i = 2; i <= 99; i++) {
+    const candidate = `${base}-${i}`;
+    if (!used.has(collideKey(candidate))) return candidate;
+  }
+  return `${base}-new`;
+}
+
+/** 路由地址综合校验：命名规范 + 同级唯一 + 路由 name 唯一 */
+function checkMenuPath(path) {
+  const raw = String(path || "").trim();
+  if (!raw) return { ok: false, message: "", suggestion: "" };
+  if (isExternalPath(raw)) return { ok: true, message: "", suggestion: "" };
+  if (raw.startsWith("/")) {
+    return {
+      ok: false,
+      message: `路由地址不能以「/」开头：会被 vue-router 当作绝对路径提升到顶层，导致父路径丢失而 404`,
+      suggestion: suggestPath(raw, flattenMenus(menuList.value), form.value.menuId)
+    };
+  }
+  if (raw.includes("/")) {
+    return {
+      ok: false,
+      message: `路由地址不能包含「/」：会使路由 name 变成非法标识符，同段 path 也会撞路由 name`,
+      suggestion: suggestPath(raw, flattenMenus(menuList.value), form.value.menuId)
+    };
+  }
+  const nodes = flattenMenus(menuList.value);
+  const selfId = form.value.menuId;
+  const parentId = form.value.parentId;
+  // ① 同级重复：路径完全相同 → 必然 404
+  const sibling = nodes.find(node => node.menuId !== selfId && node.parentId === parentId && String(node.path || "").trim() === raw);
+  if (sibling) {
+    return {
+      ok: false,
+      message: `路由地址「${raw}」在**同级菜单**已被「${sibling.menuName}」占用（同级重名会直接 404）`,
+      suggestion: suggestPath(raw, nodes, selfId)
+    };
+  }
+  // ② 跨父节点同段：路由 name 都是 capitalize(path) → 同名会被 vue-router 丢弃
+  const key = collideKey(raw);
+  const cross = nodes.find(node => node.menuId !== selfId && collideKey(String(node.path || "").trim()) === key);
+  if (cross) {
+    return {
+      ok: false,
+      message: `路由 name「${key}」已被「${cross.menuName}」占用（路由 name 由 path 决定，同名菜单会 404）`,
+      suggestion: suggestPath(raw, nodes, selfId)
+    };
+  }
+  return { ok: true, message: "", suggestion: "" };
+}
+
+/** 路由地址自定义校验（供 el-form rules 使用） */
+function validatePath(rule, value, callback) {
+  const result = checkMenuPath(value);
+  pathTip.value = result.ok ? "" : result.message;
+  pathSuggestion.value = result.ok ? "" : (result.suggestion || "");
+  return result.ok ? callback() : callback(new Error(result.message));
+}
+
+/** 一键采用建议的路由地址 */
+function applyPathSuggestion() {
+  if (!pathSuggestion.value) return;
+  data.form.path = pathSuggestion.value;
+  pathTip.value = "";
+  pathSuggestion.value = "";
+  nextTick(() => proxy.$refs["menuRef"]?.validateField("path"));
+}
 
 const data = reactive({
   form: {},
@@ -302,7 +419,10 @@ const data = reactive({
   rules: {
     menuName: [{ required: true, message: "菜单名称不能为空", trigger: "blur" }],
     orderNum: [{ required: true, message: "菜单顺序不能为空", trigger: "blur" }],
-    path: [{ required: true, message: "路由地址不能为空", trigger: "blur" }]
+    path: [
+      { required: true, message: "路由地址不能为空", trigger: "blur" },
+      { validator: validatePath, trigger: ["blur", "change"] }
+    ]
   },
 });
 
@@ -366,6 +486,8 @@ function resetQuery() {
 /** 新增按钮操作 */
 function handleAdd(row) {
   reset();
+  pathTip.value = "";
+  pathSuggestion.value = "";
   getTreeselect();
   if (row != null && row.menuId) {
     form.value.parentId = row.menuId;
@@ -386,6 +508,8 @@ function toggleExpandAll() {
 /** 修改按钮操作 */
 async function handleUpdate(row) {
   reset();
+  pathTip.value = "";
+  pathSuggestion.value = "";
   await getTreeselect();
   getMenu(row.menuId).then(response => {
     form.value = response.data;
@@ -425,3 +549,22 @@ function handleDelete(row) {
 
 getList();
 </script>
+
+<style scoped>
+.path-tip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-color-danger);
+}
+
+.path-tip .el-button {
+  height: auto;
+  padding: 0;
+  font-size: 12px;
+}
+</style>

@@ -140,7 +140,7 @@ export const dynamicRoutes = [
         path: 'user/:roleId(\\d+)',
         component: () => import('@/views/system/role/authUser'),
         name: 'AuthUser',
-        meta: { title: '分配用户', activeMenu: '/system/role' }
+        meta: { title: '分配用户', activeMenu: '/system/base/role' }
       }
     ]
   },
@@ -154,7 +154,7 @@ export const dynamicRoutes = [
         path: 'index/:dictId(\\d+)',
         component: () => import('@/views/system/dict/data'),
         name: 'Data',
-        meta: { title: '字典数据', activeMenu: '/system/dict' }
+        meta: { title: '字典数据', activeMenu: '/system/system-config/dict' }
       }
     ]
   },
@@ -168,7 +168,7 @@ export const dynamicRoutes = [
         path: 'index/:jobId(\\d+)',
         component: () => import('@/views/monitor/job/log'),
         name: 'JobLog',
-        meta: { title: '调度日志', activeMenu: '/monitor/job' }
+        meta: { title: '调度日志', activeMenu: '/system/monitor/job' }
       }
     ]
   },
@@ -182,7 +182,7 @@ export const dynamicRoutes = [
         path: 'index/:tableId(\\d+)',
         component: () => import('@/views/tool/gen/editTable'),
         name: 'GenEdit',
-        meta: { title: '修改生成配置', activeMenu: '/tool/gen' }
+        meta: { title: '修改生成配置', activeMenu: '/system/tool/gen' }
       }
     ]
   },
@@ -202,19 +202,19 @@ export const dynamicRoutes = [
         path: 'article/edit',
         component: () => import('@/views/cms/article/edit'),
         name: 'ArticleEdit',
-        meta: { title: '编辑文章', activeMenu: '/cms/article' }
+        meta: { title: '编辑文章', activeMenu: '/portal/cms/article' }
       },
       {
         path: 'article/edit/:id(\\d+)',
         component: () => import('@/views/cms/article/edit'),
         name: 'ArticleEditWithId',
-        meta: { title: '编辑文章', activeMenu: '/cms/article' }
+        meta: { title: '编辑文章', activeMenu: '/portal/cms/article' }
       },
       {
         path: 'interview/testCase/:questionId(\\d+)',
         component: () => import('@/views/cms/interview/testCase/index'),
         name: 'InterviewTestCase',
-        meta: { title: '测试用例管理', activeMenu: '/portal/interview/questionTab' }
+        meta: { title: '测试用例管理', activeMenu: '/portal/learn/question' }
       }
     ]
   },
@@ -244,13 +244,13 @@ export const dynamicRoutes = [
         path: 'bookChapter',
         component: () => import('@/views/portal/bookChapter/index'),
         name: 'BookChapter',
-        meta: { title: '章节管理', activeMenu: '/portal/book' }
+        meta: { title: '章节管理', activeMenu: '/portal/reading/book-index' }
       },
       {
         path: 'bookChapter/:bookId(\\d+)',
         component: () => import('@/views/portal/bookChapter/index'),
         name: 'BookChapterWithBook',
-        meta: { title: '章节管理', activeMenu: '/portal/book' }
+        meta: { title: '章节管理', activeMenu: '/portal/reading/book-index' }
       }
     ]
   },

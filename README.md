@@ -1,8 +1,8 @@
 # 旭林知行 — AI 驱动的求职面试与学习成长平台
 
-**项目版本**：v13.24（整改交付完成：模块边界 / 数据库口径 / 事务边界 / 回滚口径 / 写路径静默失效 / 收银台与跨域安全 / 数据库默认值与脚本幂等 / 网关配置读取 / LLM 输出解析收敛 / WebSocket 握手凭证 / 防腐层 / WS Origin 与日期列 十二项闭环 + 交付验收清单）  
-**最后更新**：2026-09-27  
-**项目状态**：✅ v13.24 整改交付完成（12 项闭环，17 个守卫/单测类；后端 422 例全绿） | 📋 **验收入口 → [整改交付与验证清单（v13.11~v13.24）](docs/09-临时报告/整改交付与验证清单（v13.11~v13.24）.md)**（含逐批复跑命令与未完成项） | 🧭 **变更铁律见 [00-项目现状总结 · 开发铁律](docs/06-规划路线/00-项目现状总结.md)**
+**项目版本**：v13.32（**菜单表单加路径唯一性校验 + 修改建议**：拦截前导/内嵌斜杠、同级重复、路由 name 跨父冲突，冲突时给可一键采用的建议值）  
+**最后更新**：2026-09-28  
+**项目状态**：✅ v13.24 整改交付完成（12 项闭环，17 个守卫/单测类；后端 422 例全绿） | 📋 **验收入口 → [整改交付与验证清单（v13.11~v13.24）](docs/09-临时报告/全端-整改-交付验证清单-V13.24.md)**（含逐批复跑命令与未完成项） | 🧭 **开发铁律（唯一口径）见 [项目现状总结 · ⚖️ 开发铁律](docs/06-规划路线/全端-规划-项目现状总结-V13.29.md)**
 
 ---
 
@@ -150,7 +150,7 @@ npm run dev:mp-weixin   # 小程序端（微信开发者工具导入 dist/dev/mp
 ```bash
 cd moyun-server/src/main/resources
 
-# 1. 建表（DDL：187 张表。实测：48 张表为 DROP TABLE IF EXISTS + CREATE TABLE（破坏性重建），
+# 1. 建表（DDL：185 张表。实测：48 张表为 DROP TABLE IF EXISTS + CREATE TABLE（破坏性重建），
 #    其余为裸 CREATE TABLE（重复执行会因"表已存在"报错）；**全脚本 0 处 CREATE TABLE IF NOT EXISTS，
 #    因此整体非幂等、只能用于新库初始化一次**）
 mysql -u root -p moyun-db < init-sql/moyun-db-ddl.sql
@@ -169,10 +169,45 @@ mysql -u root -p moyun-db < increment-sql/20260927-02-ai_execute_log-token估算
 mysql -u root -p moyun-db < increment-sql/20260927-03-数据库规范统一（金额精度+collation）.sql
 mysql -u root -p moyun-db < increment-sql/20260927-04-话题模块软删列统一.sql
 mysql -u root -p moyun-db < increment-sql/20260927-05-pay_user_bank_card核验默认值与update_time.sql
+mysql -u root -p moyun-db < increment-sql/20260927-06-portal_user-birthday改date.sql
+mysql -u root -p moyun-db < increment-sql/20260928-02-题库分类扩展考试类型与两级分类.sql
+mysql -u root -p moyun-db < increment-sql/20260928-03-补齐无菜单入口（竞赛广告提示词导入模板）.sql
+mysql -u root -p moyun-db < increment-sql/20260928-04-菜单图标归位失效图标修正.sql
+mysql -u root -p moyun-db < increment-sql/20260928-05-审核中心菜单归并为一条.sql
+mysql -u root -p moyun-db < increment-sql/20260928-06-恢复被误删的分组页菜单.sql
+mysql -u root -p moyun-db < increment-sql/20260928-07-系统监控菜单归并去重.sql
+mysql -u root -p moyun-db < increment-sql/20260928-08-补建漏建表sys_config_log.sql
+mysql -u root -p moyun-db < increment-sql/20260928-09-清理死表（无实体或无引用）.sql
+mysql -u root -p moyun-db < increment-sql/20260928-10-记账幂等唯一键对齐（uk_user_client与uk_task_date）.sql
+mysql -u root -p moyun-db < increment-sql/20260928-11-支付金额列类型对齐（bigint转decimal）.sql
 ```
 
-> **执行方式**：脚本内部用 `DATABASE()` 取当前库，请带库名执行（`-D moyun-db` 或先 `USE`）；
-> **全部脚本可重复执行**（v13.18 起由 `IncrementSqlIdempotencyGuardTest` 强制，dev 库已实测 7 脚本 × 2 次全 `exit 0`）。
+> **SQL 双轨铁律**（v13.28 起，详见《项目开发规范》2.8 与《项目现状总结》变更铁律第 9 条）：
+> **`init-sql/` 是"目标态"，`increment-sql/` 是"存量库执行件"，两者必须同步修改**——
+> 新库只跑 `init-sql` 三件套即可初始化出**可用项目**；已有库按序跑 `increment-sql/` 升上来。
+> **只改一边 = 新库装出来是旧结构**。
+> 交付后必须**回查现网库**（用 `init-sql` 临时建库后逐表/逐列/逐索引比对，差异须为 0），
+> **不允许只凭脚本注释声称"已执行"**。
+
+> **菜单类变更不走增量脚本**（v13.28 起）：菜单结构由 **`init-sql/moyun-menu-redo.sql`** 单点维护
+> （新库初始化一次性全量重建；`menu_id` 显式指定 + 按钮权限行自增 + 超管动态授权）。
+> 原 `20260928-01`（后台菜单按前台五大主线重组）已**删除**——其全部终态（含 27 条菜单/权限行、
+> 内容管理 order 重排、监控去重、审核中心归并、分组页恢复）经逐项比对**已完整包含**在
+> `moyun-menu-redo.sql` 中。**已有库的菜单调整请在后台【菜单管理】直接改，或按需新增一次性脚本**，
+> 不要再为一个菜单改动交付增量脚本（避免两套 id 空间并存）。
+> 注：`20260928-03/04/05/06/07` 同属菜单类脚本，其终态亦已全部收录于 `moyun-menu-redo.sql`
+> （保留仅作历史留痕，新库无需执行）。
+
+> `20260928-10` 说明：把记账侧幂等唯一键对齐到**代码注释所要求的目标态**——
+> `ledger_transaction` / `ledger_tip_order` 的 `uk_client_uuid(client_uuid)` 改为
+> **`uk_user_client(user_id, client_uuid)`**（`LedgerTransactionServiceImpl` L81-82 明确
+> "全局唯一会让两个用户偶然撞同一 uuid 时报错"；`LedgerTipServiceImpl` L62-63 补充安全理由：
+> 仅按 `clientUuid` 查会命中他人 pending 单），`ledger_schedule_log` 的 `idx_task` 升为
+> **`uk_task_date(task_id, exec_date)`** 唯一键（`LedgerScheduleServiceImpl` L364-365 的并发兜底）。
+
+> `20260928-11` 说明：`pay_*` 共 **8 列**金额由 `bigint`（分）改为 **`decimal(18,2)`（元）**，
+> 与全项目"金额统一为元（v11.31 起）"口径及 `DdlConventionGuardTest` 对齐。
+> 属**无损宽化**（整数值直接成为 `N.00`），无需数据搬迁；带 `information_schema` 前置判断可重跑。
 
 > `20260927-01` 说明：把 `vip_user_card` 的 `idx_user_platform` 升级为
 > `UNIQUE KEY uk_user_platform(user_id, platform_code)`，落实表注释"一端一卡，续费顺延"。
@@ -187,14 +222,24 @@ mysql -u root -p moyun-db < increment-sql/20260927-05-pay_user_bank_card核验�
 
 #### 菜单初始化策略（`moyun-menu-redo.sql`）
 
-菜单表 `sys_menu` 的 `menu_id` 由脚本**显式指定**（当前 107 条，id 1~108 连续），
-菜单项之间通过 `parent_id` 引用这些固定 id。该脚本开头执行 `TRUNCATE TABLE sys_menu`
-后以显式 id 全量重插 —— **这是有意的投产初始化设计**，用于保证菜单 id 编号可复现。
+菜单表 `sys_menu` 的编号由脚本**显式指定并可复现**（v13.26 重排）：
+
+- **侧边栏项**（`M` 目录 / `C` 菜单，共 **121** 条）：`menu_id` 显式指定为 **1..121**，
+  按**语义树深度优先**编号（同一父节点下先父后子、按 `order_num` 排序），
+  因此 **父 `menu_id` 恒小于子 `menu_id`**，`parent_id` 引用这些固定 id；
+- **按钮权限**（`F`，共 **275** 条）：**不指定 `menu_id`**，交由 `AUTO_INCREMENT` 依次分配；
+- 脚本开头执行 `TRUNCATE TABLE sys_menu` 后全量重插，并在末尾以动态
+  `INSERT ... SELECT` 给超管角色(role_id=1)全量授权（**与菜单 id 无关，永不悬空**）。
 
 > **运维注意（重要）**：该脚本会**丢弃所有后台手工调整过的菜单**（新增/改名/排序/权限字符）。
 > 因此**只应在初始化时执行一次**；投产后再有菜单变更，请改用
 > `UPDATE sys_menu ...` + 少量 `INSERT ...`（并显式指定 `menu_id`），**不要重跑本脚本**。
->
+
+> **⚠️ 两套 id 空间不可交叉使用**：`init-sql/moyun-menu-redo.sql` 服务于**新库初始化**（id 1..396）；
+> `increment-sql/2026xxxx-*.sql` 服务于**存量库**增量，其中的菜单变更按**现网 id（5000+ 段）**
+> 精确寻址。故：**新库不执行 increment 系列，存量库不执行本脚本**。
+> 若存量库需要同样的菜单结构，请按增量脚本逐条应用（而非改跑本脚本）。
+
 > 关于该脚本的完整设计意图，以 `docs/07-变更日志/devlog.md` 与脚本本身为准；
 > 本文档只描述可验证的脚本行为。
 
@@ -229,7 +274,7 @@ mysql -u root -p moyun-db < increment-sql/20260927-05-pay_user_bank_card核验�
 默认为 `false`，否则健康检查会因 535 认证失败而整体 DOWN，掩盖 MySQL/Redis 的真实故障）、
 `KNIFE4J_PRODUCTION=true`（关闭生产 Swagger 文档）、`PORTAL_DOMAIN`（门户站点域名，用于 SEO）。
 
-> 完整说明见 [部署指南](docs/03-部署运维/部署指南.md)；
+> 完整说明见 [部署指南](docs/03-部署运维/全端-部署-部署指南-V13.28.md)；
 > 启动期校验逻辑见 `core/config/ConfigWiringValidator` 与 `core/config/TokenConfigValidator`。
 
 ---
@@ -276,15 +321,19 @@ moyun-project-document/
 
 | 文档 | 说明 |
 |------|------|
-| [docs/README.md](docs/README.md) | 项目文档总索引（按分类组织） |
-| [项目介绍](docs/01-架构设计/项目介绍.md) | 项目定位、模块清单、核心特性 |
-| [技术架构](docs/01-架构设计/技术架构.md) | 技术选型、架构设计、模块依赖 |
-| [开发指南](docs/02-开发指南/开发指南.md) | 环境配置、代码规范 |
-| [项目开发规范](docs/02-开发指南/项目开发规范.md) | 全项目代码规范 |
-| [部署指南](docs/03-部署运维/部署指南.md) | 环境部署、SQL初始化 |
-| [功能排查清单](docs/04-测试验收/功能排查清单.md) | 按业务链路的功能测试 |
-| [开发进度与规划](docs/06-规划路线/开发进度与规划.md) | 当前进度、未来路线图 |
+| [docs/README.md](docs/README.md) | 项目文档总索引（按分类组织 + 时效标注） |
+| [项目介绍](docs/01-架构设计/全端-架构-项目介绍-V13.0.md) | 项目定位、模块清单、核心特性 |
+| [技术架构](docs/01-架构设计/全端-架构-技术架构-V13.0.md) | 技术选型、架构设计、模块依赖 |
+| [AI底座与调用场景链路导读](docs/01-架构设计/全端-AI底座-链路导读-V13.0.md) | 按顺序读代码：一次 AI 调用的完整链路 |
+| [项目开发规范](docs/02-开发指南/全端-规范-项目开发规范-V13.30.md) | **全项目唯一规范来源** |
+| [部署指南](docs/03-部署运维/全端-部署-部署指南-V13.28.md) | 环境部署、SQL初始化 |
+| [全端-规划-项目现状总结](docs/06-规划路线/全端-规划-项目现状总结-V13.29.md) | **现状基线**：全景 + 各模块实现方法 + 开发铁律 |
+| [开发进度与规划](docs/06-规划路线/全端-规划-开发进度与规划-V13.28.md) | 当前进度、未来路线图 |
 | [devlog](docs/07-变更日志/devlog.md) | 版本变更日志 |
+
+> 原「开发指南」（v9.0）与「功能排查清单」（v10.6）因**严重滞后于代码**已删除
+> （内容分别被「项目开发规范 + 部署指南」覆盖、被 `报告四/VP评审` 判定为与代码脱节），
+> 归档于 `.archive/docs-obsolete-20260928/`。文档时效以 [docs/README.md](docs/README.md) 标注为准。
 
 ---
 
@@ -353,7 +402,14 @@ moyun-project-document/
 | **v13.21** | **2026-09-27** | **第二批⑩WebSocket 握手改「一次性短时效票据」：门户 JWT 不再进 URL（`POST /portal/ws-ticket` + 60s 一次性票据 + 拦截器显式拒绝 `?token=`），前端两处建连改造** |
 | **v13.22** | **2026-09-27** | **第三批①`system→portal` 防腐层：审核中心 8 个 Handler 改走 `core.portal.AuditContentPort`（实现落 `portal.audit.AuditContentAdapter`），依赖边 24→6** |
 | **v13.23** | **2026-09-27** | **第三批②WS 握手加 Origin 白名单（复用 CORS 口径，`192.168.evil.com` 拒绝）+ `portal_user.birthday` 改 `date`（幂等增量脚本 + 年龄 SQL 去 `STR_TO_DATE`）** |
-| **v13.24** | **2026-09-27** | **第三批③交付验收清单：`整改交付与验证清单（v13.11~v13.24）.md`（13 批逐条复跑命令 + 关键取舍 + 未完成/需人工输入 + 验收顺序）** |
+| **v13.24** | **2026-09-27** | **第三批③交付验收清单：`全端-整改-交付验证清单-V13.24.md`（13 批逐条复跑命令 + 关键取舍 + 未完成/需人工输入 + 验收顺序）** |
+| **v13.25** | **2026-09-27** | **后台首页改版为「分平台运营概览」：平台定位品牌条 + 运营警报 + 端/模块分层统计（门户 5 / 记账 2 / 管理 4 模块）+ 待办已办保留 + 趋势榜单；新增 `SysDashboardStatsMapper` 与 `platformStats/alerts` 契约** |
+| **v13.26** | **2026-09-27** | **后台菜单按门户前台五大主线重组：拆分 3 个混装 Tab 页、题库迁入学习管理、新增简历/阅读/成长管理父菜单、补齐错题本/学习计划/竞赛/广告位/写作提示词/导入模板 6 个无菜单入口、题库分类扩展考试类型与两级分类（4 列 + 2 索引）、审核中心两条归并为一条、监控服务与缓存去重、修正 7 条失效菜单图标、重导 `moyun-menu-redo.sql`（id 改为从 1 起按语义树深度优先）、删除 2 个无入口页、修正 7 处失效跳转** |
+| **v13.28** | **2026-09-27** | **文档治理 + 库表以代码为准对账：建立文档效力顺序（代码 > 现状总结 > 索引 > 其余）；删除 4 份严重滞后文档；收敛三份 AI 网关阶段方案为《演进史与现行实现》；重建 `docs/README.md` 索引（按实物重列 + 标注时效 + 修正失效链接）；**修复 `sys_config_log` 漏建（后台改参数必 500 的 P0）**；**删除 9 张无引用死表**（表+实体+Mapper+DDL 全链路）并同步 DDL；修正 `开发进度与规划` 滞后表述** |
+| **v13.29** | **2026-09-28** | **开发铁律重新整理为全局统一口径（34 条 · 七组），不再按版本分层堆叠；新增最高优先级铁律「严禁私自把 git 回退到历史版本」（唯一例外=上一步刚提交且已确认错误；其余须人工确认；优先 `git revert` 向前修正）**；SQL 双轨（init-sql 与 increment-sql 同步修改）；**验证 init-sql 可独立初始化：临时库重建后与现网逐表/逐列/逐索引差异为 0**；修复 **168 处**现网漏迁移（collation 160 列 + 支付金额 8 列）；新增 `20260928-10`（记账幂等唯一键 `uk_user_client`/`uk_task_date`）、`20260928-11`（支付金额 `bigint`→`decimal(18,2)`）；删除 DDL 残留死表 `portal_resume_optimize_task`（**185 张表**）；**恢复 2 张误删在用表**（`portal_resume_job_match`/`portal_resume_optimize_history`）；菜单 path 唯一化修 4 处路由 name 冲突；删除冗余 `20260928-01`；`开发规范`/`现状总结` 升 V13.29** |
+| **v13.30** | **2026-09-28** | **开发规范评审整改（仅 R1 + R4，其余评审结论按裁定不改）：① 版本表去硬编码**——`§1.1`/`§2.1` 曾写 `MyBatis-Plus 3.5.7`（实际 `pom.xml` 为 3.5.11，且与根 README 自相矛盾）、`§4.1.1` 曾写 `Axios 0.27.2`（实际 `^1.7.9`，取消 API 已由 `CancelToken` 改 `AbortController`），现**全部改为「版本策略 + 唯一事实来源」**（后端 `pom.xml` / 前端各端 `package.json`，禁止复制具体版本号，附 `mvn help:evaluate` 查询命令）；**② 明确「唯一」效力边界**——规范 = 唯一「技术实现规范」来源（怎么做），现状总结铁律 = 唯一「项目铁律」来源（必须遵守什么），**铁律为上位、规范为下位**，双向互指并给出全项目效力顺序。`开发规范` 升 V13.30（全仓 10 文件 16 处引用同步）** |
+| **v13.31** | **2026-09-28** | **菜单/页面收尾核查（原始任务「首页优化 + 按前台分类重组后台菜单」完成度核验）**：**① 修 3 处非法 `path`**——`架构图生成` `diagram/chat`（路由 name = `Diagram/chat`，含 `/` 非法）、`分类管理` `/category`、`配置管理` `/systemConfig`（**子菜单 path 前导斜杠会被 vue-router 当绝对路径提升到顶层 → 父路径丢失 → 真 404**）→ 改为 `diagram-chat` / `content-category` / `system-config`；**② 修 7 处 `activeMenu` 旧路由**（菜单重构后未同步）：`/system/role`→`/system/base/role`、`/system/dict`→`/system/system-config/dict`、`/monitor/job`→`/system/monitor/job`、`/tool/gen`→`/system/tool/gen`、`/cms/article`→`/portal/cms/article`（×2）、`/portal/interview/question`→`/portal/learn/question`。**核验通过（无需改动）**：**99 个** C 类菜单 component 全部命中真实 `.vue`、**121 条**路由 name 全唯一合法无碰撞、**13 处** `activeMenu` 全命中、首页看板 **12 条**跳转路由全命中、孤儿页面扫描 **15 项全为合法非菜单页**（含 5 个被 TabContainer 容器 import 的子面板）。`npm run build:prod` **exit 0** + 后端 **422 例全绿** |
+| **v13.32** | **2026-09-28** | **菜单表单新增「路由地址（path）唯一性校验 + 修改建议」**（纯前端，未改后端）：三级校验——**命名规范**（不得以 `/` 开头，否则被 vue-router 当绝对路径提升到顶层而 **404**；不得含 `/`，否则路由 name 非法）+ **同级唯一** + **路由 name 全局唯一**（name = `capitalize(path)`，跨父节点同名段会撞 name → 菜单 404）；冲突时给出红色提示 + **可点击的「采用建议：xxx」** 一键填入（建议值归一为单段 kebab-case 并**按全表避让**，如 `article-2`）。**用现网 121 条真实菜单数据跑 14 项断言全通过**；`npm run build:prod` exit 0 |
 
 ---
 

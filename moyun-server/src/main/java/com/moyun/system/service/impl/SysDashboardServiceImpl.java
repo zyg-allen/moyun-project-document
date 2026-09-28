@@ -95,6 +95,9 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     @Autowired
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
+    @Autowired
+    private com.moyun.system.mapper.SysDashboardStatsMapper dashboardStatsMapper;
+
     @Override
     public DashboardVO getDashboardData() {
         // 尝试命中完整缓存
@@ -119,6 +122,10 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         vo.setSystemActivities(buildSystemActivities());
         vo.setHotArticles(buildHotArticles());
         vo.setConfigOverview(buildConfigOverview());
+        // 分平台运营概览（v13.25 起）：平台定位 + 端/模块统计 + 运营警报
+        vo.setPlatformIdentity(buildPlatformIdentity());
+        vo.setPlatformStats(buildPlatformStats());
+        vo.setAlerts(buildAlerts());
 
         // 写入缓存：若待办/已办为空（可能首次启动或审核任务索引未回填），
         // 仅短缓存 20s，避免空列表被缓存 5 分钟导致"实际有数据但首页待办空"的感知；
@@ -784,6 +791,436 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         item.put("label", label);
         item.put("value", value != null ? value : "");
         return item;
+    }
+
+    // ========== 分平台运营概览（v13.25） ==========
+
+    /**
+     * 构建平台定位（品牌条）：平台名/口号/战略 + 端清单。
+     * <p>简介文案取自 sys_platform（端定位的权威来源）；口号与战略属产品口径，
+     * 与 README「品牌口号」「产品策略」一致，硬编码在此以便首页零配置可用。
+     */
+    private DashboardVO.PlatformIdentity buildPlatformIdentity() {
+        DashboardVO.PlatformIdentity identity = new DashboardVO.PlatformIdentity();
+        identity.setName("旭林知行");
+        identity.setSlogan("知行合一，助你上岸");
+        identity.setPositioning("AI 驱动的求职面试与学习成长平台");
+        identity.setStrategy("内容先行引流 → 体验留存 → 优质内容促进消费");
+        try {
+            List<Map<String, Object>> rows = dashboardStatsMapper.selectEnabledPlatforms();
+            // 该端是否已接入可统计的业务数据（预留端在此登记，避免首页展示假数据）
+            Map<String, Boolean> dataReady = Map.of("portal", true, "ledger", true, "admin", true);
+            List<DashboardVO.PlatformBrief> briefs = new ArrayList<>();
+            for (Map<String, Object> row : rows == null ? List.<Map<String, Object>>of() : rows) {
+                String code = text(row.get("platformCode"));
+                DashboardVO.PlatformBrief brief = new DashboardVO.PlatformBrief();
+                brief.setCode(code);
+                brief.setName(text(row.get("platformName")));
+                brief.setType(text(row.get("platformType")));
+                brief.setDescription(text(row.get("description")));
+                brief.setDomain(text(row.get("domain")));
+                brief.setIcon(text(row.get("icon")));
+                brief.setDataReady(dataReady.getOrDefault(code, false));
+                briefs.add(brief);
+            }
+            // 端清单汇总：已接入端 / 总端数（运营一眼可读）
+            long readyCount = briefs.stream().filter(b -> Boolean.TRUE.equals(b.getDataReady())).count();
+            for (DashboardVO.PlatformBrief b : briefs) {
+                b.setSummary(briefs.size() + " 端中的第 " + (briefs.indexOf(b) + 1) + " 端"
+                        + (Boolean.TRUE.equals(b.getDataReady()) ? "" : "（预留）"));
+            }
+            // 门户端摘要补上模块数，便于端卡片判断"该端业务丰富度"
+            identity.setPlatforms(briefs);
+            log.debug("[Dashboard] 端清单 {} 个（已接入 {} 个）", briefs.size(), readyCount);
+        } catch (Exception e) {
+            log.error("[Dashboard] 构建平台定位失败", e);
+            identity.setPlatforms(new ArrayList<>());
+        }
+        return identity;
+    }
+
+    /**
+     * 构建分平台分模块运营统计（端 → 模块 → 指标卡）。
+     * <p>每端只取 2~5 个模块、每模块 3~5 个指标，聚焦"运营能据此做决策"的数字；
+     * 任一聚合失败只影响对应模块，不拖垮整页（各块独立 try/catch）。
+     */
+    private List<DashboardVO.PlatformStats> buildPlatformStats() {
+        List<DashboardVO.PlatformStats> list = new ArrayList<>();
+        LocalDateTime todayStart = LocalDateTime.now().toLocalDate().atStartOfDay();
+
+        // 共享聚合结果：一次取出，避免每个模块重复查库
+        Map<String, Object> articleStats = safeQuery(articleMapper::selectArticleMetrics);
+        Map<String, Object> auditSummary = safeQuery(() -> dashboardStatsMapper.selectAuditTaskSummary(todayStart));
+        Map<String, Object> aiSummary = safeQuery(dashboardStatsMapper::selectAiExecuteSummary);
+        Map<String, Object> aiToday = safeQuery(() -> dashboardStatsMapper.selectAiExecuteTodaySummary(todayStart));
+        Map<String, Long> pendingByType = safeQueryMap(auditTaskService::countPendingByType);
+
+        list.add(buildPortalPlatform(articleStats, pendingByType, todayStart));
+        list.add(buildLedgerPlatform(todayStart));
+        list.add(buildAdminPlatform(auditSummary, aiSummary, aiToday));
+        // 预留端（无业务数据）：仅占位，前端灰显
+        list.addAll(buildReservedPlatforms());
+        return list;
+    }
+
+    // ---------- 门户端 ----------
+
+    private DashboardVO.PlatformStats buildPortalPlatform(Map<String, Object> articleStats,
+                                                          Map<String, Long> pendingByType,
+                                                          LocalDateTime todayStart) {
+        DashboardVO.PlatformStats p = newPlatform("portal", "门户端", "c端",
+                "求职、学习、成长", "portal", true);
+
+        Long totalArticles = boxed(toLong(articleStats.get("totalArticles")));
+        Long publishedArticles = boxed(toLong(articleStats.get("publishedArticles")));
+        Long totalViews = boxed(toLong(articleStats.get("totalViews")));
+        Long totalLikes = boxed(toLong(articleStats.get("totalLikes")));
+        Long totalComments = boxed(toLong(articleStats.get("totalComments")));
+        Long pendingTotal = boxed(pendingByType.values().stream().mapToLong(Long::longValue).sum());
+
+        // 端级 KPI：该端最该被运营关注的四个数字
+        p.getKpis().add(metric("publishedArticles", "已发布内容", boxed(publishedArticles), "green", "篇", "CircleCheck", null));
+        p.getKpis().add(metric("totalViews", "累计浏览", boxed(totalViews), "blue", "次", "View", null));
+        p.getKpis().add(metric("portalUsers", "门户用户", toLong(safeQuery(dashboardStatsMapper::selectContentAuxCounts).get("portalUsers")), "purple", "人", "User", null));
+        p.getKpis().add(metric("pendingTotal", "待审核", boxed(pendingTotal), pendingTotal > 0 ? "orange" : "gray", "条", "Clock", null));
+
+        // 模块1：内容社区
+        DashboardVO.ModuleStats content = newModule("content", "内容社区", "documentation", "/cms/article");
+        content.getMetrics().add(metric("articleCount", "文章总数", totalArticles, "blue", "篇", "Document", null));
+        content.getMetrics().add(metric("publishedArticles", "已发布", publishedArticles, "green", "篇", "CircleCheck", null));
+        content.getMetrics().add(metric("totalComments", "累计评论", totalComments, "cyan", "条", "ChatDotRound", null));
+        content.getMetrics().add(metric("totalLikes", "累计点赞", totalLikes, "red", "次", "Star", null));
+        p.getModules().add(content);
+
+        // 模块2：AI 语音面试
+        Map<String, Object> voice = safeQuery(() -> dashboardStatsMapper.selectVoiceInterviewSummary(todayStart));
+        Long voiceTotal = boxed(toLong(voice.get("total")));
+        Long voiceFinished = boxed(toLong(voice.get("finished")));
+        DashboardVO.ModuleStats interview = newModule("voice_interview", "AI 语音面试", "job", "/portal/interview/voiceInterview");
+        interview.getMetrics().add(metric("interviewTotal", "面试总场次", voiceTotal, "purple", "场", "Mic", null));
+        interview.getMetrics().add(metric("interviewFinished", "已完成", voiceFinished, "green", "场", "CircleCheck", null));
+        interview.getMetrics().add(metric("interviewAvgScore", "平均得分", toLong(voice.get("avgScore")), "orange", "分", "TrendCharts", null));
+        interview.getMetrics().add(metric("interviewToday", "今日新增", toLong(voice.get("todayNew")), "blue", "场", "Plus", null));
+        p.getModules().add(interview);
+
+        // 模块3：简历中心
+        Map<String, Object> resume = safeQuery(dashboardStatsMapper::selectResumeSummary);
+        Map<String, Long> aiTasks = aggregateAiTasks(safeList(dashboardStatsMapper::selectPortalAiTaskSummary));
+        DashboardVO.ModuleStats resumeModule = newModule("resume", "简历中心", "clipboard", "/portal/resume/template");
+        resumeModule.getMetrics().add(metric("resumeTotal", "简历总数", toLong(resume.get("total")), "blue", "份", "Document", null));
+        resumeModule.getMetrics().add(metric("resumePublished", "已发布", toLong(resume.get("published")), "green", "份", "CircleCheck", null));
+        resumeModule.getMetrics().add(metric("jobMatchCount", "岗位匹配", toLong(aiTasks.get("job_match")), "purple", "次", "Search", null));
+        resumeModule.getMetrics().add(metric("optimizeCount", "深度优化", toLong(aiTasks.get("deep_optimize")), "orange", "次", "MagicStick", null));
+        p.getModules().add(resumeModule);
+
+        // 模块4：学习工具（OJ 判题）
+        Map<String, Object> sub = safeQuery(() -> dashboardStatsMapper.selectInterviewSubmissionSummary(todayStart));
+        Long subTotal = boxed(toLong(sub.get("total")));
+        Long subAccepted = boxed(toLong(sub.get("accepted")));
+        DashboardVO.ModuleStats learn = newModule("learn", "学习中心 / OJ 判题", "education", "/portal/learn/question");
+        learn.getMetrics().add(metric("submissionTotal", "编程题提交", subTotal, "blue", "次", "Upload", null));
+        learn.getMetrics().add(metric("submissionAccepted", "判题通过", subAccepted, "green", "次", "CircleCheck", null));
+        learn.getMetrics().add(metric("submissionToday", "今日提交", toLong(sub.get("todayNew")), "orange", "次", "Plus", null));
+        Long subPassRate = boxed(subTotal > 0 ? Math.round(subAccepted * 100.0 / subTotal) : 0L);
+        learn.getMetrics().add(metric("submissionPassRate", "通过率", subPassRate, "cyan", "%", "DataLine", null));
+        p.getModules().add(learn);
+
+        // 模块5：成长体系
+        Map<String, Object> growth = safeQuery(dashboardStatsMapper::selectGrowthSummary);
+        DashboardVO.ModuleStats growthModule = newModule("growth", "成长体系", "star", "/cms/growth/rule");
+        growthModule.getMetrics().add(metric("growthLogs", "成长记录", toLong(growth.get("growthLogs")), "purple", "条", "TrendCharts", null));
+        growthModule.getMetrics().add(metric("leveledUsers", "已获等级", toLong(growth.get("leveled")), "blue", "人", "Medal", null));
+        growthModule.getMetrics().add(metric("badges", "徽章发放", toLong(growth.get("badges")), "orange", "枚", "Trophy", null));
+        p.getModules().add(growthModule);
+        return p;
+    }
+
+    // ---------- 记账端 ----------
+
+    private DashboardVO.PlatformStats buildLedgerPlatform(LocalDateTime todayStart) {
+        DashboardVO.PlatformStats p = newPlatform("ledger", "记账端", "c端",
+                "个人资产管理", "ledger", true);
+
+        List<Map<String, Object>> txRows = safeList(() -> dashboardStatsMapper.selectLedgerTransactionSummary(todayStart));
+        Long txTotal = 0L, txToday = 0L;
+        Map<String, Long> byType = new LinkedHashMap<>();
+        for (Map<String, Object> row : txRows) {
+            Long c = boxed(toLong(row.get("cnt")));
+            txTotal += c;
+            txToday += toLong(row.get("todayCnt"));
+            byType.put(text(row.get("type")), c);
+        }
+
+        Map<String, Long> accounts = new LinkedHashMap<>();
+        for (Map<String, Object> row : safeList(dashboardStatsMapper::selectLedgerAccountSummary)) {
+            accounts.put(text(row.get("accountKind")), toLong(row.get("cnt")));
+        }
+        Long accountTotal = boxed(accounts.values().stream().mapToLong(Long::longValue).sum());
+        Map<String, Object> aux = safeQuery(dashboardStatsMapper::selectLedgerAuxCounts);
+        Long activeUsers = boxed(toLong(aux.get("activeUsers")));
+
+        p.getKpis().add(metric("txTotal", "记账总笔数", txTotal, "green", "笔", "Money", null));
+        p.getKpis().add(metric("ledgerActiveUsers", "记账活跃用户", activeUsers, "blue", "人", "User", null));
+        p.getKpis().add(metric("ledgerAccounts", "账户总数", accountTotal, "purple", "个", "Wallet", null));
+        p.getKpis().add(metric("txToday", "今日记账", txToday, txToday > 0 ? "orange" : "gray", "笔", "Plus", null));
+
+        // 模块1：个人记账
+        DashboardVO.ModuleStats book = newModule("ledger_book", "个人记账", "money", "/ledger-app/category");
+        book.getMetrics().add(metric("expenseCount", "支出笔数", byType.getOrDefault("expense", 0L), "red", "笔", "Minus", null));
+        book.getMetrics().add(metric("incomeCount", "收入笔数", byType.getOrDefault("income", 0L), "green", "笔", "Plus", null));
+        book.getMetrics().add(metric("borrowCount", "借款笔数", byType.getOrDefault("borrow", 0L), "orange", "笔", "CreditCard", null));
+        book.getMetrics().add(metric("budgetCount", "预算设置", toLong(aux.get("budgets")), "cyan", "项", "Tickets", null));
+        p.getModules().add(book);
+
+        // 模块2：资产负债与 AI 财务分析
+        Map<String, Long> aiTasks = aggregateAiTasks(safeList(dashboardStatsMapper::selectPortalAiTaskSummary));
+        DashboardVO.ModuleStats finance = newModule("ledger_ai", "AI 财务分析", "chart", "/ledger-app/stats");
+        finance.getMetrics().add(metric("aiReportCount", "分析报告", safeQueryLong(dashboardStatsMapper::countLedgerAiReports), "purple", "份", "Document", null));
+        finance.getMetrics().add(metric("netWorthSnapshots", "净资产快照", toLong(aux.get("snapshots")), "blue", "份", "DataLine", null));
+        finance.getMetrics().add(metric("assetAccounts", "资产账户", accounts.getOrDefault("asset", 0L), "green", "个", "Wallet", null));
+        finance.getMetrics().add(metric("liabilityAccounts", "负债账户", accounts.getOrDefault("liability", 0L), "red", "个", "CreditCard", null));
+        p.getModules().add(finance);
+        return p;
+    }
+
+    // ---------- 管理端 ----------
+
+    private DashboardVO.PlatformStats buildAdminPlatform(Map<String, Object> auditSummary,
+                                                        Map<String, Object> aiSummary,
+                                                        Map<String, Object> aiToday) {
+        DashboardVO.PlatformStats p = newPlatform("admin", "管理端", "b端",
+                "后台管理与运营", "admin", true);
+
+        Long aiTotal = boxed(toLong(aiSummary.get("total")));
+        Long aiSuccess = boxed(toLong(aiSummary.get("success")));
+        Long aiFail = boxed(toLong(aiSummary.get("fail")));
+        Long aiTokens = boxed(toLong(aiSummary.get("tokens")));
+        Long pending = boxed(toLong(auditSummary.get("pending")));
+
+        p.getKpis().add(metric("auditPending", "待审核", pending, pending > 0 ? "orange" : "gray", "条", "Clock", null));
+        Long aiSuccessRate = boxed(aiTotal > 0 ? Math.round(aiSuccess * 100.0 / aiTotal) : 0L);
+        p.getKpis().add(metric("aiSuccessRate", "AI 成功率", aiSuccessRate, aiFail > 0 ? "orange" : "green", "%", "Cpu", null));
+        p.getKpis().add(metric("aiTokens", "AI Token", aiTokens, "purple", "", "DataLine", null));
+        Map<String, Object> sysAux = safeQuery(dashboardStatsMapper::selectAdminAccountSummary);
+        p.getKpis().add(metric("sysUsers", "后台账号", toLong(sysAux.get("sysUsers")), "blue", "人", "User", null));
+
+        // 模块1：运营审核
+        DashboardVO.ModuleStats audit = newModule("audit", "运营审核", "list", "/portal/audit-center");
+        audit.getMetrics().add(metric("auditPending", "待审核", pending, pending > 0 ? "orange" : "gray", "条", "Clock", null));
+        audit.getMetrics().add(metric("auditApproved", "已通过", toLong(auditSummary.get("approved")), "green", "条", "CircleCheck", null));
+        audit.getMetrics().add(metric("auditRejected", "已驳回", toLong(auditSummary.get("rejected")), "red", "条", "CircleClose", null));
+        audit.getMetrics().add(metric("auditToday", "今日处理", toLong(auditSummary.get("todayHandled")), "blue", "条", "Finished", null));
+        p.getModules().add(audit);
+
+        // 模块2：AI 网关
+        DashboardVO.ModuleStats gateway = newModule("ai_gateway", "AI 统一网关", "chart", "/ai/execute-log");
+        gateway.getMetrics().add(metric("aiTotal", "调用总数", aiTotal, "blue", "次", "Cpu", null));
+        gateway.getMetrics().add(metric("aiFail", "调用失败", aiFail, aiFail > 0 ? "red" : "gray", "次", "WarningFilled", null));
+        gateway.getMetrics().add(metric("aiToday", "今日调用", toLong(aiToday.get("todayTotal")), "cyan", "次", "Plus", null));
+        gateway.getMetrics().add(metric("aiCost", "累计花费", toLong(aiSummary.get("costYuan")), "orange", "元", "Money", null));
+        p.getModules().add(gateway);
+
+        // 模块3：系统健康（复用已有 configOverview 口径）
+        DashboardVO.SystemConfigOverview overview = buildConfigOverview();
+        DashboardVO.ModuleStats health = newModule("system_health", "系统健康", "monitor", "/monitor/server-panel");
+        health.getMetrics().add(metric("uptimeHours", "运行时长", toLong(overview.getUptimeHours()), "green", "小时", "Timer", null));
+        health.getMetrics().add(metric("tableCount", "数据库表", toLong(overview.getTableCount()), "blue", "张", "Coin", null));
+        Long cacheHitRate = boxed(overview.getCacheHitRate() == null ? 0L : Math.round(overview.getCacheHitRate()));
+        health.getMetrics().add(metric("redisMemoryMb", "Redis 内存", toLong(overview.getRedisMemoryMb()), "purple", "MB", "Coin", null));
+        health.getMetrics().add(metric("cacheHitRate", "缓存命中率", cacheHitRate, "cyan", "%", "DataLine", null));
+        p.getModules().add(health);
+
+        // 模块4：平台与权限配置
+        DashboardVO.ModuleStats config = newModule("platform_config", "平台与权限", "system", "/system/platform");
+        config.getMetrics().add(metric("sysRoles", "角色数", toLong(sysAux.get("sysRoles")), "blue", "个", "Peoples", null));
+        config.getMetrics().add(metric("platformCount", "接入端", boxed((long) safeList(dashboardStatsMapper::selectEnabledPlatforms).size()), "purple", "个", "Grid", null));
+        config.getMetrics().add(metric("sysUsers", "后台账号", toLong(sysAux.get("sysUsers")), "green", "人", "User", null));
+        p.getModules().add(config);
+        return p;
+    }
+
+    /**
+     * 预留端占位：sys_platform 中已登记但尚无业务数据的端（如人格分析端）。
+     * <p>只标记 dataReady=false，不编造任何统计数字。
+     */
+    private List<DashboardVO.PlatformStats> buildReservedPlatforms() {
+        List<DashboardVO.PlatformStats> list = new ArrayList<>();
+        try {
+            for (Map<String, Object> row : safeList(dashboardStatsMapper::selectEnabledPlatforms)) {
+                String code = text(row.get("platformCode"));
+                if (code.isEmpty() || "portal".equals(code) || "ledger".equals(code) || "admin".equals(code)) {
+                    continue;
+                }
+                list.add(newPlatform(code, text(row.get("platformName")), text(row.get("platformType")),
+                        text(row.get("description")), text(row.get("icon")), false));
+            }
+        } catch (Exception e) {
+            log.error("[Dashboard] 构建预留端失败", e);
+        }
+        return list;
+    }
+
+    // ---------- 运营警报 ----------
+
+    /**
+     * 构建运营警报：只在确有异常时产出条目，无异常返回空列表（前端整条隐藏）。
+     * <p>阈值取运营可解释的口径，不做趋势预测，避免编造。
+     */
+    private List<DashboardVO.OpsAlert> buildAlerts() {
+        List<DashboardVO.OpsAlert> alerts = new ArrayList<>();
+        LocalDateTime todayStart = LocalDateTime.now().toLocalDate().atStartOfDay();
+        try {
+            Map<String, Object> auditSummary = safeQuery(() -> dashboardStatsMapper.selectAuditTaskSummary(todayStart));
+            long pending = toLong(auditSummary.get("pending"));
+            if (pending > 0) {
+                alerts.add(newAlert(pending >= 20 ? "danger" : "warning", "admin",
+                        "审核待办积压 " + pending + " 条",
+                        "待办越积越多会拖慢内容上线节奏，建议优先清理。",
+                        "/portal/audit-center"));
+            }
+
+            Map<String, Object> aiSummary = safeQuery(dashboardStatsMapper::selectAiExecuteSummary);
+            long aiTotal = toLong(aiSummary.get("total"));
+            long aiFail = toLong(aiSummary.get("fail"));
+            long todayFail = toLong(safeQuery(() -> dashboardStatsMapper.selectAiExecuteTodaySummary(todayStart)).get("todayFail"));
+            if (todayFail > 0) {
+                alerts.add(newAlert(todayFail >= 10 ? "danger" : "warning", "admin",
+                        "AI 网关今日失败 " + todayFail + " 次",
+                        "今日调用失败会直接影响 AI 面试/简历/财务分析体验，建议查看执行日志定位场景。",
+                        "/ai/execute-log"));
+            }
+            // 累计失败率偏高（样本 >= 20 才有统计意义，避免小样本误报）
+            if (aiTotal >= 20 && aiFail * 100.0 / aiTotal >= 15) {
+                alerts.add(newAlert("warning", "admin",
+                        "AI 累计失败率 " + Math.round(aiFail * 100.0 / aiTotal) + "%",
+                        "失败率高于 15% 的经验阈值，建议核对模型配置与场景提示词。",
+                        "/ai/execute-log"));
+            }
+
+            // 未完成的语音面试（用户中途退出）会形成"僵尸会话"，运营需关注
+            Map<String, Object> voice = safeQuery(() -> dashboardStatsMapper.selectVoiceInterviewSummary(todayStart));
+            long unfinished = toLong(voice.get("unfinished"));
+            if (unfinished > 0) {
+                alerts.add(newAlert("info", "portal",
+                        "有 " + unfinished + " 场面试未完成",
+                        "未完成场次不计入有效面试数据，若持续增长需排查语音链路稳定性。",
+                        "/cms/interview"));
+            }
+        } catch (Exception e) {
+            log.error("[Dashboard] 构建运营警报失败", e);
+        }
+        return alerts;
+    }
+
+    // ---------- 分平台统计辅助 ----------
+
+    private DashboardVO.PlatformStats newPlatform(String code, String name, String type,
+                                                  String description, String icon, boolean dataReady) {
+        DashboardVO.PlatformStats p = new DashboardVO.PlatformStats();
+        p.setPlatformCode(code);
+        p.setPlatformName(name);
+        p.setPlatformType(type);
+        p.setDescription(description);
+        p.setIcon(icon);
+        p.setDataReady(dataReady);
+        p.setKpis(new ArrayList<>());
+        p.setModules(new ArrayList<>());
+        return p;
+    }
+
+    private DashboardVO.ModuleStats newModule(String code, String name, String icon, String routePath) {
+        DashboardVO.ModuleStats m = new DashboardVO.ModuleStats();
+        m.setModuleCode(code);
+        m.setModuleName(name);
+        m.setIcon(icon);
+        m.setRoutePath(routePath);
+        m.setMetrics(new ArrayList<>());
+        return m;
+    }
+
+    private DashboardVO.OpsAlert newAlert(String level, String platformCode, String title,
+                                          String detail, String routePath) {
+        DashboardVO.OpsAlert alert = new DashboardVO.OpsAlert();
+        alert.setLevel(level);
+        alert.setPlatformCode(platformCode);
+        alert.setTitle(title);
+        alert.setDetail(detail);
+        alert.setRoutePath(routePath);
+        return alert;
+    }
+
+    /** 构建带主题色/单位的指标卡（单一签名，避免重载推断歧义） */
+    private DashboardVO.MetricCard metric(String key, String label, Long value,
+                                          String tone, String unit, String icon, Double trend) {
+        DashboardVO.MetricCard c = buildCard(key, label, value, icon, trend);
+        c.setTone(tone);
+        c.setUnit(unit);
+        return c;
+    }
+
+    /**
+     * 把 portal_ai_task 的 (taskType,status) 明细压成 taskType → 总次数。
+     * <p>简历中心的"岗位匹配/深度优化"等次数即来自该表。
+     */
+    private Map<String, Long> aggregateAiTasks(List<Map<String, Object>> rows) {
+        Map<String, Long> result = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            String type = text(row.get("taskType"));
+            if (type.isEmpty()) continue;
+            result.merge(type, toLong(row.get("cnt")), Long::sum);
+        }
+        return result;
+    }
+
+    /** 聚合查询失败时返回空 Map（首页不应因单块失败整体 500） */
+    private Map<String, Object> safeQuery(java.util.function.Supplier<Map<String, Object>> supplier) {
+        try {
+            Map<String, Object> r = supplier.get();
+            return r != null ? r : new HashMap<>();
+        } catch (Exception e) {
+            log.warn("[Dashboard] 聚合查询失败：{}", e.getMessage());
+            return new HashMap<>();
+        }
+    }
+
+    private List<Map<String, Object>> safeList(java.util.function.Supplier<List<Map<String, Object>>> supplier) {
+        try {
+            List<Map<String, Object>> r = supplier.get();
+            return r != null ? r : new ArrayList<>();
+        } catch (Exception e) {
+            log.warn("[Dashboard] 列表聚合查询失败：{}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private Long safeQueryLong(java.util.function.Supplier<Long> supplier) {
+        try {
+            Long r = supplier.get();
+            return r != null ? r : 0L;
+        } catch (Exception e) {
+            log.warn("[Dashboard] 计数查询失败：{}", e.getMessage());
+            return 0L;
+        }
+    }
+
+    private Map<String, Long> safeQueryMap(java.util.function.Supplier<Map<String, Long>> supplier) {
+        try {
+            Map<String, Long> r = supplier.get();
+            return r != null ? r : new HashMap<>();
+        } catch (Exception e) {
+            log.warn("[Dashboard] 分组计数查询失败：{}", e.getMessage());
+            return new HashMap<>();
+        }
+    }
+
+    /** 显式装箱：避免三元表达式（long 分支）在重载/泛型推断下不被自动装箱 */
+    private Long boxed(long v) {
+        return Long.valueOf(v);
+    }
+
+    /** null 安全的字符串取值（Map 中不存在或为 null 时返回空串） */
+    private String text(Object obj) {
+        return obj != null ? String.valueOf(obj) : "";
     }
 
     // ========== 工具方法 ==========

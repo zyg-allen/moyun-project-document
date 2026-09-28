@@ -40,6 +40,25 @@ public class PortalInterviewCategory extends BaseEntity {
     private String slug;
 
     /**
+     * 题库类型：interview=面试 / certification=职业资格 / civil-service=公务员 /
+     * postgraduate=考研 / other=其他
+     * <p>用于把题库按「职业 / 行业考试类型」归类，前台按此筛选。
+     */
+    @Size(min = 0, max = 32, message = "题库类型长度不能超过32个字符")
+    private String bankType;
+
+    /**
+     * 上级分类ID（0=顶级），支持两级分类
+     */
+    private Long parentId;
+
+    /**
+     * 职业族群（后端/前端/测试/产品/运维…），便于跨考试类型聚合
+     */
+    @Size(min = 0, max = 64, message = "职业族群长度不能超过64个字符")
+    private String jobFamily;
+
+    /**
      * 分类描述
      */
     private String description;
@@ -65,6 +84,12 @@ public class PortalInterviewCategory extends BaseEntity {
      */
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
+
+    /**
+     * 前台展示：0=展示 1=隐藏
+     */
+    @Size(min = 0, max = 1, message = "前台展示标记长度不能超过1个字符")
+    private String visible;
 
     public PortalInterviewCategory() {
     }

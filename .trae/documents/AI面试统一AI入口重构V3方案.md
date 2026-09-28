@@ -25,11 +25,11 @@
 - `rebuildFromDb(interview, agent)`：断点续接/旧会话时滑窗为空（Redis 过期）→ 首轮注入 + 按 DB QA 逐对追加（User=转写, Assistant=speakText）重建
 - 面试 finished 时清理滑窗
 
-复用：[RedisChatMemoryStore.java](d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/ai/store/RedisChatMemoryStore.java)、[DynamicChatServiceImpl.java](d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/DynamicChatServiceImpl.java) L251-287 的构建模式。
+复用：[RedisChatMemoryStore.java](../../moyun-server/src/main/java/com/moyun/ext/ai/store/RedisChatMemoryStore.java)、[DynamicChatServiceImpl.java](../../moyun-server/src/main/java/com/moyun/ext/ai/service/impl/DynamicChatServiceImpl.java) L251-287 的构建模式。
 
 ## 批次 2：新流式轮次 `runHybridTurn`（替代围栏模式）
 
-位置：[VoiceInterviewServiceImpl.java](d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/impl/VoiceInterviewServiceImpl.java)
+位置：[VoiceInterviewServiceImpl.java](../../moyun-server/src/main/java/com/moyun/ext/cms/service/impl/VoiceInterviewServiceImpl.java)
 
 ```
 runHybridTurn(emitter, interview, agent, qa, question, transcript, sr, latencyMs):
@@ -58,8 +58,8 @@ runHybridTurn(emitter, interview, agent, qa, question, transcript, sr, latencyMs
 
 ## 批次 4：前端收口 + 分句 TTS
 
-- [voiceInterview.ts](d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/voiceInterview.ts) `VoiceStartConfig`：删 agentId/dynamicMode/jobTemplateId/scene/style，保留 position/jobRequirements/resumeId/difficulty/questionCount
-- [VoiceInterviewPage.vue](d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/VoiceInterviewPage.vue) L2068-2136 设置面板：删面试官智能体/出题方式/岗位模板/场景/风格五个下拉及 agentList/jobTemplateList 拉取逻辑
+- [voiceInterview.ts](../../moyun-portal/src/api/voiceInterview.ts) `VoiceStartConfig`：删 agentId/dynamicMode/jobTemplateId/scene/style，保留 position/jobRequirements/resumeId/difficulty/questionCount
+- [VoiceInterviewPage.vue](../../moyun-portal/src/pages/interview/VoiceInterviewPage.vue) L2068-2136 设置面板：删面试官智能体/出题方式/岗位模板/场景/风格五个下拉及 agentList/jobTemplateList 拉取逻辑
 - **delta 分句 TTS**：appendDelta 累积文本遇 。！？；切句立即入 TTS 队列；speak 事件仅在整轮无 delta（降级路径）时整段播报（hasDelta flag 控制，防重复播报）；说完最后一句才重新开麦（TTS 队列空判断）
 - data 事件到达即渲染下一题（不等 end）
 

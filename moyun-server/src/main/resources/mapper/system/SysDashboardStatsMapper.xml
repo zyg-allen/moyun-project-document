@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.system.mapper.SysDashboardStatsMapper">
+
+    <!--
+      后台运营首页 - 分平台聚合统计
+      约定：
+        1. 这里只放首页专用的 COUNT/SUM 聚合，业务域已有聚合方法不重复实现；
+        2. 涉及逻辑删除的表（portal_user_resume / portal_interview_submission /
+           portal_column / portal_topic / sys_user / sys_role）显式过滤 del_flag='0'，
+           与 MyBatis-Plus 全局 logic-delete 口径一致；
+        3. portal_article 沿用 selectArticleMetrics 的既有口径（不过滤 del_flag），
+           避免首页与文章模块统计口径不一致。
+    -->
+
+    <!-- ========== 记账端 ========== -->
+
+    <select id="selectLedgerTransactionSummary" resultType="java.util.Map">
+        SELECT type AS type,
+               COUNT(*) AS cnt,
+               SUM(CASE WHEN create_time &gt;= #{todayStart} THEN 1 ELSE 0 END) AS todayCnt
+          FROM ledger_transaction
+         WHERE status = 1
+         GROUP BY type
+    </select>
+
+    <select id="selectLedgerAccountSummary" resultType="java.util.Map">
+        SELECT 'asset' AS accountKind, COUNT(*) AS cnt
+          FROM ledger_asset_account
+         WHERE status = 1
+        UNION ALL
+        SELECT 'liability' AS accountKind, COUNT(*) AS cnt
+          FROM ledger_liability_account
+         WHERE status = 1
+    </select>
+
+    <select id="countLedgerAiReports" resultType="long">
+        SELECT COUNT(*) FROM ledger_ai_analysis_report
+    </select>
+
+    <select id="selectLedgerAuxCounts" resultType="java.util.Map">
+        SELECT (SELECT COUNT(*) FROM ledger_budget) AS budgets,
+               (SELECT COUNT(*) FROM ledger_net_worth_snapshot) AS snapshots,
+               (SELECT COUNT(DISTINCT user_id) FROM ledger_transaction) AS activeUsers
+    </select>
+
+    <!-- ========== AI 网关 ========== -->
+
+    <select id="selectAiExecuteSummary" resultType="java.util.Map">
+        SELECT COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), 0) AS success,
+               COALESCE(SUM(CASE WHEN status &lt;&gt; 'success' THEN 1 ELSE 0 END), 0) AS fail,
+               COALESCE(SUM(token_used), 0) AS tokens,
+               COALESCE(SUM(cost_yuan), 0) AS costYuan
+          FROM ai_execute_log
+    </select>
+
+    <select id="selectAiExecuteTodaySummary" resultType="java.util.Map">
+        SELECT COUNT(*) AS todayTotal,
+               COALESCE(SUM(CASE WHEN status &lt;&gt; 'success' THEN 1 ELSE 0 END), 0) AS todayFail
+          FROM ai_execute_log
+         WHERE create_time &gt;= #{todayStart}
+    </select>
+
+    <!-- ========== 门户端：AI 语音面试 ========== -->
+
+    <select id="selectVoiceInterviewSummary" resultType="java.util.Map">
+        SELECT COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END), 0) AS finished,
+               COALESCE(SUM(CASE WHEN status &lt;&gt; 'finished' THEN 1 ELSE 0 END), 0) AS unfinished,
+               COALESCE(ROUND(AVG(CASE WHEN status = 'finished' AND score IS NOT NULL THEN score END), 1), 0) AS avgScore,
+               COALESCE(SUM(CASE WHEN create_time &gt;= #{todayStart} THEN 1 ELSE 0 END), 0) AS todayNew
+          FROM portal_voice_interview
+    </select>
+
+    <!-- ========== 门户端：OJ 判题 ========== -->
+
+    <select id="selectInterviewSubmissionSummary" resultType="java.util.Map">
+        SELECT COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END), 0) AS accepted,
+               COALESCE(SUM(CASE WHEN create_time &gt;= #{todayStart} THEN 1 ELSE 0 END), 0) AS todayNew
+          FROM portal_interview_submission
+         WHERE del_flag = '0'
+    </select>
+
+    <!-- ========== 门户端：简历中心 ========== -->
+
+    <select id="selectResumeSummary" resultType="java.util.Map">
+        SELECT COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
+               COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+          FROM portal_user_resume
+         WHERE del_flag = '0'
+    </select>
+
+    <select id="selectPortalAiTaskSummary" resultType="java.util.Map">
+        SELECT task_type AS taskType, status AS status, COUNT(*) AS cnt
+          FROM portal_ai_task
+         GROUP BY task_type, status
+    </select>
+
+    <!-- ========== 门户端：成长体系 ========== -->
+
+    <select id="selectGrowthSummary" resultType="java.util.Map">
+        SELECT (SELECT COUNT(*) FROM portal_growth_log) AS growthLogs,
+               (SELECT COUNT(*) FROM portal_user_growth WHERE level IS NOT NULL AND level &gt; 0) AS leveled,
+               (SELECT COUNT(*) FROM portal_user_badge) AS badges
+    </select>
+
+    <!-- ========== 门户端：内容社区辅助计数 ========== -->
+
+    <select id="selectContentAuxCounts" resultType="java.util.Map">
+        SELECT (SELECT COUNT(*) FROM portal_comment WHERE del_flag = '0') AS comments,
+               (SELECT COUNT(*) FROM portal_topic WHERE del_flag = '0') AS topics,
+               (SELECT COUNT(*) FROM portal_column WHERE del_flag = '0') AS columns,
+               (SELECT COUNT(*) FROM portal_tag WHERE del_flag = '0') AS tags,
+               (SELECT COUNT(*) FROM portal_user) AS portalUsers
+    </select>
+
+    <!-- ========== 趋势 ========== -->
+
+    <select id="selectLedgerDailyTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS date, COUNT(*) AS value
+          FROM ledger_transaction
+         WHERE status = 1 AND create_time &gt;= #{startTime}
+         GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')
+         ORDER BY date
+    </select>
+
+    <select id="selectVoiceInterviewDailyTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS date, COUNT(*) AS value
+          FROM portal_voice_interview
+         WHERE create_time &gt;= #{startTime}
+         GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')
+         ORDER BY date
+    </select>
+
+    <!-- ========== 平台端 / 管理端 ========== -->
+
+    <select id="selectEnabledPlatforms" resultType="java.util.Map">
+        SELECT platform_code AS platformCode,
+               platform_name AS platformName,
+               platform_type AS platformType,
+               description   AS description,
+               domain        AS domain,
+               icon          AS icon,
+               sort_order    AS sortOrder
+          FROM sys_platform
+         WHERE status = 1
+         ORDER BY sort_order, id
+    </select>
+
+    <select id="selectAdminAccountSummary" resultType="java.util.Map">
+        SELECT (SELECT COUNT(*) FROM sys_user WHERE del_flag = '0') AS sysUsers,
+               (SELECT COUNT(*) FROM sys_role WHERE del_flag = '0') AS sysRoles
+    </select>
+
+    <select id="selectAuditTaskSummary" resultType="java.util.Map">
+        SELECT COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS pending,
+               COALESCE(SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END), 0) AS approved,
+               COALESCE(SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END), 0) AS rejected,
+               COALESCE(SUM(CASE WHEN audit_time &gt;= #{todayStart} THEN 1 ELSE 0 END), 0) AS todayHandled
+          FROM sys_audit_task
+    </select>
+
+</mapper>

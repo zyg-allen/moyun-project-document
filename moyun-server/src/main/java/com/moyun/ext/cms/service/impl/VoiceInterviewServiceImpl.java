@@ -374,6 +374,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         int durationMinutes = resolveDurationMinutes();
 
         // V3 面试官 agent：sys_config 默认配置（voice.interview.defaultAgentId），前端不再选择
+        // 面试官应该是
         Agent agent = agentClient.resolveAgent(null);
         if (agent == null || !agentClient.isEnabled()) {
             throw new ServiceException("AI 面试官未配置或不可用，请联系管理员（sys_config: voice.interview.defaultAgentId）");

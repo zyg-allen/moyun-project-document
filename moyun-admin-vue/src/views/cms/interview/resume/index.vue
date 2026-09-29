@@ -28,22 +28,28 @@
 
     <el-table v-loading="loading" :data="resumeList">
       <el-table-column label="ID" prop="id" width="80" />
-      <el-table-column label="封面" width="120">
+      <el-table-column label="封面" width="100">
         <template #default="{ row }">
-          <el-image v-if="row.cover" :src="row.cover" fit="cover" style="width: 80px; height: 60px; border-radius: 4px;" :preview-src-list="[row.cover]" />
+          <img
+            v-if="row.cover"
+            :src="row.cover"
+            class="cover-thumb"
+            title="点击查看大图"
+            @click="openImages([row.cover], 0)"
+          />
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="预览图" width="140">
+      <el-table-column label="预览图" width="150">
         <template #default="{ row }">
-          <div v-if="parsePreviewImages(row.previewImages).length" style="display:flex; align-items:center; gap:4px;">
-            <el-image
-              :src="parsePreviewImages(row.previewImages)[0]"
-              fit="cover"
-              style="width: 60px; height: 45px; border-radius: 4px;"
-              :preview-src-list="parsePreviewImages(row.previewImages)"
+          <div v-if="previewList(row).length" class="preview-cell">
+            <img
+              :src="previewList(row)[0]"
+              class="preview-thumb"
+              title="点击预览（多图可翻页、支持滚轮缩放）"
+              @click="openViewer(row, 0)"
             />
-            <el-tag size="small" type="info">×{{ parsePreviewImages(row.previewImages).length }}</el-tag>
+            <el-tag size="small" type="info">×{{ previewList(row).length }}</el-tag>
           </div>
           <span v-else>-</span>
         </template>
@@ -75,8 +81,9 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right" align="right">
+      <el-table-column label="操作" width="220" fixed="right" align="right">
         <template #default="{ row }">
+          <el-button link type="primary" :disabled="!previewList(row).length" @click="openViewer(row, 0)">预览</el-button>
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
@@ -96,7 +103,28 @@
         </el-form-item>
         <el-form-item label="预览图">
           <image-upload v-model="form.previewImagesStr" :limit="9" :file-size="5" />
-          <div style="font-size: 12px; color: #909399; margin-top: 4px;">支持上传最多 9 张预览图，用于前台图片列表展示</div>
+          <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+            支持上传最多 9 张预览图。<b>顺序即预览顺序</b>：第 1 张作为列表主图，前台预览从第 1 张开始（可按上传先后自动排列，也可用 ↓ 自行调整）。
+          </div>
+          <!--
+            顺序条（v13.25）：把"上传顺序 = 存储顺序 = 预览顺序"显式化并可调整。
+            调整只回写 v-model 逗号串，上传组件 watch 到新值后按新顺序重排，因此不会破坏既有上传逻辑。
+          -->
+          <div v-if="orderedPreview.length" class="preview-order">
+            <div v-for="(img, i) in orderedPreview" :key="img + '#' + i" class="preview-order__item">
+              <img
+                :src="img"
+                class="preview-order__thumb"
+                :title="'查看第 ' + (i + 1) + ' 张'"
+                @click="openImages(orderedPreview, i)"
+              />
+              <span class="preview-order__badge">{{ i + 1 }}</span>
+              <div class="preview-order__ops">
+                <el-button size="small" :disabled="i === 0" title="前移" @click="movePreview(i, -1)">↑</el-button>
+                <el-button size="small" :disabled="i === orderedPreview.length - 1" title="后移" @click="movePreview(i, 1)">↓</el-button>
+              </div>
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="标题"><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
         <el-form-item label="分类">
@@ -150,6 +178,26 @@
         <el-button type="primary" @click="submitForm">确定</el-button>
       </template>
     </el-dialog>
+
+    <!--
+      简历模板预览（全屏查看器）
+      修复要点（v13.25）：原先用 el-image 的 :preview-src-list 且未 teleport —— 查看器被渲染在表格单元格内，
+      受 .app-main 的 overflow:hidden 与页面过渡 transform 影响被裁剪（中间被截断/样式错位），
+      滚轮事件又被表格滚动容器吃掉（不能缩放/滑动），翻页按钮落在可视区外（不能翻页）。
+      现改为 el-image-viewer + teleported，挂到 body：全屏居中、左右翻页、滚轮缩放、放大后可拖拽。
+    -->
+    <el-image-viewer
+      v-if="viewerVisible"
+      :url-list="viewerList"
+      :initial-index="viewerIndex"
+      :teleported="true"
+      :z-index="3000"
+      :hide-on-click-modal="true"
+      :zoom-rate="1.2"
+      :max-scale="6"
+      :min-scale="0.4"
+      @close="viewerVisible = false"
+    />
   </div>
 </template>
 
@@ -196,6 +244,47 @@ function imagesToStr(json) { return parsePreviewImages(json).join(','); }
 function strToImagesJson(str) {
   const arr = (str || '').split(',').map(s => s.trim()).filter(Boolean);
   return arr.length ? JSON.stringify(arr) : '';
+}
+
+// ==================== 预览（全屏查看器） ====================
+const viewerVisible = ref(false);
+const viewerList = ref([]);
+const viewerIndex = ref(0);
+
+/** 某行的预览图列表（previewImages 存的是 JSON 数组字符串） */
+function previewList(row) {
+  return parsePreviewImages(row?.previewImages);
+}
+
+/** 打开任意图片列表（封面 / 预览图 / 操作列按钮共用） */
+function openImages(list, index = 0) {
+  const imgs = (list || []).filter(Boolean);
+  if (!imgs.length) {
+    ElMessage.info('暂无可预览的图片');
+    return;
+  }
+  viewerList.value = imgs;
+  viewerIndex.value = Math.min(Math.max(index, 0), imgs.length - 1);
+  viewerVisible.value = true;
+}
+
+/** 打开某行的预览图 */
+function openViewer(row, index = 0) {
+  openImages(previewList(row), index);
+}
+
+/** 表单里的预览图顺序（= 上传顺序；第 1 张是列表主图与预览起始图） */
+const orderedPreview = computed(() =>
+  (form.value.previewImagesStr || '').split(',').map(s => s.trim()).filter(Boolean)
+);
+
+/** 调整预览图顺序：只回写逗号串，上传组件按新顺序重排（保证 存储顺序 = 预览顺序） */
+function movePreview(index, delta) {
+  const list = [...orderedPreview.value];
+  const target = index + delta;
+  if (target < 0 || target >= list.length) return;
+  [list[index], list[target]] = [list[target], list[index]];
+  form.value.previewImagesStr = list.join(',');
 }
 
 async function loadCategories() {
@@ -314,4 +403,35 @@ onMounted(() => {
 <style scoped>
 .app-container { padding: 20px; }
 .search-form, .button-group { margin-bottom: 16px; }
+
+/* 缩略图：简历是纵向页面，用 contain 保完整（原先 cover 会把页面中部裁掉，看着像"被截断"） */
+.cover-thumb,
+.preview-thumb {
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  cursor: zoom-in;
+  display: block;
+}
+.cover-thumb { width: 56px; height: 72px; }
+.preview-thumb { width: 56px; height: 72px; }
+.cover-thumb:hover,
+.preview-thumb:hover { border-color: var(--el-color-primary); }
+.preview-cell { display: flex; align-items: center; gap: 6px; }
+
+/* 顺序条：序号 + 缩略图 + 前后移 */
+.preview-order { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.preview-order__item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.preview-order__thumb {
+  width: 52px; height: 68px; object-fit: contain; background: #fff; cursor: zoom-in;
+  border: 1px solid var(--el-border-color-lighter); border-radius: 4px;
+}
+.preview-order__thumb:hover { border-color: var(--el-color-primary); }
+.preview-order__badge {
+  position: absolute; top: -6px; left: -6px; min-width: 18px; height: 18px; line-height: 18px;
+  text-align: center; font-size: 11px; color: #fff; background: var(--el-color-primary);
+  border-radius: 9px; padding: 0 4px;
+}
+.preview-order__ops { display: flex; }
 </style>

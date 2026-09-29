@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -63,12 +63,61 @@ function openPreview(t: InterviewResumeTemplateVO) {
   if (!imgs.length) return;
   previewImages.value = imgs;
   previewIndex.value = 0;
+  resetPreviewScale();
   previewVisible.value = true;
 }
 
 function closePreview() { previewVisible.value = false; }
-function previewPrev() { previewIndex.value = (previewIndex.value - 1 + previewImages.value.length) % previewImages.value.length; }
-function previewNext() { previewIndex.value = (previewIndex.value + 1) % previewImages.value.length; }
+
+// 预览缩放（v13.25）：放大后可上下/左右滚动，1:1 可复位；顺序严格按 previewImages（= 后台预览图顺序）
+const previewScale = ref(1);
+const PREVIEW_SCALE_MIN = 0.5;
+const PREVIEW_SCALE_MAX = 4;
+function resetPreviewScale() { previewScale.value = 1; }
+function zoomPreview(delta: number) {
+  const next = Math.min(PREVIEW_SCALE_MAX, Math.max(PREVIEW_SCALE_MIN, previewScale.value + delta));
+  previewScale.value = Number(next.toFixed(2));
+}
+function onPreviewWheel(e: WheelEvent) {
+  zoomPreview(e.deltaY < 0 ? 0.15 : -0.15);
+}
+function previewPrev() {
+  previewIndex.value = (previewIndex.value - 1 + previewImages.value.length) % previewImages.value.length;
+  resetPreviewScale();
+}
+function previewNext() {
+  previewIndex.value = (previewIndex.value + 1) % previewImages.value.length;
+  resetPreviewScale();
+}
+
+// 放大后可拖拽平移（滚轮已被"缩放"占用，平移用拖动，符合看图习惯）
+const previewDragging = ref(false);
+let panStart = { x: 0, y: 0, left: 0, top: 0 };
+function onPanStart(e: MouseEvent) {
+  if (previewScale.value <= 1) return;
+  const el = e.currentTarget as HTMLElement;
+  previewDragging.value = true;
+  panStart = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop };
+}
+function onPanMove(e: MouseEvent) {
+  if (!previewDragging.value) return;
+  const el = e.currentTarget as HTMLElement;
+  el.scrollLeft = panStart.left - (e.clientX - panStart.x);
+  el.scrollTop = panStart.top - (e.clientY - panStart.y);
+}
+function onPanEnd() { previewDragging.value = false; }
+
+/** 键盘：Esc 关闭 / ←→ 翻页 / +/- 缩放（无鼠标也能翻页） */
+function handlePreviewKey(e: KeyboardEvent) {
+  if (!previewVisible.value) return;
+  if (e.key === 'Escape') closePreview();
+  else if (e.key === 'ArrowLeft') previewPrev();
+  else if (e.key === 'ArrowRight') previewNext();
+  else if (e.key === '+' || e.key === '=') zoomPreview(0.15);
+  else if (e.key === '-' || e.key === '_') zoomPreview(-0.15);
+}
+onMounted(() => window.addEventListener('keydown', handlePreviewKey));
+onUnmounted(() => window.removeEventListener('keydown', handlePreviewKey));
 
 // 分类 Tab（字典 portal_resume_category 驱动，本地默认兜底；"全部"始终在最前）
 const dictMap = useDictData(['portal_resume_category']);
@@ -297,7 +346,7 @@ function gotoPage(p: number) {
                   v-if="getMainImage(t)"
                   :src="getMainImage(t)"
                   :alt="t.title"
-                  class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                 />
                 <div v-else class="flex items-center justify-center h-full" style="background-color: var(--theme-accent);">
                   <FileText class="w-14 h-14 text-theme-text-secondary" />
@@ -363,7 +412,15 @@ function gotoPage(p: number) {
                 <div class="flex items-center text-xs" style="color: var(--theme-text-secondary);">
                   <span class="flex items-center mr-3"><ThumbsUp class="w-3.5 h-3.5 mr-1" />{{ t.likeCount }}</span>
                   <span class="flex items-center"><Download class="w-3.5 h-3.5 mr-1" />{{ t.downloadCount }}</span>
-                  <span v-if="t.fileType" class="ml-auto text-[10px] uppercase px-1.5 py-0.5 rounded font-medium" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ t.fileType }}</span>
+                  <button
+                    class="ml-auto mr-2 px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1 transition hover:opacity-90"
+                    style="background-color: var(--theme-primary); color: #fff;"
+                    :title="`查看预览（共 ${getAllImages(t).length} 张，顺序同后台预览图）`"
+                    @click.stop="openPreview(t)"
+                  >
+                    <Search class="w-3 h-3" />查看
+                  </button>
+                  <span v-if="t.fileType" class="text-[10px] uppercase px-1.5 py-0.5 rounded font-medium" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ t.fileType }}</span>
                 </div>
               </div>
             </div>
@@ -407,26 +464,60 @@ function gotoPage(p: number) {
     <!-- 图片预览弹窗（全屏多图轮播） -->
     <div
       v-if="previewVisible"
-      class="fixed inset-0 z-50 flex items-center justify-center"
-      style="background-color: rgba(0,0,0,0.9);"
+      class="fixed inset-0 z-50 flex flex-col"
+      style="background-color: rgba(0,0,0,0.92);"
       @click.self="closePreview"
     >
-      <button class="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition" @click="closePreview">
+      <!-- 顶部工具条：缩放 / 复位 / 看原图（原图在新窗口打开，不受本页样式影响） -->
+      <div class="absolute top-4 left-4 z-10 flex items-center gap-2 text-white text-sm">
+        <button class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition" title="缩小" @click.stop="zoomPreview(-0.15)">−</button>
+        <span class="tabular-nums w-12 text-center">{{ Math.round(previewScale * 100) }}%</span>
+        <button class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition" title="放大" @click.stop="zoomPreview(0.15)">＋</button>
+        <button class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition" title="重置为 1:1" @click.stop="resetPreviewScale">1:1</button>
+        <a
+          class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition"
+          :href="previewImages[previewIndex]"
+          target="_blank"
+          rel="noopener"
+          title="在新窗口打开原图"
+          @click.stop
+        >原图</a>
+      </div>
+      <button class="absolute top-4 right-4 z-10 p-2 rounded-full hover:bg-white/10 transition" title="关闭（Esc）" @click="closePreview">
         <X class="w-6 h-6 text-white" />
       </button>
-      <button v-if="previewImages.length > 1" class="absolute left-4 p-2 rounded-full hover:bg-white/10 transition" @click="previewPrev">
+      <button v-if="previewImages.length > 1" class="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition" title="上一张（←）" @click.stop="previewPrev">
         <ChevronLeftIcon class="w-8 h-8 text-white" />
       </button>
-      <img
-        :src="previewImages[previewIndex]"
-        class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
-        @click.stop
-      />
-      <button v-if="previewImages.length > 1" class="absolute right-4 p-2 rounded-full hover:bg-white/10 transition" @click="previewNext">
+      <button v-if="previewImages.length > 1" class="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition" title="下一张（→）" @click.stop="previewNext">
         <ChevronRight class="w-8 h-8 text-white" />
       </button>
-      <div v-if="previewImages.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm text-white" style="background-color: rgba(0,0,0,0.6);">
-        {{ previewIndex + 1 }} / {{ previewImages.length }}
+      <!-- 滚动容器：放大后仍可上下/左右滚动，图片不会被截断 -->
+      <div
+        class="flex-1 w-full overflow-auto flex items-center justify-center p-4"
+        :style="{ cursor: previewScale > 1 ? (previewDragging ? 'grabbing' : 'grab') : 'default' }"
+        @wheel.prevent="onPreviewWheel"
+        @mousedown="onPanStart"
+        @mousemove="onPanMove"
+        @mouseup="onPanEnd"
+        @mouseleave="onPanEnd"
+      >
+        <img
+          :src="previewImages[previewIndex]"
+          class="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-transform duration-150"
+          :style="{ transform: `scale(${previewScale})` }"
+          @click.stop
+        />
+      </div>
+      <div
+        v-if="previewImages.length > 1"
+        class="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm text-white"
+        style="background-color: rgba(0,0,0,0.6);"
+      >
+        第 {{ previewIndex + 1 }} / {{ previewImages.length }} 张（顺序同后台预览图）· ← → 翻页 · 滚轮缩放 · 放大后拖动查看
+      </div>
+      <div v-else class="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/70">
+        滚轮缩放 · Esc 关闭
       </div>
     </div>
   </div>

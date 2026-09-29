@@ -80,7 +80,15 @@ public class AiTaskAsyncExecutor {
         log.info("[AiTask] 任务开始执行 taskId={} taskType={} userId={}", taskId, taskType, userId);
 
         try {
-            Object result = handler.execute(userId, bizRef);
+            // 大文本输入（如简历抽取文本）：异步线程内按需读取，避免大字符串跨线程传递
+            String payload = null;
+            try {
+                PortalAiTask task = aiTaskMapper.selectById(taskId);
+                payload = task == null ? null : task.getPayload();
+            } catch (Exception e) {
+                log.warn("[AiTask] 读取 payload 失败 taskId={}：{}", taskId, e.getMessage());
+            }
+            Object result = handler.execute(userId, bizRef, payload);
             PortalAiTask success = new PortalAiTask();
             success.setId(taskId);
             success.setStatus("success");

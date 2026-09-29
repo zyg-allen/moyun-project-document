@@ -229,7 +229,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
      */
     private LambdaQueryWrapper<PortalInterviewQuestion> buildQuestionQueryWrapper(InterviewQuestionQuery query) {
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewQuestion::getStatus, query.getStatus() == null ? "published" : query.getStatus());
+        qw.eq(PortalInterviewQuestion::getStatus, StringUtils.isBlank(query.getStatus()) ? "published" : query.getStatus());
         if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
         if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
         // 题目结构化：按题型筛选
@@ -251,7 +251,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     public List<PortalInterviewQuestion> selectQuestionList(InterviewQuestionQuery query) {
         LambdaQueryWrapper<PortalInterviewQuestion> qw = buildQuestionQueryWrapper(query);
         // 导出场景：未传 status 时查全部（与分页列表"默认 published"不同，导出应覆盖草稿/归档）
-        if (query.getStatus() == null) {
+        if (StringUtils.isBlank(query.getStatus())) {
             qw = Wrappers.lambdaQuery();
             if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
             if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
@@ -1170,7 +1170,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public Page<InterviewExperienceVO> selectExperiencePage(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long currentUserId) {
         LambdaQueryWrapper<PortalInterviewExperience> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewExperience::getStatus, query.getStatus() == null ? "published" : query.getStatus());
+        qw.eq(PortalInterviewExperience::getStatus, StringUtils.isBlank(query.getStatus()) ? "published" : query.getStatus());
         if (StringUtils.isNotEmpty(query.getKeyword())) {
             // and() 包裹 OR 条件，避免 or() 打断外层 status 过滤导致草稿/待审核泄露到公开搜索
             qw.and(w -> w.like(PortalInterviewExperience::getTitle, query.getKeyword())
@@ -1425,7 +1425,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public Page<InterviewCommentVO> selectCommentPage(Page<InterviewCommentVO> page, InterviewCommentQuery query, Long currentUserId) {
         LambdaQueryWrapper<PortalInterviewComment> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewComment::getStatus, query.getStatus() == null ? "published" : query.getStatus());
+        qw.eq(PortalInterviewComment::getStatus, StringUtils.isBlank(query.getStatus()) ? "published" : query.getStatus());
         if (query.getExperienceId() != null) qw.eq(PortalInterviewComment::getExperienceId, query.getExperienceId());
         if (query.getUserId() != null) qw.eq(PortalInterviewComment::getUserId, query.getUserId());
         if (StringUtils.isNotEmpty(query.getKeyword())) qw.like(PortalInterviewComment::getContent, query.getKeyword());
@@ -1552,7 +1552,6 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public Page<InterviewResumeTemplateVO> selectResumeTemplatePage(Page<InterviewResumeTemplateVO> page, InterviewResumeTemplateQuery query, Long currentUserId) {
         LambdaQueryWrapper<PortalInterviewResumeTemplate> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewResumeTemplate::getStatus, query.getStatus() == null ? "" : query.getStatus());
         if (StringUtils.isNotEmpty(query.getCategory())) qw.eq(PortalInterviewResumeTemplate::getCategory, query.getCategory());
         if (StringUtils.isNotEmpty(query.getFileType())) qw.eq(PortalInterviewResumeTemplate::getFileType, query.getFileType());
         if (query.getIsPremium() != null) qw.eq(PortalInterviewResumeTemplate::getIsPremium, query.getIsPremium());
@@ -1667,7 +1666,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public List<InterviewCompanyVO> selectCompanyList(InterviewCompanyQuery query) {
         LambdaQueryWrapper<PortalInterviewCompany> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewCompany::getStatus, query.getStatus() == null ? "active" : query.getStatus());
+        qw.eq(PortalInterviewCompany::getStatus, StringUtils.isBlank(query.getStatus()) ? "active" : query.getStatus());
         if (StringUtils.isNotEmpty(query.getIndustry())) qw.eq(PortalInterviewCompany::getIndustry, query.getIndustry());
         if (StringUtils.isNotEmpty(query.getKeyword())) {
             qw.like(PortalInterviewCompany::getName, query.getKeyword()).or().like(PortalInterviewCompany::getDescription, query.getKeyword());
@@ -1688,7 +1687,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     public int insertCompany(PortalInterviewCompany company) {
         company.setCreateTime(LocalDateTime.now());
         company.setUpdateTime(LocalDateTime.now());
-        if (company.getStatus() == null) company.setStatus("active");
+        if (StringUtils.isBlank(company.getStatus()) ) company.setStatus("active");
         return companyMapper.insert(company);
     }
 
@@ -1728,7 +1727,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setId(entity.getId());
         // 标签字符串切分
         if (StringUtils.isNotEmpty(entity.getTags())) {
-            vo.setTags(Arrays.asList(entity.getTags().split(",")).stream().map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
+            vo.setTags(Arrays.stream(entity.getTags().split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
         }
         // 关联公司（查询 portal_interview_question_company + portal_interview_company）
         List<PortalInterviewCompany> companies = companyMapper.selectCompaniesByQuestionId(entity.getId());
@@ -1752,7 +1751,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         org.springframework.beans.BeanUtils.copyProperties(entity, vo);
         vo.setId(entity.getId());
         if (StringUtils.isNotEmpty(entity.getTags())) {
-            vo.setTags(Arrays.asList(entity.getTags().split(",")).stream().map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
+            vo.setTags(Arrays.stream(entity.getTags().split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
         }
         // 作者信息（这里省略用户名查询，可结合 sys_user 表或 portal_user 表）
         vo.setUserId(entity.getUserId());

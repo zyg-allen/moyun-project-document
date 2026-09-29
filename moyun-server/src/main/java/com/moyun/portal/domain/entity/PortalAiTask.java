@@ -37,6 +37,12 @@ public class PortalAiTask implements Serializable {
     /** 业务参数 JSON，如 {"resumeId":1,"jobTargetId":2} */
     private String bizRef;
 
+    /**
+     * 任务大文本输入（如 resume_parse 的简历抽取文本，上限 6000 字符）。
+     * <p>与 bizRef 分工：bizRef 存小参数 JSON；大文本单独走本列，避免撑爆 varchar(500)。</p>
+     */
+    private String payload;
+
     /** 任务状态：pending（排队）/ running（执行中）/ success（成功）/ failed（失败） */
     private String status;
 

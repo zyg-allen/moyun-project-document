@@ -10,7 +10,9 @@ export function useDict(...args) {
     args.forEach((dictType, index) => {
       res.value[dictType] = [];
       const dicts = useDictStore().getDict(dictType);
-      if (dicts) {
+      // 空列表也存进了 store，但其 length=0 时必须回源重查：
+      // 字典数据后补（如 portal_question_difficulty）无需刷新页面/重登即可自愈
+      if (dicts && dicts.length) {
         res.value[dictType] = dicts;
       } else {
         getDicts(dictType).then(resp => {

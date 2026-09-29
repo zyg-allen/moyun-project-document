@@ -1051,13 +1051,54 @@ export interface InterviewCategoryVO {
   updateTime?: string;
 }
 
-/** 面试岗位字典 VO（v5.9 阶段1：驱动模拟面试岗位选择与画像抽题） */
-export interface InterviewPositionVO {
+/**
+ * 简历解析预览结果 VO（v13.38）
+ *
+ * <p>对应后端 `ResumePreviewVO` / `POST /portal/interview/resume/user/parse/preview`。
+ * 额外携带 `previewToken`（确认落库用）与 `rawText`（左右对照校对用）。</p>
+ */
+export interface ResumePreviewVO {
+  /** 预览令牌：调用确认接口落库时回传（10 分钟有效） */
+  previewToken: string;
+  fileName?: string;
+  /** 抽取出的原文（左右对照用，保证"内容永不丢失"可人工核对） */
+  rawText?: string;
+  textLength?: number;
+  /** false = 纯规则解析（毫秒级、离线可用）；true = LLM 结构化 */
+  aiPowered?: boolean;
+  name?: string;
+  gender?: string;
+  birthDate?: string;
+  phone?: string;
+  email?: string;
+  jobIntention?: { position?: string; city?: string } | null;
+  educations?: Array<Record<string, unknown>>;
+  works?: Array<Record<string, unknown>>;
+  projects?: Array<Record<string, unknown>>;
+  skills?: Array<Record<string, unknown>>;
+  selfIntro?: string;
+  /** 识别到的大类数量 */
+  sectionCount?: number;
+  /** 未识别到任何章节标题（前端应给出降级提示） */
+  sectionDetectFailed?: boolean;
+  /** 疑似扫描件（无文本层） */
+  scannedLike?: boolean;
+}
+/**
+ * 岗位模板选项 VO（v13.37：全 portal 岗位配置唯一来源）
+ *
+ * <p>对应 portal_job_template 表 / GET `/portal/interview/jobTemplate/list`。
+ * 原「面试岗位字典」（portal_interview_position / InterviewPositionVO）因与岗位模板职责重复、
+ * 且无后台管理入口，已删除并全部并入本结构。</p>
+ */
+export interface JobTemplateOptionVO {
   id: string | number;
-  /** 岗位编码（如 java_backend） */
-  code: string;
-  /** 岗位名称（如 Java后端工程师，与后端 findByName 精确匹配） */
+  /** 岗位编码（如 java_backend_mid） */
+  code?: string;
+  /** 岗位名称（如「中级 Java 开发工程师」）；与后端 findActiveByName 精确匹配 */
   name: string;
+  /** 岗位类别（技术/产品/运营/设计等） */
+  category?: string;
   /** 所属行业 */
   industry?: string;
   /** 岗位级别 junior/mid/senior */
@@ -1066,12 +1107,15 @@ export interface InterviewPositionVO {
   requiredSkills?: string;
   /** 热门公司 JSON 数组字符串 */
   hotCompanies?: string;
-  /** 岗位描述 */
+  /** 模板描述 */
   description?: string;
+  /** 岗位 JD 原文 —— 选中后回填「岗位要求」，用户可修改 */
+  jobDescription?: string;
+  /** 建议难度 easy/medium/hard */
+  difficulty?: string;
+  /** 建议出题数量 */
+  questionCount?: number;
   sort?: number;
-  status: string;
-  createTime?: string;
-  updateTime?: string;
 }
 
 export interface InterviewCompanyVO {

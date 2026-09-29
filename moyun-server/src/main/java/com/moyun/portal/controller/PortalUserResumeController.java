@@ -10,9 +10,9 @@ import com.moyun.ext.cms.domain.query.UserResumeQuery;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.ext.cms.service.AiTaskService;
 import com.moyun.ext.cms.service.IUserResumeService;
+import com.moyun.ext.cms.domain.vo.ResumePreviewVO;
+import com.moyun.ext.cms.service.ResumeParseService;
 import com.moyun.ext.cms.service.ResumeParseTaskHandler;
-import com.moyun.ext.file.domain.entity.SysFile;
-import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,9 +50,7 @@ public class PortalUserResumeController extends BaseController {
     @Autowired
     private com.moyun.ext.cms.service.ResumeParseService resumeParseService;
 
-    /** 附件文件存储（上传接口快速路径：同步保存源文件） */
-    @Autowired
-    private ISysFileService sysFileService;
+
 
     /** 通用 AI 异步任务服务（LLM 解析改为异步任务） */
     @Autowired
@@ -73,9 +71,52 @@ public class PortalUserResumeController extends BaseController {
         return AjaxResult.success(userResumeService.selectMyResumePage(page, userId, query));
     }
 
-    @Operation(summary = "解析简历附件（v10.12；v10.23 改异步任务化）",
-            description = "快速路径：校验文件 → 保存源文件 → 创建附件简历草稿记录（不调 LLM）→ 提交 resume_parse 异步任务。"
-                    + "返回 {resumeId, taskId, fileName}，前端通过 GET /portal/ai/task/{taskId} 轮询解析结果。")
+    @Operation(summary = "解析简历附件并预览（v13.38；同步·不落库）",
+            description = "规则解析引擎同步抽取（毫秒级、离线可用、不调 LLM）："
+                    + "① 请求内就地读取附件抽取纯文本（不落盘/不进对象存储）；"
+                    + "② 按「章节词典 + 日期锚点」切分为大类与条目（名称/起止时间/内容）；"
+                    + "③ 返回 previewToken + 解析结果 + 原文（供左右对照校对）。"
+                    + "**本接口不写库** —— 用户校对后调用 /parse/confirm 才落库，避免失败留脏数据。"
+                    + "原始附件不保留，预览令牌 10 分钟有效。")
+    @PostMapping(value = "/parse/preview", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AjaxResult previewParse(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            return AjaxResult.success(resumeParseService.previewFromUpload(userId, file));
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "确认解析预览并落库（v13.38）",
+            description = "把预览结果（可经前端校对修改）保存为新简历记录，返回 {resumeId}。"
+                    + "只有本接口写库，保证「解析不落库、确认才落库」。")
+    @PostMapping("/parse/confirm")
+    public AjaxResult confirmParse(@RequestBody ResumePreviewVO body) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            String token = body == null ? null : body.getPreviewToken();
+            Long resumeId = resumeParseService.confirmPreview(userId, token, body);
+            Map<String, Object> data = new HashMap<>();
+            data.put("resumeId", resumeId);
+            return AjaxResult.success(data);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "解析简历附件（兼容保留：异步 AI 解析路径）",
+            description = "① 请求内就地读取附件并抽取纯文本（校验大小/类型，同步快速）；"
+                    + "② 把抽取文本经 portal_ai_task.payload 交给 resume_parse 异步任务做 LLM 结构化解析；"
+                    + "③ 解析成功后由任务创建简历记录（只落结构化字段），失败则不产生任何记录。"
+                    + "原始附件不保留。返回 {taskId, fileName, textLength}，"
+                    + "前端通过 GET /portal/ai/task/{taskId} 轮询，成功结果中含 resumeId。")
     @PostMapping(value = "/parse", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public AjaxResult parseAttachment(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         Long userId = currentUserId();
@@ -83,24 +124,19 @@ public class PortalUserResumeController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         try {
-            // 1. 保存源文件 + 2. 创建附件简历记录（同步快操作，内部校验文件大小/类型）
-            SysFile sysFile = sysFileService.uploadFileForPortal(file, "resume_attachment", null);
-            String fileUrl = sysFile.getFileUrl();
-            Long resumeId = resumeParseService.prepareAttachmentResume(userId, file, fileUrl);
+            // 1. 请求内就地抽取文本（不落盘、不进对象存储；文件字节随请求结束释放）
+            ResumeParseService.ParseHandle handle = resumeParseService.extractFromUpload(file);
 
-            // 3. 提交 AI 异步解析任务（LLM 部分耗时，交给后台线程池）
-            String originalName = file.getOriginalFilename();
+            // 2. 提交异步 LLM 解析任务：大文本走 payload，bizRef 只放展示用文件名
             Map<String, Object> bizRef = new HashMap<>();
-            bizRef.put("resumeId", resumeId);
-            bizRef.put("fileUrl", fileUrl);
-            bizRef.put("fileName", originalName);
-            Long taskId = aiTaskService.submitTask(userId, ResumeParseTaskHandler.TASK_TYPE, bizRef);
+            bizRef.put("fileName", handle.fileName());
+            Long taskId = aiTaskService.submitTask(userId, ResumeParseTaskHandler.TASK_TYPE, bizRef, handle.text());
 
-            // 4. 立即返回，前端轮询任务进度
+            // 3. 立即返回；简历记录由任务在解析成功后创建（此处不预建，避免失败留脏数据）
             Map<String, Object> data = new HashMap<>();
-            data.put("resumeId", resumeId);
             data.put("taskId", taskId);
-            data.put("fileName", originalName);
+            data.put("fileName", handle.fileName());
+            data.put("textLength", handle.text().length());
             return AjaxResult.success(data);
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());

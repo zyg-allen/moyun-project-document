@@ -6,6 +6,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import ResumeParsePreviewModal from '@/components/resume/ResumeParsePreviewModal.vue';
 import { generateSeo } from '@/utils/seo';
 import { useToast } from '@/composables/useToast';
 import { useApiCall } from '@/composables/useApiCall';
@@ -26,10 +27,11 @@ import {
   createReportShareToken,
   regenerateVoiceReport,
 } from '@/api/voiceInterview';
-import { getMyResumeList, parseResumeAttachment } from '@/api/interview';
+import { getMyResumeList, getJobTemplates } from '@/api/interview';
+import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
 import { getVipStatus, benefitLeft } from '@/api/vip';
 import { pollAiTask } from '@/api/aiTask';
-import type { UserResumeVO } from '@/types/api';
+import type { UserResumeVO, JobTemplateOptionVO, ResumePreviewVO } from '@/types/api';
 import { useUserStore } from '@/stores/user';
 import type {
   VoiceInterviewVO,
@@ -362,13 +364,8 @@ function onAnswerInput(e: Event) {
 // ==================== 配置表单 ====================
 /** 数据库 position varchar(64)，前端统一上限并预留余量 */
 const POSITION_MAX_LEN = 64;
-const POSITION_OPTIONS = [
-  { title: 'Java 后端开发', meta: '后端服务 · 高并发 · 中间件', position: 'Java 后端开发' },
-  { title: '前端开发', meta: 'Vue/React · 工程化 · 性能优化', position: '前端开发' },
-  { title: '算法工程师', meta: '机器学习 · 深度学习 · 推荐/NLP', position: '算法工程师' },
-  { title: '测试开发', meta: '自动化测试 · 质量保障 · 工具建设', position: '测试开发' },
-  { title: '运维开发', meta: 'Linux · K8s · CI/CD · 稳定性', position: '运维开发' },
-];
+// v13.37：岗位候选已改由后台【岗位模板】驱动（GET /portal/interview/jobTemplate/list），
+// 原前端硬编码 POSITION_OPTIONS 已删除 —— 岗位配置必须可在后台维护，不能写死在前端。
 const DIFFICULTY_OPTIONS = [
   { label: '初级（应届/转行）', value: 'easy' as const },
   { label: '中级（1-3 年）', value: 'medium' as const },
@@ -538,21 +535,117 @@ const selectedResumeId = ref<number | null>(null);
 const useCustomPosition = ref(false);
 const customPosition = ref('');
 
-/** v11.88：岗位下拉选择值（预设岗位直选；__custom__ 展开自定义输入） */
+/** v11.90 V2：岗位要求 JD（面试官提问方向与深度贴合岗位要求；后端 jobRequirements）
+ *  声明提前到岗位模板逻辑之前 —— 后者在 computed 初始化期即引用本 ref，避免 TDZ。 */
+const jobRequirements = ref('');
+
+/** v11.88：岗位下拉选择值（岗位模板直选；__custom__ 展开自定义输入） */
 const positionSelectValue = computed<string>({
   get: () => (useCustomPosition.value ? '__custom__' : config.value.position),
   set: (v: string) => {
     if (v === '__custom__') {
+      // 切到自定义：清掉模板回填来源标记，JD 交由用户手输
       useCustomPosition.value = true;
-    } else {
-      useCustomPosition.value = false;
-      config.value.position = v;
+      appliedTemplateId.value = null;
+      return;
     }
+    useCustomPosition.value = false;
+    config.value.position = v;
+    onSelectJobTemplate(v);
   },
 });
 
-/** v11.90 V2：岗位要求 JD（面试官提问方向与深度贴合岗位要求；后端 jobRequirements） */
-const jobRequirements = ref('');
+// ==================== v13.37：岗位模板（全 portal 岗位配置唯一来源） ====================
+/**
+ * 岗位下拉数据源 = GET /portal/interview/jobTemplate/list（后台【岗位模板】可配）。
+ * 原为前端硬编码 POSITION_OPTIONS；原「岗位字典」portal_interview_position 已并入岗位模板表。
+ */
+const jobTemplates = ref<JobTemplateOptionVO[]>([]);
+const jobTemplatesLoading = ref(false);
+/** 已回填的模板 id（用于展示「已按模板回填」与「恢复模板值」） */
+const appliedTemplateId = ref<string | number | null>(null);
+/** 已回填的模板快照（用于「恢复模板值」） */
+const appliedTemplateSnapshot = ref<{ jd: string; difficulty: string; questionCount: number } | null>(null);
+/** 用户是否手动改过岗位要求（改过则切岗位不再覆盖） */
+const jdEditedByUser = ref(false);
+
+const appliedTemplate = computed(
+  () => jobTemplates.value.find((t) => String(t.id) === String(appliedTemplateId.value)) ?? null,
+);
+/** 已回填且用户又改过 → 提供「恢复模板值」 */
+const canRestoreTemplate = computed(
+  () => !useCustomPosition.value && !!appliedTemplateSnapshot.value && jdEditedByUser.value && jobRequirements.value !== appliedTemplateSnapshot.value.jd,
+);
+
+/** 拉取岗位模板（失败不阻断页面：下拉退化为「仅自定义」） */
+async function loadJobTemplates() {
+  jobTemplatesLoading.value = true;
+  try {
+    const res = await getJobTemplates();
+    if (res.code === 200 && Array.isArray(res.data)) {
+      jobTemplates.value = res.data;
+      // 默认选中首个模板，让首屏即为「已按后台配置回填」的状态
+      if (!config.value.position && jobTemplates.value.length > 0) {
+        const first = jobTemplates.value[0];
+        if (first?.name) {
+          config.value.position = first.name;
+          applyTemplate(first);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[VoiceInterview] 岗位模板加载失败，下拉仅保留自定义输入：', e);
+  } finally {
+    jobTemplatesLoading.value = false;
+  }
+}
+
+/** 按模板回填：JD（可选覆盖）+ 难度 + 题量 */
+function applyTemplate(t: JobTemplateOptionVO, force = false) {
+  appliedTemplateId.value = t.id;
+  appliedTemplateSnapshot.value = {
+    jd: t.jobDescription ?? '',
+    difficulty: t.difficulty ?? config.value.difficulty,
+    questionCount: t.questionCount ?? questionCount.value,
+  };
+  // JD 回填：用户已手改过则不覆盖（以用户输入为准），除非显式「恢复模板值」
+  if (force || !jdEditedByUser.value) {
+    jobRequirements.value = t.jobDescription ?? '';
+    jdEditedByUser.value = false;
+  }
+  if (t.difficulty === 'easy' || t.difficulty === 'medium' || t.difficulty === 'hard') {
+    config.value.difficulty = t.difficulty;
+  }
+  if (typeof t.questionCount === 'number' && t.questionCount > 0) {
+    questionCount.value = t.questionCount;
+  }
+}
+
+/** 用户切换岗位：回填该模板的 JD / 难度 / 题量（用户已手改 JD 则不覆盖） */
+function onSelectJobTemplate(name: string) {
+  const t = jobTemplates.value.find((x) => x.name === name);
+  if (t) applyTemplate(t);
+  else appliedTemplateId.value = null;
+}
+
+/** 「恢复模板值」：丢弃用户改动，回到模板配置 */
+function restoreTemplate() {
+  if (appliedTemplate.value) {
+    applyTemplate(appliedTemplate.value, true);
+  } else if (appliedTemplateSnapshot.value) {
+    jobRequirements.value = appliedTemplateSnapshot.value.jd;
+    config.value.difficulty = appliedTemplateSnapshot.value.difficulty as typeof config.value.difficulty;
+    questionCount.value = appliedTemplateSnapshot.value.questionCount;
+    jdEditedByUser.value = false;
+  }
+}
+
+/** 清空岗位要求：不选岗位时以此处为准（= 留空，按岗位通用标准出题） */
+function clearJobRequirements() {
+  jobRequirements.value = '';
+  jdEditedByUser.value = false;
+}
+
 
 /** v11.90 V2：高级设置折叠（核心只留岗位+JD+简历，其余收进折叠区保持准备页紧凑） */
 const advancedOpen = ref(false);
@@ -666,13 +759,16 @@ function selectResume(r: UserResumeVO) {
   if (intentPos) {
     // 简历求职意向优先作为面试岗位（个性化出题），超长截断对齐数据库 varchar(64)
     const safePos = intentPos.slice(0, POSITION_MAX_LEN);
-    const matched = POSITION_OPTIONS.find((o) => o.position === safePos);
+    // v13.37：岗位候选来自后台岗位模板；命中则连带回填该模板的 JD/难度/题量
+    const matched = jobTemplates.value.find((o) => o.name === safePos);
     if (!matched) {
       useCustomPosition.value = true;
       customPosition.value = safePos;
+      appliedTemplateId.value = null;
     } else {
       useCustomPosition.value = false;
       config.value.position = safePos;
+      applyTemplate(matched);
     }
   }
 }
@@ -698,6 +794,12 @@ function chooseResume(r: UserResumeVO) {
 
 const resumeUploading = ref(false);
 const resumeUploadInput = ref<HTMLInputElement | null>(null);
+
+// v13.38：简历解析「预览 → 确认」两步式（与编辑页一致）
+// 解析不落库（避免失败留脏数据），用户左右对照校对后确认才落库
+const parsePreviewVisible = ref(false);
+const parsePreviewSaving = ref(false);
+const parsePreviewData = ref<ResumePreviewVO>({ previewToken: '' });
 /** 解析进行中的文案（轮询任务 onTick 更新） */
 const resumeParsingMsg = ref('');
 
@@ -724,37 +826,49 @@ async function handleResumeUpload(e: Event) {
     return;
   }
   resumeUploading.value = true;
-  resumeParsingMsg.value = '正在上传附件…';
+  resumeParsingMsg.value = '正在解析附件…';
   try {
-    const { data: resp, success } = await run(() => parseResumeAttachment(file), {
-      errorToast: '上传失败',
+    // v13.38：同步规则解析（毫秒级、离线可用、不调 LLM、不落库），随即弹出校对弹窗
+    const { data: resp, success } = await run(() => previewResumeParse(file), {
+      errorToast: '附件解析失败',
     });
-    if (!success || !resp?.data) return;
-    const { resumeId, taskId } = resp.data;
-    resumeParsingMsg.value = 'AI 正在解析简历…';
-    try {
-      await pollAiTask(taskId, {
-        intervalMs: 3000,
-        onTick: (task) => {
-          resumeParsingMsg.value = task.progressMsg || 'AI 正在解析简历…';
-        },
-      });
-      // 解析完成：刷新简历库并自动回填选中该简历
-      await loadResumeList();
-      const target = resumeList.value.find((r) => Number(r.id) === Number(resumeId));
-      if (target) {
-        selectResume(target);
-        toast.success('简历解析完成，已设为本次面试简历');
-      } else {
-        selectedResumeId.value = Number(resumeId);
-        toast.success('简历解析完成');
-      }
-    } catch (parseErr: any) {
-      toast.error(parseErr?.message || 'AI 解析失败，可稍后在简历库手动完善');
-    }
+    if (!success || !resp?.data?.previewToken) return;
+    parsePreviewData.value = resp.data;
+    parsePreviewVisible.value = true;
   } finally {
     resumeUploading.value = false;
     resumeParsingMsg.value = '';
+  }
+}
+
+/** 放弃解析校对：不落库，无残留 */
+function onParsePreviewCancel() {
+  parsePreviewVisible.value = false;
+  parsePreviewData.value = { previewToken: '' };
+}
+
+/** 确认解析：落库为新简历，并自动设为本次面试简历 */
+async function onParsePreviewConfirm(payload: ResumePreviewVO) {
+  parsePreviewSaving.value = true;
+  try {
+    const { data: resp, success } = await run(() => confirmResumeParse(payload), {
+      errorToast: '保存失败',
+    });
+    if (!success) return;
+    const newId = resp?.data?.resumeId;
+    parsePreviewVisible.value = false;
+    parsePreviewData.value = { previewToken: '' };
+    await loadResumeList();
+    const target = resumeList.value.find((r) => Number(r.id) === Number(newId));
+    if (target) {
+      selectResume(target);
+      toast.success('简历解析完成，已设为本次面试简历');
+    } else if (newId) {
+      selectedResumeId.value = Number(newId);
+      toast.success('简历解析完成');
+    }
+  } finally {
+    parsePreviewSaving.value = false;
   }
 }
 
@@ -1181,6 +1295,8 @@ async function loadHistoryReport(idStr: string) {
 onMounted(() => {
   const id = String(route.query.id ?? '').trim();
   if (id) loadHistoryReport(id);
+  // v13.37：岗位下拉改由后台【岗位模板】驱动（默认选中首个并回填 JD/难度/题量）
+  loadJobTemplates();
   // 页签切走/最小化：立即停止聆听与播报，及时释放麦克风等硬件占用
   document.addEventListener('visibilitychange', releaseOnHidden);
   // v11.89：浏览器关闭/刷新：无条件释放麦克风/播放器；面试进行中先触发浏览器离开确认
@@ -1812,23 +1928,21 @@ const chatStatus = computed(() => {
 </script>
 
 <template>
-  <div class="vi-shell" :class="`vi-shell--${phase}`">
+  <div class="vi-shell max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" :class="`vi-shell--${phase}`">
     <!-- ==================== 准备页 ==================== -->
     <div v-if="phase === 'setup'" class="prep-page">
-      <div class="prep-top-bar">
-        <div class="prep-top-left">
-          <div class="prep-logo">🎙️ 旭林知行</div>
-          <div class="prep-breadcrumb">首页 / <span>AI 语音面试</span></div>
-        </div>
-        <div class="prep-top-right">
-          <button class="prep-back-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
-          <button class="prep-back-btn" @click="goHome">← 返回首页</button>
-        </div>
-      </div>
       <div class="prep-container">
-        <div class="prep-header">
-          <h1>AI 语音面试准备</h1>
-          <p>完成以下准备步骤，开始你的模拟面试</p>
+        <!-- 顶部工具行：标题 + 描述 + 操作。
+             品牌 / 导航 / 面包屑由站点 Navbar 统一提供，页面内不再重复绘制
+             （原自画顶栏造成"双重导航 + 双重留白"，v13.37 移除） -->
+        <div class="prep-toolbar">
+          <div class="prep-toolbar-main">
+            <h1 class="prep-toolbar-title">AI 语音面试准备</h1>
+            <p class="prep-toolbar-desc">完成以下准备步骤，开始你的模拟面试</p>
+          </div>
+          <div class="prep-toolbar-actions">
+            <button class="prep-ghost-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
+          </div>
         </div>
         <div class="prep-steps">
           <div class="prep-step">
@@ -1948,12 +2062,16 @@ const chatStatus = computed(() => {
           <div class="config-grid">
             <div class="config-item">
               <label class="config-label">🎯 面试岗位</label>
-              <select v-model="positionSelectValue" class="config-select">
-                <option v-for="opt in POSITION_OPTIONS" :key="opt.position" :value="opt.position">
-                  {{ opt.title }} · {{ opt.meta }}
+              <select v-model="positionSelectValue" class="config-select" :disabled="jobTemplatesLoading">
+                <option v-if="jobTemplatesLoading" value="">正在加载岗位模板…</option>
+                <option v-for="opt in jobTemplates" :key="opt.id" :value="opt.name">
+                  {{ opt.name }}{{ opt.category ? ` · ${opt.category}` : '' }}
                 </option>
-                <option value="__custom__">自定义（跟随简历求职意向 / 手动输入）</option>
+                <option value="__custom__">自定义（手动输入岗位名称）</option>
               </select>
+              <div v-if="!jobTemplatesLoading && jobTemplates.length === 0" class="config-hint">
+                暂无可选岗位模板，请在后台【岗位模板】中配置；也可选「自定义」直接输入
+              </div>
             </div>
           </div>
 
@@ -1971,19 +2089,37 @@ const chatStatus = computed(() => {
             </div>
           </div>
 
-          <!-- v11.90 V2：岗位要求 JD（面试官 AI 交流贴合岗位要求，限制因素之一） -->
+          <!-- v11.90 V2：岗位要求 JD（面试官 AI 交流贴合岗位要求，限制因素之一）
+               v13.37：选中岗位模板后自动回填模板 JD，用户可自由修改；未选岗位/自定义则以手输为准 -->
           <div class="config-item jd-item">
-            <label class="config-label">📋 岗位要求（选填）</label>
+            <label class="config-label">
+              📋 岗位要求（选填）
+              <span v-if="appliedTemplate" class="jd-source-badge">已按模板「{{ appliedTemplate.name }}」回填 · 可修改</span>
+            </label>
             <textarea
               v-model="jobRequirements"
               class="jd-textarea"
               rows="4"
               maxlength="2000"
               placeholder="粘贴目标岗位 JD，AI 面试官将据此调整提问方向和深度，例如：&#10;1. 5年以上Java开发经验，精通Spring Boot&#10;2. 熟悉微服务架构，有分布式系统设计经验"
+              @input="jdEditedByUser = true"
             ></textarea>
-            <div class="jd-counter">{{ jobRequirements.length }}/2000</div>
+            <div class="jd-counter">
+              <span class="jd-counter-actions">
+                <button v-if="canRestoreTemplate" type="button" class="jd-inline-btn" @click="restoreTemplate">
+                  ↺ 恢复模板值
+                </button>
+                <button v-if="jobRequirements" type="button" class="jd-inline-btn" @click="clearJobRequirements">
+                  ✕ 清空
+                </button>
+              </span>
+              <span>{{ jobRequirements.length }}/2000</span>
+            </div>
           </div>
-          <div class="agent-hint">ⓘ AI 将根据岗位要求调整提问方向和深度；不填则按岗位通用标准出题</div>
+          <div class="agent-hint">
+            ⓘ 选中岗位后自动带入该岗位的 JD / 难度 / 题量（后台【岗位模板】可配），你可随时修改；
+            <strong>不选岗位则以此处输入为准</strong>，留空则按岗位通用标准出题
+          </div>
 
           <div class="resume-section">
             <!-- 简历库加载中 -->
@@ -2665,6 +2801,15 @@ const chatStatus = computed(() => {
   <!-- v11.94.1：站点尾部放模板根级（vi-shell 外层，不受其水平 padding 挤压），
        宽度与首页一致（content-container 1280px 居中），全阶段统一显示 -->
   <SiteFooter />
+
+<!-- v13.38：简历解析校对（U1 左右对照）——解析不落库，确认才落库 -->
+<ResumeParsePreviewModal
+  :visible="parsePreviewVisible"
+  :data="parsePreviewData"
+  :saving="parsePreviewSaving"
+  @cancel="onParsePreviewCancel"
+  @confirm="onParsePreviewConfirm"
+/>
 </template>
 
 <style scoped>
@@ -2713,20 +2858,12 @@ const chatStatus = computed(() => {
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 1rem;
-  min-height: 100vh;
+  /* 宽度/内边距统一交给外层 Tailwind 规范类：max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
+     （对齐《项目开发规范》§4.4⑤「主内容区域宽度规范」） */
   font-family: var(--font-sans);
   color: var(--gray-800);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-}
-@media (min-width: 640px) {
-  .vi-shell { padding: 0 1.5rem; }
-}
-@media (min-width: 1024px) {
-  .vi-shell { padding: 0 2rem; }
 }
 .vi-shell button { font-family: inherit; }
 .vi-shell { color-scheme: light; }
@@ -2735,17 +2872,19 @@ const chatStatus = computed(() => {
 .vi-shell * { box-sizing: border-box; }
 
 /* ========== 准备页 ========== */
-.prep-page { background: var(--theme-bg); min-height: 100vh; }
-.prep-top-bar { background: var(--theme-bg-elevated); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-200); }
-.prep-top-left { display: flex; align-items: center; gap: 0.75rem; }
-.prep-top-right { display: flex; align-items: center; gap: 0.75rem; }
-.report-header-actions { display: flex; align-items: center; gap: 0.75rem; }
-.prep-logo { font-size: 1.125rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem; }
-.prep-breadcrumb { font-size: 0.875rem; color: var(--gray-400); }
-.prep-breadcrumb span { color: var(--gray-700); font-weight: 500; }
-.prep-back-btn { padding: 0.5rem 1rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-md); cursor: pointer; font-size: 0.875rem; color: var(--gray-600); display: flex; align-items: center; gap: 0.375rem; transition: all 0.2s; }
-.prep-back-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
-.prep-container { padding: 1.25rem 0 2rem; }
+/* 不再强制 min-height:100vh —— 外层 Layout <main class="flex-1"> 已保证高度，
+   页面按内容自适应，避免"一屏占满 + 中间大片空白" */
+.prep-page { background: var(--theme-bg); }
+.prep-container { padding: 0.5rem 0 1.25rem; }
+
+/* 顶部工具行：标题 + 描述 + 操作（替代原自画品牌顶栏；全局导航由站点 Navbar 提供） */
+.prep-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.prep-toolbar-main { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.prep-toolbar-title { font-size: 1.25rem; font-weight: 700; color: var(--gray-900); line-height: 1.3; }
+.prep-toolbar-desc { font-size: 0.875rem; color: var(--gray-500); }
+.prep-toolbar-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.prep-ghost-btn { padding: 0.375rem 0.75rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-md); cursor: pointer; font-size: 0.8125rem; color: var(--gray-600); display: inline-flex; align-items: center; gap: 0.375rem; transition: all 0.2s; white-space: nowrap; }
+.prep-ghost-btn:hover { background: var(--gray-50); border-color: var(--gray-300); color: var(--gray-800); }
 
 /* ==================== v11.91 断点续接横幅 ==================== */
 .resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.875rem 1.25rem; margin-bottom: 1.25rem; border-radius: var(--radius-lg); background: var(--primary-bg); border: 1px solid var(--primary); }
@@ -2759,11 +2898,8 @@ const chatStatus = computed(() => {
 .resume-btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .resume-btn.ghost { background: var(--theme-bg-elevated); color: var(--gray-600); border: 1px solid var(--gray-200); }
 .resume-btn.ghost:hover { border-color: var(--error); color: var(--error); }
-.prep-header { text-align: center; margin-bottom: 1rem; }
-.prep-header h1 { font-size: 1.25rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.375rem; }
-.prep-header p { color: var(--gray-500); font-size: 0.875rem; }
-
-.prep-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 1.25rem; }
+.report-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+.prep-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 0.875rem; }
 .prep-step { display: flex; align-items: center; gap: 0.625rem; }
 .step-circle { width: 28px; height: 28px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; border: 2px solid var(--gray-200); color: var(--gray-400); background: var(--theme-bg-elevated); transition: all 0.3s; flex-shrink: 0; }
 .step-circle.active { border-color: var(--primary); color: var(--theme-on-primary); background: var(--primary); box-shadow: 0 0 0 4px var(--theme-primary-soft); }
@@ -2773,12 +2909,12 @@ const chatStatus = computed(() => {
 .step-connector { width: 28px; height: 2px; background: var(--gray-200); margin: 0 0.625rem; border-radius: 1px; flex-shrink: 0; }
 .step-connector.completed { background: var(--success); }
 
-.prep-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); margin-bottom: 1rem; border: 1px solid var(--gray-100); }
-.prep-card-title { font-size: 1rem; font-weight: 600; color: var(--gray-900); margin-bottom: 0.875rem; display: flex; align-items: center; gap: 0.5rem; }
-.prep-card-title .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--radius-full); background: var(--primary-bg); color: var(--primary); font-size: 0.75rem; font-weight: 700; }
+.prep-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 0.875rem 1rem; box-shadow: var(--shadow-sm); margin-bottom: 0.75rem; border: 1px solid var(--gray-100); }
+.prep-card-title { font-size: 0.9375rem; font-weight: 600; color: var(--gray-900); margin-bottom: 0.625rem; display: flex; align-items: center; gap: 0.5rem; }
+.prep-card-title .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-full); background: var(--primary-bg); color: var(--primary); font-size: 0.75rem; font-weight: 700; }
 
-.device-check-list { display: grid; gap: 0.5rem; }
-.device-item { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); transition: all 0.2s; }
+.device-check-list { display: grid; gap: 0.375rem; }
+.device-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); transition: all 0.2s; }
 .device-item:hover { border-color: var(--gray-200); }
 .device-info { display: flex; align-items: center; gap: 0.875rem; }
 .device-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 1rem; background: var(--theme-bg-elevated); border: 1px solid var(--gray-100); }
@@ -2798,7 +2934,14 @@ const chatStatus = computed(() => {
 .jd-item { margin-top: 0.75rem; }
 .jd-textarea { width: 100%; min-height: 96px; padding: 0.625rem 0.875rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); font-size: 0.875rem; line-height: 1.6; resize: vertical; background: var(--theme-surface); color: var(--gray-800); font-family: var(--font-sans); }
 .jd-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
-.jd-counter { text-align: right; font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem; }
+.jd-counter { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem; }
+.jd-counter-actions { display: inline-flex; align-items: center; gap: 0.5rem; }
+.jd-inline-btn { padding: 0.125rem 0.5rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-sm); font-size: 0.75rem; color: var(--gray-600); cursor: pointer; transition: all 0.2s; }
+.jd-inline-btn:hover { border-color: var(--primary); color: var(--primary); }
+/* v13.37：岗位模板回填来源标记 */
+.jd-source-badge { margin-left: 0.5rem; padding: 0.0625rem 0.5rem; border-radius: var(--radius-full); background: var(--primary-bg); color: var(--primary); font-size: 0.6875rem; font-weight: 500; }
+/* v13.37：岗位下拉加载失败/为空的提示 */
+.config-hint { margin-top: 0.375rem; font-size: 0.75rem; line-height: 1.5; color: var(--warning); }
 
 /* ==================== v11.90 V2：高级设置折叠 ==================== */
 .advanced-card { padding: 0; overflow: hidden; }
@@ -3216,17 +3359,13 @@ const chatStatus = computed(() => {
 }
 /* 手机（≤768px）：全面移动端适配 */
 @media (max-width: 768px) {
-  .vi-shell { padding: 0 0.625rem; }
-
-  /* --- 准备页 --- */
-  .prep-top-bar { padding: 0.625rem 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
-  .prep-breadcrumb { display: none; }
-  .prep-top-right { width: 100%; }
-  .prep-top-right .prep-back-btn { flex: 1; justify-content: center; font-size: 0.8125rem; padding: 0.5rem 0.5rem; }
-  .prep-container { padding: 1.25rem 0 2rem; }
-  .prep-header { margin-bottom: 1.25rem; }
-  .prep-header h1 { font-size: 1.375rem; }
-  .prep-card { padding: 1.125rem; }
+  /* 准备页 */
+  .prep-container { padding: 0.5rem 0 1rem; }
+  .prep-toolbar { gap: 0.5rem; margin-bottom: 0.625rem; }
+  .prep-toolbar-title { font-size: 1.125rem; }
+  .prep-toolbar-actions { width: 100%; }
+  .prep-ghost-btn { flex: 1; justify-content: center; font-size: 0.8125rem; padding: 0.4rem 0.5rem; }
+  .prep-card { padding: 0.75rem; }
   /* 步骤条保持横向，缩小间距适配窄屏 */
   .prep-steps { gap: 0; flex-wrap: nowrap; }
   .prep-step { gap: 0.375rem; }

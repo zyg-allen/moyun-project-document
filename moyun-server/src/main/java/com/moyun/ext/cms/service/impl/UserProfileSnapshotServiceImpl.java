@@ -2,9 +2,9 @@ package com.moyun.ext.cms.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
-import com.moyun.ext.cms.service.IPortalInterviewPositionService;
+import com.moyun.ext.cms.service.IPortalJobTemplateService;
 import com.moyun.ext.cms.service.IUserProfileSnapshotService;
-import com.moyun.portal.domain.entity.PortalInterviewPosition;
+import com.moyun.portal.domain.entity.PortalJobTemplate;
 import com.moyun.portal.mapper.PortalEntityTagMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.util.string.StringUtils;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * 用户画像快照 Service 实现（阶段0）
  * <p>
  * 数据来源：
- *  - portal_interview_position：岗位必备技能
+ *  - portal_job_template：岗位必备技能（原 portal_interview_position 已并入，v13.37）
  *  - portal_interview_submission（经 PortalEntityTagMapper.selectKnowledgeMastery）：薄弱点
  *  - portal_user_stats：面试统计
  *
@@ -44,7 +44,7 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
     /** 薄弱点最多取 Top N */
     private static final int WEAK_TAG_LIMIT = 8;
 
-    @Autowired private IPortalInterviewPositionService positionService;
+    @Autowired private IPortalJobTemplateService jobTemplateService;
     @Autowired private PortalEntityTagMapper entityTagMapper;
     @Autowired private PortalUserStatsMapper userStatsMapper;
     @Autowired private ObjectMapper objectMapper;
@@ -100,10 +100,10 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
     // 内部工具
     // ========================================================================
 
-    /** 解析岗位必备技能（从岗位字典 required_skills JSON 数组） */
+    /** 解析岗位必备技能（从岗位模板 portal_job_template.required_skills JSON 数组） */
     private List<String> resolveRequiredSkills(String position) {
         if (StringUtils.isEmpty(position)) return new ArrayList<>();
-        PortalInterviewPosition pos = positionService.findByName(position);
+        PortalJobTemplate pos = jobTemplateService.findActiveByName(position);
         if (pos == null || StringUtils.isEmpty(pos.getRequiredSkills())) {
             return new ArrayList<>();
         }

@@ -32,7 +32,7 @@ public class AiDraftTaskHandler implements AiTaskHandler {
     }
 
     @Override
-    public Object execute(Long userId, JsonNode bizRef) {
+    public Object execute(Long userId, JsonNode bizRef, String payload) {
         Long resumeId = bizRef.path("resumeId").asLong(0L);
         Long jobTargetId = bizRef.path("jobTargetId").asLong(0L);
         if (resumeId == null || resumeId <= 0) {

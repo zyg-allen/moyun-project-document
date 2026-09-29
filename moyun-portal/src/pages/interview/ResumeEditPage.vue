@@ -20,12 +20,13 @@ import ResumeSidebar, { type SidebarSection } from '@/components/resume/ResumeSi
 import ScorePanel from '@/components/resume/ScorePanel.vue';
 import ResumeActionBar from '@/components/resume/ResumeActionBar.vue';
 import ResumePreviewModal from '@/components/resume/ResumePreviewModal.vue';
+import ResumeParsePreviewModal from '@/components/resume/ResumeParsePreviewModal.vue';
 import AIHelperDialog from '@/components/resume/AIHelperDialog.vue';
 import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getResumeDetail, saveResume, exportResumePdf, scoreResume,
-  getMyResumeList, parseResumeAttachment,
+  getMyResumeList,
 } from '@/api/interview';
 import { useDictData } from '@/composables/useDictData';
 import { getCurrentUser } from '@/api/user';
@@ -35,9 +36,11 @@ import {
   saveScoreReport, getScoreReports, getOptimizeHistory,
 } from '@/api/resumeOptimize';
 import { submitAiTask, pollAiTask } from '@/api/aiTask';
+import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
 import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
 import type {
+  ResumePreviewVO,
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
   ResumeScoreReport, ResumeOptimizeHistory, ResumeParseVO,
@@ -710,33 +713,68 @@ async function pollParseTask(taskId: number | string, resumeId?: string | number
   }
 }
 
-// 上传附件（点击 / 拖拽统一入口）：v10.23 上传后提交后台 AI 解析任务并轮询
-// 后端 parseResumeAttachment 保存附件文件 + 创建附件简历记录，返回 {resumeId, taskId, fileName}
+// ==================== v13.38：简历解析「预览 → 确认」两步式 ====================
+// 为什么改：① 附件是客户端一次性输入，只读内容，不落盘/不进对象存储；
+//          ② 规则解析毫秒级、离线可用，不再依赖 AI 与轮询；
+//          ③ 解析阶段不落库（避免失败留空简历脏数据），用户校对后确认才落库；
+//          ④ 原文与解析结果左右对照（U1），把"准确性"交给可见的校对而非算法承诺。
+const parsePreviewVisible = ref(false);
+const parsePreviewSaving = ref(false);
+const parsePreviewData = ref<ResumePreviewVO>({ previewToken: '' });
+
+/** 上传附件：同步解析并弹出预览校对弹窗（不落库） */
 async function handleAttachmentFile(file: File) {
   const err = validateFile(file);
   if (err) {
     toast.error(err);
     return;
   }
+  if (!file) return;
+  attachment.value = { name: file.name, size: file.size, file, fileUrl: '' };
   try {
     uploading.value = true;
-    const res = await parseResumeAttachment(file);
-    if (res.code === 200 && res.data?.taskId) {
-      const { resumeId, taskId } = res.data;
-      uploading.value = false;
-      // URL 带 parseTaskId：刷新页面后据此恢复轮询
-      router.replace({ query: { ...route.query, parseTaskId: String(taskId) } });
-      // 后台轮询解析任务（不阻塞上传状态）
-      pollParseTask(taskId, resumeId);
+    const res = await previewResumeParse(file);
+    if (res.code === 200 && res.data?.previewToken) {
+      parsePreviewData.value = res.data;
+      parsePreviewVisible.value = true;
     } else {
-      toast.error(res.message || '附件上传失败');
+      toast.error(res.message || '附件解析失败');
     }
   } catch (e) {
-    toast.error((e as Error)?.message || '附件上传失败');
+    toast.error((e as Error)?.message || '附件解析失败，请确认是文本版简历（PDF/Word/TXT）');
   } finally {
     uploading.value = false;
   }
 }
+
+/** 放弃解析：不落库，无残留 */
+function onParsePreviewCancel() {
+  parsePreviewVisible.value = false;
+  parsePreviewData.value = { previewToken: '' };
+  attachment.value = null;
+}
+
+/** 确认：把校对后的字段落库为新简历，随后跳转到编辑页继续完善 */
+async function onParsePreviewConfirm(payload: ResumePreviewVO) {
+  try {
+    parsePreviewSaving.value = true;
+    const res = await confirmResumeParse(payload);
+    const rid = res.data?.resumeId;
+    if (res.code === 200 && rid) {
+      parsePreviewVisible.value = false;
+      parsePreviewData.value = { previewToken: '' };
+      toast.success('已保存为简历，可继续完善');
+      router.push(`/interview/resume/edit/${rid}`);
+    } else {
+      toast.error(res.message || '保存失败');
+    }
+  } catch (e) {
+    toast.error((e as Error)?.message || '保存失败');
+  } finally {
+    parsePreviewSaving.value = false;
+  }
+}
+
 
 function onAttachmentChange(e: Event) {
   const input = e.target as HTMLInputElement;
@@ -1669,6 +1707,16 @@ onBeforeRouteLeave(async (to, from, next) => {
     />
 
     <SiteFooter />
+
+  <!-- v13.38：简历解析校对（U1 左右对照）——解析不落库，确认才落库。
+       注意与上面的「简历文档预览」ResumePreviewModal 是两个不同弹窗，勿混。 -->
+  <ResumeParsePreviewModal
+    :visible="parsePreviewVisible"
+    :data="parsePreviewData"
+    :saving="parsePreviewSaving"
+    @cancel="onParsePreviewCancel"
+    @confirm="onParsePreviewConfirm"
+  />
   </div>
 </template>
 

@@ -7,7 +7,12 @@
 -- 编号规则（v13.26 重排）：
 --   · 侧边栏项（M 目录 / C 菜单）显式编号 1..121，按**语义树深度优先**：
 --     同一父节点下先父后子、按 order_num 排序，故 **父 id 恒小于子 id**。
+--     ⚠️ v13.38 例外：新增「简历解析配置」菜单取 id **397** —— 因既有 id 空间
+--        1..396 已密集占满，唯一连续空闲块为 397..406，无可插入的低位 id。
 --   · 按钮权限（F）不指定 menu_id，交由 AUTO_INCREMENT 依次分配（紧随 M/C 段之后）。
+--   · 本脚本是**独立编号方案**：与现网 menu_id 不保证逐条相同
+--     （现网按 increment-sql 演化，如「系统设置/基础」在本脚本为 69、现网为 63）。
+--     投产初始化用本脚本；已投产库的菜单变更走 increment-sql（勿重跑本脚本）。
 --
 -- 生成来源：现网 sys_menu（396 条：M=22 / C=99 / F=275），列值原样保留，
 --           仅重排 menu_id / parent_id 与分组顺序。
@@ -50,6 +55,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   (30,'语音面试',26,4,'voiceInterview','cms/voiceInterview/index',NULL,'',1,0,'C','0','0','cms:voiceInterview:list','rate','admin','2026-08-31 09:12:21','',NULL,'AI语音面试会话管理：列表/详情/评分报告查看','0'),
   (31,'岗位模板',26,5,'jobTemplate','cms/interview/jobTemplate/index',NULL,'',1,0,'C','0','0','cms:interview:jobTemplate:list','dict','admin','2026-09-07 15:07:32','',NULL,'岗位模板管理：JD/关键词（LLM提取）/出题权重/关联题目','0'),
   (32,'面试配置',26,6,'interviewConfig','cms/interview/interviewConfig/index',NULL,'',1,0,'C','0','0','cms:interview:config:list','edit','admin','2026-09-07 15:07:32','',NULL,'面试配置管理：人设/提示词模板/评分权重/追问策略/自我介绍环节','0'),
+  (397,'简历解析配置',26,7,'resumeParseConfig','cms/interview/resumeParseConfig/index',NULL,'',1,0,'C','0','0','cms:interview:resumeParseConfig:list','form','admin','2026-09-29 00:00:00','',NULL,'简历解析配置：规则解析词表（章节标题词典/技能词域/学历词/岗位词）[v13.38]','0'),
   (33,'学习管理',1,5,'learn',NULL,NULL,'',1,0,'M','0','0','','education','admin','2026-08-19 18:01:46','',NULL,'对齐门户前台「学习」主线（/learn）','0'),
   (34,'题库管理',33,1,'question','cms/interview/question/index',NULL,'',1,0,'C','0','0','cms:interview:list','tree-table','admin','2026-08-19 18:01:46','',NULL,'题库归入学习中心，支撑按职业/行业考试类型扩展','0'),
   (35,'题目分类',33,2,'question-category','cms/interview/category/index',NULL,'',1,0,'C','0','0','cms:interview:category:list','tree','admin','2026-09-28 11:12:02','',NULL,'原 questionTab 内嵌面板独立；按 bank_type 区分考试类型','0'),
@@ -386,6 +392,10 @@ INSERT INTO sys_menu (menu_name,parent_id,order_num,`path`,component,query,route
   ('面试配置新增',32,2,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:config:create','#','admin','2026-09-07 15:07:32','',NULL,'','0'),
   ('面试配置修改',32,3,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:config:update','#','admin','2026-09-07 15:07:33','',NULL,'','0'),
   ('面试配置删除',32,4,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:config:remove','#','admin','2026-09-07 15:07:33','',NULL,'','0'),
+  ('解析配置查询',397,1,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:resumeParseConfig:query','#','admin','2026-09-29 00:00:00','',NULL,'','0'),
+  ('解析配置新增',397,2,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:resumeParseConfig:create','#','admin','2026-09-29 00:00:00','',NULL,'','0'),
+  ('解析配置修改',397,3,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:resumeParseConfig:update','#','admin','2026-09-29 00:00:00','',NULL,'','0'),
+  ('解析配置删除',397,4,'',NULL,NULL,'',1,0,'F','0','0','cms:interview:resumeParseConfig:remove','#','admin','2026-09-29 00:00:00','',NULL,'','0'),
   ('文本检测',59,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:safety:detect','#','admin','2026-09-11 14:53:02','',NULL,'','0'),
   ('日志查询',60,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:execute-log:query','#','admin','2026-09-11 14:53:08','',NULL,'','0'),
   ('日志删除',60,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:execute-log:remove','#','admin','2026-09-11 14:53:08','',NULL,'过期数据清理（物理删除，日志只增不改）','0'),
@@ -430,6 +440,8 @@ INSERT INTO sys_menu (menu_name,parent_id,order_num,`path`,component,query,route
   ('模板编辑',94,1,'',NULL,NULL,'',1,0,'F','0','0','cms:importTemplate:edit','#','admin','2026-09-28 11:26:00','',NULL,'','0'),
   ('用户查询',120,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerUsers:query','#','admin','2026-09-14 13:08:02','',NULL,'','0'),
   ('配置修改',121,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerAppFeature:edit','#','admin','2026-09-14 13:08:02','',NULL,'','0');
+
+
 
 -- 超级管理员(role_id=1)全量菜单授权：动态 INSERT...SELECT，与菜单 ID 无关，永不悬空
 -- 普通角色(role_id=2)授权清空，生产部署后请在管理后台【角色管理】中按需配置

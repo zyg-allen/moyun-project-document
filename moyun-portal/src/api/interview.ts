@@ -1,7 +1,6 @@
 import { httpGet, httpPost, httpDelete, httpPut, httpGetList } from './client';
 import type {
   InterviewCategoryVO,
-  InterviewPositionVO,
   InterviewQuestionVO,
   InterviewQuestionDetailVO,
   InterviewQuestionNeighborVO,
@@ -36,13 +35,50 @@ export const getInterviewCategoryList = () => {
 // ==================== 岗位字典（v5.9 阶段1：驱动模拟面试岗位选择与画像抽题） ====================
 
 /**
- * 获取启用的岗位字典列表（公开接口）
- * GET /portal/interview/position/list
- * 返回所有 status=active 的岗位，含必备技能与热门公司 JSON 字符串。
- * 用于模拟面试岗位选择、用户档案目标岗位选择等场景。
+ * 岗位模板选项（公开接口）
+ * GET /portal/interview/jobTemplate/list
+ *
+ * <p><b>全 portal 岗位配置的唯一来源</b>（v13.37 起）：原 `/portal/interview/position/list`
+ * （面试岗位字典 portal_interview_position）因与 portal_job_template 职责重复、
+ * 且没有任何后台管理入口，已删除并全部并入岗位模板表。</p>
  */
-export const getInterviewPositions = () => {
-  return httpGet<InterviewPositionVO[]>('/portal/interview/position/list');
+export interface JobTemplateOptionVO {
+  id: string | number;
+  /** 岗位名称（如「中级 Java 开发工程师」）；回填与反查的匹配键 */
+  name: string;
+  /** 岗位编码（如 java_backend_mid） */
+  code?: string;
+  /** 岗位类别（技术/产品/运营/设计等） */
+  category?: string;
+  /** 所属行业 */
+  industry?: string;
+  /** 岗位级别 junior/mid/senior */
+  level?: string;
+  /** 模板描述 */
+  description?: string;
+  /** 岗位 JD 原文 —— 选中岗位后回填「岗位要求」，用户可修改 */
+  jobDescription?: string;
+  /** 建议难度 easy/medium/hard —— 选中岗位后回填 */
+  difficulty?: string;
+  /** 建议出题数量 —— 选中岗位后回填 */
+  questionCount?: number;
+  /** 必备技能 JSON 数组字符串（如 ["Spring","MySQL"]），前端按需 JSON.parse */
+  requiredSkills?: string;
+  /** 热门公司 JSON 数组字符串 */
+  hotCompanies?: string;
+  /** 排序 */
+  sort?: number;
+}
+
+/**
+ * 获取启用的岗位模板列表（公开接口）
+ * GET /portal/interview/jobTemplate/list
+ *
+ * <p>用于模拟面试岗位选择（并回填 JD / 难度 / 题量）、用户档案目标岗位选择、
+ * 简历岗位匹配评分等场景。</p>
+ */
+export const getJobTemplates = () => {
+  return httpGet<JobTemplateOptionVO[]>('/portal/interview/jobTemplate/list');
 };
 
 // ==================== 题目 ====================

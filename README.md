@@ -1,6 +1,6 @@
 # 旭林知行 — AI 驱动的求职面试与学习成长平台
 
-**项目版本**：v13.32（**菜单表单加路径唯一性校验 + 修改建议**：拦截前导/内嵌斜杠、同级重复、路由 name 跨父冲突，冲突时给可一键采用的建议值）  
+**项目版本**：v13.38（**简历解析重构落地**：纯 Java 规则引擎 `ResumeRuleParser`（章节分桶 + 日期锚点切条目 + 内容零丢失）+ **同步「预览→确认」两步式**（解析不落库、确认才落库，根治脏数据）+ **U1 左右对照**校对页 + **配置化词表** `portal_resume_parse_config`（含后台管理页）+ PDF/DOCX 抽取质量修复）  
 **最后更新**：2026-09-28  
 **项目状态**：✅ v13.24 整改交付完成（12 项闭环，17 个守卫/单测类；后端 422 例全绿） | 📋 **验收入口 → [整改交付与验证清单（v13.11~v13.24）](docs/09-临时报告/全端-整改-交付验证清单-V13.24.md)**（含逐批复跑命令与未完成项） | 🧭 **开发铁律（唯一口径）见 [项目现状总结 · ⚖️ 开发铁律](docs/06-规划路线/全端-规划-项目现状总结-V13.29.md)**
 
@@ -180,6 +180,11 @@ mysql -u root -p moyun-db < increment-sql/20260928-08-补建漏建表sys_config_
 mysql -u root -p moyun-db < increment-sql/20260928-09-清理死表（无实体或无引用）.sql
 mysql -u root -p moyun-db < increment-sql/20260928-10-记账幂等唯一键对齐（uk_user_client与uk_task_date）.sql
 mysql -u root -p moyun-db < increment-sql/20260928-11-支付金额列类型对齐（bigint转decimal）.sql
+mysql -u root -p moyun-db < increment-sql/20260928-12-岗位配置统一（并portal_interview_position入portal_job_template）.sql
+mysql -u root -p moyun-db < increment-sql/20260928-13-岗位模板数据补齐（Java三档合并与迁入行补JD）.sql
+mysql -u root -p moyun-db < increment-sql/20260928-14-portal_ai_task增列payload.sql
+mysql -u root -p moyun-db < increment-sql/20260929-02-简历解析配置表.sql
+mysql -u root -p moyun-db < increment-sql/20260929-03-简历解析配置菜单.sql
 ```
 
 > **SQL 双轨铁律**（v13.28 起，详见《项目开发规范》2.8 与《项目现状总结》变更铁律第 9 条）：
@@ -274,7 +279,7 @@ mysql -u root -p moyun-db < increment-sql/20260928-11-支付金额列类型对�
 默认为 `false`，否则健康检查会因 535 认证失败而整体 DOWN，掩盖 MySQL/Redis 的真实故障）、
 `KNIFE4J_PRODUCTION=true`（关闭生产 Swagger 文档）、`PORTAL_DOMAIN`（门户站点域名，用于 SEO）。
 
-> 完整说明见 [部署指南](docs/03-部署运维/全端-部署-部署指南-V13.28.md)；
+> 完整说明见 [部署指南](docs/03-部署运维/全端-部署-部署指南-V13.33.md)；
 > 启动期校验逻辑见 `core/config/ConfigWiringValidator` 与 `core/config/TokenConfigValidator`。
 
 ---
@@ -326,7 +331,7 @@ moyun-project-document/
 | [技术架构](docs/01-架构设计/全端-架构-技术架构-V13.0.md) | 技术选型、架构设计、模块依赖 |
 | [AI底座与调用场景链路导读](docs/01-架构设计/全端-AI底座-链路导读-V13.0.md) | 按顺序读代码：一次 AI 调用的完整链路 |
 | [项目开发规范](docs/02-开发指南/全端-规范-项目开发规范-V13.30.md) | **全项目唯一规范来源** |
-| [部署指南](docs/03-部署运维/全端-部署-部署指南-V13.28.md) | 环境部署、SQL初始化 |
+| [部署指南](docs/03-部署运维/全端-部署-部署指南-V13.33.md) | 环境部署、SQL初始化 |
 | [全端-规划-项目现状总结](docs/06-规划路线/全端-规划-项目现状总结-V13.29.md) | **现状基线**：全景 + 各模块实现方法 + 开发铁律 |
 | [开发进度与规划](docs/06-规划路线/全端-规划-开发进度与规划-V13.28.md) | 当前进度、未来路线图 |
 | [devlog](docs/07-变更日志/devlog.md) | 版本变更日志 |
@@ -410,6 +415,8 @@ moyun-project-document/
 | **v13.30** | **2026-09-28** | **开发规范评审整改（仅 R1 + R4，其余评审结论按裁定不改）：① 版本表去硬编码**——`§1.1`/`§2.1` 曾写 `MyBatis-Plus 3.5.7`（实际 `pom.xml` 为 3.5.11，且与根 README 自相矛盾）、`§4.1.1` 曾写 `Axios 0.27.2`（实际 `^1.7.9`，取消 API 已由 `CancelToken` 改 `AbortController`），现**全部改为「版本策略 + 唯一事实来源」**（后端 `pom.xml` / 前端各端 `package.json`，禁止复制具体版本号，附 `mvn help:evaluate` 查询命令）；**② 明确「唯一」效力边界**——规范 = 唯一「技术实现规范」来源（怎么做），现状总结铁律 = 唯一「项目铁律」来源（必须遵守什么），**铁律为上位、规范为下位**，双向互指并给出全项目效力顺序。`开发规范` 升 V13.30（全仓 10 文件 16 处引用同步）** |
 | **v13.31** | **2026-09-28** | **菜单/页面收尾核查（原始任务「首页优化 + 按前台分类重组后台菜单」完成度核验）**：**① 修 3 处非法 `path`**——`架构图生成` `diagram/chat`（路由 name = `Diagram/chat`，含 `/` 非法）、`分类管理` `/category`、`配置管理` `/systemConfig`（**子菜单 path 前导斜杠会被 vue-router 当绝对路径提升到顶层 → 父路径丢失 → 真 404**）→ 改为 `diagram-chat` / `content-category` / `system-config`；**② 修 7 处 `activeMenu` 旧路由**（菜单重构后未同步）：`/system/role`→`/system/base/role`、`/system/dict`→`/system/system-config/dict`、`/monitor/job`→`/system/monitor/job`、`/tool/gen`→`/system/tool/gen`、`/cms/article`→`/portal/cms/article`（×2）、`/portal/interview/question`→`/portal/learn/question`。**核验通过（无需改动）**：**99 个** C 类菜单 component 全部命中真实 `.vue`、**121 条**路由 name 全唯一合法无碰撞、**13 处** `activeMenu` 全命中、首页看板 **12 条**跳转路由全命中、孤儿页面扫描 **15 项全为合法非菜单页**（含 5 个被 TabContainer 容器 import 的子面板）。`npm run build:prod` **exit 0** + 后端 **422 例全绿** |
 | **v13.32** | **2026-09-28** | **菜单表单新增「路由地址（path）唯一性校验 + 修改建议」**（纯前端，未改后端）：三级校验——**命名规范**（不得以 `/` 开头，否则被 vue-router 当绝对路径提升到顶层而 **404**；不得含 `/`，否则路由 name 非法）+ **同级唯一** + **路由 name 全局唯一**（name = `capitalize(path)`，跨父节点同名段会撞 name → 菜单 404）；冲突时给出红色提示 + **可点击的「采用建议：xxx」** 一键填入（建议值归一为单段 kebab-case 并**按全表避让**，如 `article-2`）。**用现网 121 条真实菜单数据跑 14 项断言全通过**；`npm run build:prod` exit 0 |
+| **v13.38** | **2026-09-29** | **简历解析重构落地（Phase 1+2 完整实现）**：新增纯 Java 规则引擎 **`ResumeRuleParser`**（R0 归一化 → R1 章节分桶 → R2 日期锚点 → R3 条目切分 → R4 字段分配 → R5 基本信息 → R6 技能），**零 AI 依赖、毫秒级、离线可用、可单测**（12 例全绿，含 4 个防误判用例）。核心架构改进：**「预览 → 确认」两步式** —— `POST /parse/preview`（同步·**不落库**·返回 previewToken+解析结果+原文）→ 用户**U1 左右对照**校对 → `POST /parse/confirm`（**唯一写库入口**），**解析失败/用户放弃零残留**，根治空简历脏数据。附件**纯内存解析**（不落盘/不进对象存储，10 分钟 TTL）。**抽取质量修复**：PDF 开 `setSortByPosition(true)`（修双栏乱序）、DOCX 改遍历 body 元素并**保留表格行结构**。**配置化词表**：新建 `portal_resume_parse_config`（章节词典/技能词域/学历词/岗位词），init-sql（185 表 + 10 条种子）+ 增量 `20260929-02`/`-03` 双轨同步、均幂等；后台管理页 `/cms/interview/resumeParseConfig` + 菜单 `397`/按钮 `398..401`（唯一空闲块）。前端新增 `ResumeParsePreviewModal.vue`（左右对照 + 逐条 1/2/3 可改 + 增删），接入编辑页与面试准备页。**回归**：后端 434 例全绿、门户 `vue-tsc` exit 0、后台构建 exit 0、init-sql 独立初始化 185 表/401 菜单/0 悬空父引用 |
+| **v13.37** | **2026-09-29** | **岗位配置统一：删 `portal_interview_position` → 全并入 `portal_job_template`**（该表**无任何后台管理入口**、与岗位模板职责重复 → 配置分散、使用混乱）。**6 列并入**新表：`code`/`industry`/`level`/**`required_skills`**（驱动简历岗位匹配评分与画像必备技能，不迁会导致匹配度为 0）/`hot_companies`/`sort`；**代码 8 文件改造**：删除实体+Mapper+Service+门户 Controller，新增门户公开接口 **`GET /portal/interview/jobTemplate/list`**，`findActiveByName`/`findActiveByCode` 职责并入岗位模板 Service，`ResumeScoringService`/`UserProfileSnapshotServiceImpl` 改注；**面试页岗位下拉删除前端硬编码，改由后台【岗位模板】驱动并回填 JD/难度/题量**（可自由修改、可「恢复模板值」；不选岗位以手输为准）。**SQL 双轨**：DDL 删旧表（**185→184 张**）+ 加 6 列 2 索引；DML 种子由存量库导出重建；增量 `20260928-12`/`-13` 幂等。**守卫** `ModuleDependencyGuardTest` `ext.cms -> portal` 278→275。**校验**：后端 422 例全绿、门户 `vue-tsc` exit 0、全新库 vs 存量库 **184=184 张表且 5 条岗位逐字段一致**、新接口实测 code=200；顺带修正存量脏数据（Java 三档重复行/`中级` JD 串文案/sort 冲突） |
 
 ---
 

@@ -61,8 +61,8 @@
         <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" /></el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio value="active">启用</el-radio>
-            <el-radio value="inactive">停用</el-radio>
+            <el-radio label="active">启用</el-radio>
+            <el-radio label="inactive">停用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

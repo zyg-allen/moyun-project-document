@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO.ScoreItem;
 import com.moyun.ext.cms.domain.vo.UserResumeVO.SubScoreItem;
-import com.moyun.portal.domain.entity.PortalInterviewPosition;
-import com.moyun.ext.cms.service.IPortalInterviewPositionService;
+import com.moyun.portal.domain.entity.PortalJobTemplate;
+import com.moyun.ext.cms.service.IPortalJobTemplateService;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +53,7 @@ public class ResumeScoringService {
     private static final int MAX_POSITION_MATCH = 15;
 
     @Autowired
-    private IPortalInterviewPositionService positionService;
+    private IPortalJobTemplateService jobTemplateService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -285,16 +285,16 @@ public class ResumeScoringService {
             return item;
         }
 
-        // 2. 反查岗位字典（精确 + 模糊兜底）
-        PortalInterviewPosition position = null;
+        // 2. 反查岗位模板（精确 + 模糊兜底）
+        PortalJobTemplate position = null;
         try {
-            position = positionService.findByName(targetPosition);
+            position = jobTemplateService.findActiveByName(targetPosition);
         } catch (Exception e) {
-            log.warn("[ResumeScore] 岗位字典查询失败 position={}: {}", targetPosition, e.getMessage());
+            log.warn("[ResumeScore] 岗位模板查询失败 position={}: {}", targetPosition, e.getMessage());
         }
         if (position == null) {
             item.setScore(0);
-            item.setMessage("目标岗位「" + targetPosition + "」未在岗位字典中找到匹配，无法评估匹配度");
+            item.setMessage("目标岗位「" + targetPosition + "」未在岗位模板中找到匹配，无法评估匹配度");
             return item;
         }
 

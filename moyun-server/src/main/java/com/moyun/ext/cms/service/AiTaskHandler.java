@@ -23,10 +23,13 @@ public interface AiTaskHandler {
     /**
      * 执行任务，返回结果对象（将序列化为 JSON 存入 task.result）
      *
-     * @param userId 任务所属用户ID（异步线程无登录上下文，显式传入）
-     * @param bizRef 业务参数 JSON（提交时由调用方传入并持久化）
+     * @param userId  任务所属用户ID（异步线程无登录上下文，显式传入）
+     * @param bizRef  业务小参数 JSON（提交时由调用方传入并持久化）
+     * @param payload 任务大文本输入（对应 {@code portal_ai_task.payload}；无则为 null）。
+     *                典型用法：简历解析把「上传阶段就地抽取的文本」放这里，
+     *                从而**无需把用户附件落盘或进对象存储**。
      * @return 任务结果对象（null 时 result 不填充）
      * @throws Exception 执行失败（由异步执行器统一捕获并回写任务失败状态）
      */
-    Object execute(Long userId, JsonNode bizRef) throws Exception;
+    Object execute(Long userId, JsonNode bizRef, String payload) throws Exception;
 }

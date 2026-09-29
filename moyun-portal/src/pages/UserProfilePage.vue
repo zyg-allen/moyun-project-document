@@ -21,15 +21,15 @@ import { generateSeo } from '@/utils/seo';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
 import { deletePortalFile } from '@/api/file';
-import { getInterviewPositions } from '@/api/interview';
-import type { User, UpdateUserProfileParams, InterviewPositionVO } from '@/types/api';
+import { getJobTemplates } from '@/api/interview';
+import type { User, UpdateUserProfileParams, JobTemplateOptionVO } from '@/types/api';
 
 const router = useRouter();
 const userStore = useUserStore();
 
-// 岗位字典（v5.9 阶段1：目标岗位选择挂钩字典，驱动画像必备技能召回）
-const positions = ref<InterviewPositionVO[]>([]);
-const selectedPosition = computed<InterviewPositionVO | null>(() =>
+// 岗位模板（v13.37：全 portal 岗位配置唯一来源；原「岗位字典」已并入 portal_job_template）
+const positions = ref<JobTemplateOptionVO[]>([]);
+const selectedPosition = computed<JobTemplateOptionVO | null>(() =>
   positions.value.find(p => p.name === profileForm.value.position) || null
 );
 const selectedPositionSkills = computed<string[]>(() => {
@@ -94,12 +94,12 @@ onMounted(async () => {
     return;
   }
 
-  // 加载岗位字典（与用户信息并行，失败不阻断页面）
-  getInterviewPositions().then(res => {
+  // 加载岗位模板（与用户信息并行，失败不阻断页面）
+  getJobTemplates().then(res => {
     if (res.code === 200 && res.data) {
       positions.value = res.data;
     }
-  }).catch(err => console.error('加载岗位字典失败:', err));
+  }).catch(err => console.error('加载岗位模板失败:', err));
 
   // 加载用户信息
   const user = userStore.user;
@@ -378,7 +378,7 @@ function goBack() {
               <datalist id="profile-position-options">
                 <option v-for="p in positions" :key="p.id" :value="p.name" />
               </datalist>
-              <!-- 岗位字典快捷选择 -->
+              <!-- 岗位模板快捷选择 -->
               <div v-if="positions.length > 0" class="flex flex-wrap gap-1.5 mt-2">
                 <button
                   v-for="p in positions"

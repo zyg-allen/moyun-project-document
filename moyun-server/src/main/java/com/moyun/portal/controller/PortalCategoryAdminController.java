@@ -2,6 +2,7 @@ package com.moyun.portal.controller;
 
 import java.util.List;
 
+import com.moyun.util.string.StringUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +43,7 @@ public class PortalCategoryAdminController extends BaseController {
     @GetMapping("/list")
     public AjaxResult list(CategoryQuery query) {
         // 后台默认查正常状态的分类
-        if (query.getStatus() == null) {
+        if (StringUtils.isBlank(query.getStatus())) {
             query.setStatus("0");
         }
         List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(query);

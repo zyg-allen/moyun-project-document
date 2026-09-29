@@ -99,12 +99,17 @@ class ModuleDependencyGuardTest {
         // portal ⇄ ext.cms 双向咬合：共享实体与查询对象、控制器互调。
         // 拆分需要抽出共享领域模块，属架构级改造，需独立批次。
         // v13.22：防腐层适配器落在门户侧，需调用 CMS 的文章/专栏/面试/举报下架服务，故 78 → 82（+4，ACL 的合理代价）。
-        FROZEN_EDGES.put("portal -> ext.cms", 82);
+        FROZEN_EDGES.put("portal -> ext.cms", 84);
         FROZEN_REASONS.put("portal -> ext.cms", "CMS 与门户共享实体/查询对象（拆分需抽公共领域模块）；"
-                + "v13.22 防腐层适配器 AuditContentAdapter 调用 CMS 4 个业务服务，78→82");
+                + "v13.22 防腐层适配器 AuditContentAdapter 调用 CMS 4 个业务服务，78→82；"
+                + "v13.38 PortalUserResumeController 改用 ResumeParseService.extractFromUpload（纯内存抽取）→83，"
+                + "再引入 ResumePreviewVO（解析预览 VO）→84");
         FROZEN_EDGES.put("ext.cms -> portal", 278);
         FROZEN_REASONS.put("ext.cms -> portal", "同上（反向）；v13.11 迁入 ImportExportHelper 后为 280，"
-                + "v13.16 删掉 CmsInterviewController 两个已失效的 portal 依赖（PortalUserStatsMapper/IPortalGrowthService）后降至 278");
+                + "v13.16 删掉 CmsInterviewController 两个已失效的 portal 依赖（PortalUserStatsMapper/IPortalGrowthService）后降至 278，"
+                + "v13.33 删除 portal_interview_position（并入 portal_job_template）后再降至 275，"
+                + "v13.38 新增 CmsResumeParseConfigController（简历解析配置后台管理）引入 portal 实体与服务 2 处 import →277，"
+                + "ResumeParseService 聚合岗位必备技能再引入 PortalJobTemplate →278");
 
         // pay / vip / ledger 三者咬合：记账权威实体寄居 pay（LedgerEntry），VIP 依赖支付网关。
         FROZEN_EDGES.put("ledger -> pay", 12);

@@ -321,64 +321,6 @@ INSERT INTO ledger_category (user_id,name,`type`,group_name,parent_id,icon,color
 	 (0,'其他收入','income',NULL,NULL,'other','#BDC3C7',9,1,1,'2026-09-08 13:37:08','2026-09-08 13:37:08'),
 	 (0,'士大夫但是','adjust',NULL,17,'','#6a4fd4',0,1,1,'2026-09-14 13:23:47','2026-09-14 13:23:47'),
 	 (6,'哈哈哈','expense',NULL,NULL,NULL,NULL,0,0,1,'2026-09-14 13:47:13','2026-09-14 13:47:13');
-
-INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('首页','home','精选推荐、双轨轮播','fa-home',1,0,'0',1,'home','/',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('面试专区','interview','AI 语音面试、面经复盘、简历优化','fa-briefcase',2,0,'0',1,'static','/interview',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('学习中心','learn','题库、刷题、错题本、学习计划','fa-graduation-cap',3,0,'0',1,'static','/learn',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('阅读空间','reading','散文天地、技术笔记、读书空间','fa-book',4,0,'0',1,'static','/reading',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('创作互动','creation','话题、动态、专栏、征文、发布','fa-feather',5,0,'0',1,'static','/creation',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('我的','mine','个人中心、成长时间线、我的内容','fa-user',6,0,'0',1,'static','/user',NULL,'directory',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('AI 语音面试官','interview-voice','AI 语音面试官，真实面试场景模拟','fa-microphone',1,52,'0',1,'static','/interview/voice','NEW','special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('面试经验','interview-experiences','大厂面试全流程还原','fa-chart-line',2,52,'0',1,'static','/interview/experiences',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('简历模板','interview-resume-templates','技术亮点提炼、项目描述技巧','fa-file-alt',3,52,'0',1,'static','/interview/resume-templates',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('面试题库','learn-questions','算法题、系统设计、行为面试','fa-clipboard-list',1,53,'0',1,'static','/learn/questions',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0');
-INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('刷题中心','learn-practice','在线编程、选择题练习','fa-laptop-code',2,53,'0',1,'static','/learn/practice','HOT','directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('错题本','learn-wrong','错题归集与复习','fa-times-circle',3,53,'0',1,'static','/learn/wrong',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('知识图谱','learn-knowledge','知识体系可视化','fa-project-diagram',4,53,'0',1,'static','/learn/knowledge',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('刷题排行榜','learn-leaderboard','刷题榜、学习榜','fa-trophy',5,53,'0',1,'static','/learn/leaderboard',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('刷题日历','learn-calendar','刷题打卡日历','fa-calendar-check',6,53,'0',1,'static','/learn/calendar',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('学习计划','learn-plan','个人学习计划管理','fa-calendar-alt',7,53,'0',1,'static','/learn/plan',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('选择题','learn-practice-choice','选择题在线练习','fa-check-square',1,61,'0',1,'static','/learn/practice/choice',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('编程题','learn-practice-coding','编程题在线练习','fa-code',2,61,'0',1,'static','/learn/practice/coding',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('散文天地','prose','人文书写与情感表达','fa-pen-fancy',1,54,'0',1,'category','/category/prose',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('技术笔记','tech-notes','开发记录、技术解析、AI编程实践','fa-code',2,54,'0',1,'category','/category/tech-notes',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0');
-INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('读书空间','reading-space','发现好书、我的书架、金句摘录','fa-book-reader',3,54,'0',1,'static','/reading/space',NULL,'directory',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('金句摘录','reading-quotes','跨分区高光语句精选','fa-quote-left',4,54,'0',1,'static','/reading/quotes',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-09-02 13:52:37',NULL,'1'),
-	 ('人间烟火','life-stories','饮食、市井、生活琐记','fa-utensils',1,69,'0',1,'category','/category/life-stories',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('山河行吟','travel-nature','游记、自然书写、生态散文','fa-mountain',2,69,'0',1,'category','/category/travel-nature',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('心灵独白','inner-thoughts','孤独、成长、疗愈随笔','fa-heart',3,69,'0',1,'category','/category/inner-thoughts',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('城市笔记','city-notes','北上广深、小镇观察','fa-city',4,69,'0',1,'category','/category/city-notes',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('四季专栏','seasons','春之思、夏之躁、秋之静、冬之藏','fa-leaf',5,69,'0',1,'category','/category/seasons',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('声音散文','audio-prose','作者自读、背景音效沉浸体验','fa-volume-up',6,69,'0',1,'category','/category/audio-prose',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('读者来信','reader-letters','短篇心声刊发与回声计划','fa-envelope',7,69,'0',1,'category','/category/reader-letters',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('技术栈手册','tech-stack','Java/SpringBoot、React/Vue、Flutter/UniApp','fa-book-open',1,70,'0',1,'category','/category/tech-stack',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0');
-INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('架构札记','architecture','微服务、缓存策略、分布式事务','fa-project-diagram',2,70,'0',1,'category','/category/architecture',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('性能日志','performance','SQL优化、前端加载、JVM调优','fa-tachometer-alt',3,70,'0',1,'category','/category/performance',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('AI编程','ai-coding','Cursor使用、ChatGPT提示工程、AI排错记录','fa-robot',4,70,'0',1,'category','/category/ai-coding',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('开源日志','open-source','PR提交、Issue解决、源码阅读','fa-code-branch',5,70,'0',1,'category','/category/open-source',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('新手入门','beginner','环境配置、第一行代码实录','fa-play-circle',6,70,'0',1,'category','/category/beginner',NULL,'article',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('发现好书','reading-discover','发现好书、书单推荐','fa-list',1,71,'0',1,'static','/reading/discover',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('我的书架','reading-bookshelf','个人书架管理','fa-bookmark',2,71,'0',1,'static','/reading/bookshelf',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('金句摘录','reading-space-quotes','读书空间内的金句摘录','fa-quote-left',3,71,'0',1,'static','/reading/quotes',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('话题广场','topics','话题讨论列表','fa-comments',1,55,'0',1,'static','/topics',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('动态广场','feed','用户动态流','fa-stream',2,55,'0',1,'static','/feed',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0');
-INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('专栏广场','columns','专栏列表与订阅','fa-columns',3,55,'0',1,'static','/columns',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('征文活动','contests','征文活动、技术挑战赛','fa-file-upload',4,55,'0',1,'static','/contests',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('发布文章','publish','发布新文章（快捷入口）','fa-edit',5,55,'0',1,'static','/publish',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('成长排行榜','ranking','成长值排行榜','fa-trophy',6,55,'0',1,'static','/ranking',NULL,'special',0,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('个人中心','user','个人中心主页','fa-user-circle',1,56,'0',1,'static','/user',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('成长时间线','growth-timeline','成长记录时间线','fa-chart-line',2,56,'0',1,'static','/growth/timeline',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('我的文章','my-articles','我发布的文章','fa-file-alt',3,56,'0',1,'static','/my/articles',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('我的专栏','column-my','我创建的专栏','fa-columns',4,56,'0',1,'static','/column/my',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('我的成就','achievements','我的成就与徽章','fa-award',5,56,'0',1,'static','/achievements',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0'),
-	 ('我的话题观点','topic-my','我发起的话题与观点','fa-comments',6,56,'0',1,'static','/topic/my',NULL,'special',1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL,'0');
-INSERT INTO portal_category (name,slug,description,icon,sort,parent_id,status,show_in_nav,nav_route_type,nav_route_path,nav_badge,category_type,requires_auth,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('面试指南','interview','面试中心主入口',NULL,0,52,'0',1,'static','/interview',NULL,'special',0,'','2026-09-02 13:23:29','','2026-09-02 13:23:29',NULL,'0');
 INSERT INTO portal_friend_link (name,url,description,logo,sort,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('中国作家网','https://www.chinawriter.com.cn','中国作家协会官方网站',NULL,1,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL,'0'),
 	 ('起点中文网','https://www.qidian.com','阅文集团旗下网站',NULL,2,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL,'0'),
@@ -431,10 +373,114 @@ INSERT INTO portal_interview_category (name,slug,description,icon,sort,question_
 	 ('数据库','database','MySQL、Redis等数据库相关面试题','fa-database',5,80,'active','','2026-07-28 15:46:12','','2026-07-28 15:46:12',NULL,'0');
 INSERT INTO portal_interview_config (config_name,persona_type,prompt_template,scoring_weights,question_weights,max_followups,followup_triggers,enable_self_intro,self_intro_duration,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('默认面试配置','professional','','{"selfIntro":{"structure":30,"awareness":25,"matching":25,"fluency":20},"llmRatio":70,"total":{"intro":20,"tech":80}}','{"job":40,"resume":30,"weak":20,"random":10}',4,'["vague_answer","contradiction","depth_needed"]',1,180,1,'active','admin','2026-09-07 16:37:36','','2026-09-07 16:42:04','系统默认：llmRatio=LLM融合比例(0-100)；selfIntro=自我介绍4维权重；total=总分权重(intro/tech)；关闭自我介绍以兼容旧流程','0');
-INSERT INTO portal_interview_position (code,name,industry,`level`,required_skills,hot_companies,description,sort,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 ('java_backend','Java后端工程师','互联网','mid','["Java","Spring","SpringBoot","MyBatis","MySQL","Redis","MQ","JVM","并发编程","分布式","微服务","设计模式"]','["阿里","腾讯","字节跳动","美团","京东","百度","拼多多","网易","滴滴","快手"]','Java 后端工程师岗位，重点考察 Java 基础、Spring 全家桶、MySQL/Redis、分布式与微服务、JVM 与并发编程',1,'active','','2026-07-28 16:39:34','','2026-07-28 16:39:34',NULL,'0'),
-	 ('frontend','前端工程师','互联网','mid','["JavaScript","TypeScript","Vue","React","HTML","CSS","Node.js","Webpack","Vite","性能优化","浏览器原理","HTTP"]','["阿里","腾讯","字节跳动","美团","京东","百度","网易","小米","Shopee","滴滴"]','前端工程师岗位，重点考察 JS/TS 基础、Vue/React 框架、工程化、浏览器原理、性能优化、HTTP 与网络',2,'active','','2026-07-28 16:39:34','','2026-07-28 16:39:34',NULL,'0'),
-	 ('algorithm','算法工程师','互联网','mid','["算法","数据结构","动态规划","图论","字符串","数组","链表","树","递归","排序","机器学习","深度学习","数学"]','["阿里","腾讯","字节跳动","百度","美团","快手","小红书","华为","商汤","旷视"]','算法工程师岗位，重点考察数据结构与算法、动态规划、图论、字符串算法、机器学习与深度学习基础',3,'active','','2026-07-28 16:39:34','','2026-07-28 16:39:34',NULL,'0');
+-- 岗位配置唯一来源：portal_job_template（v13.33 起合并原 portal_interview_position）
+-- code/industry/level/required_skills/hot_companies/sort 六列由原岗位字典并入；
+-- required_skills 驱动「简历岗位匹配评分」与「用户画像必备技能」；jd_text 用于准备页选中岗位后回填「岗位要求」。
+INSERT INTO portal_job_template (name,category,position_code,code,industry,`level`,required_skills,hot_companies,sort,description,jd_text,keywords,difficulty,question_count,weights,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 ('初级 Java 开发工程师','技术','0111','java_backend','互联网','junior','["Java","Spring","SpringBoot","MyBatis","MySQL","Redis","MQ","JVM","并发编程","分布式","微服务","设计模式"]','["阿里","腾讯","字节跳动","美团","京东","百度","拼多多","网易","滴滴","快手"]',1,'java后端 测试','初级 Java 开发工程师（0-2 年经验）
+薪资范围：8K - 15K · 13薪
+工作地点：深圳市南山区
+学历要求：本科及以上，计算机相关专业
+岗位职责：
+参与公司核心业务系统的功能开发与维护
+根据需求文档完成模块编码、单元测试及问题修复
+配合前端完成接口联调，确保功能正常交付
+编写技术文档，参与代码评审
+任职要求：
+熟练掌握 Java 基础，理解面向对象编程思想，熟悉集合、多线程、IO 等核心 API
+了解 Spring / Spring Boot 框架，能独立完成 CRUD 功能开发
+熟悉 MySQL 数据库，能编写基本的 SQL 语句，了解索引概念
+了解 Redis 基本使用，知道缓存的常见应用场景
+了解 HTTP 协议，能使用 Postman / Swagger 进行接口调试
+具备良好的学习能力和沟通协作能力，对技术有热情
+加分项：
+有个人技术博客或 GitHub 开源项目
+了解 Docker 基本操作
+有实习或校招项目经验','Java,Spring,SpringBoot,MyBatis,MySQL,Redis,并发编程','easy',10,'{"job":40,"resume":30,"weak":20,"random":10}','active','admin','2026-08-19 18:01:40','','2026-08-19 18:01:40','','0'),
+	 ('中级 Java 开发工程师（2-5 年经验）','技术','0222','java_backend_mid','互联网','mid','["Java","Spring","SpringBoot","MyBatis","MySQL","Redis","MQ","JVM","并发编程","分布式","微服务","设计模式"]','["阿里","腾讯","字节跳动","美团","京东","百度","拼多多","网易","滴滴","快手"]',2,'中级 Java 开发工程师（（2-5 年经验）','中级 Java 开发工程师（2-5 年经验）
+薪资范围：18K - 30K · 14-16薪
+工作地点：深圳市南山区
+
+岗位职责：
+1. 独立负责业务模块的设计、开发与上线，对交付质量负责
+2. 参与系统性能优化、慢查询治理与线上故障定位
+3. 参与技术方案评审，输出设计文档
+
+任职要求：
+1. 本科及以上学历，2-5 年 Java 后端开发经验
+2. 熟悉 JVM 内存模型与 GC 调优，具备并发编程实战经验
+3. 熟悉 MySQL 索引优化与事务隔离级别；熟悉 Redis 缓存设计与穿透/雪崩防护
+4. 熟悉消息队列（Kafka/RocketMQ）使用场景与可靠投递
+5. 了解分布式与微服务（Spring Cloud/Dubbo）相关组件','Java,JVM,并发编程,MySQL,Redis,消息队列,分布式,微服务','medium',8,'{"job":40,"resume":30,"weak":20,"random":10}','active','admin','2026-08-19 18:01:40','','2026-08-19 18:01:40','','0'),
+	 ('高级 / 资深 Java 开发工程师（5 年以上经验）','技术','0333','java_backend_senior','互联网','senior','["Java","Spring","SpringBoot","MyBatis","MySQL","Redis","MQ","JVM","并发编程","分布式","微服务","设计模式"]','["阿里","腾讯","字节跳动","美团","京东","百度","拼多多","网易","滴滴","快手"]',3,'高级 / 资深 Java 开发工程师（5 年以上经验）','薪资范围：35K - 60K · 15-18薪 + 期权
+工作地点：深圳市南山区
+学历要求：本科及以上，计算机相关专业
+岗位职责：
+负责核心系统的架构设计与技术选型，主导重大技术难题攻关
+规划系统演进方向，推动技术架构升级，保障系统高可用、高并发、高扩展
+主导代码评审与技术规范制定，提升团队整体技术水平
+跨部门技术协作，与产品、前端、测试、运维等团队高效配合
+跟踪行业技术趋势，引入新技术提升研发效率和系统质量
+任职要求：
+精通 Java 技术栈，深入理解 JVM 原理，有丰富的线上性能调优和故障排查经验
+精通 Spring 全家桶，深入理解 Spring 核心原理（IOC / AOP / 事务机制等），阅读过核心源码
+精通 MySQL 数据库设计与优化，有分库分表、读写分离实战经验
+精通 Redis，深入理解其数据结构、持久化机制、集群方案，有大规模缓存架构设计经验
+精通至少一种消息队列，有海量消息场景下的架构设计与调优经验
+深入理解分布式系统理论（CAP / BASE），有分布式事务、服务治理、链路追踪等落地经验
+熟悉 Elasticsearch 集群架构与调优，有亿级数据搜索场景经验
+熟悉云原生技术栈（Docker / K8s / Service Mesh），有容器化部署和运维经验
+具备优秀的系统设计能力，能独立输出高质量的技术方案文档
+具备技术领导力，能带领 5 人以上技术团队完成复杂项目交付
+加分项：
+有从 0 到 1 搭建中台或核心系统的经验
+有开源项目贡献或核心技术专利
+有大型互联网公司（BAT / TMD 等）工作背景
+在 QCon / ArchSummit 等技术大会做过分享','Java,架构设计,高并发,JVM调优,分布式,微服务,分库分表,稳定性','hard',5,'{"job":40,"resume":30,"weak":20,"random":10}','active','admin','2026-08-19 18:01:40','','2026-08-19 18:01:40','','0'),
+	 ('前端工程师','技术','','frontend','互联网','mid','["JavaScript","TypeScript","Vue","React","HTML","CSS","Node.js","Webpack","Vite","性能优化","浏览器原理","HTTP"]','["阿里","腾讯","字节跳动","美团","京东","百度","网易","小米","Shopee","滴滴"]',4,'前端工程师岗位，重点考察 JS/TS 基础、Vue/React 框架、工程化、浏览器原理、性能优化、HTTP 与网络','前端工程师
+薪资范围：18K - 32K · 14-16薪
+工作地点：深圳市南山区
+
+岗位职责：
+1. 负责公司 Web 端产品的开发与迭代，保障交互体验与性能
+2. 参与前端工程化建设（构建、组件库、规范与自动化）
+3. 与后端协作完成接口联调与线上问题排查
+
+任职要求：
+1. 本科及以上学历，2 年以上前端开发经验
+2. 扎实的 JavaScript / TypeScript 基础，熟悉 ES6+ 与异步编程
+3. 熟练掌握 Vue 或 React 其一，理解其响应式与渲染机制
+4. 熟悉 Webpack / Vite 构建原理与常用优化手段
+5. 熟悉浏览器渲染原理、HTTP 缓存与前端性能优化（LCP/CLS 等指标）','JavaScript,TypeScript,Vue,React,工程化,浏览器原理,性能优化,HTTP','medium',8,'{"job":40,"resume":30,"weak":20,"random":10}','active','admin','2026-08-19 18:01:40','','2026-08-19 18:01:40','原 portal_interview_position 迁入','0'),
+	 ('算法工程师','技术','','algorithm','互联网','mid','["算法","数据结构","动态规划","图论","字符串","数组","链表","树","递归","排序","机器学习","深度学习","数学"]','["阿里","腾讯","字节跳动","百度","美团","快手","小红书","华为","商汤","旷视"]',5,'算法工程师岗位，重点考察数据结构与算法、动态规划、图论、字符串算法、机器学习与深度学习基础','算法工程师
+薪资范围：25K - 45K · 15-16薪
+工作地点：深圳市南山区
+
+岗位职责：
+1. 负责推荐/搜索/NLP 等方向算法模型的设计、训练与上线
+2. 结合业务指标持续迭代模型效果，完成 A/B 实验与归因分析
+3. 参与特征工程与数据链路建设
+
+任职要求：
+1. 硕士及以上学历，计算机/数学/统计相关专业
+2. 扎实的数据结构与算法基础，熟悉动态规划、图论与字符串算法
+3. 熟悉机器学习常用模型与评估指标，了解深度学习基本原理
+4. 熟练使用 Python 及主流框架（PyTorch/TensorFlow）
+5. 有推荐、搜索或 NLP 相关项目经验者优先','算法,数据结构,动态规划,图论,机器学习,深度学习,数学','medium',8,'{"job":40,"resume":30,"weak":20,"random":10}','active','admin','2026-08-19 18:01:40','','2026-08-19 18:01:40','原 portal_interview_position 迁入','0');
+
+-- 简历解析配置（规则解析词表；表为空时 ResumeRuleParser 使用内置默认词典兜底）
+-- v13.38：章节标题词典决定「大类划分」；技能词域无需铺满（引擎自动聚合 portal_job_template.required_skills）
+INSERT INTO portal_resume_parse_config (config_type,item_key,item_name,keywords,sort,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 ('section','basic','基本信息','基本信息,个人信息,个人资料,基本资料',1,'active','admin','2026-09-29 00:00:00','',NULL,'简历顶部基础信息区','0'),
+	 ('section','intention','求职意向','求职意向,求职目标,职业意向,期望职位,期望岗位,目标岗位',2,'active','admin','2026-09-29 00:00:00','',NULL,'求职意向区（抽取 position/city）','0'),
+	 ('section','edu','教育背景','教育背景,教育经历,学习经历,教育信息,学历信息,教育与培训',3,'active','admin','2026-09-29 00:00:00','',NULL,'教育经历区（条目：学校/专业/学历/起止时间）','0'),
+	 ('section','work','工作经历','工作经历,工作经验,职业经历,实习经历,工作履历,职业背景',4,'active','admin','2026-09-29 00:00:00','',NULL,'工作经历区（条目：公司/职位/起止时间）','0'),
+	 ('section','project','项目经历','项目经历,项目经验,项目实践,项目业绩,主要项目',5,'active','admin','2026-09-29 00:00:00','',NULL,'项目经历区（条目：项目名/角色/起止时间）','0'),
+	 ('section','skill','专业技能','专业技能,技能特长,技能清单,掌握技能,技能专长,IT技能,计算机技能',6,'active','admin','2026-09-29 00:00:00','',NULL,'技能区（词域匹配，见 config_type=skill）','0'),
+	 ('section','self','自我评价','自我评价,个人评价,自我介绍,个人简介,自我描述,个人优势',7,'active','admin','2026-09-29 00:00:00','',NULL,'自评区（整块取，几乎不会错）','0'),
+	 ('section','other','其他区块','荣誉奖项,获奖情况,证书,资格证书,校园经历,校内职务,培训经历,语言能力,兴趣爱好',8,'active','admin','2026-09-29 00:00:00','',NULL,'不解析字段，但原文保留在大类块中（内容永不丢失）','0'),
+	 ('skill','通用技能','通用技能','Git,SVN,Maven,Gradle,Linux,Shell,Nginx,Tomcat,JUnit,Postman,Swagger,Figma,Axure,Visio,Office,Excel,PPT,数据分析,需求分析,项目管理,敏捷开发,Scrum,单元测试,性能优化,系统设计,微服务,分布式,高并发,负载均衡,消息队列,缓存,容器化,持续集成',1,'active','admin','2026-09-29 00:00:00','',NULL,'通识技能（与岗位必备技能并集使用）','0'),
+	 ('degree','学历层级','学历层级','博士,博士研究生,硕士,硕士研究生,研究生,MBA,本科,学士,大学本科,大专,专科,高职,中专,高中',1,'active','admin','2026-09-29 00:00:00','',NULL,'按顺序优先匹配，长词优先','0');
 INSERT INTO portal_tag (name,slug,sort,status,module,reference_count,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('生活哲思','life-philosophy',1,'0',NULL,3,'admin','2026-08-19 18:01:44','','2026-09-07 10:15:28','人文类','0'),
 	 ('城市记忆','city-memory',2,'0',NULL,3,'admin','2026-08-19 18:01:44','','2026-08-31 11:25:15','人文类','0'),
@@ -572,7 +618,11 @@ INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,l
 	 (6,'其他','other','ledger_identity_tag','','default','N','0','admin','2026-09-04 11:03:26','',NULL,'其他身份','0'),
 	 (1,'首页-旭林广告位','home_xulin_ad','portal_ad_slot_key','','success','N','0','admin','2026-08-28 13:16:38','',NULL,'首页-热门推荐上方的旭林广告位','0');
 INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
-	 (2,'首页-VIP推广位','home_vip_banner','portal_ad_slot_key','','primary','N','0','admin','2026-08-28 13:16:38','',NULL,'首页右侧/移动端下方的VIP推广位','0');
+		 (2,'首页-VIP推广位','home_vip_banner','portal_ad_slot_key','','primary','N','0','admin','2026-08-28 13:16:38','',NULL,'首页右侧/移动端下方的VIP推广位','0');
+INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+		 (1,'简单','easy','portal_question_difficulty','','success','Y','0','admin','2026-09-29 00:00:00','',NULL,'题库难度：easy','0'),
+		 (2,'中等','medium','portal_question_difficulty','','warning','N','0','admin','2026-09-29 00:00:00','',NULL,'题库难度：medium','0'),
+		 (3,'困难','hard','portal_question_difficulty','','danger','N','0','admin','2026-09-29 00:00:00','',NULL,'题库难度：hard','0');
 INSERT INTO sys_dict_type (dict_name,dict_type,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('用户性别','sys_user_sex','0','admin','2026-08-19 18:01:44','',NULL,'用户性别列表','0'),
 	 ('菜单状态','sys_show_hide','0','admin','2026-08-19 18:01:44','',NULL,'菜单状态列表','0'),

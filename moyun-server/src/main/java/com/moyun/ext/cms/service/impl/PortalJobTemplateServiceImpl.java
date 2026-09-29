@@ -13,6 +13,7 @@ import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalJobTemplate;
 import com.moyun.portal.mapper.PortalInterviewQuestionMapper;
 import com.moyun.portal.mapper.PortalJobTemplateMapper;
+import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,8 +85,50 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
     public List<PortalJobTemplate> listActive() {
         return list(new LambdaQueryWrapper<PortalJobTemplate>()
                 .eq(PortalJobTemplate::getStatus, "active")
+                .orderByAsc(PortalJobTemplate::getSort)
                 .orderByAsc(PortalJobTemplate::getCategory)
                 .orderByAsc(PortalJobTemplate::getName));
+    }
+
+    /**
+     * 按岗位名称反查启用的岗位模板（精确优先，模糊兜底）。
+     *
+     * <p>逻辑自原 {@code PortalInterviewPositionServiceImpl#findByName} 迁入（v13.37 两表合并），
+     * 行为保持一致：调用方传入的岗位可能是模板全名，也可能是自由文本（如 "后端"），
+     * 模糊兜底用于提升 {@code required_skills} 的召回命中率（驱动简历岗位匹配与画像抽题）。</p>
+     */
+    @Override
+    public PortalJobTemplate findActiveByName(String name) {
+        if (StringUtils.isEmpty(name)) {
+            return null;
+        }
+        String trimmed = name.trim();
+        // 1. 精确匹配（如 "Java后端工程师"）
+        PortalJobTemplate hit = getOne(new LambdaQueryWrapper<PortalJobTemplate>()
+                .eq(PortalJobTemplate::getName, trimmed)
+                .eq(PortalJobTemplate::getStatus, "active")
+                .orderByAsc(PortalJobTemplate::getSort)
+                .last("LIMIT 1"), false);
+        if (hit != null) {
+            return hit;
+        }
+        // 2. 模糊兜底（如 "后端" → "Java后端工程师"）
+        return getOne(new LambdaQueryWrapper<PortalJobTemplate>()
+                .like(PortalJobTemplate::getName, trimmed)
+                .eq(PortalJobTemplate::getStatus, "active")
+                .orderByAsc(PortalJobTemplate::getSort)
+                .last("LIMIT 1"), false);
+    }
+
+    @Override
+    public PortalJobTemplate findActiveByCode(String code) {
+        if (StringUtils.isEmpty(code)) {
+            return null;
+        }
+        return getOne(new LambdaQueryWrapper<PortalJobTemplate>()
+                .eq(PortalJobTemplate::getCode, code.trim())
+                .eq(PortalJobTemplate::getStatus, "active")
+                .last("LIMIT 1"), false);
     }
 
     @Override

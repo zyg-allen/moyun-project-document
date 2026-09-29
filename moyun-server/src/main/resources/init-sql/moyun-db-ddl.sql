@@ -1006,11 +1006,35 @@ CREATE TABLE `portal_ad_slot` (
 
 -- `moyun-db`.portal_ai_task definition
 drop table if exists `portal_ai_task`;
+-- ----------------------------
+-- Table structure for portal_resume_parse_config
+-- ----------------------------
+drop table if exists `portal_resume_parse_config`;
+CREATE TABLE `portal_resume_parse_config` (
+                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                       `config_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置类型：section 章节词 / skill 技能词 / degree 学历词 / position 岗位词',
+                                       `item_key` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置键：section 时为目标大类 edu/work/project/skill/self/intention/basic/other；其余为词条本身',
+                                       `item_name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '显示名称（后台列表展示，如「教育背景」）',
+                                       `keywords` varchar(1000) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '关键词（多个用英文逗号分隔；section 用于匹配章节标题，其余用于全文匹配）',
+                                       `sort` int NOT NULL DEFAULT '0' COMMENT '排序（升序）',
+                                       `status` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'active' COMMENT '状态：active 启用 / inactive 停用',
+                                       `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
+                                       `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                       `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
+                                       `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                       `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
+                                       `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
+                                       PRIMARY KEY (`id`),
+                                       KEY `idx_type_status` (`config_type`,`status`),
+                                       KEY `idx_del_flag` (`del_flag`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历解析配置（章节词典/技能词域/学历词/岗位词，规则解析用）';
+
 CREATE TABLE `portal_ai_task` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                                   `user_id` bigint NOT NULL COMMENT '所属用户',
                                   `task_type` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '任务类型：resume_parse（简历解析）/ job_match（岗位匹配）/ ai_draft（空字段草稿）/ deep_optimize（深度优化）',
                                   `biz_ref` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务参数JSON，如 {"resumeId":1,"jobTargetId":2}',
+                                  `payload` mediumtext COLLATE utf8mb4_0900_ai_ci COMMENT '任务大文本输入（如 resume_parse 的简历抽取文本，上限 6000 字符）；小参数走 biz_ref',
                                   `status` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT '状态：pending（排队）/ running（执行中）/ success（成功）/ failed（失败）',
                                   `progress_msg` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '进度提示文案（轮询时返回给前端展示）',
                                   `result` mediumtext COLLATE utf8mb4_0900_ai_ci COMMENT '任务结果JSON（success 时有值）',
@@ -2125,30 +2149,6 @@ CREATE TABLE `portal_interview_experience_like` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经点赞表';
 
 
--- `moyun-db`.portal_interview_position definition
-
-CREATE TABLE `portal_interview_position` (
-                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                             `code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '岗位编码（如 java_backend）',
-                                             `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '岗位名称（如 Java后端工程师）',
-                                             `industry` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '所属行业（如 互联网/金融/制造）',
-                                             `level` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '岗位级别（junior/mid/senior）',
-                                             `required_skills` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '必备技能 JSON 数组（如 ["Spring","MySQL","Redis"]，与 portal_tag.name 对齐）',
-                                             `hot_companies` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '热门公司 JSON 数组（如 ["阿里","腾讯","字节"]）',
-                                             `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '岗位描述',
-                                             `sort` int DEFAULT '0' COMMENT '排序',
-                                             `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'active' COMMENT '状态 active/inactive',
-                                             `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
-                                             `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                             `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
-                                             `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                             `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                             `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                             PRIMARY KEY (`id`),
-                                             UNIQUE KEY `uk_code` (`code`),
-                                             KEY `idx_status_sort` (`status`,`sort`),
-                                             KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试岗位字典表';
 
 
 -- `moyun-db`.portal_interview_question definition
@@ -2339,6 +2339,12 @@ CREATE TABLE `portal_job_template` (
                                        `name` varchar(100) NOT NULL COMMENT '模板名称（如：Java后端工程师）',
                                        `category` varchar(50) DEFAULT NULL COMMENT '岗位类别（技术/产品/运营/设计等）',
                                        `position_code` varchar(50) DEFAULT NULL COMMENT '岗位编码（对齐 portal_voice_interview.position）',
+                                       `code` varchar(64) DEFAULT NULL COMMENT '岗位编码（如 java_backend）——v13.33 由 portal_interview_position.code 并入，按编码反查用',
+                                       `industry` varchar(50) DEFAULT NULL COMMENT '所属行业（如 互联网/金融/制造）——v13.33 由 portal_interview_position.industry 并入',
+                                       `level` varchar(32) DEFAULT NULL COMMENT '岗位级别 junior/mid/senior——v13.33 由 portal_interview_position.level 并入',
+                                       `required_skills` text COMMENT '必备技能 JSON 数组（如 ["Spring","MySQL"]，与 portal_tag.name 对齐）——v13.33 由 portal_interview_position.required_skills 并入，驱动简历岗位匹配评分与画像必备技能',
+                                       `hot_companies` text COMMENT '热门公司 JSON 数组（如 ["阿里","腾讯"]）——v13.33 由 portal_interview_position.hot_companies 并入',
+                                       `sort` int DEFAULT '0' COMMENT '排序（升序）——v13.33 由 portal_interview_position.sort 并入',
                                        `description` varchar(500) DEFAULT NULL COMMENT '模板描述',
                                        `jd_text` text COMMENT '岗位 JD 原文（用于 LLM 关键词提取与出题上下文）',
                                        `keywords` varchar(500) DEFAULT NULL COMMENT '岗位关键词，逗号分隔（LLM 提取 + 人工维护）',
@@ -2355,8 +2361,10 @@ CREATE TABLE `portal_job_template` (
                                        PRIMARY KEY (`id`),
                                        KEY `idx_category` (`category`),
                                        KEY `idx_status` (`status`),
+                                       KEY `idx_code` (`code`),
+                                       KEY `idx_sort` (`sort`),
                                        KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='岗位模板表（JD/关键词/出题权重，支撑智能出题）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='岗位模板表（全 portal 岗位配置唯一来源：JD/关键词/难度/题量/必备技能/出题权重）';
 
 
 -- `moyun-db`.portal_like definition

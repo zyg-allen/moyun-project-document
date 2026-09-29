@@ -948,9 +948,9 @@
 
           <el-form-item label="触发模式" v-if="formData.workflowId">
             <el-radio-group v-model="formData.workflowTriggerMode">
-              <el-radio value="manual">手动触发</el-radio>
-              <el-radio value="auto">自动增强</el-radio>
-              <el-radio value="keyword">关键词触发</el-radio>
+              <el-radio label="manual">手动触发</el-radio>
+              <el-radio label="auto">自动增强</el-radio>
+              <el-radio label="keyword">关键词触发</el-radio>
             </el-radio-group>
             <div style="font-size: 12px; color: #606266; margin-top: 8px; line-height: 1.8; background: #f5f7fa; padding: 10px; border-radius: 4px;">
               <template v-if="formData.workflowTriggerMode === 'manual'">

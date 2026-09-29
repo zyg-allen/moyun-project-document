@@ -86,7 +86,7 @@
         </template>
       </el-table-column>
       <el-table-column label="分类" width="120">
-        <template #default="{ row }">{{ row.categoryName || '-' }}</template>
+        <template #default="{ row }">{{ row.categoryName || categoryName(row.categoryId) }}</template>
       </el-table-column>
       <el-table-column label="岗位模板" width="120">
         <template #default="{ row }">{{ jobTemplateName(row.jobTemplateId) }}</template>
@@ -306,6 +306,13 @@ const jobTemplateMap = computed(() => {
   return m;
 });
 function jobTemplateName(id) { return jobTemplateMap.value[id] || '-'; }
+// 分类反显：后端列表 VO 未回填 categoryName，用已加载的分类选项做 id→name 映射（同岗位模板口径）
+const categoryMap = computed(() => {
+  const m = {};
+  (categoryOptions.value || []).forEach(c => { m[c.id] = c.name; });
+  return m;
+});
+function categoryName(id) { return (id != null && categoryMap.value[id]) || '-'; }
 async function loadJobTemplateOptions() {
   try {
     const res = await listJobTemplateSimple();
@@ -370,6 +377,13 @@ function statusLabel(s) { return { draft: '草稿', published: '已发布', arch
 function statusType(s) { return { draft: 'info', published: 'success', archived: 'warning' }[s] || 'info'; }
 function tagList(tags) { return tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []; }
 function tagsToStr(tags) { return (tags || []).join(','); }
+// 详情接口 companies 为 List<InterviewCompanyVO>（对象数组），编辑表单需逗号字符串；
+// 空数组 [] 为 truthy，`|| ''` 拦不住，必须显式归一（否则 PUT 提交数组导致后端 String 反序列化失败）
+function companiesToStr(v) {
+  if (v == null) return '';
+  if (Array.isArray(v)) return v.map(c => (typeof c === 'string' ? c : (c?.name || ''))).filter(Boolean).join(',');
+  return String(v);
+}
 
 // 选项 label 序列：A B C D E F G H
 function nextOptionLabel() {
@@ -499,7 +513,7 @@ async function handleEdit(row) {
       difficulty: data.difficulty || 'easy',
       categoryId: data.categoryId,
       tags: tagList(data.tags),
-      companies: data.companies || '',
+      companies: companiesToStr(data.companies),
       hint: data.hint || '',
       solution: data.solution || '',
       sort: data.sort || 0,
@@ -511,6 +525,7 @@ async function handleEdit(row) {
       correctAnswerArr,
       analysis: data.analysis || '',
       knowledgeTags: data.knowledgeTags || '',
+      jobTemplateId: data.jobTemplateId ?? null,
     };
     dialogVisible.value = true;
   } catch (e) { /* ignore */ }
@@ -569,6 +584,7 @@ async function submitForm() {
     const submitData = {
       ...form.value,
       tags: tagsToStr(form.value.tags),
+      companies: companiesToStr(form.value.companies),
     };
     // 选择题：optionList → options JSON 字符串（is_correct 支持多选）
     if (form.value.practiceMode === 'choice') {

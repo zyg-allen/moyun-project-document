@@ -22,7 +22,7 @@ public class UserProfileSnapshotVO {
     /** 面试场景（如 算法/系统设计） */
     private String scene;
 
-    /** 岗位必备技能（来自 portal_interview_position.required_skills JSON 数组） */
+    /** 岗位必备技能（来自 portal_job_template.required_skills JSON 数组） */
     private List<String> requiredSkills;
 
     /** 薄弱知识点列表（按 failRate 降序） */

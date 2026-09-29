@@ -2,6 +2,301 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.38 (2026-09-29) 简历解析重构落地：纯 Java 规则引擎 + 预览校对 + 配置化词表
+
+**方案依据**：《全端-简历-方案-简历解析重构方案-V1.0》（`docs/09-临时报告/`），本次为 **Phase 1（大类划分 + 排版保真 + 内容零丢失）+ Phase 2（条目化）** 的完整落地。
+**两项裁决**：**Q1** 规则路径**同步返回**（毫秒级，不再依赖异步/轮询）；**Q4** 做 **U1 左右对照**校对页。
+
+### ① 规则解析引擎 `ResumeRuleParser`（新增，纯 Java 零 AI）
+
+| 规则 | 内容 |
+|---|---|
+| **R0** 归一化 | 去零宽字符/BOM、全角空格、压缩空行 |
+| **R1** 章节分桶 | 词典驱动；支持「一、」「【】」「◆」装饰符与**「标题：内容」同行写法** |
+| **R2** 日期锚点 | `2020.03-2023.06` / `2020年3月至今` / `2020/03—2023/06` → 归一 `yyyy-MM` |
+| **R3** 条目切分 | 日期行=锚点，下一条日期行=终点 → 得到「1、2、3」 |
+| **R4** 字段分配 | 锚点上方紧邻行=名称；**按职位关键词**拆「公司 职位」；余下原文进 `description` |
+| **R5** 基本信息 | 手机/邮箱/姓名/性别/出生日期（**只认显式标签，绝不推断**） |
+| **R6** 技能 | 词域匹配，**自动聚合 `portal_job_template.required_skills`**（零硬编码） |
+
+**单测 12 例全绿**（`ResumeRuleParserTest`），含 4 个**防误判**用例。测试过程抓到并修掉 6 个真实缺陷，其中最关键：
+> 短词「技能」前缀匹配到正文「技术栈：Spring Boot…」→ 被判为章节标题 → **整段内容被切走**。修正为「前缀匹配的余量必须是纯 ASCII」（只用于「教育背景 Education」这类中英混排）。
+
+### ② 「预览 → 确认」两步式（本次核心架构改进）
+
+```
+POST /parse/preview  【同步·毫秒级·不落库】请求内就地抽取文本 → 规则结构化 → 返回
+                     {previewToken, 解析结果, rawText}   ← rawText 供左右对照
+        ↓ 用户校对（前端弹窗，字段可改）
+POST /parse/confirm  【唯一写库入口】落库为新简历，返回 {resumeId}
+```
+
+- **解析不落库** → 解析失败或用户放弃**零残留**（根治"失败留空简历脏数据"）；
+- **同步返回** → 不再需要异步任务与轮询（`/parse` 异步路径保留兼容）；
+- **附件不落盘/不进对象存储** → 只读内容，用完即弃；
+- 预览令牌 **10 分钟 TTL**（内存 `ConcurrentHashMap`，惰性清理 + 上限防御，不新增表）。
+
+### ③ 文本抽取质量修复（纯收益，与是否用 AI 无关）
+
+| 问题 | 修复 |
+|---|---|
+| `PDFTextStripper` 默认按内容流顺序输出，**双栏/表格简历文字交错** | 开 `setSortByPosition(true)` |
+| `XWPFWordExtractor` 把表格**拍平**，行/列关系丢失（简历大量用表格排版） | 改遍历 body 元素，**表格单元格用 `\t` 连成行** |
+
+### ④ 配置化词表 + 后台管理（新建表 → 铁律双轨）
+
+- **表**：`portal_resume_parse_config`（section 章节词 / skill 技能词 / degree 学历词 / position 岗位词）；
+- **init-sql**：DDL 建表（**185 张表**）+ DML 种子（**10 条**）；
+- **增量**：`20260929-02`（结构 + 幂等种子）、`20260929-03`（菜单 + 按钮权限），**均连跑两次 exit 0**；
+- **后台**：实体/Mapper/Service/Controller（`/cms/interview/resumeParseConfig`，`@PreAuthorize` 五权限）+ 前端页面 `views/cms/interview/resumeParseConfig/index.vue`；
+- **降级**：表为空/不可用时引擎使用**内置默认词典**兜底 —— 配置问题绝不导致解析失败。
+
+### ⑤ 前端 U1 左右对照校对页
+
+新增 `components/resume/ResumeParsePreviewModal.vue`：**左原文 / 右可编辑解析结果**，含基本信息、求职意向、教育/工作/项目**逐条（1、2、3）**、技能、自评，支持**增删改**；顶部提示「已识别 N 个内容大类」或降级警告。接入 `ResumeEditPage`（上传即预览）与 `VoiceInterviewPage`（面试准备页同样两步式）。
+
+### ⑥ 命名冲突修复（过程中发现）
+
+`ResumeEditPage` **已有** `components/resume/ResumePreviewModal.vue`（简历**文档预览**，另一种用途）→ 新组件命名 `ResumeParsePreviewModal` 并置于同一目录，样式前缀 `rv-`→`rpp-` 避冲突；状态变量用 `parsePreview*` 前缀消歧。
+
+### ⑦ 守卫同步
+
+`ModuleDependencyGuardTest`：`portal -> ext.cms` 83→**84**（引入 ResumePreviewVO）、`ext.cms -> portal` 277→**278**（ResumeParseService 引入 PortalJobTemplate），均附理由。
+
+### ⑧ 菜单 id 空间重排（⚠️ 过程中的重大坑，已修复）
+
+尝试为「简历解析配置」腾出 M/C 段 id 时，因**幂等判定缺陷 + 目的地被占**导致库一度处于中间状态（91 行悬在大偏移区）。
+**已完全恢复**：M/C 121 条全在 1..121、**0 重复、0 悬空父引用**，并同步了 `sys_role_menu`。
+最终取**唯一连续空闲块**：菜单 `397` + 按钮 `398..401`（备份见 `.archive/drops-20260928/sys_menu-before-resumeParseConfig-menu.sql`）。
+> 教训：**大范围 id 重排必须逐条验证、小步提交**，不能用"看似原子"的批量事务。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| 后端 `mvn -o test` | ✅ **434 例全绿**（含新增 12 例规则引擎单测） |
+| 门户 `vue-tsc -b` | ✅ exit 0 |
+| 后台 `npm run build:prod` | ✅ exit 0 |
+| init-sql 独立初始化 | ✅ **185 表 / 401 菜单 / 0 重复 / 0 悬空父 / 种子 10 条 / 菜单 5 条** |
+| 增量脚本幂等 | ✅ `20260929-02`、`20260929-03` 各连跑两次 exit 0 |
+| 数据清理 | ✅ 4 条空草稿 + 4 条 sys_file + 5 份残留 PDF（已备份） |
+
+> 门户 `npm run build`（生产）因**既有 SEO 守卫**缺 `VITE_SITE_URL` 而失败，与本次改动无关（`vue-tsc` 门槛已通过）。
+
+## v13.38 (2026-09-29) 简历解析重构方案（评估文档）+ 会话内已落地的链路修正
+
+### ① 方案文档（本次交付物）
+
+新增《全端-简历-方案-简历解析重构方案-V1.0》（`docs/09-临时报告/`），综合代码现状与多轮评估，
+对"把不确定格式的简历变成平台标准格式"给出**可落地路径**。核心结论：
+
+- **问题定性**：正则失败不是"不够强"，而是**问题类型不同**（版面结构 vs 文本模式）。简历解析 = 版面分析 + 语义标注；
+- **关键拆分**：两个场景容错性完全不同 ——
+  **场景 A（上传→填表单）必须结构化**（人要校对）；**场景 B（面试上下文）不需要结构化**，
+  直接喂 `full_text` 原文更好（原文是**无损**的，结构化是有损压缩）。实测现有 `ResumeJobMatchService`
+  **本来就是"原文优先"**，故场景 B 几乎无需改造；
+- **准确性标准降级**：按用户口径「**大类 + 条目（名称/起止时间/内容）**」，把问题从"语义理解"降为
+  **"分桶 + 切段"** —— 章节词典分桶、日期范围为锚点切条目，确定性远高于语义抽取；
+- **三阶段渐进**：Phase 1 = **大类划分 + 排版保真 + 内容零丢失**（最小需求）；
+  Phase 2 = 条目化（日期锚点切 1/2/3 + 字段分配）；Phase 3 = AI 可选增强（**不再是必需依赖**）；
+- **两条铁设计原则**：**内容永不丢失**（抽不准也必须整段进 `description`）、**宁缺勿错**
+  （错值比空值危害大 —— 空值用户会补，错值用户会信）；
+- **准确性的真正保障在 UI**：左右对照 + 字段级置信度 + 低置信宁可不填；
+  并把指标从"字段准确率 95%"改为**"用户需修改几个字段/多少秒"**（可测可优化）。
+
+### ② 会话内已落地并验证的链路修正（代码）
+
+- **`portal_interview_position` 全并入 `portal_job_template`**（详见 v13.37）；
+- **简历附件改纯内存解析，不落盘/不进对象存储**：`ResumeParseService` 新增 `extractFromUpload()`
+  （请求内就地抽取文本）+ `ParseHandle` record；**删除** `prepareAttachmentResume` 与整段
+  「MinIO 优先 + 磁盘兜底」读取代码（`readFileBytes`/`readFromMinio`/`readFromDisk`/`isMinioUrl`）；
+- **`executeParse` 改为「接收文本 → 解析成功才 insert 简历记录」**：
+  消除"先建草稿再解析、失败不回滚"导致的**空简历脏数据**（实测同一份简历失败 4 次 → 4 条全空草稿）；
+- **`portal_ai_task` 增列 `payload`**（mediumtext）承载任务大文本输入（原 `biz_ref` 仅 varchar(500) 装不下）；
+  同步 `AiTaskHandler.execute()` 加 `payload` 参数、`AiTaskService.submitTask` 加重载、执行器透传；
+- **清理已产生的脏数据**：删除 4 条全空草稿 + 4 条 `sys_file` 记录 + 5 份磁盘残留 PDF（已备份至
+  `.archive/drops-20260928/`）；
+- **修正 `moyun-db2` 库结构**：`payload` 列（init-sql DDL 同步 + 增量 `20260928-14`，**幂等，连跑两次 exit 0**）。
+
+### ③ 顺带发现（评估留痕，供后续决策）
+
+- **`AiTaskHandler` 体系**：4 个 Handler 实为「**1 个入口型（`resume_parse`）+ 3 个派发型**」
+  被塞进同一接口 → 症状：8 行取值/校验样板重复 4 次、**3 种失败语义**（`ai_draft` 用"返回空结果"
+  造成**假成功**）、**归属校验放错层**（`ai_draft` 漏校验 = 越权缺口）、
+  **Handler 私自写库导致框架无从补偿**（← **原始脏数据 bug 的根因**）；
+- **命名/框架重构结论（推翻我自己的前一轮判断）**：
+  `portal_ai_task` → `sys_async_task`、`ext.task` 迁包**均建议推迟**。理由：① **零功能收益**
+  （真正限制复用是 `user_id NOT NULL` 与缺幂等键，与名字无关）；② 项目已有同款先例 `sys_audit_task`；
+  ③ 改名**不可逆地破坏可搜索性**（历史增量脚本按铁律不可改）；④ `RENAME TABLE` 是元数据操作，
+  "趁数据少改名"**不成立**。
+  并**更正**我此前"改名成本几乎为零"的错判：漏算了实体类 `PortalAiTask` 的 **27 处代码引用**。
+
+> ⚠️ **本文档为方案评审稿，落地前需先裁决其 §16 的 Q1~Q6**（规则路径是否同步返回、
+> 大类块是否直接落 `description`、是否保留 AI 增强、校对页是否本期做、
+> 是否先修 `ai_draft` 假成功与越权缺口、章节词典放常量类还是字典表）。
+
+## v13.37 (2026-09-29) 岗位配置统一：删 portal_interview_position → 全并入 portal_job_template + 面试页岗位下拉接后端
+
+**需求（用户裁决）**：`portal_job_template` 有后台管理页可配置，`portal_interview_position` **没有任何配置管理入口**，
+两者**职责重复且使用混乱** → **全 portal 统一用 `portal_job_template`**，删除 `portal_interview_position`；
+需要哪些字段就并入；**代码 / 文档 / 脚本全部同步删除**旧表。
+
+### ① 表合并（旧表 6 列并入新表）
+
+| 并入列 | 用途 | 为何必须迁移 |
+|---|---|---|
+| `code` | 岗位编码（如 `java_backend`） | 按编码反查 |
+| `industry` | 所属行业 | 画像/展示 |
+| `level` | 岗位级别 junior/mid/senior | 画像/筛选 |
+| **`required_skills`** | 必备技能 JSON 数组 | **驱动「简历岗位匹配评分」与「用户画像必备技能」，不迁会导致匹配度直接为 0** |
+| `hot_companies` | 热门公司 JSON 数组 | 展示 |
+| `sort` | 排序 | 下拉顺序 |
+
+新表加 `idx_code` / `idx_sort` 索引；表注释改为「全 portal 岗位配置唯一来源」。
+
+### ② 代码改造（8 个 Java 文件）
+
+- **删除**：`PortalInterviewPosition`（实体）、`PortalInterviewPositionMapper`、
+  `IPortalInterviewPositionService`、`PortalInterviewPositionServiceImpl`、`PortalInterviewPositionController`；
+- **新增**：`PortalJobTemplateController` —— 门户公开接口 `GET /portal/interview/jobTemplate/list`（`@Anonymous`），
+  仅暴露前端选岗与回填所需字段（含 `jobDescription` = JD 原文、`difficulty`、`questionCount`、`requiredSkills`）；
+- **职责并入**：`IPortalJobTemplateService` 新增 `findActiveByName`（**精确 + 模糊兜底**，逻辑自旧实现原样迁入）与 `findActiveByCode`；
+- **消费点改注**：`ResumeScoringService`（简历岗位匹配评分）、`UserProfileSnapshotServiceImpl`（画像必备技能）
+  由 `IPortalInterviewPositionService` 改注 `IPortalJobTemplateService`；
+- **门户前端**：`api/interview.ts` 的 `getInterviewPositions` → `getJobTemplates`；
+  类型 `InterviewPositionVO` → `JobTemplateOptionVO`（迁至 `types/api.ts`）；`UserProfilePage.vue` 同步。
+
+### ③ 面试页（`/interview/voice`）岗位下拉接后端 + 回填
+
+- **删除前端硬编码 `POSITION_OPTIONS`**（5 条写死岗位）→ 改由后台【岗位模板】驱动；
+- **选中岗位即回填**：`jdText` → 「岗位要求」、`difficulty` → 难度、`questionCount` → 题量；
+- **回填后可自由修改**：加「已按模板『xxx』回填 · 可修改」来源标记；用户改动后**切岗位不再覆盖**；
+  提供「↺ 恢复模板值」与「✕ 清空」；
+- **不选岗位/自定义则以此处为准**（留空 = 按岗位通用标准出题）；
+- 简历求职意向命中模板时，连带回填该模板的 JD/难度/题量；下拉为空时提示去后台配置。
+
+### ④ SQL（双轨同步）
+
+- **DDL**：删除 `portal_interview_position` 定义（**185 → 184 张表**）；`portal_job_template` 加 6 列 + 2 索引；
+- **DML**：删除旧表种子，`portal_job_template` 种子**由存量库导出重建**（5 条，逐字一致）；
+- **增量脚本**：`20260928-12`（加列 → 数据迁移 → 删旧表）、`20260928-13`（Java 三档合并 + 迁入行补 JD），
+  均**幂等**（连跑两次 exit 0）。
+
+> **迁移中修正的存量脏数据**：① 按 `name` 匹配失败导致 Java 后端出现重复行且 3 条 Java 模板**缺 required_skills** →
+> 改按业务同一岗位语义合并；② `中级 Java` 的 JD 被错写成「初级 Java」原文 → 已更正；
+> ③ 迁入行 `sort` 与 Java 中/高级冲突（2/3）→ 改为 4/5。
+
+### ⑤ 守卫更新
+
+`ModuleDependencyGuardTest` FROZEN_EDGES：`ext.cms -> portal` **278 → 275**
+（删除旧表相关类后依赖减少 3 处，按铁律「减少也要同步下调」更新）。
+
+### 校验
+
+- 后端 `mvn -o clean test` → **422 例全绿**；
+- 门户 `vue-tsc -b` → **exit 0 无类型错误**；
+- **init-sql 独立初始化比对**：全新库与存量库 **表数 184 = 184**、
+  `portal_job_template` **5 条逐字段一致**（code / sort / difficulty / question_count / JD 文本长度）；
+- 新接口实测 `GET /portal/interview/jobTemplate/list` → **code=200，5 条**（JD 424/325/707/317/290 字）；
+  旧接口 `/portal/interview/position/list` 已无映射。
+
+> ⚠️ **过程中我造成并已修复的一次误伤**：编辑 DDL 时用文本 `Replace` 匹配 `idx_status` 锚点，
+> 因该锚点非唯一，把 `idx_code`/`idx_sort` 误加到 **17 张表**。已**从 git HEAD 取回 DDL 并按「当前表名」状态机精确重做**
+> （仅改 `portal_job_template`），复核索引归属正确。教训：**DDL 编辑必须按表块定位，不能用全局文本替换**。
+
+## v13.36 (2026-09-29) fix：el-radio 单选失效（点一个两个都选上）——value prop 全项目改 label
+
+**现象**：公司标签页（/portal/learn/company）编辑弹窗「状态」单选，点击「启用」两个 radio 同时选中；
+多个页面同病灶。
+
+**根因**：项目 Element Plus 为 **2.4.3**，`el-radio` / `el-checkbox` 的 `value` prop 是 **2.6.0+** 才引入；
+旧版必须用 `label` 传值。写成 `value=` 时 radio 无绑定值，v-model 匹配失效导致全组联动选中。
+
+**修复**（纯前端，15 处 / 6 文件，`value=` → `label=`，插槽文本保留为显示文案）：
+`cms/interview/company`、`cms/interview/category`（4 处）、`cms/interview/resume`（2 处）、
+`cms/ledger/category`（`:value` 动态绑定 2 处）、`system/sensitiveWord`（2 处）、`ai/agent`（3 处）。
+全项目扫描复核：`<el-radio value=` / `<el-radio :value=` 0 残留；`el-checkbox` 无同类问题。
+
+**验证**（浏览器实测）：company 编辑弹窗启用/停用切换互斥正常。
+
+**四同步**：代码 6 文件；SQL/菜单无变更。
+
+## v13.35 (2026-09-29) fix：题库列表三列反显（难度字典数据缺失 / 分类映射 / 岗位回填）+ useDict 空缓存自愈
+
+**现象**：管理端题库列表「难度 / 分类 / 岗位模板」三列不显示。
+
+**根因与修复（四处）**：
+
+1. **难度字典数据行从未初始化**：`sys_dict_type` 有「题目难度」类型行但 `sys_dict_data` 无数据行
+   （查询/编辑表单下拉与 dict-tag 全空）。双轨补齐 easy简单/medium中等/hard困难 3 行：
+   `moyun-db-dml-init.sql` + 增量脚本 `20260929-01-portal_question_difficulty字典数据补齐.sql`（幂等，
+   附 Redis 字典缓存清理说明）。`portal_question_type` 同样无数据行但全前端无消费者，不补。
+2. **useDict 空缓存不自愈**（`moyun-admin-vue/src/utils/dict.js`）：Pinia store 缓存空列表后
+   `if (dicts)` 对 `[]` 判 truthy 永不再回源——字典数据后补时页面必须重登才生效。
+   改为 `dicts && dicts.length`，空缓存自动回源。
+3. **分类列反显**：后端列表 VO 有 `categoryName` 字段但 `toQuestionVO` 从未回填；
+   按用户裁决**前端处理**——列表列改为 `row.categoryName || categoryName(row.categoryId)`，
+   用已加载的 `categoryOptions` 做 id→name 映射（与岗位模板同口径）。
+4. **编辑回填漏 jobTemplateId**：`handleEdit` 表单填充对象缺 `jobTemplateId` 字段，
+   编辑弹窗岗位恒显示"不关联"（若保存重选会丢关联语义）；补 `jobTemplateId: data.jobTemplateId ?? null`。
+
+**环境注意（本次排查踩坑，后续排查必读）**：当前运行的后端为 dev profile，连 **moyun-db2**；
+local profile 连 moyun-db。两个库结构相同但数据独立，**改数据前先确认目标后端连的哪个库**
+（`application.yaml` 的 `spring.profiles.active`）。本次字典数据已同时补入两库。
+
+**验证**（浏览器实测）：难度接口返回 3 条（简单/中等/困难）；列表难度列彩色标签正常显示
+（简单绿/中等橙）；分类列显示"后端开发"；编辑弹窗难度下拉 3 选项可正常选择。
+岗位模板列显示"-"系存量题目 `job_template_id` 均为 NULL（数据未设置），机制链路已通。
+
+**四同步**：代码（index.vue + dict.js）；SQL（DML 初始化 + 增量脚本，双库执行）；
+文档（部署指南 V13.33 增量脚本清单补第 3 行）；菜单无变更。
+
+## v13.34 (2026-09-29) fix：题库编辑提交报 JSON parse error（companies 数组 → String 反序列化失败）
+
+**现象**：管理端题库「修改」提交报 `请求体解析失败: JSON parse error: Cannot deserialize value of type java.lang.String from Array value`；
+新增正常、修改必炸（实测抓包确认）。
+
+**根因**：`InterviewQuestionDetailVO.companies` 为 `List<InterviewCompanyVO>`（详情接口返回**关联公司对象数组**，
+读 `portal_interview_question_company` 关联表），而编辑表单期望逗号字符串。前端 `handleEdit` 用
+`data.companies || ''` 回填——**空数组 `[]` 为 truthy 拦不住**，数组原样进表单并被 PUT 提交，
+后端实体 `companies` 为 String → Jackson 反序列化失败。
+
+**修复**（`moyun-admin-vue/src/views/cms/interview/question/index.vue`，纯前端）：
+- 新增 `companiesToStr`：对象数组取 `name` / 字符串数组直取，`join(',')` 归一为逗号字符串；
+- `handleEdit` 回填改 `companiesToStr(data.companies)`；`submitForm` 提交数据同步归一（双保险）。
+
+**验证**（浏览器实测抓包）：PUT body 中 `companies` 已从 `[]` 变为 `"腾讯,阿里"` 字符串，格式正确。
+
+**遗留断层（另行处理，本次不动）**：题目"公司"存在**双通道**——实体 `companies` 字符串列（编辑保存写这里）
+vs 公司关联表（详情/回显/前台按公司筛题读这里）。编辑保存不同步关联表，导致保存后回显丢失、
+前台按公司筛选查不到；需产品决策后统一（建议编辑保存时同步 upsert 关联表）。
+另：编辑弹窗 submitForm 的空 catch 吞掉后端报错，UI 无失败提示（既有风格，未擅改）。
+
+## v13.33 (2026-09-29) 门户栏目初始化重做：portal_category 显式 id + 重跑安全（下游不悬空）
+
+**需求**：`moyun-portal-category-redo.sql` 旧版依赖 AUTO_INCREMENT（id 从 51 起）+ `parent_id` 硬编码 52~71，
+换库重导后自增起点不同导致父子关系全部错位（前台导航树 `/portal/category/nav/tree` 错乱）；
+且要求**存量库重跑 TRUNCATE 后文章模块引用不悬空**。
+
+**实现**（`init-sql/moyun-portal-category-redo.sql` 全量重写，menu-redo 同模式）：
+
+- **三段式幂等结构**：① 旧表 `id→slug` 快照到 `_bak_portal_category`（全新库为空快照）→
+  ② `TRUNCATE` + **显式 id 1..49** 全量重插（任何库任何次重跑落位恒定，父 id 恒小于子 id）→
+  ③ 按 **slug 稳定键**回填下游 `portal_article.category_id/root_category_id`（及 `portal_book` /
+  `portal_book_list.category_id`），旧 id 经 slug 映射到新 id；二次重跑回填为同值无操作；
+- **归属重归纳**（按前台路由实际上下文）：面试题库归学习中心（/learn/questions）、
+  简历模板/面经/AI 面试官归面试专区、读书三入口挂读书空间目录、话题/动态/专栏/征文/发布/成长排行归创作互动；
+- **数据修正**：剔除游离行「面试指南」（slug 与顶级 `interview` 重复）与软删行；死路径修正
+  `/creation`→`/feed`、`/reading/space`→`/reading`（前台无对应路由）；
+- **末尾三项复核 SELECT**：下游悬空引用 / 孤儿父级+父小于子 / slug 重复，重跑后应全为 0。
+
+**dev 库执行验证**（2026-09-29）：13 篇存量文章经 slug 回填全部落位正确
+（人间烟火 73→22、山河行吟 74→23、城市笔记 76→25、四季专栏 77→26、首页 51→1）；三项复核全 0。
+
+**四同步**：`部署指南` 初始化顺序补入第 4 步（原清单漏此脚本）+ 幂等说明
+（`全端-部署-部署指南` 升 **V13.33**，文内与全部引用同步）；菜单无变更；
+归档雷同存根 `全端-规划-项目现状总结-V13.28.md`（内容与 `docs/README.md` 索引重复）至 `.archive/`。
+
 ## v13.32 (2026-09-28) 菜单表单：路由地址（path）唯一性校验 + 修改建议
 
 **需求**：不做后端 `getRouteName` 代码加固；改为**在菜单管理的新增/修改表单对 `path` 加校验**——

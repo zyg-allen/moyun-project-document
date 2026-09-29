@@ -57,3 +57,7 @@ logs/
 pnpm-lock.yaml
 /moyun-ledger-app/node_modules/
 /moyun-ledger-app/dist/
+/.archive/
+/.feisuan/
+/.trae/
+/_smtp_probe/

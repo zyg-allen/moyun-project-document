@@ -86,6 +86,23 @@ public class AiTaskService {
      * @return 任务ID
      */
     public Long submitTask(Long userId, String taskType, Map<String, Object> bizRef) {
+        return submitTask(userId, taskType, bizRef, null);
+    }
+
+    /**
+     * 提交 AI 异步任务（带<b>大文本输入</b>）。
+     *
+     * <p>用于「客户端上传内容已在请求内就地抽取、但文本体积超出 bizRef 承载」的场景
+     * （典型：简历解析，抽取文本上限 6000 字符）。大文本写入 {@code payload} 列，
+     * 不参与 bizRef JSON，避免撑爆 varchar(500)。</p>
+     *
+     * @param userId   用户ID
+     * @param taskType 任务类型（须有对应 AiTaskHandler 实现）
+     * @param bizRef   业务小参数（如 {fileName}）
+     * @param payload  任务大文本输入（可为 null）
+     * @return 任务ID
+     */
+    public Long submitTask(Long userId, String taskType, Map<String, Object> bizRef, String payload) {
         if (!handlerMap.containsKey(taskType)) {
             throw new ServiceException("未知的AI任务类型：" + taskType);
         }
@@ -103,6 +120,8 @@ public class AiTaskService {
         } catch (Exception e) {
             throw new ServiceException("任务参数序列化失败：" + e.getMessage());
         }
+        // 大文本输入单独入库（不参与 bizRef JSON，避免撑爆 varchar(500)）
+        task.setPayload(payload);
         aiTaskMapper.insert(task);
 
         // 触发异步执行（独立 Bean 调用，确保 @Async 生效）

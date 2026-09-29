@@ -2,41 +2,37 @@ package com.moyun.ext.cms.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.common.config.RuoYiConfig;
-import com.moyun.common.constant.Constants;
+
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.aigateway.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeParseVO;
+import com.moyun.ext.cms.domain.vo.ResumePreviewVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
+import com.moyun.portal.domain.entity.PortalJobTemplate;
 import com.moyun.portal.domain.entity.PortalUserResume;
 import com.moyun.portal.mapper.PortalUserResumeMapper;
-import io.minio.GetObjectArgs;
-import io.minio.MinioClient;
-import org.apache.commons.io.IOUtils;
+
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.extractor.WordExtractor;
-import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.InputStream;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,16 +41,27 @@ import java.util.regex.Pattern;
 import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
- * 简历附件解析服务（支持 MinIO 优先 + 磁盘兜底）
- * <p>
- * 流程：附件（PDF/Word/TXT）→ 抽取纯文本 → LLM 结构化抽取（字段语义对齐在线简历表单）；
- * LLM 未启用/调用失败时回退到正则规则粗解析（仅邮箱/电话/技能等高置信字段）。
- * <p>
- * <strong>文件读取策略（升级）</strong>：
+ * 简历附件解析服务（<b>纯内存解析，不落盘、不进对象存储</b>）
+ *
+ * <h3>为什么不做文件持久化（v13.38 架构修正）</h3>
+ * <p>简历附件是<b>客户端一次性输入</b>：用户上传只为"让系统读出内容"，用完即弃。
+ * 平台无法限制用户上传次数与体积，一旦落盘/进 MinIO，就会持续占用服务器空间且没有回收时机
+ * （实测：同一份 400KB 简历被重复上传 4 次 → 存了 4 份副本 = 1.6MB 纯浪费）。
+ * 因此本服务<b>只读取内容</b>：</p>
  * <ol>
- *   <li>优先从 MinIO 读取（fileUrl 以 http:// 或 https:// 开头）</li>
- *   <li>MinIO 不可用/读取失败时，自动降级到磁盘读取（兜底）</li>
+ *   <li>上传请求内直接读 {@code MultipartFile} 字节并抽取纯文本（同步，纳秒级，仅占内存）；</li>
+ *   <li>把<b>抽取后的文本</b>交给异步任务做 LLM 结构化解析；</li>
+ *   <li>解析成功后<b>才创建</b>简历记录，只落<b>结构化字段</b>（姓名/技能/经历/教育/求职意向/自评）；</li>
+ *   <li>原始文件（本地/对象存储）<b>一律不保留</b>——请求结束即随内存释放。</li>
  * </ol>
+ * <p>流程：附件字节 → 抽取纯文本 → LLM 结构化抽取（字段语义对齐在线简历表单）；
+ * LLM 未启用/调用失败时回退到正则规则粗解析（仅邮箱/电话/技能等高置信字段）。</p>
+ *
+ * <p><b>历史实现的两个缺陷（已消除）</b>：① 解析时按 {@code fileUrl} 回读文件——
+ * local 模式下 fileUrl 是 {@code http://host/profile/...} 全 URL，既进不了 MinIO 分支
+ * （连接失败），又因不以 {@code /profile} 开头被磁盘分支拒绝 → <b>必然解析失败</b>；
+ * ② 上传接口<b>先建草稿再解析</b>，解析失败不回滚 → 每次失败都留一条空简历（脏数据）。
+ * 现改为「先抽取 → 解析成功才建记录」，失败零残留。</p>
  */
 @Service
 public class ResumeParseService {
@@ -88,11 +95,17 @@ public class ResumeParseService {
     @Autowired
     private PortalUserResumeMapper portalUserResumeMapper;
 
-    @Autowired(required = false)
-    private MinioClient minioClient;
+    /** 规则解析词表来源（后台「简历解析配置」可维护；为空时引擎用内置默认词典兜底） */
+    @Autowired
+    private com.moyun.portal.service.IPortalResumeParseConfigService resumeParseConfigService;
 
-    @Value("${minio.bucketName:moyun}")
-    private String bucketName;
+    /** 岗位模板服务：技能词域自动聚合门户岗位必备技能（避免硬编码技能词典） */
+    @Autowired
+    private IPortalJobTemplateService jobTemplateService;
+
+    /** 规则解析引擎（纯 Java，零 AI 依赖，毫秒级） */
+    private final ResumeRuleParser ruleParser = new ResumeRuleParser();
+
 
     // ==================== 正则表达式（规则解析用） ====================
 
@@ -103,9 +116,24 @@ public class ResumeParseService {
     // ==================== 公共方法 ====================
 
     /**
-     * 快速创建附件简历记录（上传接口同步路径，不调 LLM）
+     * 上传阶段句柄：只承载<b>内存中抽取出的文本</b>与文件名，不含任何文件引用。
+     *
+     * @param text     抽取出的纯文本（已按 {@link #MAX_TEXT_CHARS} 截断）
+     * @param fileName 原始文件名（仅用于页面展示与日志，不用于磁盘定位）
      */
-    public Long prepareAttachmentResume(Long userId, MultipartFile file, String fileUrl) {
+    public record ParseHandle(String text, String fileName) {
+    }
+
+    /**
+     * 【同步·纯内存】校验上传附件并抽取纯文本；<b>不做任何持久化</b>。
+     *
+     * <p>在上传请求内完成，只保留文本；文件字节随请求结束释放，不落盘、不进对象存储。
+     * 附件大小/类型校验也在此处 fail-fast，避免无效任务入队。</p>
+     *
+     * @param file 上传的简历附件（PDF/Word/TXT/Markdown）
+     * @return 文本句柄（供异步 LLM 解析使用）
+     */
+    public ParseHandle extractFromUpload(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ServiceException("请选择要解析的简历附件");
         }
@@ -116,51 +144,298 @@ public class ResumeParseService {
         if (!isSupportedType(originalFileName)) {
             throw new ServiceException("不支持的文件类型，仅支持 PDF / Word / TXT / Markdown");
         }
-
-        PortalUserResume resume = new PortalUserResume();
-        resume.setUserId(userId);
-        resume.setSourceType("attachment");
-        resume.setSourceFileUrl(fileUrl);
-        resume.setSourceFileName(originalFileName);
-        resume.setTitle(removeExtension(originalFileName));
-        resume.setStatus("draft");
-        resume.setVersionNo(1);
-        resume.setCreateTime(LocalDateTime.now());
-        resume.setUpdateTime(LocalDateTime.now());
-        portalUserResumeMapper.insert(resume);
-        return resume.getId();
-    }
-
-    /**
-     * 异步执行附件简历解析（MinIO 优先 + 磁盘兜底）
-     */
-    public ResumeParseVO executeParse(Long userId, Long resumeId, String fileUrl, String fileName) {
-        if (resumeId == null || resumeId <= 0) {
-            throw new ServiceException("任务参数缺失：resumeId 必填");
+        byte[] bytes;
+        try {
+            // Spring 的 MultipartFile#getBytes 只在请求生命周期内有效；此处同步读完即用，不落盘
+            bytes = file.getBytes();
+        } catch (Exception e) {
+            throw new ServiceException("读取上传附件失败：" + e.getMessage());
         }
-        if (fileUrl == null || fileUrl.isBlank()) {
-            throw new ServiceException("任务参数缺失：fileUrl 必填");
-        }
-
-        // 1. 校验简历归属
-        PortalUserResume resume = portalUserResumeMapper.selectById(resumeId);
-        if (resume == null || !resume.getUserId().equals(userId)) {
-            throw new ServiceException("简历不存在或无权访问");
-        }
-
-        // 2. 读取文件字节（优先 MinIO，磁盘兜底）
-        byte[] bytes = readFileBytes(fileUrl);
-
-        // 3. 抽取纯文本
-        String text = extractText(fileName, bytes);
+        String text = extractText(originalFileName, bytes);
         if (text == null || text.trim().isEmpty()) {
             throw new ServiceException("未能从附件中抽取到文本内容（可能是扫描件图片型 PDF，请换文本版简历）");
         }
         if (text.length() > MAX_TEXT_CHARS) {
             text = text.substring(0, MAX_TEXT_CHARS);
         }
+        log.info("[ResumeParse] 附件已就地抽取文本（不落盘）: file={}, size={}KB, textLength={}",
+                originalFileName, bytes.length / 1024, text.length());
+        return new ParseHandle(text, originalFileName);
+    }
 
-        // 4. LLM 结构化解析（失败回退规则解析）
+    // ==================== v13.38：预览 → 确认 两步式解析 ====================
+
+    /** 预览令牌有效期（毫秒）：10 分钟。超时后需重新上传（避免内存长期驻留原文） */
+    private static final long PREVIEW_TTL_MS = 10 * 60 * 1000L;
+
+    /** 预览缓存上限（防御性：异常情况下也不会无限增长） */
+    private static final int PREVIEW_CACHE_MAX = 200;
+
+    /**
+     * 预览缓存条目。
+     *
+     * <p><b>为什么放内存</b>：附件与原文都是「客户端一次性输入」，用完即弃；
+     * 落库/落盘都会造成空间浪费。内存 + TTL 自动过期最贴合语义，
+     * 且服务重启后令牌自然失效 → 前端提示重新上传即可（不做持久化）。</p>
+     */
+    private record PreviewEntry(Long userId, String fileName, String rawText,
+                                ResumeParseVO parsed, long createdAt) {
+    }
+
+    private final java.util.concurrent.ConcurrentHashMap<String, PreviewEntry> previewCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 【同步】解析附件并返回<b>预览</b>（不落库）。
+     *
+     * <p>流程：请求内就地抽取文本 → <b>规则解析</b>（毫秒级，离线可用）→ 缓存预览待确认。</p>
+     *
+     * <p>设计要点：</p>
+     * <ul>
+     *   <li><b>纯规则解析</b>：同步路径不调 LLM，保证毫秒级响应、不受 AI 可用性影响；</li>
+     *   <li><b>不落库</b>：解析失败/用户放弃都不产生任何记录（杜绝空简历脏数据）；</li>
+     *   <li><b>返回原文</b>：供前端左右对照校对（准确性的真正保障）。</li>
+     * </ul>
+     *
+     * @param userId 当前用户
+     * @param file   上传附件
+     * @return 预览视图（含 previewToken 与 rawText）
+     */
+    public ResumePreviewVO previewFromUpload(Long userId, MultipartFile file) {
+        ParseHandle handle = extractFromUpload(file);
+        String text = handle.text();
+
+        // 规则解析：词表来自后台配置（为空则用内置默认词典）
+        ResumeParseVO parsed = parseByRuleEngine(text);
+        parsed.setTextLength(text.length());
+
+        // 缓存待确认
+        evictExpiredPreviews();
+        String token = UUID.randomUUID().toString().replace("-", "");
+        previewCache.put(token, new PreviewEntry(userId, handle.fileName(), text, parsed,
+                System.currentTimeMillis()));
+        log.info("[ResumeParse] 预览已生成 token={} userId={} file={} textLength={} sections={}",
+                token, userId, handle.fileName(), text.length(), countSections(text));
+
+        ResumePreviewVO vo = new ResumePreviewVO();
+        vo.setPreviewToken(token);
+        vo.setFileName(handle.fileName());
+        vo.setRawText(text);
+        vo.setTextLength(text.length());
+        vo.setAiPowered(false);
+        vo.setName(parsed.getName());
+        vo.setGender(parsed.getGender());
+        vo.setBirthDate(parsed.getBirthDate());
+        vo.setPhone(parsed.getPhone());
+        vo.setEmail(parsed.getEmail());
+        vo.setJobIntention(parsed.getJobIntention());
+        vo.setEducations(parsed.getEducations());
+        vo.setWorks(parsed.getWorks());
+        vo.setProjects(parsed.getProjects());
+        vo.setSkills(parsed.getSkills());
+        vo.setSelfIntro(parsed.getSelfIntro());
+        int sections = countSections(text);
+        vo.setSectionCount(sections);
+        vo.setSectionDetectFailed(sections == 0);
+        vo.setScannedLike(false);
+        return vo;
+    }
+
+    /**
+     * 【同步】确认预览并落库（创建简历记录）。
+     *
+     * <p>只有本方法会写库 —— 保证「解析不落库、确认才落库」，
+     * 因此解析失败或用户放弃都不会产生脏数据。</p>
+     *
+     * @param userId       当前用户
+     * @param previewToken 预览令牌
+     * @param override     用户在前端校对后的修正值（可为 null；为 null 时用解析结果原值）
+     * @return 新建的简历记录 ID
+     */
+    public Long confirmPreview(Long userId, String previewToken, ResumePreviewVO override) {
+        if (previewToken == null || previewToken.isBlank()) {
+            throw new ServiceException("预览令牌缺失，请重新上传附件");
+        }
+        PreviewEntry entry = previewCache.get(previewToken);
+        if (entry == null || !entry.userId().equals(userId)) {
+            throw new ServiceException("预览已过期或无效，请重新上传附件");
+        }
+        if (System.currentTimeMillis() - entry.createdAt() > PREVIEW_TTL_MS) {
+            previewCache.remove(previewToken);
+            throw new ServiceException("预览已过期，请重新上传附件");
+        }
+
+        // 用户校对后的值优先（前端可改任意字段），未提供则用解析结果
+        ResumeParseVO base = entry.parsed();
+        ResumeParseVO effective = mergeOverride(base, override);
+
+        PortalUserResume resume = new PortalUserResume();
+        resume.setUserId(userId);
+        resume.setSourceType("attachment");
+        resume.setSourceFileName(entry.fileName());
+        resume.setStatus("draft");
+        resume.setVersionNo(1);
+        resume.setCreateTime(LocalDateTime.now());
+        resume.setName(effective.getName());
+        resume.setGender(effective.getGender());
+        if (effective.getBirthDate() != null && !effective.getBirthDate().isBlank()) {
+            try {
+                resume.setBirthDate(LocalDate.parse(effective.getBirthDate(),
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+            } catch (Exception ignore) {
+                // 日期格式异常则不填（宁缺勿错）
+            }
+        }
+        resume.setPhone(effective.getPhone());
+        resume.setEmail(effective.getEmail());
+        resume.setSelfIntro(effective.getSelfIntro());
+        resume.setJobIntention(toJson(effective.getJobIntention()));
+        resume.setEducations(toJson(effective.getEducations()));
+        resume.setWorks(toJson(effective.getWorks()));
+        resume.setProjects(toJson(effective.getProjects()));
+        resume.setSkills(toJson(effective.getSkills()));
+        resume.setTitle((effective.getName() != null && !effective.getName().isBlank())
+                ? effective.getName() + "的简历"
+                : removeExtension(entry.fileName()));
+        // 全文保留：面试/岗位匹配链路以原文为上下文（无损），故必须写入
+        resume.setFullText(buildFullTextFromParseVO(effective));
+        // 规则解析置信度 70（低于 LLM 的 85，高于纯规则兜底的 60）：提示下游"经规则抽取"
+        resume.setParseConfidence(70);
+        resume.setUpdateTime(LocalDateTime.now());
+        portalUserResumeMapper.insert(resume);
+
+        previewCache.remove(previewToken);
+        log.info("[ResumeParse] 预览已确认落库 resumeId={} userId={}", resume.getId(), userId);
+        return resume.getId();
+    }
+
+    /** 合并用户校对值：前端传了非空值就用前端值，否则保留解析值 */
+    private ResumeParseVO mergeOverride(ResumeParseVO base, ResumePreviewVO o) {
+        if (o == null) {
+            return base;
+        }
+        ResumeParseVO r = new ResumeParseVO();
+        r.setAiPowered(false);
+        r.setTextLength(base.getTextLength());
+        r.setName(pick(o.getName(), base.getName()));
+        r.setGender(pick(o.getGender(), base.getGender()));
+        r.setBirthDate(pick(o.getBirthDate(), base.getBirthDate()));
+        r.setPhone(pick(o.getPhone(), base.getPhone()));
+        r.setEmail(pick(o.getEmail(), base.getEmail()));
+        r.setSelfIntro(pick(o.getSelfIntro(), base.getSelfIntro()));
+        r.setJobIntention(o.getJobIntention() != null ? o.getJobIntention() : base.getJobIntention());
+        r.setEducations(o.getEducations() != null ? o.getEducations() : base.getEducations());
+        r.setWorks(o.getWorks() != null ? o.getWorks() : base.getWorks());
+        r.setProjects(o.getProjects() != null ? o.getProjects() : base.getProjects());
+        r.setSkills(o.getSkills() != null ? o.getSkills() : base.getSkills());
+        return r;
+    }
+
+    private String pick(String override, String fallback) {
+        return (override != null && !override.isBlank()) ? override : fallback;
+    }
+
+    /**
+     * 用规则引擎解析（词表来自后台配置；配置为空则用内置默认词典）。
+     *
+     * <p>技能词域 = 后台配置的通识技能 ∪ <b>岗位模板必备技能</b>（自动聚合，避免硬编码）。</p>
+     */
+    private ResumeParseVO parseByRuleEngine(String text) {
+        Map<String, String> sections = null;
+        List<String> skills = null;
+        List<String> degrees = null;
+        List<String> positions = null;
+        try {
+            sections = resumeParseConfigService.loadSectionKeywordMap();
+            skills = resumeParseConfigService.loadKeywords(
+                    com.moyun.portal.service.IPortalResumeParseConfigService.TYPE_SKILL);
+            degrees = resumeParseConfigService.loadKeywords(
+                    com.moyun.portal.service.IPortalResumeParseConfigService.TYPE_DEGREE);
+            positions = resumeParseConfigService.loadKeywords(
+                    com.moyun.portal.service.IPortalResumeParseConfigService.TYPE_POSITION);
+        } catch (Exception e) {
+            log.warn("[ResumeParse] 读取解析配置失败，使用内置默认词典：{}", e.getMessage());
+        }
+        // 岗位必备技能并入技能词域（零硬编码：复用岗位模板已治理的数据）
+        List<String> mergedSkills = new ArrayList<>();
+        try {
+            for (PortalJobTemplate jt : jobTemplateService.listActive()) {
+                if (jt.getRequiredSkills() != null && !jt.getRequiredSkills().isBlank()) {
+                    List<String> arr = objectMapper.readValue(jt.getRequiredSkills(),
+                            objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
+                    for (String s : arr) {
+                        if (s != null && !s.isBlank() && !mergedSkills.contains(s.trim())) {
+                            mergedSkills.add(s.trim());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[ResumeParse] 聚合岗位必备技能失败（不阻断解析）：{}", e.getMessage());
+        }
+        if (skills != null) {
+            for (String s : skills) {
+                if (!mergedSkills.contains(s)) {
+                    mergedSkills.add(s);
+                }
+            }
+        }
+        return ruleParser.parse(text, sections, mergedSkills, degrees, positions);
+    }
+
+    /** 统计识别到的章节大类数量（用于提示"切分是否成功"） */
+    private int countSections(String text) {
+        try {
+            Map<String, String> sections = resumeParseConfigService.loadSectionKeywordMap();
+            if (sections == null || sections.isEmpty()) {
+                sections = ResumeRuleParser.defaultSectionKeywords();
+            }
+            Map<String, List<String>> buckets =
+                    ruleParser.splitBySections(ruleParser.normalizeText(text), sections);
+            int n = 0;
+            for (Map.Entry<String, List<String>> e : buckets.entrySet()) {
+                if (!"basic".equals(e.getKey()) && e.getValue() != null && !e.getValue().isEmpty()) {
+                    n++;
+                }
+            }
+            return n;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** 惰性清理过期预览（无需定时器；每次生成预览时顺带清理） */
+    private void evictExpiredPreviews() {
+        long now = System.currentTimeMillis();
+        previewCache.entrySet().removeIf(e -> now - e.getValue().createdAt() > PREVIEW_TTL_MS);
+        if (previewCache.size() > PREVIEW_CACHE_MAX) {
+            // 超限时清掉最旧的一批（正常不会触发，纯防御）
+            previewCache.entrySet().stream()
+                    .sorted(java.util.Comparator.comparingLong(e -> e.getValue().createdAt()))
+                    .limit(previewCache.size() - PREVIEW_CACHE_MAX)
+                    .map(Map.Entry::getKey)
+                    .toList()
+                    .forEach(previewCache::remove);
+        }
+    }
+
+    /**
+     * 【异步】对已抽取文本做 LLM 结构化解析，并在<b>成功后才创建</b>简历记录。
+     *
+     * <p>与历史实现的关键差异：不再有「先建草稿再解析」——
+     * 解析失败（异常抛出）时<b>不产生任何记录</b>，杜绝空简历脏数据。</p>
+     *
+     * @param userId   当前用户
+     * @param text     上传阶段就地抽取的纯文本
+     * @param fileName 原始文件名（写入 sourceFileName 供页面展示）
+     */
+    public ResumeParseVO executeParse(Long userId, String text, String fileName) {
+        if (text == null || text.isBlank()) {
+            throw new ServiceException("任务参数缺失：解析文本为空");
+        }
+        String safeFileName = (fileName == null || fileName.isBlank()) ? "附件简历" : fileName;
+
+        // LLM 结构化解析（失败回退规则解析）
         ResumeParseVO vo;
         boolean llmParsed;
         if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled()) {
@@ -179,9 +454,15 @@ public class ResumeParseService {
         vo.setTextLength(text.length());
         normalize(vo);
 
-        // 5. 回填附件简历记录
+        // 5. 解析成功 → 新建简历记录（只落结构化字段；解析失败会抛异常，届时零残留）
         PortalUserResume upd = new PortalUserResume();
-        upd.setId(resumeId);
+        upd.setUserId(userId);
+        upd.setSourceType("attachment");
+        // 不再保存源文件：sourceFileName 仅作展示，sourceFileUrl 留空（文件未持久化）
+        upd.setSourceFileName(safeFileName);
+        upd.setStatus("draft");
+        upd.setVersionNo(1);
+        upd.setCreateTime(LocalDateTime.now());
         upd.setName(vo.getName());
         upd.setGender(vo.getGender());
         if (vo.getBirthDate() != null && !vo.getBirthDate().isBlank()) {
@@ -199,147 +480,27 @@ public class ResumeParseService {
         upd.setWorks(toJson(vo.getWorks()));
         upd.setProjects(toJson(vo.getProjects()));
         upd.setSkills(toJson(vo.getSkills()));
-        if (vo.getName() != null && !vo.getName().isBlank()) {
-            upd.setTitle(vo.getName() + "的简历");
-        }
+        upd.setTitle((vo.getName() != null && !vo.getName().isBlank())
+                ? vo.getName() + "的简历"
+                : removeExtension(safeFileName));
         upd.setFullText(buildFullTextFromParseVO(vo));
-        // v11.x：解析置信度回填（LLM 结构化=85 / 规则兜底=60），供简历深挖出题与追问策略参考
+        // 解析置信度（LLM 结构化=85 / 规则兜底=60），供简历深挖出题与追问策略参考
         upd.setParseConfidence(llmParsed ? 85 : 60);
         upd.setUpdateTime(LocalDateTime.now());
-        portalUserResumeMapper.updateById(upd);
+        portalUserResumeMapper.insert(upd);
 
+        Long resumeId = upd.getId();
         vo.setAttachmentResumeId(resumeId);
-        vo.setSourceFileUrl(resume.getSourceFileUrl());
-        vo.setSourceFileName(resume.getSourceFileName());
+        // 源文件未持久化：不回传 URL（前端不再依赖附件下载）
+        vo.setSourceFileUrl(null);
+        vo.setSourceFileName(safeFileName);
+        log.info("[ResumeParse] 解析成功并落库 resumeId={} aiPowered={} textLength={}",
+                resumeId, llmParsed, text.length());
         return vo;
     }
 
-    // ==================== 文件读取（MinIO 优先 + 磁盘兜底） ====================
-
-    /**
-     * 读取文件字节（优先 MinIO，磁盘兜底）
-     */
-    private byte[] readFileBytes(String fileUrl) {
-        // 1. 如果是 MinIO URL，优先从 MinIO 读取
-        if (isMinioUrl(fileUrl)) {
-            try {
-                log.debug("尝试从 MinIO 读取文件: {}", fileUrl);
-                return readFromMinio(fileUrl);
-            } catch (Exception e) {
-                log.warn("MinIO 读取失败，降级到磁盘读取: {}", e.getMessage());
-                // 继续走磁盘兜底
-            }
-        }
-
-        // 2. 磁盘兜底
-        return readFromDisk(fileUrl);
-    }
-
-    /**
-     * 判断是否为 MinIO URL
-     */
-    private boolean isMinioUrl(String fileUrl) {
-        return fileUrl != null && (fileUrl.startsWith("http://") || fileUrl.startsWith("https://"));
-    }
-
-    /**
-     * 从 MinIO 读取文件
-     */
-    private byte[] readFromMinio(String fileUrl) {
-        if (minioClient == null) {
-            throw new ServiceException("MinIO 客户端未初始化");
-        }
-
-        try {
-            // 从 URL 中提取 objectName
-            // http://127.0.0.1:9001/moyun/2026/09/06/xxx.pdf
-            // → objectName: 2026/09/06/xxx.pdf
-            URL url = new URL(fileUrl);
-            String path = url.getPath();
-            if (path.startsWith("/")) {
-                path = path.substring(1);
-            }
-
-            // 去掉 bucket 前缀
-            if (path.startsWith(bucketName + "/")) {
-                path = path.substring(bucketName.length() + 1);
-            }
-
-            log.debug("MinIO objectName: {}", path);
-
-            try (InputStream stream = minioClient.getObject(
-                    GetObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(path)
-                            .build())) {
-                byte[] bytes = IOUtils.toByteArray(stream);
-                log.info("MinIO 读取成功: {}, size={} bytes", fileUrl, bytes.length);
-                return bytes;
-            }
-        } catch (Exception e) {
-            log.error("MinIO 读取失败: {}", e.getMessage());
-            throw new ServiceException("从 MinIO 读取文件失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 从磁盘读取文件（local 存储模式 / MinIO 不可用时的兜底）
-     *
-     * <p><b>安全约束（本方法的关键点）</b>：{@code fileUrl} 可能来自客户端
-     * （{@code PortalAiTaskController.submit} 的 {@code bizRef.fileUrl} 未做来源校验），
-     * 因此**绝不允许把它当作任意绝对路径使用**。历史实现走的是
-     * {@code fileUrl.startsWith("/profile") ? profile + 后缀 : fileUrl}，
-     * 那个 {@code else} 分支等于开放了"服务器任意文件读取"
-     * （可读 {@code application-prod.yaml}、{@code /etc/passwd} 等，再经 AI 任务结果回吐）。</p>
-     *
-     * <p>现统一约束为：**只允许读取上传根目录（{@code /profile}）之下的文件**，
-     * 并做路径规范化 + 前缀复检以阻断 {@code ../} 穿越。该口径与
-     * {@code SysFileServiceImpl} 下载链路既有的 "localPath.startsWith("/profile") → 
-     * resolveLocalRootPath() + 后缀" 处理保持一致。</p>
-     */
-    private byte[] readFromDisk(String fileUrl) {
-        try {
-            File profileRoot = new File(RuoYiConfig.getProfile()).getCanonicalFile();
-            String relative = fileUrl.startsWith(Constants.RESOURCE_PREFIX)
-                    ? fileUrl.substring(Constants.RESOURCE_PREFIX.length())
-                    : null;
-            if (relative == null) {
-                // 非 /profile 前缀一律拒绝：local 模式的上传结果必然是 /profile/**，
-                // 其余形态（绝对路径 / 相对路径 / 反斜杠路径）均非本链路的合法输入
-                throw new ServiceException("附件路径非法（仅允许上传目录下的文件）");
-            }
-
-            // 规范化后复检前缀：阻断 /profile/../../ 之类的穿越
-            File source = new File(profileRoot, relative).getCanonicalFile();
-            String sourcePath = source.toPath().toString();
-            String rootPath = profileRoot.toPath().toString();
-            if (!sourcePath.equals(rootPath)
-                    && !sourcePath.startsWith(rootPath + File.separator)) {
-                throw new ServiceException("附件路径越界（仅允许上传目录下的文件）");
-            }
-
-            if (!source.exists() || !source.isFile()) {
-                throw new ServiceException("附件源文件不存在或已被删除");
-            }
-            if (source.length() > MAX_SIZE) {
-                throw new ServiceException("附件不能超过 10MB");
-            }
-
-            byte[] bytes = Files.readAllBytes(source.toPath());
-            log.info("磁盘读取成功: {}, size={} bytes", sourcePath, bytes.length);
-            return bytes;
-
-        } catch (ServiceException e) {
-            // 业务性拒绝（路径非法/越界/超限/不存在）原样抛出，避免被下方包装后丢失语义
-            log.warn("磁盘读取被拒绝: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("磁盘读取失败: {}", e.getMessage());
-            throw new ServiceException("读取附件源文件失败: " + e.getMessage());
-        }
-    }
-
     // ==================== 文件类型判断与文本抽取 ====================
+
 
     private boolean isSupportedType(String fileName) {
         String n = fileName == null ? "" : fileName.toLowerCase();
@@ -358,13 +519,22 @@ public class ResumeParseService {
         try {
             if (filename.endsWith(".pdf")) {
                 try (PDDocument doc = Loader.loadPDF(bytes)) {
-                    return new PDFTextStripper().getText(doc);
+                    // v13.38：必须按位置排序抽取。
+                    // 默认模式下 PDFBox 按内容流顺序输出，**双栏/表格简历会文字交错**
+                    // （左右栏内容互相穿插），下游无论规则还是 LLM 都会拿到脏文本。
+                    PDFTextStripper stripper = new PDFTextStripper();
+                    stripper.setSortByPosition(true);
+                    // 保留段落感：默认行分隔已足够，这里统一 TAB 为空格避免干扰章节匹配
+                    return stripper.getText(doc).replace("\t", " ");
                 }
             }
             if (filename.endsWith(".docx")) {
-                try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes));
-                     XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
-                    return extractor.getText();
+                try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {
+                    // v13.38：改为遍历 body 元素，**保留表格的行结构**。
+                    // XWPFWordExtractor 会把表格拍平为无分隔文本，
+                    // 而简历大量使用表格排版（如「公司 | 时间」），拍平后行/列关系丢失，
+                    // 章节与日期锚点都会失效。此处表格单元格用 TAB 连接成一行。
+                    return extractDocxWithTables(doc);
                 }
             }
             if (filename.endsWith(".doc")) {
@@ -385,6 +555,42 @@ public class ResumeParseService {
         }
     }
 
+    /**
+     * DOCX 文本抽取（<b>保留表格行结构</b>）
+     *
+     * <p>为什么不用 {@code XWPFWordExtractor}：它会把表格拍平成一串无分隔文本，
+     * 而简历普遍用表格做「公司 | 起止时间」这类排版，拍平后行与列的对应关系丢失，
+     * 章节标题识别与日期锚点切分都会失效。</p>
+     *
+     * <p>本实现遍历 {@code doc.getBodyElements()}：段落原样输出；
+     * 表格按「行 → 单元格用 TAB 连接」输出，从而保留「同一行的字段属于同一条目」这一关键信息。</p>
+     */
+    private String extractDocxWithTables(XWPFDocument doc) {
+        StringBuilder sb = new StringBuilder();
+        for (org.apache.poi.xwpf.usermodel.IBodyElement el : doc.getBodyElements()) {
+            if (el instanceof org.apache.poi.xwpf.usermodel.XWPFParagraph p) {
+                String line = p.getText();
+                sb.append(line == null ? "" : line).append('\n');
+            } else if (el instanceof org.apache.poi.xwpf.usermodel.XWPFTable table) {
+                for (org.apache.poi.xwpf.usermodel.XWPFTableRow row : table.getRows()) {
+                    StringBuilder rowSb = new StringBuilder();
+                    for (org.apache.poi.xwpf.usermodel.XWPFTableCell cell : row.getTableCells()) {
+                        String cellText = cell.getText();
+                        if (cellText != null && !cellText.isBlank()) {
+                            if (rowSb.length() > 0) {
+                                rowSb.append('\t');
+                            }
+                            rowSb.append(cellText.replace("\n", " ").trim());
+                        }
+                    }
+                    if (rowSb.length() > 0) {
+                        sb.append(rowSb).append('\n');
+                    }
+                }
+            }
+        }
+        return sb.toString();
+    }
     private String readTextWithCharsetDetect(byte[] bytes) {
         try {
             return new String(bytes, StandardCharsets.UTF_8);

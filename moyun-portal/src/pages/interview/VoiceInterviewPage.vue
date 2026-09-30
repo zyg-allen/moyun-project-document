@@ -1195,6 +1195,54 @@ const predictedAsked = computed(() =>
 const predictedUnasked = computed(() =>
   predictedAll.value.filter((p) => p.askedThisRound !== true),
 );
+
+/**
+ * v13.49 批次 2：概要 tab「归档区」折叠状态。
+ *
+ * 归档区放**资料类**内容（自我介绍评分 / 心态趋势 / 可疑信号 / 流畅度）——
+ * 它们是佐证材料而非结论，默认折叠（对齐 V1.2 §6.2「归档区（折叠）」与
+ * 「资料降权，现状 11 板块无主次」的病症）。
+ */
+const archiveOpen = ref(false);
+
+// ============================================================================
+// v13.49 批次 2：问题分析「按维度聚类」
+// ============================================================================
+/**
+ * 最低维度（雷达六维中得分最低者）。
+ *
+ * 口径说明：后端**不产出逐题维度分**（`questionReviews` 只有总分与点评），
+ * 因此这里不做「把某题归到某维度」的臆测映射 —— 那是无依据的编造。
+ * 实际做法：找出最低维度作为**归因锚点**，再把**低分题置顶**供优先复盘。
+ */
+const weakestDimension = computed(() => {
+  // 注意：reportScores 是 **number[]**（与 DIMENSION_META 同序），不是按 key 的 Record。
+  const dims = reportScores.value;
+  let lowest: { key: string; label: string; value: number } | null = null;
+  DIMENSION_META.forEach((m, i) => {
+    const v = dims[i];
+    if (v == null) return;
+    if (lowest == null || v < lowest.value) lowest = { key: m.key, label: m.label, value: v };
+  });
+  return lowest;
+});
+
+/** 低分题优先排序（分数升序；无分排最后，保持原相对顺序） */
+const lowScoreFirst = computed(() => {
+  const list = [...(report.value?.questionReviews ?? [])];
+  return list.sort((a, b) => {
+    const av = a.score ?? 999;
+    const bv = b.score ?? 999;
+    return av - bv;
+  });
+});
+
+/** 低分题筛选阈值（与逐题卡的"待加强"判定一致：< 80） */
+const LOW_SCORE_THRESHOLD = 80;
+/** 低分题数量（用于聚类区标题） */
+const lowScoreCount = computed(
+  () => lowScoreFirst.value.filter((q) => (q.score ?? 0) < LOW_SCORE_THRESHOLD).length,
+);
 /** 亮点/薄弱点统一结构 {title, detail}：结构化视图优先，旧报告回退字符串数组 */
 const highlightItems = computed<{ title: string; detail: string }[]>(() => {
   const views = report.value?.highlightViews;
@@ -2633,60 +2681,133 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
-        <!-- Tab 1: 面试概要 -->
+        <!-- ==================================================================
+             Tab 1: 面试概要（v13.49 批次 2：四区重排，对齐 V1.2 §6.2）
+             A 首屏（结论）→ B 叙事区 → C 行动区（薄弱与建议相邻）→ D 归档区（折叠）
+             设计意图：原 11 板块无主次 —— 资料类内容（自介分/心态/信号）降权折叠，
+             结论与行动提到一屏内可见。
+             ================================================================== -->
         <div v-if="reportTab === 'summary'" class="tab-content active">
-          <div class="summary-grid">
-            <div class="summary-left">
-              <div class="pros-cons-card">
-                <div class="analysis-card-title">📊 六维能力雷达</div>
-                <svg class="radar-chart" viewBox="0 0 200 200" style="max-width: 180px;">
-                  <polygon
-                    v-for="(p, i) in RADAR_GRID"
-                    :key="'sg' + i"
-                    :points="p"
-                    fill="none"
-                    stroke="var(--theme-border)"
-                    stroke-width="1"
-                  />
-                  <line
-                    v-for="(a, i) in RADAR_AXES"
-                    :key="'sa' + i"
-                    :x1="a.x1"
-                    :y1="a.y1"
-                    :x2="a.x2"
-                    :y2="a.y2"
-                    stroke="var(--theme-border)"
-                    stroke-width="1"
-                  />
-                  <polygon
-                    :points="reportRadarPoints"
-                    :fill="scoreColor(report?.totalScore ?? 0)"
-                    fill-opacity="0.22"
-                    :stroke="scoreColor(report?.totalScore ?? 0)"
-                    stroke-width="2"
-                  />
-                  <text
-                    v-for="(m, i) in DIMENSION_META"
-                    :key="'st' + i"
-                    :x="m.textPos.x"
-                    :y="m.textPos.y"
-                    :text-anchor="m.textPos.anchor"
-                    font-size="9"
-                    fill="var(--theme-text-secondary)"
-                  >{{ m.label }}</text>
-                </svg>
-                <div class="total-score-box">
-                  <span class="total-score-label">综合得分</span>
-                  <span class="total-score-value" :style="{ color: scoreColor(report?.totalScore ?? 0) }">
-                    {{ report?.totalScore ?? 0 }}
-                  </span>
-                  <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
-                </div>
+          <!-- ---------- A 首屏：总分大数字 + 六维雷达 + 匹配度 + 定级徽章 ---------- -->
+          <div class="sum-hero">
+            <div class="sum-hero-score">
+              <svg class="radar-chart" viewBox="0 0 200 200" style="max-width: 170px;">
+                <polygon
+                  v-for="(p, i) in RADAR_GRID"
+                  :key="'hg' + i"
+                  :points="p"
+                  fill="none"
+                  stroke="var(--theme-border)"
+                  stroke-width="1"
+                />
+                <line
+                  v-for="(a, i) in RADAR_AXES"
+                  :key="'ha' + i"
+                  :x1="a.x1" :y1="a.y1" :x2="a.x2" :y2="a.y2"
+                  stroke="var(--theme-border)"
+                  stroke-width="1"
+                />
+                <polygon
+                  :points="reportRadarPoints"
+                  :fill="scoreColor(report?.totalScore ?? 0)"
+                  fill-opacity="0.22"
+                  :stroke="scoreColor(report?.totalScore ?? 0)"
+                  stroke-width="2"
+                />
+                <text
+                  v-for="(m, i) in DIMENSION_META"
+                  :key="'ht' + i"
+                  :x="m.textPos.x" :y="m.textPos.y" :text-anchor="m.textPos.anchor"
+                  font-size="9"
+                  fill="var(--theme-text-secondary)"
+                >{{ m.label }}</text>
+              </svg>
+            </div>
+            <div class="sum-hero-meta">
+              <div class="sum-hero-total">
+                <span class="sum-hero-total-value" :style="{ color: scoreColor(report?.totalScore ?? 0) }">
+                  {{ report?.totalScore ?? 0 }}
+                </span>
+                <span class="sum-hero-total-unit">分</span>
               </div>
-              <!-- v11.97：自我介绍评分卡（原「面试官剖析」Tab 迁入） -->
-              <div v-if="introScoreView" class="pros-cons-card">
-                <div class="intro-score-header">
-                  <span class="analysis-card-title">🎤 自我介绍评分</span>
+              <div class="sum-hero-badges">
+                <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
+                <span
+                  v-if="levelBadge"
+                  :class="['level-estimate-badge', levelBadge.key]"
+                  :title="levelBadge.tip"
+                >定级 · {{ levelBadge.text }}</span>
+              </div>
+              <div v-if="jobMatchRate != null" class="sum-hero-match">
+                <span class="sum-hero-match-label">岗位匹配度</span>
+                <div class="match-bar sum-hero-match-bar">
+                  <div class="match-fill" :style="{ width: jobMatchRate + '%' }"></div>
+                </div>
+                <span class="sum-hero-match-value">{{ jobMatchRate }}%</span>
+              </div>
+              <div class="sum-hero-dim-legend">
+                <span v-for="(m, mi) in DIMENSION_META" :key="'hl' + m.key" class="sum-hero-dim-chip">
+                  {{ m.label }} <strong>{{ reportScores[mi] ?? 0 }}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- B 叙事区 + C 行动区（两栏：左=总评/亮点，右=薄弱点/建议） ---------- -->
+          <div class="sum-main-grid">
+            <!-- B 叙事区 -->
+            <div class="sum-zone">
+              <div class="sum-zone-title">📖 整场总评</div>
+              <p class="summary-paragraph">{{ reportOverall || '本次面试尚未形成完整总结。' }}</p>
+              <div v-if="jobMatchReason" class="banner-match-reason">🎯 {{ jobMatchReason }}</div>
+
+              <div class="sum-zone-title sum-zone-title-spaced">✅ 亮点（{{ highlightItems.length }}）</div>
+              <div v-for="(p, i) in highlightItems.slice(0, 4)" :key="'hp' + i" class="pros-item">
+                <div class="pros-item-title">{{ p.title }}</div>
+                <div v-if="p.detail" class="pros-item-quote">{{ p.detail }}</div>
+              </div>
+              <div v-if="highlightItems.length === 0" class="empty-tip">暂无亮点数据</div>
+            </div>
+
+            <!-- C 行动区：薄弱点与改进建议相邻（问题挨着答案） -->
+            <div class="sum-zone">
+              <div class="sum-zone-title">⚠️ 薄弱点（{{ weakPointItems.length }}）</div>
+              <div v-for="(c, i) in weakPointItems.slice(0, 4)" :key="'cw' + i" class="pros-item">
+                <div class="pros-item-title">{{ c.title }}</div>
+                <div v-if="c.detail" class="pros-item-quote">{{ c.detail }}</div>
+              </div>
+              <div v-if="weakPointItems.length === 0" class="empty-tip">暂无薄弱点数据</div>
+
+              <div class="sum-zone-title sum-zone-title-spaced">📋 改进建议</div>
+              <ul class="suggestion-list">
+                <li v-for="(s, i) in suggestionItems" :key="'sg' + i" class="suggestion-item">
+                  <div class="suggestion-number">{{ i + 1 }}</div>
+                  <div class="suggestion-content">{{ s }}</div>
+                </li>
+                <li v-if="suggestionItems.length === 0" class="empty-tip">暂无改进建议</li>
+              </ul>
+              <div class="sum-zone-actions">
+                <button class="practice-btn" @click="reportTab = 'analysis'">🔍 查看逐题分析 →</button>
+                <button class="practice-btn" @click="router.push('/interview/resume/optimize')">📝 按建议优化简历</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- D 归档区（折叠）：资料类内容降权 ---------- -->
+          <div
+            v-if="introScoreView || report?.sentimentTrend?.length || report?.redFlags?.length || report?.fluencyAvg != null"
+            class="sum-archive"
+          >
+            <button class="sum-archive-toggle" @click="archiveOpen = !archiveOpen">
+              <span class="sum-archive-caret">{{ archiveOpen ? '▾' : '▸' }}</span>
+              🗂 面试过程资料（自我介绍评分 · 心态趋势 · 可疑信号）
+              <span class="sum-archive-hint">{{ archiveOpen ? '收起' : '展开' }}</span>
+            </button>
+            <div v-if="archiveOpen" class="sum-archive-body">
+              <!-- 自我介绍评分 -->
+              <div v-if="introScoreView" class="archive-block">
+                <div class="archive-block-title">
+                  🎤 自我介绍评分
                   <span class="intro-score-total" :style="{ color: scoreColor(introScoreView.total) }">
                     {{ introScoreView.total }} 分
                   </span>
@@ -2695,29 +2816,22 @@ const chatStatus = computed(() => {
                   <div v-for="d in introScoreView.dims" :key="d.key" class="intro-score-dim">
                     <span class="intro-dim-label">{{ d.label }}</span>
                     <div class="intro-dim-bar">
-                      <div
-                        :class="['score-fill', scoreClass(d.value)]"
-                        :style="{ width: d.value + '%' }"
-                      ></div>
+                      <div :class="['score-fill', scoreClass(d.value)]" :style="{ width: d.value + '%' }"></div>
                     </div>
                     <span class="intro-dim-value">{{ d.value }}</span>
                   </div>
                 </div>
                 <div v-if="introScoreView.comment" class="intro-score-comment">{{ introScoreView.comment }}</div>
               </div>
-            </div>
-            <div class="summary-center">
-              <h3 class="summary-title">面试概要</h3>
-              <p class="summary-paragraph">{{ reportOverall || '本次面试尚未形成完整总结。' }}</p>
-              <!-- V11.0：AI 深度复盘（Agent 模式产出；旧数据无此字段时隐藏） -->
-              <div v-if="report?.sentimentTrend?.length || report?.redFlags?.length || report?.fluencyAvg != null" class="deep-review">
-                <div class="deep-review-title">🧠 AI 深度复盘</div>
+              <!-- 心态趋势 / 流畅度 / 可疑信号 -->
+              <div class="archive-block">
+                <div class="archive-block-title">🧠 过程信号</div>
                 <div v-if="report?.sentimentTrend?.length" class="deep-review-row">
                   <span class="deep-review-label">心态趋势</span>
                   <span class="sentiment-track">
                     <span
                       v-for="(s, i) in report.sentimentTrend"
-                      :key="i"
+                      :key="'as' + i"
                       :class="['sentiment-dot', s]"
                       :title="`第 ${i + 1} 轮：${SENTIMENT_LABEL[s] || s}`"
                     ></span>
@@ -2730,50 +2844,37 @@ const chatStatus = computed(() => {
                 <div v-if="report?.redFlags?.length" class="deep-review-row">
                   <span class="deep-review-label">可疑信号</span>
                   <span class="deep-review-flags">
-                    <span v-for="(f, i) in report.redFlags" :key="i" class="redflag-item">⚠ {{ f }}</span>
+                    <span v-for="(fg, i) in report.redFlags" :key="'af' + i" class="redflag-item">⚠ {{ fg }}</span>
                   </span>
                 </div>
+                <div
+                  v-if="!report?.sentimentTrend?.length && report?.fluencyAvg == null && !report?.redFlags?.length"
+                  class="empty-tip"
+                >本次未产出过程信号数据</div>
               </div>
-              <!-- v11.97：改进建议（原「面试官剖析」Tab 迁入，LLM 复盘产出可执行建议） -->
-              <div class="summary-suggestion-block">
-                <h4 class="summary-subtitle">📋 改进建议</h4>
-                <ul class="suggestion-list">
-                  <li v-for="(s, i) in suggestionItems" :key="i" class="suggestion-item">
-                    <div class="suggestion-number">{{ i + 1 }}</div>
-                    <div class="suggestion-content">{{ s }}</div>
-                  </li>
-                  <li v-if="suggestionItems.length === 0" class="empty-tip">暂无改进建议</li>
-                </ul>
-                <button class="practice-btn" @click="router.push('/interview/resume/optimize')">📝 按建议优化简历</button>
-              </div>
-            </div>
-            <div class="summary-right">
-              <!-- v11.97：亮点/薄弱点结构化卡（LLM 复盘 title+detail，旧报告回退字符串） -->
-              <div class="pros-cons-card">
-                <div class="pros-cons-title pros">✅ 亮点（{{ highlightItems.length }}）</div>
-                <div v-for="(p, i) in highlightItems.slice(0, 4)" :key="'p' + i" class="pros-item">
-                  <div class="pros-item-title">{{ p.title }}</div>
-                  <div v-if="p.detail" class="pros-item-quote">{{ p.detail }}</div>
-                </div>
-                <div v-if="highlightItems.length === 0" class="empty-tip">暂无亮点数据</div>
-              </div>
-              <div class="pros-cons-card">
-                <div class="pros-cons-title cons">⚠️ 薄弱点（{{ weakPointItems.length }}）</div>
-                <div v-for="(c, i) in weakPointItems.slice(0, 4)" :key="'c' + i" class="pros-item">
-                  <div class="pros-item-title">{{ c.title }}</div>
-                  <div v-if="c.detail" class="pros-item-quote">{{ c.detail }}</div>
-                </div>
-                <div v-if="weakPointItems.length === 0" class="empty-tip">暂无薄弱点数据</div>
-              </div>
-              <button class="practice-btn detail-entry-btn" @click="reportTab = 'analysis'">
-                🔍 查看详细分析 →
-              </button>
             </div>
           </div>
         </div>
 
         <!-- Tab 2: 问题分析 -->
         <div v-if="reportTab === 'analysis'" class="tab-content active">
+          <!-- v13.49 批次 2：按维度聚类（归因锚点 + 低分题置顶） -->
+          <div v-if="weakestDimension || lowScoreCount" class="cluster-banner">
+            <div class="cluster-banner-head">
+              <span class="cluster-banner-icon">🧭</span>
+              <span class="cluster-banner-title">最该补的维度</span>
+              <span v-if="weakestDimension" class="cluster-dim-chip">
+                {{ weakestDimension.label }} <strong>{{ weakestDimension.value }}</strong>
+              </span>
+            </div>
+            <div class="cluster-banner-desc">
+              <template v-if="lowScoreCount">
+                下列 <strong>{{ lowScoreCount }}</strong> 道题得分低于 {{ LOW_SCORE_THRESHOLD }} 分，已<strong>置顶</strong>按分数升序排列，建议优先复盘。
+              </template>
+              <template v-else>本次各题得分均不低于 {{ LOW_SCORE_THRESHOLD }} 分，按分数升序排列便于定位短板。</template>
+            </div>
+          </div>
+
           <!-- v11.97：薄弱点收口（结构化 title+detail + 去练习） -->
           <div v-if="weakPointItems.length" class="weak-points-card">
             <div class="analysis-card-title">⚠️ 待提升（{{ weakPointItems.length }}）</div>
@@ -2787,7 +2888,7 @@ const chatStatus = computed(() => {
           </div>
           <div class="analysis-grid">
             <div
-              v-for="(q, i) in (report?.questionReviews ?? [])"
+              v-for="(q, i) in lowScoreFirst"
               :key="i"
               class="analysis-item"
             >
@@ -2826,7 +2927,7 @@ const chatStatus = computed(() => {
                 {{ wrongBookLoading === q.qaId ? '加入中...' : '📚 加入错题本' }}
               </button>
             </div>
-            <div v-if="(report?.questionReviews ?? []).length === 0" class="empty-tip">暂无逐题分析数据</div>
+            <div v-if="lowScoreFirst.length === 0" class="empty-tip">暂无逐题分析数据</div>
           </div>
         </div>
 
@@ -3581,6 +3682,11 @@ const chatStatus = computed(() => {
   .replay-bubble { max-width: 88%; }
 }
 
+@media (max-width: 900px) {
+  .sum-hero { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .sum-hero-score { text-align: center; }
+  .sum-main-grid { grid-template-columns: 1fr; }
+}
 @media print {
   .top-bar, .chat-input-area, .report-actions, .report-tabs { display: none; }
   .report-page { background: var(--theme-bg-elevated); padding: 0; }
@@ -3606,6 +3712,98 @@ const chatStatus = computed(() => {
     margin-right: 0.5rem;
     vertical-align: -1px;
     background: var(--gray-200);
+  }
+
+  /* ==================== v13.49 批次 2：概要 tab 四区 ==================== */
+
+  /* ---- 问题分析：按维度聚类归因横幅 ---- */
+  .cluster-banner {
+    padding: 0.875rem 1rem; margin-bottom: 1rem;
+    border-radius: var(--radius-md);
+    background: var(--info-bg, #eff6ff);
+    border-left: 3px solid var(--primary, #3b82f6);
+  }
+  .cluster-banner-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+  .cluster-banner-icon { font-size: 1rem; }
+  .cluster-banner-title { font-size: 0.875rem; font-weight: 700; color: var(--gray-800); }
+  .cluster-dim-chip {
+    padding: 0.0625rem 0.4375rem; border-radius: var(--radius-sm);
+    background: var(--theme-bg-elevated); border: 1px solid var(--gray-200);
+    font-size: 0.75rem; color: var(--gray-600);
+  }
+  .cluster-dim-chip strong { color: var(--error); font-variant-numeric: tabular-nums; }
+  .cluster-banner-desc { margin-top: 0.375rem; font-size: 0.75rem; color: var(--gray-500); line-height: 1.65; }
+
+  /* ---- A 首屏 ---- */
+  .sum-hero {
+    display: flex; align-items: center; gap: 1.75rem;
+    padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+    background: var(--theme-bg-elevated);
+    border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+  .sum-hero-score { flex-shrink: 0; }
+  .sum-hero-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+  .sum-hero-total { display: flex; align-items: baseline; gap: 0.25rem; }
+  .sum-hero-total-value { font-size: 2.5rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sum-hero-total-unit { font-size: 0.875rem; color: var(--gray-400); }
+  .sum-hero-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; }
+  .sum-hero-match { display: flex; align-items: center; gap: 0.5rem; }
+  .sum-hero-match-label { flex-shrink: 0; font-size: 0.75rem; color: var(--gray-500); }
+  .sum-hero-match-bar { flex: 1; max-width: 220px; }
+  .sum-hero-match-value { font-size: 0.8125rem; font-weight: 700; color: var(--gray-700); font-variant-numeric: tabular-nums; }
+  .sum-hero-dim-legend { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .sum-hero-dim-chip {
+    padding: 0.125rem 0.4375rem; border-radius: var(--radius-sm);
+    background: var(--gray-50); border: 1px solid var(--gray-100);
+    font-size: 0.6875rem; color: var(--gray-500);
+  }
+  .sum-hero-dim-chip strong { color: var(--gray-800); font-variant-numeric: tabular-nums; }
+
+  /* ---- B 叙事区 + C 行动区（两栏） ---- */
+  .sum-main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+  .sum-zone {
+    padding: 1.25rem 1.375rem;
+    background: var(--theme-bg-elevated);
+    border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+  .sum-zone-title {
+    font-size: 0.9375rem; font-weight: 700; color: var(--gray-800);
+    margin-bottom: 0.75rem;
+  }
+  .sum-zone-title-spaced { margin-top: 1.5rem; }
+  .sum-zone-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; }
+
+  /* ---- D 归档区（折叠） ---- */
+  .sum-archive {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .sum-archive-toggle {
+    width: 100%; display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.75rem 1.125rem;
+    background: transparent; border: none; cursor: pointer;
+    font-size: 0.8125rem; font-weight: 600; color: var(--gray-600);
+    text-align: left;
+  }
+  .sum-archive-toggle:hover { background: var(--gray-100); }
+  .sum-archive-caret { color: var(--gray-400); font-size: 0.75rem; }
+  .sum-archive-hint { margin-left: auto; font-size: 0.75rem; font-weight: 400; color: var(--gray-400); }
+  .sum-archive-body {
+    padding: 0 1.125rem 1.125rem;
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+  .archive-block {
+    padding: 1rem 1.125rem;
+    background: var(--theme-bg-elevated);
+    border: 1px solid var(--gray-100); border-radius: var(--radius-md);
+  }
+  .archive-block-title {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    font-size: 0.875rem; font-weight: 700; color: var(--gray-700);
+    margin-bottom: 0.75rem;
   }
 
   /* 水平定级徽章（v13.47 批次 2） */

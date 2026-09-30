@@ -82,6 +82,46 @@ public class VoiceInterviewReportVO {
     private List<PointView> weakPointViews;
 
     /**
+     * 水平定级（v13.47 批次 2：从「拼进 summary 文本」改为结构化字段）。
+     *
+     * <p>取值 {@code junior} / {@code mid} / {@code senior}（来源：预热阶段
+     * {@code voice_interview:warmup} 的画像产物 → {@code portal_interview_config.levelEstimate}）。
+     * 前端用于：概要 tab 定级徽章、发展方向 tab 个人化锚点。</p>
+     */
+    private String levelEstimate;
+
+    /**
+     * 追问预测（v13.47 批次 2 新增「🔮 追问预测」tab 的数据源）。
+     *
+     * <p>由 {@code voice_interview:report_review} 的 {@code predictedQuestions} 字段产出，
+     * 上限 6 条（已问 + 未问合计）。<b>解析失败时该字段为 null</b>，
+     * 前端据此**整 tab 隐藏**（对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）。</p>
+     *
+     * <p>产品定位：分组 A「本次已问」= 复盘视角（答得对不对）；
+     * 分组 B「未被问到」= 预警视角（真面试官下次会问什么）——**后者是核心价值**。</p>
+     */
+    private List<PredictedQuestionView> predictedQuestions;
+
+    /**
+     * 单条追问预测
+     */
+    @Data
+    public static class PredictedQuestionView {
+        /** 预测的面试问题 */
+        private String question;
+        /** 要点式简答（≤80 字） */
+        private String briefAnswer;
+        /** 为什么会被问（≤60 字） */
+        private String analysis;
+        /** 考点标签（2-6 字） */
+        private String knowledgePoint;
+        /** 本场是否已问过（true → 归入「本次已问」分组） */
+        private Boolean askedThisRound;
+        /** 本场得分（仅 askedThisRound=true 时有值） */
+        private Integer askedScore;
+    }
+
+    /**
      * 逐题点评项
      */
     @Data

@@ -2,6 +2,48 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.47 (2026-09-30) 批次 2（后端）：复盘 prompt 扩字段 + VO 扩 levelEstimate/predictedQuestions + perQuestion 瘦身
+
+**依据**：方案 V1.2 §3.2 / §5.4 / §0.1#3。本批只做**后端契约**，前端三层五 tab 重排随后。
+
+### 1) `report_review` 提示词升级（init-sql + 增量 `20260930-02` 双轨）
+
+| 字段 | 变更 |
+|---|---|
+| `levelEstimate` ★新增 | 从「拼进 summary 文本」改为**结构化输出**（junior/mid/senior），供概要 tab 定级徽章与发展方向 tab 个人化锚点 |
+| `predictedQuestions` ★新增 | **上限 6 条**，每条 `{question, briefAnswer≤80字, analysis≤60字, knowledgePoint, askedThisRound, askedScore}`；含 4 条硬约束（只能基于简历真实内容/禁编造/以对话记录判定是否已问/优先覆盖未深挖与差距项） |
+| `perQuestion` **瘦身** | 由「逐题全量 `{questionIdx,score,comment}`」改为「**仅回填需修正的题目** `{questionIdx,score}`」；逐题点评文本复用 `answer_analysis` 已落库结果（V1.2#2 输出防爆） |
+
+### 2) VO 扩展（`VoiceInterviewReportVO`）
+
+- 新增 `levelEstimate`（String）
+- 新增 `predictedQuestions`（`List<PredictedQuestionView>`）+ 内部类 `PredictedQuestionView`
+  （6 字段，`askedThisRound=true` → 前端分组 A「本次已问」，否则分组 B「未被问到」）
+
+### 3) 解析实现（`enhanceReportByAgent`）
+
+- **取值校验**：`levelEstimate` 仅接受 `junior/mid/senior`；不合法**不覆盖**
+  （保留聚合流程已写入的基础定级）——避免模型输出中文或其它值时脏值进前端；
+- **新增 `parsePredictedQuestions`**：解析失败/空数组返回空列表 → 不设字段 → 前端**整 tab 隐藏**
+  （对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）；代码再次兜底 6 条上限；
+- **⚠️ 总分口径修正（瘦身的连带影响）**：原实现把 `perQuestion` 分数**全量求和**算均分；
+  瘦身后只回填部分题 ⇒ 若沿用原口径，均分会被「仅被修正的那几题」代表，**属统计失真**。
+  现改为：**在全部已作答题目的现有分数上应用修正，再求均分**
+  （遍历 `report.getQuestionReviews()` 中 `score != null` 的项）。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `mvn -o test` | ✅ **434 例全绿** |
+| 增量 `20260930-02` 幂等 | ✅ 守卫通过；连跑两次 exit 0 |
+| live `moyun-db2` | ✅ `tpl=2306`、含 `predictedQuestions` 与 `levelEstimate`、`enabled=1` |
+| init-sql 4 个 INSERT 块列数 | ✅ 40/40 异常 0 |
+
+> **待办**：批次 2 前端（概要瘦身四区 / 问题分析维度聚类 / 回放殿后 / 新增「🔮 追问预测」tab 双分组）。
+> 原计划「布局重排」为纯前端工作，随后开展。
+
+
 ## v13.46 (2026-09-30) 批次 1（三）3 处直连收编：面试链 LLM 调用 100% 走网关
 
 **目标**：消灭面试链残留的 3 处「直连模型」调用，使 `ai_execute_log` 可按 task 全码留痕（成本可观测的前提）。

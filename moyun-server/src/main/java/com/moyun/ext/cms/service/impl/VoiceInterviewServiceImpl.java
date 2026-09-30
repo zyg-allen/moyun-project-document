@@ -290,6 +290,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private static final long SSE_TIMEOUT = 210_000L;
 
+    /** 追问预测条数上限（v13.47 批次 2；提示词已约束，代码再兜底一次） */
+    private static final int MAX_PREDICTED_QUESTIONS = 6;
+
     /** 每题提示上限（与 §原实现一致） */
     private static final int MAX_HINT_PER_QUESTION = 3;
 
@@ -2050,6 +2053,22 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             if (StringUtils.isNotEmpty(overallComment)) {
                 report.setOverallComment(overallComment);
             }
+
+            // ---------- v13.47 批次 2：水平定级（结构化） ----------
+            // 原实现把 levelEstimate 只拼进 summary 文本；现同时落结构化字段，
+            // 供前端「概要 tab 定级徽章」与「发展方向 tab 个人化锚点」使用。
+            // 取值校验：模型可能输出中文或其它值 —— 仅接受 junior/mid/senior；
+            // 不合法时**不覆盖**（保留聚合流程已写入的基础定级），避免脏值进前端。
+            String llmLevel = node.path("levelEstimate").asText("").trim().toLowerCase();
+            if ("junior".equals(llmLevel) || "mid".equals(llmLevel) || "senior".equals(llmLevel)) {
+                report.setLevelEstimate(llmLevel);
+            }
+
+            // ---------- v13.47 批次 2：追问预测（上限 6 条，解析失败置空 → 前端隐藏 tab） ----------
+            List<VoiceInterviewReportVO.PredictedQuestionView> predictions = parsePredictedQuestions(node.path("predictedQuestions"));
+            if (!predictions.isEmpty()) {
+                report.setPredictedQuestions(predictions);
+            }
             JsonNode jobMatchNode = node.path("jobMatch");
             if (jobMatchNode.has("rate")) {
                 VoiceInterviewReportVO.JobMatchView jobMatch = new VoiceInterviewReportVO.JobMatchView();
@@ -2100,6 +2119,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
 
             // ---------- 逐题评分回填（覆盖 reviews + QA 表） ----------
+            // v13.47 批次 2：perQuestion **瘦身** —— 模型只回填「需要修正的题」，
+            // 逐题点评文本复用 answer_analysis 已落库的 aiFeedback，不再由复盘重复产出
+            // （V1.2#2：为省输出 token 而重复产出点评，收益低且贴截断风险线）。
+            //
+            // ⚠️ 总分口径随之调整：原实现把 perQuestion 的分数全量求和算均分，
+            // 瘦身后只回填部分题 —— 若沿用原口径，均分会被「仅被修正的那几题」代表，
+            // 属于统计失真。现改为：**在全部已作答题目的现有分数上应用修正**，再求均分。
             Map<Integer, PortalVoiceInterviewQA> mainQaByIdx = new LinkedHashMap<>();
             for (PortalVoiceInterviewQA qa : qaList) {
                 if (qa.getParentQaId() == null && qa.getQuestionIdx() != null
@@ -2107,18 +2133,19 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     mainQaByIdx.put(qa.getQuestionIdx(), qa);
                 }
             }
-            long scoreSum = 0;
-            int scoreCount = 0;
+            int correctedCount = 0;
             for (JsonNode pq : node.path("perQuestion")) {
                 int idx = pq.path("questionIdx").asInt(-1);
                 int score = clamp(pq.path("score").asInt(-1), 0, 100);
-                String comment = pq.path("comment").asText("");
                 if (idx < 0 || score < 0) {
                     continue;
                 }
+                correctedCount++;
                 for (VoiceInterviewReportVO.QuestionReview review : report.getQuestionReviews()) {
                     if (review.getQuestionIdx() != null && review.getQuestionIdx() == idx) {
                         review.setScore(score);
+                        // comment 为可选（瘦身后通常不产出）——有则覆盖，无则保留规则/分析文案
+                        String comment = pq.path("comment").asText("");
                         if (StringUtils.isNotEmpty(comment)) {
                             review.setFeedback(comment);
                         }
@@ -2128,17 +2155,25 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 PortalVoiceInterviewQA qa = mainQaByIdx.get(idx);
                 if (qa != null) {
                     qa.setScore(score);
+                    qa.setScoreDraft(score);
+                    String comment = pq.path("comment").asText("");
                     if (StringUtils.isNotEmpty(comment)) {
                         qa.setAiFeedback(comment);
                     }
-                    qa.setScoreDraft(score);
                     qaMapper.updateById(qa);
                 }
-                scoreSum += score;
-                scoreCount++;
             }
 
-            // ---------- 重算总分（复盘逐题分优先；与自我介绍分按权重融合，同规则链路口径） ----------
+            // ---------- 重算总分（全量已作答题目的分数均分 + 自介分加权融合） ----------
+            // 在「修正后的全量分数」上求均分：先应用 perQuestion 修正，再遍历全部主问题。
+            long scoreSum = 0;
+            int scoreCount = 0;
+            for (VoiceInterviewReportVO.QuestionReview review : report.getQuestionReviews()) {
+                if (review.getScore() != null) {
+                    scoreSum += review.getScore();
+                    scoreCount++;
+                }
+            }
             if (scoreCount > 0) {
                 int llmAvg = (int) Math.round((double) scoreSum / scoreCount);
                 VoiceInterviewReportVO.IntroScoreView introScoreView = report.getIntroScore();
@@ -2193,6 +2228,53 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** 容错提取 JSON 对象主体（v13.19：统一走 LlmJsonExtractor —— 剥围栏/前后杂文本/括号配平一处实现） */
     private JsonNode extractJsonObject(String raw) {
         return LlmJsonExtractor.extractNode(objectMapper, raw);
+    }
+
+    /**
+     * v13.47 批次 2：解析复盘产出的「追问预测」（上限 {@value #MAX_PREDICTED_QUESTIONS} 条）。
+     *
+     * <p>解析失败或空数组返回空列表 → 调用方不设置该字段 → 前端**整 tab 隐藏**
+     * （对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）。</p>
+     *
+     * <p>字段口径：{@code question/briefAnswer/analysis/knowledgePoint/askedThisRound/askedScore}，
+     * 其中 {@code askedThisRound=true} 的条目在前端归入分组 A「本次已问」（复盘视角），
+     * 其余归入分组 B「未被问到」（预警视角，核心价值）。</p>
+     *
+     * @param arr LLM 产出的 predictedQuestions 节点（可能缺失/非数组/元素非对象）
+     * @return 解析成功的预测列表（可能为空，永不为 null）
+     */
+    private List<VoiceInterviewReportVO.PredictedQuestionView> parsePredictedQuestions(JsonNode arr) {
+        List<VoiceInterviewReportVO.PredictedQuestionView> out = new ArrayList<>();
+        if (arr == null || !arr.isArray()) {
+            return out;
+        }
+        for (JsonNode item : arr) {
+            if (out.size() >= MAX_PREDICTED_QUESTIONS) {
+                break; // 硬约束：上限 6 条（提示词已约束，此处再兜底一次）
+            }
+            if (item == null || !item.isObject()) {
+                continue;
+            }
+            String question = item.path("question").asText("").trim();
+            if (StringUtils.isEmpty(question)) {
+                continue; // 没有问题文本的条目无价值
+            }
+            VoiceInterviewReportVO.PredictedQuestionView v = new VoiceInterviewReportVO.PredictedQuestionView();
+            v.setQuestion(question);
+            v.setBriefAnswer(item.path("briefAnswer").asText(""));
+            v.setAnalysis(item.path("analysis").asText(""));
+            v.setKnowledgePoint(item.path("knowledgePoint").asText(""));
+            boolean asked = item.path("askedThisRound").asBoolean(false);
+            v.setAskedThisRound(asked);
+            if (asked) {
+                int s = item.path("askedScore").asInt(-1);
+                if (s >= 0) {
+                    v.setAskedScore(clamp(s, 0, 100));
+                }
+            }
+            out.add(v);
+        }
+        return out;
     }
 
     /** 文本截断（超长加省略号） */

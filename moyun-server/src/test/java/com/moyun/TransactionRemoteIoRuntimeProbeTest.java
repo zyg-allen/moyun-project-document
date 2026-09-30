@@ -305,18 +305,34 @@ class TransactionRemoteIoRuntimeProbeTest {
 
         AtomicBoolean warmupCalled = new AtomicBoolean(false);
         AtomicBoolean warmupInTx = new AtomicBoolean(false);
-        when(aiSceneJsonClient.executeForJson(any(), any(), any())).thenAnswer(invocation -> {
-            warmupCalled.set(true);
-            warmupInTx.set(TransactionSynchronizationManager.isActualTransactionActive());
-            return null;
-        });
 
+        // v13.46 批次 1（T3.5）：开场白降级链路 generateOpening **已收编**——
+        // 原先是 agentClient.chat(...) 直连模型（该次调用不进 ai_execute_log、
+        // 不受限流/成本熔断/版本锁治理），现改走场景配置行
+        // voice_interview:opening_fallback（aiSceneJsonClient.executeForJson）。
+        // 本测试的职责是「验证 RAG/LLM 都在事务外」，与走哪条 LLM 通道无关，
+        // 故断言从「agentClient.chat 被调用」改为「网关被调用两次」：
+        //   第 1 次 = warmup（返回 null → 触发降级）；第 2 次 = opening_fallback（返回开场白）。
+        java.util.concurrent.atomic.AtomicInteger gatewayCalls =
+                new java.util.concurrent.atomic.AtomicInteger(0);
         AtomicBoolean openingCalled = new AtomicBoolean(false);
         AtomicBoolean openingInTx = new AtomicBoolean(false);
-        when(agentClient.chat(any(), any())).thenAnswer(invocation -> {
+        when(aiSceneJsonClient.executeForJson(any(), any(), any())).thenAnswer(invocation -> {
+            Object rawInput = invocation.getArgument(1);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> in = (Map<String, Object>) rawInput;
+            boolean inTx = TransactionSynchronizationManager.isActualTransactionActive();
+            gatewayCalls.incrementAndGet();
+            if (in != null && com.moyun.ext.ai.enums.AiSceneTasks.INTERVIEW_WARMUP
+                    .equals(String.valueOf(in.get("task")))) {
+                warmupCalled.set(true);
+                warmupInTx.set(inTx);
+                return null; // 模拟 warmup 失败 → 触发 generateOpening 降级链路
+            }
             openingCalled.set(true);
-            openingInTx.set(TransactionSynchronizationManager.isActualTransactionActive());
-            return "欢迎参加本次面试。\n\n请先做个自我介绍。";
+            openingInTx.set(inTx);
+            ObjectMapper m = new ObjectMapper();
+            return m.createObjectNode().put("opening", "欢迎参加本次面试。\n\n请先做个自我介绍。");
         });
 
         AtomicBoolean insertCalled = new AtomicBoolean(false);

@@ -40,7 +40,6 @@ import com.moyun.ext.ai.enums.AiSceneTasks;
 import com.moyun.ext.ai.service.chat.RagRetrievalService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.rag.content.Content;
 import com.moyun.ext.aigateway.support.PromptInjectionGuard;
@@ -774,19 +773,49 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** V3 同步生成开场白+首题（一次 LLM 调用；失败抛出，由前端进度条期间感知） */
+    /**
+     * V3 同步生成开场白+首题（warmup 失败时的降级链路）。
+     *
+     * <p><b>v13.46 批次 1 / T3.5 收编</b>：原实现 {@code agentClient.chat(...)} <b>直连模型</b>
+     * 且提示词硬编码在 Java 里，绕过了网关 → 该次调用不进 {@code ai_execute_log}、
+     * 不受限流/成本熔断/版本锁治理。现改为走场景配置行
+     * {@code voice_interview:opening_fallback}（user_prompt_template 承载任务指令与数据；
+     * 人设由 Agent 表经网关 {@code input.agentPersona} 注入）。</p>
+     *
+     * <p>V1.1#1 裁决「<b>收编不删除</b>」：warmup 失败多为瞬时网络抖动，删兜底 =
+     * 一次抖动一场面试开不了头；模型能力缺失才属配置错误（修一次永绝），两类失败性质不同。</p>
+     *
+     * <p>失败仍抛 {@link ServiceException}（由前端进度条期间感知），语义与迁移前一致。</p>
+     */
     private String generateOpening(PortalVoiceInterview interview, Agent agent,
                                    String systemPrompt, String contextUserMsg) {
-        String instruction = "面试现在开始。请先做简短开场（一两句欢迎与放松提示），"
-                + "然后直接提出第一个面试问题（结合候选人资料，不要编号或多余格式）。";
-        String raw = agentClient.chat(agent, List.of(
-                SystemMessage.from(systemPrompt),
-                new UserMessage(contextUserMsg),
-                new UserMessage(instruction)));
-        if (raw == null || raw.trim().isEmpty()) {
+        String position = StringUtils.isEmpty(interview.getPosition()) ? "综合" : interview.getPosition();
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("task", AiSceneTasks.INTERVIEW_OPENING_FALLBACK);
+        input.put("context", position);
+        input.put("difficulty", StringUtils.isEmpty(interview.getDifficulty()) ? "medium" : interview.getDifficulty());
+        if (StringUtils.isNotEmpty(systemPrompt)) {
+            // Agent 人设：网关 mergePersona 会前置收口（与其它已收编场景一致）
+            input.put("agentPersona", systemPrompt);
+        }
+        if (StringUtils.isNotEmpty(contextUserMsg)) {
+            // 候选用人资料上下文（简历摘要/岗位要求等），对齐迁移前的 contextUserMsg
+            input.put("resumeDigest", contextUserMsg);
+        }
+        JsonNode node = aiSceneJsonClient.executeForJson(
+                SCENE_VOICE_INTERVIEW, input, interview.getUserId());
+        String text = null;
+        if (node != null) {
+            text = node.path("opening").asText("");
+            if (StringUtils.isEmpty(text)) {
+                // 兼容：文本类场景解析后可能落在 content 字段
+                text = node.path("content").asText("");
+            }
+        }
+        if (StringUtils.isEmpty(text)) {
             throw new ServiceException("面试官开场生成失败，请稍后重试");
         }
-        return raw.trim();
+        return text.trim();
     }
 
     // ========================================================================
@@ -1317,22 +1346,41 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         int nextUsed = (qa != null && qa.getHintUsed() != null) ? qa.getHintUsed() : 1;
         recordEvent(interviewId, "hint", Map.of("qaId", qaId, "seq", hintSeq));
 
-        // 2. agent 滑窗提示：基于完整对话上下文给一句思考引导（不泄露答案）
-        //    —— 事务外执行（这是本方法唯一的远程 IO）
+        // ====================================================================
+        // v13.46 批次 1 / T3.6 收编：提示改走场景配置行 voice_interview:hint
+        // ====================================================================
+        // 原实现 agentClient.chat(...) 直连模型：① 不进 ai_execute_log（成本不可见）；
+        // ② 不受限流/成本熔断/版本锁治理；③ 提示词硬编码在 Java 里。
+        // 现走网关配置行：任务指令在 user_prompt_template，人设由 Agent 表经
+        // input.agentPersona 注入；失败用配置行 fallback_response 兜底（网关侧），
+        // 网关整体失败时再用本方法内的常量兜底，保证「提示功能永不 500」。
         String text = null;
         Agent agent = interview.getAgentId() == null ? null : agentClient.resolveAgent(interview.getAgentId());
         if (agent != null && agentClient.isEnabled()) {
             try {
-                List<ChatMessage> messages = new ArrayList<>(
-                        memoryService.readWindow(interview.getId(), agent.getMaxHistoryTurns()));
-                messages.add(new UserMessage("候选人请求思考提示。请以面试官身份给一句简短的思考引导"
-                        + "（提示回答方向或组织思路，不直接给出答案），40字以内，只输出这句话。"));
-                text = agentClient.chat(agent, messages);
+                Map<String, Object> input = new LinkedHashMap<>();
+                input.put("task", AiSceneTasks.INTERVIEW_HINT);
+                input.put("question", truncateText(qa.getQuestion(), 500));
+                if (StringUtils.isNotEmpty(qa.getUserAnswer())) {
+                    input.put("answer", truncateText(qa.getUserAnswer(), 500));
+                }
+                if (StringUtils.isNotEmpty(agent.getSystemPrompt())) {
+                    input.put("agentPersona", agent.getSystemPrompt());
+                }
+                JsonNode node = aiSceneJsonClient.executeForJson(
+                        SCENE_VOICE_INTERVIEW, input, interview.getUserId());
+                if (node != null) {
+                    text = node.path("content").asText("");
+                    if (StringUtils.isEmpty(text)) {
+                        text = node.path("hint").asText("");
+                    }
+                }
             } catch (Exception e) {
-                log.warn("[VoiceInterview] agent 提示生成失败 interviewId={}：{}", interviewId, e.getMessage());
+                log.warn("[VoiceInterview] 提示生成失败 interviewId={}：{}", interviewId, e.getMessage());
             }
         }
         if (StringUtils.isEmpty(text)) {
+            // 最终兜底（配置行 fallback_response 之上的最后一道）：保证提示功能永不失败
             text = "别着急，可以从你熟悉的相关项目经历入手，按「背景→做法→结果」的思路组织回答。";
         }
         HintVO hint = HintVO.of(nextUsed, "思考提示");
@@ -1966,32 +2014,32 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
             input.append("请输出整场面试复盘报告 JSON。");
 
-            String systemPrompt = "你是一位资深技术面试官，面试已结束，请基于候选人简历、目标岗位与整场对话记录，"
-                    + "输出结构化复盘报告 JSON。字段要求：\n"
-                    + "1. overallComment：3-5 句整场总评，结合岗位要求评价整体表现，指出最突出的特点。\n"
-                    + "2. jobMatch：{rate: 0-100 整数匹配度, reason: 1-2 句依据（对照岗位要求与实际作答）}。\n"
-                    + "3. highlights：2-4 条真实亮点数组，每条 {title: 短标题≤12字, detail: 引用作答中的具体内容说明}。\n"
-                    + "4. weakPoints：2-4 条薄弱点数组，每条 {title: 短标题≤12字, detail: 具体不足与影响，禁止复述问题原文}。\n"
-                    + "5. suggestions：3-5 条可执行改进建议字符串数组，结合简历与岗位，每条不超过 60 字。\n"
-                    + "6. perQuestion：每道主问题一条 {questionIdx: 题号, score: 0-100 整数（评分要有区分度："
-                    + "优秀≥80、合格60-79、不合格<60）, comment: 1-2 句针对性点评≤80字}。\n"
-                    + "7. dimensions：{relevance 切题度, professionalism 专业深度, fluency 表达流畅, "
-                    + "interactivity 互动质量, confidence 自信度, logic 逻辑结构}，0-100 整数。\n"
-                    + "只输出 JSON 对象，不要输出任何其他文本。";
-
-            List<ChatMessage> messages = new ArrayList<>();
-            messages.add(SystemMessage.from(systemPrompt));
-            messages.add(new UserMessage(input.toString()));
-
-            String raw = agentClient.chat(agent, messages);
-            JsonNode node = extractJsonObject(raw);
-            if (node == null) {
-                // 降级重试一次：追加严格约束（对齐 chatJson 模式）
-                messages.add(new UserMessage("你上一条输出无法解析为 JSON。请重新输出，且只输出一个合法的 JSON 对象，"
-                        + "以 { 开头、以 } 结尾，不要包含任何解释、Markdown 代码块或其他文本。"));
-                raw = agentClient.chat(agent, messages);
-                node = extractJsonObject(raw);
+            // ================================================================
+            // v13.46 批次 1 / T3.7 收编：整场复盘改走场景配置行
+            // voice_interview:report_review
+            // ================================================================
+            // 原实现把系统提示词**硬编码在 Java 字符串**里并经 agentClient.chat 直连模型
+            // → 绕过网关（不进 ai_execute_log / 无限流 / 无成本熔断 / 无版本锁）。
+            // 现改为配置驱动：字段规范与数据全部进 user_prompt_template（依据
+            // DefaultSceneExecutor 的提示词约定——system_prompt_template 已废弃，
+            // 人设由 Agent 表经 input.agentPersona 注入），
+            // JSON 解析失败的降级重试由网关 chatJsonOutcome 统一提供（原代码手写一次重试）。
+            Map<String, Object> reportInput = new LinkedHashMap<>();
+            reportInput.put("task", AiSceneTasks.INTERVIEW_REPORT_REVIEW);
+            reportInput.put("position", position);
+            if (StringUtils.isNotEmpty(jobRequirements)) {
+                reportInput.put("jd", truncateText(jobRequirements, 600));
             }
+            if (StringUtils.isNotEmpty(resumeDigest)) {
+                reportInput.put("resumeDigest", truncateText(resumeDigest, 800));
+            }
+            reportInput.put("qaList", input.toString());
+            if (StringUtils.isNotEmpty(agent.getSystemPrompt())) {
+                reportInput.put("agentPersona", agent.getSystemPrompt());
+            }
+
+            JsonNode node = aiSceneJsonClient.executeForJson(
+                    SCENE_VOICE_INTERVIEW, reportInput, interview.getUserId());
             if (node == null) {
                 log.warn("[VoiceInterview] 整场复盘解析失败，保留规则兜底 interviewId={}", interview.getId());
                 return;

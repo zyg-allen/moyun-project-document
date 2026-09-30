@@ -2,6 +2,68 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.46 (2026-09-30) 批次 1（三）3 处直连收编：面试链 LLM 调用 100% 走网关
+
+**目标**：消灭面试链残留的 3 处「直连模型」调用，使 `ai_execute_log` 可按 task 全码留痕（成本可观测的前提）。
+
+### 收编成果
+
+| # | 原调用点 | 收编后 | 说明 |
+|---|---|---|---|
+| T3.5 | `generateOpening`（`agentClient.chat` + 代码拼提示词） | `voice_interview:opening_fallback` | 纯文本（`parser=text`）；V1.1#1「收编不删除」 |
+| T3.6 | `requestHint`（`agentClient.chat` + 滑窗拼装） | `voice_interview:hint` | 纯文本；计费=免费，两级配额（每题3/全场15） |
+| T3.7 | `enhanceReportByAgent`（硬编码系统提示词 + 直连 + 手写重试） | `voice_interview:report_review` | JSON（`parser=json`）；重试由网关 `chatJsonOutcome` 统一提供 |
+
+**验收**：`VoiceInterviewServiceImpl` 中 `agentClient.chat` **代码零命中**（仅剩 4 处注释说明）；
+面试链全部 LLM 入口收敛为 `aiSceneJsonClient.executeForJson`（配置驱动）+ `aiGatewayService.executeConversationStream`（会话流式）。
+
+### ⚠️ 架构发现（推翻了本方案最初的迁移写法）
+
+**`ai_scene_config.system_prompt_template` 是废弃列** —— `DefaultSceneExecutor` 的系统提示词组装为：
+
+```
+systemPrompt = mergePersona(request, DEFAULT_SYSTEM_PROMPT) + schemaConstraint(meta)
+             = input.agentPersona（Agent 表人设）  + 最小默认提示词 + （有 output_schema 时追加约束）
+```
+
+即**人设由 Agent 表承载，任务指令与字段规范必须全部进 `user_prompt_template`**。
+本方案 V1.2 §4 描述"整体迁 `:report_review` 配置行"时未指明列归属，
+我最初把报告字段规范写进了 `system_prompt_template` ⇒ **会静默丢失**（该列不参与组装）。
+已改为全部进 `user_prompt_template`，并在配置行 `description` 中留档该约定。
+
+### ⚠️ 保留原提示词结构（等价性优先）
+
+`report_review` 的提示词**逐字保留原实现的 7 字段结构**（含
+`perQuestion{questionIdx,score,comment}`、`jobMatch{rate,reason}`）——
+因当前解析代码正是按此结构读取，若同时引入 `levelEstimate` 结构化与
+`predictedQuestions`（那是 V1.2 §5.4 / 批次 2 的范围）会破坏等价性。
+批次 1 只做「**通道迁移**」，不改输出契约。
+
+### 同步更新
+
+- **测试**：`TransactionRemoteIoRuntimeProbeTest#voiceInterviewStartRemoteIoOutsideDbWriteInside`
+  原本打桩 `agentClient.chat` 并断言其被调用；收编后该打桩失效。
+  已改为按 `input.task` 区分打桩：`warmup` 返回 null（触发降级）→ `opening_fallback` 返回开场白，
+  断言改为「网关被调用」且**仍在事务外**（测试职责是验证事务边界，与走哪条 LLM 通道无关）。
+- **清理**：移除已无用的 `SystemMessage` 导入（该类内不再直接构造系统消息）。
+- **SQL 双轨**：`moyun-db-dml-init.sql` 4 行 `enabled=0 → 1`；
+  新增增量 `20260930-01-面试族4行场景配置（批次1收编配套）.sql`（4 行 `INSERT ... WHERE NOT EXISTS`，
+  `agent_id` 用 `name` 子查询，幂等）。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `mvn -o test` | ✅ **434 例全绿**（含幂等守卫、事务边界守卫） |
+| 全新库（DDL+DML+menu-redo） | ✅ 三文件全绿；8 行面试族配置全 `enabled=1`；悬空 agent=0；表数 185 |
+| 增量脚本幂等 | ✅ 连跑两次 exit 0 |
+| live `moyun-db2` | ✅ 4 行齐备、全 `enabled=1`、悬空 agent=0 |
+| 面试 Service 直连残留 | ✅ `agentClient.chat` 代码零命中 |
+
+> **待办**：等价性冒烟验证（收编前后各 3 场，对比 `ai_execute_log` 输出结构）需真实开面；
+> 待环境具备时执行。批次 2（追问预测 tab + 三层五 tab 重排）随后开展。
+
+
 ## v13.45 (2026-09-30) 批次 1（二）4 行面试族配置落库（提示词自代码迁入配置行）
 
 **依据**：方案 V1.2 §3.3/§4。把 3 处**直连代码**的提示词迁进配置行，为「批次 1（三）收编」准备配置。

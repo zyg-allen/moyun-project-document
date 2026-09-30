@@ -26,6 +26,7 @@ import {
   addQaToWrongBook,
   createReportShareToken,
   regenerateVoiceReport,
+  generateVoiceIndustryInsight,
 } from '@/api/voiceInterview';
 import { getMyResumeList, getJobTemplates } from '@/api/interview';
 import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
@@ -1204,6 +1205,71 @@ const predictedUnasked = computed(() =>
  * 「资料降权，现状 11 板块无主次」的病症）。
  */
 const archiveOpen = ref(false);
+
+// ============================================================================
+// v13.50 批次 3：「🧭 发展方向」懒生成
+// ============================================================================
+/** 生成中标记（防重复点击；后端另有分布式锁兜底） */
+const insightLoading = ref(false);
+/** 本次会话内的错误提示（生成失败时展示，不阻塞报告其余部分） */
+const insightError = ref('');
+
+/** 已生成的发展方向数据（来自 report.industryInsight，缺失则显示占位卡） */
+const industryInsight = computed(() => report.value?.industryInsight ?? null);
+
+/** 生成时间展示文案「生成于 X 月 X 日」 */
+const insightGeneratedAtText = computed(() => {
+  const ts = industryInsight.value?.generatedAt;
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return `生成于 ${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+});
+
+/** 是否已超过 7 天（提示可刷新；不强制过期 —— V1.2 §9 Q2 裁决） */
+const insightStale = computed(() => {
+  const ts = industryInsight.value?.generatedAt;
+  if (!ts) return false;
+  return Date.now() - ts > 7 * 24 * 60 * 60 * 1000;
+});
+
+/**
+ * 生成/刷新发展方向分析。
+ *
+ * **懒生成**：只在用户点按钮时调用（不在 onMounted 自动触发）—— 避免「用户从不看
+ * 这个 tab 却为它付费」（V1.2 §1 原则 3「成本按需发生」）。
+ */
+/** 成熟度 → 样式类：成熟期=绿、上升期=蓝、早期=灰（对齐"越成熟越可信"的直觉） */
+function maturityClass(maturity: string) {
+  if (maturity.includes('成熟')) return 'mature';
+  if (maturity.includes('上升')) return 'rising';
+  return 'early';
+}
+
+async function handleGenerateInsight(force = false) {
+  if (insightLoading.value) return;
+  const id = interview.value?.id ?? report.value?.interviewId;
+  if (!id) {
+    toast.error('面试信息缺失，无法生成');
+    return;
+  }
+  insightLoading.value = true;
+  insightError.value = '';
+  try {
+    const res = await generateVoiceIndustryInsight(id, force);
+    if (res?.data) {
+      report.value = res.data;
+      toast.success(force ? '发展方向已刷新' : '发展方向分析已生成');
+    } else {
+      insightError.value = '生成失败，请稍后重试';
+    }
+  } catch (e) {
+    insightError.value = e instanceof Error ? e.message : '生成失败，请稍后重试';
+    toast.error(insightError.value);
+  } finally {
+    insightLoading.value = false;
+  }
+}
 
 // ============================================================================
 // v13.49 批次 2：问题分析「按维度聚类」
@@ -2637,13 +2703,109 @@ const chatStatus = computed(() => {
             @click="reportTab = 'predict'"
           >🔮 追问预测</button>
           <button
-            :class="['report-tab', { active: reportTab === 'insight' }]"
-            @click="reportTab = 'insight'"
-          >🧭 发展方向</button>
-          <button
-            :class="['report-tab', { active: reportTab === 'dialog' }]"
-            @click="reportTab = 'dialog'"
-          >💬 对话回放</button>
+        <!-- ==================================================================
+             Tab「🧭 发展方向」（备战区·环境）v13.50 批次 3
+             懒生成：不自动触发，用户点按钮才调 LLM（不开不花）
+             口径诚实：LLM 无实时行业数据 → 只做方向性判断，不承诺实时动态
+             ================================================================== -->
+        <div v-if="reportTab === 'insight'" class="tab-content active">
+          <div class="insight-head">
+            <div class="insight-head-title">🧭 发展方向</div>
+            <div class="insight-head-desc">
+              基于本场表现与岗位方向的个人化分析 —— 把本场暴露的短板放进岗位坐标系，告诉你往哪补最划算。
+            </div>
+            <div v-if="industryInsight" class="insight-head-meta">
+              <span class="insight-stamp">{{ insightGeneratedAtText }}</span>
+              <span v-if="insightStale" class="insight-stale">· 已超过 7 天，建议刷新</span>
+              <button class="insight-refresh" :disabled="insightLoading" @click="handleGenerateInsight(true)">
+                {{ insightLoading ? '生成中…' : '🔄 刷新' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 占位：未生成（懒生成，必须用户点击） -->
+          <div v-if="!industryInsight" class="insight-placeholder">
+            <div class="insight-placeholder-icon">🧭</div>
+            <div class="insight-placeholder-title">生成发展方向分析</div>
+            <div class="insight-placeholder-desc">
+              约需 10 秒。内容包含技术趋势、技能供需结构与 3 条针对你本场薄弱点的行动建议。
+            </div>
+            <button
+              class="insight-placeholder-btn"
+              :disabled="insightLoading"
+              @click="handleGenerateInsight(false)"
+            >{{ insightLoading ? '生成中，请稍候…' : '开始生成' }}</button>
+            <div v-if="insightError" class="insight-error">{{ insightError }}</div>
+          </div>
+
+          <!-- 已生成 -->
+          <template v-else>
+            <!-- ① 技术趋势 -->
+            <section v-if="industryInsight.trends?.length" class="insight-section">
+              <div class="insight-section-title">📈 技术趋势</div>
+              <div class="trend-list">
+                <div v-for="(t, i) in industryInsight.trends" :key="'tr' + i" class="trend-card">
+                  <div class="trend-card-head">
+                    <span class="trend-title">{{ t.title }}</span>
+                    <span v-if="t.maturity" :class="['trend-maturity', maturityClass(t.maturity)]">
+                      {{ t.maturity }}
+                    </span>
+                  </div>
+                  <div v-if="t.detail" class="trend-detail">{{ t.detail }}</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ② 技能供需结构 -->
+            <section
+              v-if="industryInsight.supplyDemand?.existing?.length || industryInsight.supplyDemand?.missing?.length"
+              class="insight-section"
+            >
+              <div class="insight-section-title">🧩 技能供需结构</div>
+              <div class="sd-row">
+                <span class="sd-label">✅ 已具备</span>
+                <span class="sd-tags">
+                  <span
+                    v-for="(s, i) in (industryInsight.supplyDemand?.existing ?? [])"
+                    :key="'se' + i"
+                    class="sd-tag have"
+                  >{{ s }}</span>
+                  <span v-if="!industryInsight.supplyDemand?.existing?.length" class="sd-empty">简历未提取到技能标签</span>
+                </span>
+              </div>
+              <div class="sd-row">
+                <span class="sd-label">⚠️ 建议补充</span>
+                <span class="sd-tags">
+                  <span
+                    v-for="(s, i) in (industryInsight.supplyDemand?.missing ?? [])"
+                    :key="'sm' + i"
+                    class="sd-tag miss"
+                  >{{ s }}</span>
+                  <span v-if="!industryInsight.supplyDemand?.missing?.length" class="sd-empty">暂无建议</span>
+                </span>
+              </div>
+            </section>
+
+            <!-- ③ 行动建议（每条锚定本场真实薄弱点） -->
+            <section v-if="industryInsight.actions?.length" class="insight-section">
+              <div class="insight-section-title">🎯 行动建议</div>
+              <div class="action-list">
+                <div v-for="(a, i) in industryInsight.actions" :key="'ac' + i" class="action-card">
+                  <div class="action-number">{{ i + 1 }}</div>
+                  <div class="action-body">
+                    <div class="action-content">{{ a.content }}</div>
+                    <div v-if="a.relatedWeakPoint" class="action-anchor">
+                      ↳ 对应本场薄弱点：{{ a.relatedWeakPoint }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div class="insight-disclaimer">
+              本分析为方向性判断（基于你本场的简历、岗位与表现），不包含实时行业数据。
+            </div>
+          </template>
         </div>
 
         <!-- Tab 0: 对话回放（历史面试完整对话） -->
@@ -3861,6 +4023,65 @@ const chatStatus = computed(() => {
     flex-shrink: 0; width: 3.75rem; color: var(--gray-400); font-size: 0.75rem; padding-top: 0.0625rem;
   }
   .predict-block-text { flex: 1; color: var(--gray-600); }
+
+  /* ---- Tab「🧭 发展方向」（v13.50 批次 3 开通） ---- */
+  .insight-head-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .insight-stamp { font-size: 0.75rem; color: var(--gray-400); }
+  .insight-stale { font-size: 0.75rem; color: var(--warning); }
+  .insight-refresh {
+    padding: 0.1875rem 0.625rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200); background: var(--theme-bg-elevated);
+    color: var(--gray-600); font-size: 0.75rem; cursor: pointer;
+  }
+  .insight-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+  .insight-error { margin-top: 0.75rem; font-size: 0.75rem; color: var(--error); }
+  .insight-section { margin-bottom: 1.5rem; }
+  .insight-section-title { font-size: 0.875rem; font-weight: 700; color: var(--gray-800); margin-bottom: 0.75rem; }
+
+  .trend-list { display: flex; flex-direction: column; gap: 0.625rem; }
+  .trend-card {
+    padding: 0.75rem 1rem; border-radius: var(--radius-md);
+    background: var(--theme-bg-elevated); border: 1px solid var(--gray-200);
+  }
+  .trend-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+  .trend-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-800); }
+  .trend-maturity {
+    flex-shrink: 0; padding: 0.0625rem 0.4375rem; border-radius: var(--radius-sm);
+    font-size: 0.6875rem; font-weight: 700;
+  }
+  .trend-maturity.mature { background: var(--success-bg); color: var(--success); }
+  .trend-maturity.rising { background: var(--info-bg, #eff6ff); color: var(--primary, #3b82f6); }
+  .trend-maturity.early { background: var(--gray-100); color: var(--gray-500); }
+  .trend-detail { margin-top: 0.375rem; font-size: 0.8125rem; color: var(--gray-500); line-height: 1.65; }
+
+  .sd-row { display: flex; align-items: flex-start; gap: 0.625rem; margin-bottom: 0.625rem; }
+  .sd-label { flex-shrink: 0; width: 5rem; padding-top: 0.1875rem; font-size: 0.75rem; color: var(--gray-500); }
+  .sd-tags { flex: 1; display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .sd-tag { padding: 0.125rem 0.5rem; border-radius: var(--radius-full); font-size: 0.75rem; }
+  .sd-tag.have { background: var(--success-bg); color: var(--success); }
+  .sd-tag.miss { background: var(--warning-bg, #fffbeb); color: var(--warning); }
+  .sd-empty { font-size: 0.75rem; color: var(--gray-400); }
+
+  .action-list { display: flex; flex-direction: column; gap: 0.625rem; }
+  .action-card {
+    display: flex; gap: 0.75rem;
+    padding: 0.875rem 1rem; border-radius: var(--radius-md);
+    background: var(--theme-bg-elevated); border: 1px solid var(--gray-200);
+  }
+  .action-number {
+    flex-shrink: 0; width: 1.375rem; height: 1.375rem; border-radius: var(--radius-full);
+    background: var(--primary, #3b82f6); color: #fff;
+    font-size: 0.75rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .action-body { flex: 1; min-width: 0; }
+  .action-content { font-size: 0.8125rem; color: var(--gray-700); line-height: 1.7; }
+  .action-anchor { margin-top: 0.375rem; font-size: 0.6875rem; color: var(--gray-400); }
+  .insight-disclaimer {
+    margin-top: 0.5rem; padding-top: 0.75rem;
+    border-top: 1px dashed var(--gray-200);
+    font-size: 0.6875rem; color: var(--gray-400); line-height: 1.6;
+  }
 
   /* ---- Tab「🧭 发展方向」占位（批次 3 开通） ---- */
   .insight-head { margin-bottom: 1rem; }

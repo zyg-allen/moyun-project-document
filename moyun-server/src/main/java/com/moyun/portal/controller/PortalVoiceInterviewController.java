@@ -174,6 +174,28 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
+     * v13.50 批次 3：生成「发展方向」分析（懒生成 —— 用户首次打开 tab 才调用）。
+     *
+     * <p>懒生成设计使**不开不花**：发展方向是备战区内容，多数用户可能从不查看，
+     * 若并入报告主链路则每场面试都要多一次 LLM 调用（V1.2 §1 原则 3）。</p>
+     *
+     * <p>幂等：已生成且未满 7 天时直接返回缓存；`refresh=true` 忽略缓存强制重算。
+     * 并发由服务端分布式锁兜底（双击双花）。</p>
+     */
+    @Operation(summary = "生成发展方向分析", description = "懒生成：已生成且未满 7 天返回缓存；refresh=true 强制重算")
+    @PostMapping("/{id:[0-9]+}/insight")
+    @RateLimiter(key = "voice:insight", time = 3600, count = 20)
+    public AjaxResult industryInsight(@PathVariable("id") Long id,
+                                      @RequestParam(value = "refresh", required = false) Boolean refresh) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(
+                voiceInterviewService.generateIndustryInsight(id, userId, Boolean.TRUE.equals(refresh)));
+    }
+
+    /**
      * 5.5 生成报告分享令牌
      */
     @Operation(summary = "生成报告分享令牌", description = "仅本人已结束的面试可分享；有效期 1-30 天，默认 7 天")

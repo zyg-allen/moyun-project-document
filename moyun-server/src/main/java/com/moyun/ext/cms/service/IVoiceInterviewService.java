@@ -71,6 +71,25 @@ public interface IVoiceInterviewService {
     VoiceInterviewReportVO regenerateReport(Long interviewId, Long userId);
 
     /**
+     * v13.50 批次 3：生成「发展方向」分析（懒生成，不在报告主链路里）。
+     *
+     * <p><b>为什么懒生成</b>：发展方向是"备战区"内容，用户不打开 tab 就**不产生任何调用**
+     * （V1.2 §1 原则 3「成本按需发生」）。若并入报告链路，每场面试都要多花一次 LLM 调用，
+     * 而多数用户可能从不查看。</p>
+     *
+     * <p><b>输入差异化（V1.2 §5.5 / V1.1#3）</b>：岗位 + JD + 简历技能 + **本场报告上下文**
+     * （薄弱点 / 水平定级 / 低分维度）—— 每条行动建议强制引用本场真实薄弱点，
+     * 与 {@code resume_optimize:job_match} 划清边界（否则产出"建议学云原生"式通用废话撞车）。</p>
+     *
+     * <p><b>幂等</b>：分布式锁 {@code voice:insight:{id}} 防双击双花；已生成且未超期时直接返回缓存
+     * （结果写在报告 JSON 的 {@code industryInsight} 字段，含 {@code generatedAt} 供前端提示刷新）。</p>
+     *
+     * @param force 用户点「刷新」时传 true，忽略缓存强制重算
+     * @return 完整报告（含 industryInsight 字段）
+     */
+    VoiceInterviewReportVO generateIndustryInsight(Long interviewId, Long userId, boolean force);
+
+    /**
      * 我的语音面试列表（分页）
      */
     Page<PortalVoiceInterview> listMy(Long userId, PageDomain pageDomain);

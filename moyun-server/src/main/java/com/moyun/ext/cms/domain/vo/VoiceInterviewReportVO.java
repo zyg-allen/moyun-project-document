@@ -103,6 +103,15 @@ public class VoiceInterviewReportVO {
     private List<PredictedQuestionView> predictedQuestions;
 
     /**
+     * v13.50 批次 3：发展方向分析（懒生成；用户不打开 tab 则为 null）。
+     *
+     * <p>写入路径：{@code generateIndustryInsight} 调用场景
+     * {@code voice_interview:industry_insight} 后，把结果写入报告 JSON 再整体落库
+     * （报告是整段 JSON 存储，故新增字段自动持久化）。</p>
+     */
+    private IndustryInsightView industryInsight;
+
+    /**
      * 单条追问预测
      */
     @Data
@@ -185,5 +194,60 @@ public class VoiceInterviewReportVO {
         private List<String> strengths;
         /** 不足（最多 3 条） */
         private List<String> weaknesses;
+    }
+
+    /**
+     * v13.50 批次 3：发展方向分析（懒生成，写入报告 JSON 的 {@code industryInsight} 字段）。
+     *
+     * <p>懒生成：用户不打开 tab 就不产生调用（V1.2 §1 原则 3「成本按需发生」）。
+     * 生成一次后随报告 JSON 持久化，前端按 {@code generatedAt} 提示「生成于 X 日 · 刷新」。</p>
+     *
+     * <p><b>口径诚实</b>：LLM 无实时行业数据，输出为**方向性判断**
+     * （技术趋势 / 技能供需结构 / 结合个人短板的行动建议），
+     * <b>不承诺实时行业动态</b>——提示词硬约束禁止标注具体百分比、薪酬数字或时效性季度数据。</p>
+     */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class IndustryInsightView {
+        /** 生成时间（毫秒时间戳；前端据此算「生成于 X 日」） */
+        private Long generatedAt;
+        /** 技术趋势 3-4 条 */
+        private List<TrendView> trends;
+        /** 技能供需结构：已具备 vs 建议补充 */
+        private SupplyDemandView supplyDemand;
+        /** 行动建议 3 条（每条强制引用本场真实薄弱点） */
+        private List<ActionView> actions;
+    }
+
+    /** 技术趋势单条 */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class TrendView {
+        /** 趋势标题（≤12 字） */
+        private String title;
+        /** 说明（≤60 字） */
+        private String detail;
+        /** 成熟度：成熟期 / 上升期 / 早期 */
+        private String maturity;
+    }
+
+    /** 技能供需结构 */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class SupplyDemandView {
+        /** 简历已具备的技能标签（前端标 ✅） */
+        private List<String> existing;
+        /** 建议补充的技能标签（前端标 ⚠️ 欠缺） */
+        private List<String> missing;
+    }
+
+    /** 行动建议单条 */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ActionView {
+        /** 可执行建议（≤80 字） */
+        private String content;
+        /** 对应的本场真实薄弱点（提示词要求强制引用；前端做锚点关联展示） */
+        private String relatedWeakPoint;
     }
 }

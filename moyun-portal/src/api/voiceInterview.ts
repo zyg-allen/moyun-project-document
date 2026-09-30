@@ -166,6 +166,46 @@ export interface VoiceInterviewReportVO {
    * （对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）。
    */
   predictedQuestions?: PredictedQuestionView[];
+  /**
+   * v13.50 批次 3：发展方向分析（懒生成 —— 用户首次打开 tab 才生成；未生成为 undefined）。
+   * 口径诚实：LLM 无实时行业数据，输出为方向性判断，不含时效性数字。
+   */
+  industryInsight?: IndustryInsightView;
+}
+
+/** v13.50 批次 3：发展方向分析 */
+export interface IndustryInsightView {
+  /** 生成时间（毫秒时间戳） */
+  generatedAt?: number;
+  trends?: TrendView[];
+  supplyDemand?: SupplyDemandView;
+  actions?: ActionView[];
+}
+
+/** 技术趋势单条 */
+export interface TrendView {
+  /** 趋势标题（≤12 字） */
+  title?: string;
+  /** 说明（≤60 字） */
+  detail?: string;
+  /** 成熟度：成熟期 / 上升期 / 早期 */
+  maturity?: string;
+}
+
+/** 技能供需结构 */
+export interface SupplyDemandView {
+  /** 简历已具备（前端标 ✅） */
+  existing?: string[];
+  /** 建议补充（前端标 ⚠️ 欠缺） */
+  missing?: string[];
+}
+
+/** 行动建议单条 */
+export interface ActionView {
+  /** 可执行建议（≤80 字） */
+  content?: string;
+  /** 对应的本场真实薄弱点（做锚点关联展示） */
+  relatedWeakPoint?: string;
 }
 
 /**
@@ -406,6 +446,25 @@ export const getVoiceAnalysisStatus = (interviewId: number | string) => {
  */
 export const regenerateVoiceReport = (interviewId: number | string) => {
   return httpPost<VoiceInterviewReportVO>(`/portal/interview/voice/${interviewId}/regenerate-report`);
+};
+
+/**
+ * v13.50 批次 3：生成「发展方向」分析（懒生成）
+ *
+ * `POST /portal/interview/voice/{id}/insight?refresh=true|false`
+ *
+ * - **懒生成**：用户首次打开「🧭 发展方向」tab 才调用（不开不花）；
+ * - **幂等**：已生成且未满 7 天时后端直接返回缓存；`refresh=true` 强制重算；
+ * - 返回完整报告（含 `industryInsight` 字段）。
+ */
+export const generateVoiceIndustryInsight = (
+  interviewId: number | string,
+  refresh = false,
+) => {
+  const q = refresh ? '?refresh=true' : '';
+  return httpPost<VoiceInterviewReportVO>(
+    `/portal/interview/voice/${interviewId}/insight${q}`,
+  );
 };
 
 /**

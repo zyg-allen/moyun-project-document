@@ -1920,6 +1920,178 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return skeleton;
     }
 
+    /** 发展方向缓存有效期（毫秒）——7 天后前端提示可刷新（V1.2 §9 Q2 裁决） */
+    private static final long INSIGHT_CACHE_TTL_MS = 7L * 24 * 60 * 60 * 1000;
+
+    /** 发展方向互斥锁 TTL（含 LLM 秒级往返） */
+    private static final java.time.Duration INSIGHT_LOCK_TTL = java.time.Duration.ofMinutes(3);
+
+    /**
+     * v13.50 批次 3：生成「发展方向」分析（懒生成，不在报告主链路里）。
+     *
+     * <p><b>懒生成</b>：用户不打开 tab 就不产生调用（V1.2 §1 原则 3「成本按需发生」）。</p>
+     *
+     * <p><b>幂等</b>：分布式锁 {@code voice:insight:{id}} 防双击双花；命中缓存直接返回。</p>
+     *
+     * <p><b>输入差异化</b>：岗位 + JD + 简历技能 + 本场报告上下文（薄弱点/定级/低分维度），
+     * 使每条行动建议锚定真实短板，与 {@code resume_optimize:job_match} 划清边界。</p>
+     */
+    @Override
+    public VoiceInterviewReportVO generateIndustryInsight(Long interviewId, Long userId, boolean force) {
+        PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
+        if (!"finished".equals(interview.getStatus())) {
+            throw new ServiceException("面试尚未结束，无法生成发展方向分析");
+        }
+        VoiceInterviewReportVO report = parseReport(interview);
+
+        // 1. 缓存命中：已生成且未超期时直接返回（force=true 时忽略缓存）
+        if (!force && report.getIndustryInsight() != null
+                && report.getIndustryInsight().getGeneratedAt() != null) {
+            long age = System.currentTimeMillis() - report.getIndustryInsight().getGeneratedAt();
+            if (age >= 0 && age < INSIGHT_CACHE_TTL_MS) {
+                return report;
+            }
+        }
+
+        // 2. 分布式锁防双击双花（跨实例）；抢不到说明已有请求在飞
+        com.moyun.core.redis.DistributedLockUtil.Lock lock =
+                lockUtil.tryLock("voice:insight:" + interviewId, INSIGHT_LOCK_TTL);
+        if (lock == null) {
+            throw new ServiceException("发展方向分析正在生成中，请稍候");
+        }
+        try {
+            // 锁内双检：可能已被其它请求写入
+            PortalVoiceInterview recheck = interviewMapper.selectById(interviewId);
+            VoiceInterviewReportVO cur = parseReport(recheck);
+            if (!force && cur.getIndustryInsight() != null
+                    && cur.getIndustryInsight().getGeneratedAt() != null) {
+                return cur;
+            }
+
+            // 3. 组装输入（含本场报告上下文 —— 输入差异化的关键）
+            String position = StringUtils.isEmpty(interview.getPosition()) ? "综合" : interview.getPosition();
+            String jobRequirements = readConfigKey(interview, "jobRequirements");
+            Map<String, Object> input = new LinkedHashMap<>();
+            input.put("task", AiSceneTasks.INTERVIEW_INDUSTRY_INSIGHT);
+            input.put("position", position);
+            if (StringUtils.isNotEmpty(jobRequirements)) {
+                input.put("jd", truncateText(jobRequirements, 600));
+            }
+            // 简历技能
+            if (interview.getResumeId() != null) {
+                PortalUserResume resume = userResumeMapper.selectById(interview.getResumeId());
+                if (resume != null && StringUtils.isNotEmpty(resume.getSkills())) {
+                    input.put("skills", truncateText(formatSkills(resume.getSkills()), 500));
+                }
+            }
+            // 本场报告上下文：薄弱点 + 定级 + 低分维度（V1.1#3）
+            List<String> weakTitles = new ArrayList<>();
+            if (cur.getWeakPointViews() != null) {
+                for (VoiceInterviewReportVO.PointView p : cur.getWeakPointViews()) {
+                    if (p != null && StringUtils.isNotEmpty(p.getTitle())) {
+                        weakTitles.add(p.getTitle());
+                    }
+                }
+            } else if (cur.getWeakPoints() != null) {
+                weakTitles.addAll(cur.getWeakPoints());
+            }
+            if (!weakTitles.isEmpty()) {
+                input.put("weakPoints", truncateText(String.join("；", weakTitles), 500));
+            }
+            if (StringUtils.isNotEmpty(cur.getLevelEstimate())) {
+                input.put("levelEstimate", cur.getLevelEstimate());
+            }
+            // 低分维度（雷达六维中 < 70 的项）
+            if (cur.getDimensions() != null && !cur.getDimensions().isEmpty()) {
+                List<String> low = new ArrayList<>();
+                for (Map.Entry<String, Integer> e : cur.getDimensions().entrySet()) {
+                    if (e.getValue() != null && e.getValue() < 70) {
+                        low.add(e.getKey() + "=" + e.getValue());
+                    }
+                }
+                if (!low.isEmpty()) {
+                    input.put("lowDimensions", String.join("、", low));
+                }
+            }
+
+            // 4. 走场景配置行（网关：限流/成本熔断/执行日志全走这里）
+            JsonNode node = aiSceneJsonClient.executeForJson(
+                    SCENE_VOICE_INTERVIEW, input, interview.getUserId());
+            if (node == null) {
+                throw new ServiceException("发展方向分析生成失败，请稍后重试");
+            }
+
+            // 5. 解析并落库（报告是整段 JSON 存储，新增字段自动持久化）
+            VoiceInterviewReportVO.IndustryInsightView view = new VoiceInterviewReportVO.IndustryInsightView();
+            view.setGeneratedAt(System.currentTimeMillis());
+            List<VoiceInterviewReportVO.TrendView> trends = new ArrayList<>();
+            for (JsonNode tr : node.path("trends")) {
+                if (!tr.isObject()) {
+                    continue;
+                }
+                VoiceInterviewReportVO.TrendView tv = new VoiceInterviewReportVO.TrendView();
+                tv.setTitle(tr.path("title").asText(""));
+                tv.setDetail(tr.path("detail").asText(""));
+                tv.setMaturity(tr.path("maturity").asText(""));
+                if (StringUtils.isNotEmpty(tv.getTitle())) {
+                    trends.add(tv);
+                }
+            }
+            view.setTrends(trends);
+            JsonNode sd = node.path("supplyDemand");
+            if (sd.isObject()) {
+                VoiceInterviewReportVO.SupplyDemandView sdv = new VoiceInterviewReportVO.SupplyDemandView();
+                List<String> existing = new ArrayList<>();
+                for (JsonNode e : sd.path("existing")) {
+                    String s = e.asText("").trim();
+                    if (StringUtils.isNotEmpty(s)) {
+                        existing.add(s);
+                    }
+                }
+                List<String> missing = new ArrayList<>();
+                for (JsonNode m : sd.path("missing")) {
+                    String s = m.asText("").trim();
+                    if (StringUtils.isNotEmpty(s)) {
+                        missing.add(s);
+                    }
+                }
+                sdv.setExisting(existing);
+                sdv.setMissing(missing);
+                view.setSupplyDemand(sdv);
+            }
+            List<VoiceInterviewReportVO.ActionView> actions = new ArrayList<>();
+            for (JsonNode ac : node.path("actions")) {
+                if (!ac.isObject()) {
+                    continue;
+                }
+                VoiceInterviewReportVO.ActionView av = new VoiceInterviewReportVO.ActionView();
+                av.setContent(ac.path("content").asText(""));
+                av.setRelatedWeakPoint(ac.path("relatedWeakPoint").asText(""));
+                if (StringUtils.isNotEmpty(av.getContent())) {
+                    actions.add(av);
+                }
+            }
+            view.setActions(actions);
+
+            if (trends.isEmpty() && actions.isEmpty()) {
+                throw new ServiceException("发展方向分析生成失败，请稍后重试");
+            }
+
+            cur.setIndustryInsight(view);
+            PortalVoiceInterview upd = new PortalVoiceInterview();
+            upd.setId(interviewId);
+            upd.setReport(toJson(cur));
+            interviewMapper.updateById(upd);
+            recordEvent(interviewId, "industry_insight",
+                    Map.of("trends", trends.size(), "actions", actions.size()));
+            log.info("[VoiceInterview] 发展方向分析完成 interviewId={}：趋势 {} 条，建议 {} 条",
+                    interviewId, trends.size(), actions.size());
+            return cur;
+        } finally {
+            lock.close();
+        }
+    }
+
     /** 解析自我介绍评分 JSON → 报告视图（旧会话/无自我介绍返回 null） */
     private VoiceInterviewReportVO.IntroScoreView parseIntroScoreView(String introScoreJson) {
         if (StringUtils.isEmpty(introScoreJson)) {

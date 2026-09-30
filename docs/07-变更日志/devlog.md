@@ -2,6 +2,51 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.45 (2026-09-30) 批次 1（二）4 行面试族配置落库（提示词自代码迁入配置行）
+
+**依据**：方案 V1.2 §3.3/§4。把 3 处**直连代码**的提示词迁进配置行，为「批次 1（三）收编」准备配置。
+
+### 新增 4 行 `ai_scene_config`（与 init-sql 双轨）
+
+| scene_code | parser | max_tokens | timeout | enabled | 说明 |
+|---|---|---|---|---|---|
+| `voice_interview:opening_fallback` | `text` | 512 | 60 | **0** | 自 `generateOpening` 迁移（V1.1#1 收编不删除） |
+| `voice_interview:hint` | `text` | 128 | 30 | **0** | 自 `requestHint` 迁移（计费口径=免费，两级配额每题3/全场15） |
+| `voice_interview:report_review` | `json` | 2560 | 180 | **0** | 自 `enhanceReportByAgent` 迁移，含 `levelEstimate` 结构化 + 追问预测 |
+| `voice_interview:industry_insight` | `json` | 1536 | 120 | **0** | 懒生成；输入含本场报告上下文；预留 RAG 通道 |
+
+- **`agent_id` 一律用子查询** `(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1)`
+  —— 沿用 v13.38 修复的写法，防双库 id 分叉再次悬空；
+- **`enabled=0`**：本批只落配置**不改行为**；待「批次 1（三）收编」时随代码一起置 1，保证可回滚；
+- `remark`/`description` 留档迁移来源与裁决理由（V1.1#1、V1.2 §3.2）。
+
+### ⚠️ 过程中发现并修正的 3 个自身错误（留痕）
+
+| # | 错误 | 症状 | 修正 |
+|---|---|---|---|
+| 1 | **字段与列清单错位** | `INSERT` 报 `Column count doesn't match`（39 vs 40） | 逐字段打印定位：`output_schema` 被写成 parser 值、**末尾漏 `deleted`**（把 `NOW()` 放在 `open_api` 导致尾部少一值）。按权威列清单（DDL 41 列 − id = 40）逐行对齐 |
+| 2 | **`output_parser` 语义用错** | 纯文本任务带了 JSON `output_schema` | 查库中现有取值确认语义：`default_chat`=**`text`**、JSON 场景=`json`。`opening_fallback`/`hint` 改为 `output_schema=NULL` + `output_parser='text'` |
+| 3 | **`prompt_placeholders` 写成纯文本** | `ERROR 3140 Invalid JSON text ... for column 'prompt_placeholders'` | 该列是 **JSON 列**，补为合法 JSON 对象（含 `resumeDigest`/`position`/`jd`/`qaList` 等键） |
+
+> **教训**：40 列的超宽 `INSERT` **不能靠肉眼或文本替换**维护。本次为此专门写了一个
+> **SQL 感知的字段计数器**（引号/括号状态机 + 顶层逗号切分），逐行比对列数后才定位到根因。
+> 建议后续新增场景行沿用该检查方式（已可作为批次 4「场景配置 UI 双下拉」的动因之一）。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| 全新库（DDL + DML + menu-redo） | ✅ **三文件全绿**（此前 DML 报 ERROR 3140） |
+| 4 个 `INSERT` 块逐行列数 | ✅ **40/40，异常行 = 0** |
+| voice_interview 族行数 | 4 → **8**（主码 + 7 task） |
+| 场景总数 | 20 → **24** |
+| 悬空 agent 引用 | ✅ **0** |
+| 表数 | ✅ **185**（与基线一致） |
+| `default_chat` / `question_generate:jd_keywords` | ✅ 各 1 行 |
+
+> **待办（批次 1 三）**：4 行配置的 `enabled` 置 1 + 3 处直连收编（`generateOpening` L673 / `requestHint` L1016 / `enhanceReportByAgent` L1648+1654）+ 等价性验证（收编前后各 3 场冒烟对比 `ai_execute_log` 输出结构）。
+
+
 ## v13.44 (2026-09-30) 批次 0「修地基」：面试链并发保护 / 超时统一 / 断连中止 / 事务 / 自介接线 / hint 配额 / 多实例
 
 **背景**：方案 V1.2 §8 新增的**批次 0**。依据《全端-评审-报告七再评审-20260930》的 **R1~R6 六项运行期隐患** ——

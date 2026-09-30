@@ -154,6 +154,39 @@ export interface VoiceInterviewReportVO {
   highlightViews?: { title?: string; detail?: string }[];
   /** v11.97：结构化薄弱点（旧报告缺失时回退 weakPoints） */
   weakPointViews?: { title?: string; detail?: string }[];
+  /**
+   * v13.47 批次 2：水平定级（junior/mid/senior）。
+   * 用于概要 tab 定级徽章、发展方向 tab 个人化锚点；旧报告为 undefined。
+   */
+  levelEstimate?: 'junior' | 'mid' | 'senior' | string;
+  /**
+   * v13.47 批次 2：追问预测（上限 6 条，已问+未问合计）。
+   *
+   * **未产出/解析失败时为 undefined → 前端整 tab 隐藏**
+   * （对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）。
+   */
+  predictedQuestions?: PredictedQuestionView[];
+}
+
+/**
+ * v13.47 批次 2：单条追问预测。
+ *
+ * 分组规则：`askedThisRound === true` → 分组 A「本次已问」（复盘视角）；
+ * 否则 → 分组 B「未被问到」（预警视角，核心价值）。
+ */
+export interface PredictedQuestionView {
+  /** 预测的面试问题 */
+  question?: string;
+  /** 要点式简答（≤80 字，用于对照自己答得对不对） */
+  briefAnswer?: string;
+  /** 为什么会被问（≤60 字） */
+  analysis?: string;
+  /** 考点标签（2-6 字） */
+  knowledgePoint?: string;
+  /** 本场是否已问过 */
+  askedThisRound?: boolean;
+  /** 本场得分（仅 askedThisRound=true 时有值） */
+  askedScore?: number;
 }
 
 /** v11.90 V2：面试者简介（对齐后端 buildCandidateProfile） */

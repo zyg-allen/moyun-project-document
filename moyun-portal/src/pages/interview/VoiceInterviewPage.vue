@@ -140,7 +140,9 @@ const currentSpeakText = ref('');
 // 报告
 const report = ref<VoiceInterviewReportVO | null>(null);
 // v11.97：报告 Tab 收窄（面试官剖析并入概要、相关知识点移除）
-const reportTab = ref<'summary' | 'dialog' | 'analysis'>('summary');
+// v13.47 批次 2：三层五 tab（复盘区：概要→问题分析→回放殿后；备战区：追问预测→发展方向）
+// 主线 = 表现 → 归因 → 证据 → 个人预测 → 环境导航
+const reportTab = ref<'summary' | 'analysis' | 'predict' | 'insight' | 'dialog'>('summary');
 const historyLoading = ref(false);
 
 // v11.88 V2：结束后批量分析进度（前端轮询 analysis 接口驱动进度条）
@@ -1167,6 +1169,32 @@ const jobMatchRate = computed(() => {
 });
 /** 匹配依据（仅新报告有） */
 const jobMatchReason = computed(() => report.value?.jobMatch?.reason || '');
+
+// ============================================================================
+// v13.47 批次 2：「🔮 追问预测」tab 数据
+// ============================================================================
+/** 定级徽章文案（junior/mid/senior → 中文；非法值返回空串表示不展示） */
+const levelBadge = computed(() => {
+  const lv = report.value?.levelEstimate;
+  if (lv === 'junior') return { key: 'junior', text: '初级', tip: '基础需夯实' };
+  if (lv === 'mid') return { key: 'mid', text: '中级', tip: '框架完整，深度待补' };
+  if (lv === 'senior') return { key: 'senior', text: '高级', tip: '具备体系化思维' };
+  return null;
+});
+
+/** 追问预测全量（缺失/空 → tab 隐藏） */
+const predictedAll = computed(() => report.value?.predictedQuestions ?? []);
+/** tab 是否展示：有预测数据才展示（对齐「字段为空按缺失隐藏」惯例） */
+const showPredictTab = computed(() => predictedAll.value.length > 0);
+
+/** 分组 A「本次已问」：复盘视角 —— 问题 + 你的得分 + 标准答案要点对照 */
+const predictedAsked = computed(() =>
+  predictedAll.value.filter((p) => p.askedThisRound === true),
+);
+/** 分组 B「未被问到」：预警视角（核心价值）—— 下次真面试的押题清单 */
+const predictedUnasked = computed(() =>
+  predictedAll.value.filter((p) => p.askedThisRound !== true),
+);
 /** 亮点/薄弱点统一结构 {title, detail}：结构化视图优先，旧报告回退字符串数组 */
 const highlightItems = computed<{ title: string; detail: string }[]>(() => {
   const views = report.value?.highlightViews;
@@ -2463,6 +2491,10 @@ const chatStatus = computed(() => {
             </span>
             <span class="banner-score-label">综合得分</span>
             <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
+            <!-- v13.47 批次 2：水平定级徽章（LLM 结构化输出 levelEstimate；缺失则不展示） -->
+            <span v-if="levelBadge" :class="['level-estimate-badge', levelBadge.key]" :title="levelBadge.tip">
+              定级 · {{ levelBadge.text }}
+            </span>
           </div>
           <div class="banner-divider"></div>
           <div class="banner-main">
@@ -2539,19 +2571,31 @@ const chatStatus = computed(() => {
             <span class="meta-value">{{ interview?.qaList?.filter(q => q.userAnswer).length ?? 0 }} / {{ interview?.totalQa ?? 0 }}</span>
           </div>
         </div>
+        <!-- v13.47 批次 2：三层五 tab —— 复盘区（概要→归因→证据殿后）+ 备战区（个人预测→环境导航） -->
         <div class="report-tabs">
+          <span class="report-tabs-group">复盘</span>
           <button
             :class="['report-tab', { active: reportTab === 'summary' }]"
             @click="reportTab = 'summary'"
           >📋 面试概要</button>
           <button
-            :class="['report-tab', { active: reportTab === 'dialog' }]"
-            @click="reportTab = 'dialog'"
-          >💬 对话回放</button>
-          <button
             :class="['report-tab', { active: reportTab === 'analysis' }]"
             @click="reportTab = 'analysis'"
           >🔍 问题分析</button>
+          <span class="report-tabs-group">备战</span>
+          <button
+            v-if="showPredictTab"
+            :class="['report-tab', { active: reportTab === 'predict' }]"
+            @click="reportTab = 'predict'"
+          >🔮 追问预测</button>
+          <button
+            :class="['report-tab', { active: reportTab === 'insight' }]"
+            @click="reportTab = 'insight'"
+          >🧭 发展方向</button>
+          <button
+            :class="['report-tab', { active: reportTab === 'dialog' }]"
+            @click="reportTab = 'dialog'"
+          >💬 对话回放</button>
         </div>
 
         <!-- Tab 0: 对话回放（历史面试完整对话） -->
@@ -2783,6 +2827,99 @@ const chatStatus = computed(() => {
               </button>
             </div>
             <div v-if="(report?.questionReviews ?? []).length === 0" class="empty-tip">暂无逐题分析数据</div>
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             v13.47 批次 2：Tab「🔮 追问预测」（备战区·个人）
+             分组 A「本次已问」= 复盘视角（答得对不对）
+             分组 B「未被问到」= 预警视角（下次真面试的押题清单）★核心价值
+             数据源：report.predictedQuestions（缺失则整 tab 不渲染，由 tab 按钮 v-if 控制）
+             ================================================================== -->
+        <div v-if="reportTab === 'predict'" class="tab-content active">
+          <div class="predict-intro">
+            <div class="predict-intro-title">🔮 真面试官拿到这份简历，还会问什么</div>
+            <div class="predict-intro-desc">
+              基于你本场的简历、岗位与对话记录推演，<strong>未被问到的部分</strong>是下次面试的重点准备方向。
+            </div>
+          </div>
+
+          <!-- 分组 A：本次已问 -->
+          <div v-if="predictedAsked.length" class="predict-group">
+            <div class="predict-group-title">
+              ✅ 本次已问
+              <span class="predict-group-sub">复盘视角：对照要点，看看你答得够不够</span>
+            </div>
+            <div class="predict-list">
+              <div v-for="(p, i) in predictedAsked" :key="'a' + i" class="predict-card">
+                <div class="predict-card-head">
+                  <div class="predict-q">{{ p.question }}</div>
+                  <div v-if="p.askedScore != null" :class="['predict-score', scoreClass(p.askedScore)]">
+                    {{ p.askedScore }} 分
+                  </div>
+                </div>
+                <div v-if="p.knowledgePoint" class="predict-tag">考点：{{ p.knowledgePoint }}</div>
+                <div v-if="p.briefAnswer" class="predict-block">
+                  <span class="predict-block-label">要点参考</span>
+                  <span class="predict-block-text">{{ p.briefAnswer }}</span>
+                </div>
+                <div v-if="p.analysis" class="predict-block">
+                  <span class="predict-block-label">提问动机</span>
+                  <span class="predict-block-text">{{ p.analysis }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分组 B：未被问到 ★核心价值 -->
+          <div v-if="predictedUnasked.length" class="predict-group">
+            <div class="predict-group-title">
+              ⭐ 未被问到
+              <span class="predict-group-sub">预警视角：这些是你简历里写了、但本场没深挖的点</span>
+            </div>
+            <div class="predict-list">
+              <div v-for="(p, i) in predictedUnasked" :key="'u' + i" class="predict-card highlight">
+                <div class="predict-card-head">
+                  <div class="predict-q">{{ p.question }}</div>
+                </div>
+                <div v-if="p.knowledgePoint" class="predict-tag">考点：{{ p.knowledgePoint }}</div>
+                <div v-if="p.briefAnswer" class="predict-block">
+                  <span class="predict-block-label">要点参考</span>
+                  <span class="predict-block-text">{{ p.briefAnswer }}</span>
+                </div>
+                <div v-if="p.analysis" class="predict-block">
+                  <span class="predict-block-label">提问动机</span>
+                  <span class="predict-block-text">{{ p.analysis }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!predictedAsked.length && !predictedUnasked.length" class="empty-tip">
+            本次未产出追问预测数据。
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             v13.47 批次 2：Tab「🧭 发展方向」（备战区·环境）
+             懒生成设计：本批先落占位卡（不自动触发），生成接口与内容渲染在批次 3 交付。
+             口径诚实：LLM 无实时行业数据 → 不承诺"实时行业动态"，只做方向性判断。
+             ================================================================== -->
+        <div v-if="reportTab === 'insight'" class="tab-content active">
+          <div class="insight-head">
+            <div class="insight-head-title">🧭 发展方向</div>
+            <div class="insight-head-desc">
+              基于本场表现与岗位方向的个人化分析 —— 把本场暴露的短板放进岗位坐标系，告诉你往哪补最划算。
+            </div>
+          </div>
+          <div class="insight-placeholder">
+            <div class="insight-placeholder-icon">🧭</div>
+            <div class="insight-placeholder-title">生成发展方向分析</div>
+            <div class="insight-placeholder-desc">
+              约需 10 秒。内容包含技术趋势、技能供需结构与 3 条针对你本场薄弱点的行动建议。
+              <br />（本批先交付占位形态，生成能力在下一批开通）
+            </div>
+            <button class="insight-placeholder-btn" disabled>即将开通</button>
           </div>
         </div>
 
@@ -3448,6 +3585,102 @@ const chatStatus = computed(() => {
   .top-bar, .chat-input-area, .report-actions, .report-tabs { display: none; }
   .report-page { background: var(--theme-bg-elevated); padding: 0; }
 }
+  /* ==================== v13.47 批次 2：三层五 tab ==================== */
+
+  /* tab 分组标签（复盘 / 备战） */
+  .report-tabs-group {
+    align-self: center;
+    padding: 0 0.5rem 0 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--gray-400);
+    white-space: nowrap;
+    user-select: none;
+  }
+  .report-tabs-group:not(:first-child)::before {
+    content: '';
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    margin-right: 0.5rem;
+    vertical-align: -1px;
+    background: var(--gray-200);
+  }
+
+  /* 水平定级徽章（v13.47 批次 2） */
+  .level-estimate-badge {
+    margin-left: 0.375rem; padding: 0.0625rem 0.4375rem;
+    border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 700;
+    border: 1px solid var(--gray-200); color: var(--gray-500); background: var(--gray-50);
+    cursor: help;
+  }
+  .level-estimate-badge.junior { border-color: var(--warning, #f59e0b); color: var(--warning); background: var(--warning-bg, #fffbeb); }
+  .level-estimate-badge.mid { border-color: var(--primary, #3b82f6); color: var(--primary, #3b82f6); background: var(--info-bg, #eff6ff); }
+  .level-estimate-badge.senior { border-color: var(--success, #22c55e); color: var(--success); background: var(--success-bg); }
+
+  /* ---- Tab「🔮 追问预测」 ---- */
+  .predict-intro {
+    padding: 0.875rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--radius-md);
+    background: var(--gray-50);
+    border-left: 3px solid var(--primary, #3b82f6);
+  }
+  .predict-intro-title { font-size: 0.875rem; font-weight: 700; color: var(--gray-800); }
+  .predict-intro-desc { margin-top: 0.25rem; font-size: 0.75rem; color: var(--gray-500); line-height: 1.6; }
+  .predict-group { margin-bottom: 1.5rem; }
+  .predict-group-title {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem;
+    margin-bottom: 0.625rem; font-size: 0.875rem; font-weight: 700; color: var(--gray-800);
+  }
+  .predict-group-sub { font-size: 0.75rem; font-weight: 400; color: var(--gray-400); }
+  .predict-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .predict-card {
+    padding: 0.875rem 1rem;
+    border-radius: var(--radius-md);
+    background: var(--theme-bg-elevated);
+    border: 1px solid var(--gray-200);
+  }
+  /* 分组 B（未被问到）视觉加重——它是本 tab 的核心价值 */
+  .predict-card.highlight { border-color: var(--warning, #f59e0b); background: var(--warning-bg, #fffbeb); }
+  .predict-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+  .predict-q { flex: 1; font-size: 0.875rem; font-weight: 600; color: var(--gray-800); line-height: 1.6; }
+  .predict-score {
+    flex-shrink: 0; padding: 0.125rem 0.5rem; border-radius: var(--radius-full);
+    font-size: 0.6875rem; font-weight: 700;
+  }
+  .predict-score.low { background: var(--error-bg); color: var(--error); }
+  .predict-score.medium { background: var(--warning-bg); color: var(--warning); }
+  .predict-score.high { background: var(--success-bg); color: var(--success); }
+  .predict-tag {
+    display: inline-block; margin-top: 0.375rem; padding: 0.0625rem 0.4375rem;
+    border-radius: var(--radius-sm); background: var(--gray-100); color: var(--gray-600);
+    font-size: 0.6875rem;
+  }
+  .predict-block { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.8125rem; line-height: 1.65; }
+  .predict-block-label {
+    flex-shrink: 0; width: 3.75rem; color: var(--gray-400); font-size: 0.75rem; padding-top: 0.0625rem;
+  }
+  .predict-block-text { flex: 1; color: var(--gray-600); }
+
+  /* ---- Tab「🧭 发展方向」占位（批次 3 开通） ---- */
+  .insight-head { margin-bottom: 1rem; }
+  .insight-head-title { font-size: 0.9375rem; font-weight: 700; color: var(--gray-800); }
+  .insight-head-desc { margin-top: 0.25rem; font-size: 0.75rem; color: var(--gray-500); line-height: 1.6; }
+  .insight-placeholder {
+    padding: 2.5rem 1.5rem; text-align: center;
+    border: 1px dashed var(--gray-300); border-radius: var(--radius-md);
+    background: var(--gray-50);
+  }
+  .insight-placeholder-icon { font-size: 2rem; line-height: 1; }
+  .insight-placeholder-title { margin-top: 0.75rem; font-size: 0.9375rem; font-weight: 700; color: var(--gray-700); }
+  .insight-placeholder-desc { margin-top: 0.375rem; font-size: 0.75rem; color: var(--gray-500); line-height: 1.7; }
+  .insight-placeholder-btn {
+    margin-top: 1rem; padding: 0.5rem 1.25rem; border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200); background: var(--gray-100); color: var(--gray-400);
+    font-size: 0.8125rem; cursor: not-allowed;
+  }
 
 /* ==================== V10.1 语音对话可视化增强 ==================== */
 

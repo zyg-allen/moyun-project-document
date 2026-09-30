@@ -81,4 +81,50 @@ public final class AiSceneTasks {
 
     /** 发展方向建议（懒生成：首次打开 tab 才调用；配置行预留 RAG 知识库绑定） */
     public static final String INTERVIEW_INDUSTRY_INSIGHT = "industry_insight";
+
+    // ==================== 白名单（v13.51 批次 4：两段式校验用） ====================
+
+    /**
+     * 全部合法 task 短码（白名单）。
+     *
+     * <p><b>为什么需要它</b>：场景配置的 {@code scene_code} 支持两段式
+     * {@code main:task} 写法，但原先管理端校验用 {@link AiSceneEnum#of(String)} 做**整串精确匹配**
+     * ⇒ 合法的子场景（如 {@code voice_interview:warmup}）反而**存不了**，只能靠 SQL 维护。
+     * 批次 4 把校验改为两段式后，task 段需要一份权威白名单 —— 就是本方法。</p>
+     *
+     * <p>白名单由本类常量派生（反射读取 {@code public static final String} 字段），
+     * <b>新增子任务只需在本类加常量</b>，白名单自动跟随，不会再出现"加了常量但校验不认"的漂移。</p>
+     *
+     * @return 全部合法 task 短码（去重、无序但稳定）
+     */
+    public static java.util.Set<String> all() {
+        java.util.Set<String> set = new java.util.LinkedHashSet<>();
+        for (java.lang.reflect.Field f : AiSceneTasks.class.getDeclaredFields()) {
+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                continue;
+            }
+            if (f.getType() != String.class) {
+                continue;
+            }
+            try {
+                Object v = f.get(null);
+                if (v != null && !String.valueOf(v).isBlank()) {
+                    set.add(String.valueOf(v));
+                }
+            } catch (IllegalAccessException ignored) {
+                // 常量字段不可访问在正常 JVM 下不会发生；忽略即可
+            }
+        }
+        return set;
+    }
+
+    /**
+     * 是否为合法 task 短码。
+     *
+     * @param task 待校验短码（可空）
+     * @return true 表示在白名单内
+     */
+    public static boolean isValid(String task) {
+        return task != null && all().contains(task);
+    }
 }

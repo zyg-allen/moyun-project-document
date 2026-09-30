@@ -108,22 +108,46 @@
           <!-- ===== 基础配置 ===== -->
           <el-tab-pane label="基础配置" name="basic">
             <el-form-item label="场景代码" required>
-              <el-select
-                v-model="form.sceneCode"
-                placeholder="请选择场景代码（来自 AiSceneEnum 代码注册表）"
-                filterable
-                allow-create
-                :disabled="!!form.id"
-                style="width: 100%;"
-              >
-                <el-option
-                  v-for="s in registry"
-                  :key="s.code"
-                  :label="`${s.code}（${s.name}）`"
-                  :value="s.code"
-                />
-              </el-select>
-              <div class="form-tip">选项来自 AiSceneEnum 枚举（与 Handler Bean 注册保持一致，新增 Handler 需同步加枚举）</div>
+              <!-- v13.51 批次 4：双下拉（主场景 + 子任务）拼出两段式代码。
+                   原先是单个整串下拉 ⇒ 无法组合出 voice_interview:warmup 这类
+                   合法子场景，只能靠 SQL 维护（"管理端看得见改不了"）。 -->
+              <div class="scene-code-dual">
+                <el-select
+                  v-model="formMainCode"
+                  placeholder="主场景"
+                  filterable
+                  :disabled="!!form.id"
+                  style="flex: 1 1 55%;"
+                >
+                  <el-option
+                    v-for="s in registry"
+                    :key="s.code"
+                    :label="`${s.code}（${s.name}）`"
+                    :value="s.code"
+                  />
+                </el-select>
+                <span class="scene-code-colon">:</span>
+                <el-select
+                  v-model="formTaskCode"
+                  placeholder="子任务（可空 = 主场景本身）"
+                  filterable
+                  clearable
+                  :disabled="!!form.id"
+                  style="flex: 1 1 45%;"
+                >
+                  <el-option
+                    v-for="tk in taskOptions"
+                    :key="tk"
+                    :label="tk"
+                    :value="tk"
+                  />
+                </el-select>
+              </div>
+              <div class="form-tip">
+                实际提交的场景代码：<code>{{ formSceneCode || '（未选择）' }}</code>
+                —— 主场景来自 AiSceneEnum（新增 Handler 需同步加枚举）；
+                子任务来自 AiSceneTasks 常量白名单（新增子任务只需在常量类加一项，白名单自动跟随）
+              </div>
             </el-form-item>
             <el-form-item label="场景名称" required>
               <el-input v-model="form.sceneName" placeholder="请输入场景名称" />
@@ -371,7 +395,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { listScene, getScene, addScene, updateScene, delScene, testScene, sceneRegistry, listSceneHistory, rollbackScene } from '@/api/ai/scene';
+import { listScene, getScene, addScene, updateScene, delScene, testScene, sceneRegistry, sceneTasks, listSceneHistory, rollbackScene } from '@/api/ai/scene';
 import { listAgent } from '@/api/ai/agent';
 import { listModelConfig } from '@/api/ai/model';
 import { listWorkflow } from '@/api/ai/workflow';
@@ -380,6 +404,31 @@ const loading = ref(true);
 const sceneList = ref([]);
 const agentOptions = ref([])
 const registry = ref([]);
+/** v13.51 批次 4：子任务白名单（双下拉第二级选项） */
+const taskOptions = ref([]);
+/** 双下拉第一级：主场景代码 */
+const formMainCode = ref('');
+/** 双下拉第二级：子任务短码（空 = 主场景本身） */
+const formTaskCode = ref('');
+
+/** 由双下拉拼出的完整场景代码（显示 + 提交值） */
+const formSceneCode = computed(() => {
+  const main = (formMainCode.value || '').trim();
+  if (!main) return '';
+  const task = (formTaskCode.value || '').trim();
+  return task ? `${main}:${task}` : main;
+});
+
+/**
+ * 场景名称：以注册表为准（父名称 + 子任务后缀）。
+ * 与后端 validate() 的口径保持一致（后端也按「枚举名称·子任务」覆写 sceneName）。
+ */
+const formSceneName = computed(() => {
+  const meta = registry.value.find((s) => s.code === formMainCode.value);
+  if (!meta) return '';
+  const task = (formTaskCode.value || '').trim();
+  return task ? `${meta.name}·${task}` : meta.name;
+});
 const modelOptions = ref([]);
 const workflowOptions = ref([]);
 
@@ -503,6 +552,9 @@ function resetQuery() {
 
 function handleAdd() {
   form.value = makeDefaultForm();
+  // v13.51 批次 4：双下拉复位（新增时默认为空）
+  formMainCode.value = '';
+  formTaskCode.value = '';
   dialogVisible.value = true;
 }
 
@@ -510,6 +562,12 @@ async function handleEdit(row) {
   try {
     const res = await getScene(row.id);
     const data = res.data || {};
+    // v13.51 批次 4：把既有 sceneCode 拆成「主场景 + 子任务」回填双下拉
+    // （编辑态两个下拉均 disabled，仅用于展示，不改变提交值）
+    const fullCode = (data.sceneCode || '').trim();
+    const ci = fullCode.indexOf(':');
+    formMainCode.value = ci >= 0 ? fullCode.substring(0, ci) : fullCode;
+    formTaskCode.value = ci >= 0 ? fullCode.substring(ci + 1) : '';
     form.value = {
       id: data.id,
       sceneCode: data.sceneCode || '',
@@ -585,11 +643,11 @@ function normalizeJsonObject(value) {
 }
 
 async function submitForm() {
-  // 场景名称以注册表为准（v11.38）
-  const meta = registry.value.find((s) => s.code === form.value.sceneCode);
-  if (meta) form.value.sceneName = meta.name;
+  // v13.51 批次 4：场景代码/名称以「双下拉」为准（后端 validate 会再次校验两段式）
+  form.value.sceneCode = formSceneCode.value;
+  if (formSceneName.value) form.value.sceneName = formSceneName.value;
   if (!form.value.sceneCode || !form.value.sceneCode.trim()) {
-    ElMessage.warning('请输入场景代码');
+    ElMessage.warning('请选择场景代码（主场景必选）');
     return;
   }
   if (!form.value.sceneName || !form.value.sceneName.trim()) {
@@ -732,6 +790,15 @@ async function loadRegistry() {
     // 注册表加载失败不阻塞页面，下拉降级为可手输
     registry.value = [];
   }
+  // v13.51 批次 4：子任务白名单（双下拉第二级）
+  // 失败时降级为空数组 —— 仅影响"可选性"，不影响页面与主流程
+  try {
+    const res2 = await sceneTasks();
+    const payload = res2.data || res2.rows || {};
+    taskOptions.value = Array.isArray(payload.tasks) ? payload.tasks : [];
+  } catch (e) {
+    taskOptions.value = [];
+  }
 }
 
 onMounted(() => {
@@ -764,6 +831,9 @@ onMounted(() => {
   word-break: break-all;
 }
 .registry-card { margin-bottom: 16px; }
+/* v13.51 批次 4：场景代码双下拉 */
+.scene-code-dual { display: flex; align-items: center; gap: 6px; width: 100%; }
+.scene-code-colon { color: #909399; font-weight: 700; }
 .registry-header { display: flex; align-items: center; justify-content: space-between; }
 .registry-tip { font-size: 12px; color: #909399; font-weight: 400; }
 </style>

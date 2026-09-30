@@ -6,6 +6,7 @@ import com.moyun.ext.ai.common.ListResponse;
 import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 import com.moyun.ext.ai.service.AiSceneConfigService;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.impl.AiSceneConfigVersionService;
@@ -69,6 +70,27 @@ public class AiSceneConfigController {
     @PreAuthorize("@ss.hasPermi('cms:ai:scene:list')")
     public AjaxResult registry() {
         return AjaxResult.success(AiSceneEnum.registry());
+    }
+
+    /**
+     * 子任务白名单（v13.51 批次 4）：供管理端「场景代码」**双下拉**的第二级使用。
+     *
+     * <p>背景：{@code scene_code} 支持两段式 {@code main:task}，但管理端原先只有一个
+     * 整串下拉 ⇒ 用户无法组合出 {@code voice_interview:warmup} 这类合法子场景，
+     * 只能靠 SQL 维护（结果就是"管理端看得见、改不了"）。本接口暴露 task 白名单后，
+     * 管理端可用「主场景 + 子任务」两个下拉拼出完整代码。</p>
+     */
+    @Operation(summary = "子任务白名单 + 主场景清单（双下拉数据源）")
+    @GetMapping("/tasks")
+    @PreAuthorize("@ss.hasPermi('cms:ai:scene:list')")
+    public AjaxResult tasks() {
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("tasks", new java.util.ArrayList<>(AiSceneTasks.all()));
+        data.put("scenes", java.util.Arrays.stream(AiSceneEnum.values())
+                .collect(java.util.stream.Collectors.toMap(
+                        AiSceneEnum::getCode, AiSceneEnum::getName,
+                        (a, b) -> a, java.util.LinkedHashMap::new)));
+        return AjaxResult.success(data);
     }
 
     @Operation(summary = "场景配置详情")
@@ -234,15 +256,42 @@ public class AiSceneConfigController {
         if (config.getSceneCode() == null || config.getSceneCode().isBlank()) {
             return "场景代码不能为空";
         }
-        // 场景代码必须在注册表内（AiSceneEnum），防止随意输入导致绑定永不生效
-        AiSceneEnum scene = AiSceneEnum.of(config.getSceneCode());
+        // ====================================================================
+        // v13.51 批次 4：场景代码改「两段式」校验（原为整串精确匹配 —— 有缺陷）
+        // ====================================================================
+        // 原实现用 AiSceneEnum.of(sceneCode) 做整串匹配 ⇒ 合法的子场景
+        // （voice_interview:warmup / resume_optimize:advice 等）反而**存不了**，
+        // 只能靠 SQL 维护；管理端表现为"看得见、改不了"。
+        // 现改为：有 ':' 时拆两段 —— 主场景校验 AiSceneEnum，task 校验 AiSceneTasks 白名单。
+        String sceneCode = config.getSceneCode().trim();
+        config.setSceneCode(sceneCode);
+        String mainCode = sceneCode;
+        int colon = sceneCode.indexOf(':');
+        if (colon >= 0) {
+            mainCode = sceneCode.substring(0, colon);
+            String taskCode = sceneCode.substring(colon + 1);
+            if (mainCode.isBlank() || taskCode.isBlank()) {
+                return "场景代码格式错误: " + sceneCode + "（应为 主场景:子任务）";
+            }
+            if (taskCode.contains(":")) {
+                return "场景代码只支持两段式（主场景:子任务）: " + sceneCode;
+            }
+            if (!AiSceneTasks.isValid(taskCode)) {
+                return "未注册的子任务: " + taskCode + "（合法值: "
+                        + String.join(" / ", AiSceneTasks.all()) + "）";
+            }
+        }
+        AiSceneEnum scene = AiSceneEnum.of(mainCode);
         if (scene == null) {
-            return "未注册的场景代码: " + config.getSceneCode() + "（合法值: "
+            return "未注册的场景代码: " + mainCode + "（合法值: "
                     + String.join(" / ", java.util.Arrays.stream(AiSceneEnum.values())
                             .map(AiSceneEnum::getCode).toArray(String[]::new)) + "）";
         }
-        // 场景名称以注册表为准，避免同场景多个版本名称不一致
-        config.setSceneName(scene.getName());
+        // 场景名称以注册表为准（父名称来自枚举，不脱离注册表）；
+        // 子场景在名称后追加「·子任务」后缀，使配置列表可读
+        config.setSceneName(colon >= 0
+                ? scene.getName() + "·" + sceneCode.substring(colon + 1)
+                : scene.getName());
         if (config.getVersion() == null || config.getVersion().isBlank()) {
             config.setVersion("v1");
         }

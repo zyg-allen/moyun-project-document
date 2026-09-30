@@ -2,6 +2,50 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.56 (2026-09-30) 报告契约集成测试 —— 为后续重构建立安全网（批次 4 四 / 先建网再动刀）
+
+**动因**：批次 1（收编）/批次 2（扩字段）/批次 4（拆分）都在动报告链路，
+但此前**没有任何测试覆盖「报告最终产出长什么样」**。后果是：字段静默丢失
+（如 V1.3 发现的 `system_prompt_template` 废弃列问题）时，**编译与既有测试都不会报错**。
+
+> **决策留痕**：批次 4（四）第③步（编排主流程拆分）**风险最高**，我建议**暂缓**，
+> 先按"先建安全网再动刀"的方式补本测试 —— 否则是裸奔重构。
+
+### 1) 为什么能隔离测试（关键发现）
+
+`aggregateAndStoreReport`（187 行的报告聚合核心）**只依赖 4 个实例成员**：
+`interviewMapper` / `qaMapper` / `scoringEngine` / `objectMapper`；
+其余增强链（LLM 复盘、错题本、场景工作流）**全部自带 try-catch 降级**。
+⇒ 纯 mock 环境即可驱动**确定性的规则兜底路径**，不碰 LLM / DB / Redis。
+
+### 2) 新增 `InterviewReportContractTest`（5 例）
+
+| 用例 | 钉死的契约 |
+|---|---|
+| `ruleBasedReportHasRequiredFields` | 顶层必需字段（interviewId/totalScore/questionReviews/dimensions/summary/improvementSuggestions）+ 逐题字段（questionIdx/question/**qaId**/userAnswer）——**qaId 缺失会让「加入错题本」按钮失效** |
+| `dimensionsKeysAlignWithFrontend` | 六维 key **必须与前端 `DIMENSION_META` 一致**（`relevance/professionalism/fluency/interactivity/confidence/logic`）—— 历史缺陷正是旧 key（`coverage/length/structure`）导致雷达图断链 |
+| `deepReviewAggregatesFromQaAnalysis` | 心态趋势/可疑信号/流畅度均分从逐题 `llm_analysis_json` 汇总（前端 deep-review 依赖）；含数值断言 `(60+70+80)/3 = 70` |
+| `aggregateIsIdempotentWhenAlreadyDone` | `analysisStatus=2` 时**直接返回**：不重算、不覆盖已有报告（并发触发保护） |
+| `degradesGracefullyWhenLlmUnavailable` | LLM 复盘不可用（依赖全 null）时**仍产出完整规则报告**（链路永不失败） |
+
+### 3) 覆盖到的真实结构性缺陷（测试价值实证）
+
+写测试过程中被测试自己抓出**我对链路的三处误判**：
+1. 忘记 `totalQa` → `buildSummary` **NPE**（证明该字段是硬依赖，不能为 null）
+2. 忘记 `rule_dimensions_json` → `dimensions` **为空**（暴露"六维聚合的唯一来源是逐题规则维度 JSON"这一事实）
+3. 幂等用例的探测对象构造错误 → 暴露"守卫读的是自己 `selectById` 拿到的 fresh，与传入入参**不是同一对象**"这一实现细节
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `mvn -o test` | ✅ **458 例全绿**（本次 +5） |
+
+> **后续**：有了本安全网，批次 4（四）第③步（编排主流程拆分）才具备可控前提。
+> 另：**真实 3 场冒烟的等价性验证**仍需环境配合（本测试覆盖的是**结构契约**，
+> 不能替代真实链路观测 `ai_execute_log`）。
+
+
 ## v13.55 (2026-09-30) 批次 4（四）Service 拆分 第②步：抽报告纯格式化 → `InterviewReportFormatter`
 
 **接续第①步**（`InterviewTextUtils`）。本步继续只抽**不读实例字段**的方法，

@@ -278,7 +278,68 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private static final String SCENE_VOICE_INTERVIEW = com.moyun.ext.ai.enums.AiSceneEnum.VOICE_INTERVIEW.getCode();
 
     /** SSE 超时时间（毫秒） */
-    private static final long SSE_TIMEOUT = 120_000L;
+    /**
+     * SSE 单轮超时（毫秒）。
+     *
+     * <p><b>v13.43 口径统一（批次 0 / T2.2）</b>：原值 {@code 120_000}（2 分钟）**小于**
+     * {@code ai_model_config.timeout} 的种子值 {@code 180}s ⇒ 模型还在推理，SSE 已超时断开，
+     * 用户看到超时而服务端继续烧 token。
+     * 现取 <b>210s = 模型 180s + 30s 缓冲</b>，保证「SSE 超时」一定是模型真超时后的兜底，
+     * 而不是抢先掐断正常调用。</p>
+     *
+     * <p>⚠️ 若调整 {@code ai_model_config.timeout}，本值须同步：<b>SSE ≥ 模型超时 + 缓冲</b>。</p>
+     */
+    private static final long SSE_TIMEOUT = 210_000L;
+
+    /** 每题提示上限（与 §原实现一致） */
+    private static final int MAX_HINT_PER_QUESTION = 3;
+
+    /**
+     * 全场提示上限（v13.43 批次 0 / T2.6）。
+     *
+     * <p>原实现只有每题上限（3），10 题即 30 次仍可刷；<b>提示免费</b>（D3 裁决），
+     * 故必须设全场上限把最坏成本钉死：15 次 × 128 token ≈ 2K token/场。</p>
+     */
+    private static final int MAX_HINT_PER_INTERVIEW = 15;
+
+    /** 全场提示计数器键（Redis INCR，跨实例原子） */
+    private String hintCounterKey(Long interviewId) {
+        return "voice:hint-count:" + interviewId;
+    }
+
+    /**
+     * 全场提示计数 +1（Redis INCR，原子且跨实例安全）。
+     *
+     * <p>Redis 不可用时降级为按事件表计数（略慢但正确）——提示是低频操作，可接受。</p>
+     *
+     * @return 自增后的序号（从 1 开始）
+     */
+    private long incrementHintCounter(Long interviewId) {
+        try {
+            Long v = stringRedisTemplate.opsForValue().increment(hintCounterKey(interviewId));
+            if (v != null) {
+                // 首次自增时设 TTL（与面试会话同生命周期，24h 足够覆盖一场面试）
+                if (v == 1L) {
+                    stringRedisTemplate.expire(hintCounterKey(interviewId), java.time.Duration.ofHours(24));
+                }
+                return v;
+            }
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 提示计数 Redis 不可用，降级按事件表计数 interviewId={}：{}",
+                    interviewId, e.getMessage());
+        }
+        Long used = eventMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalVoiceInterviewEvent>()
+                        .eq(com.moyun.portal.domain.entity.PortalVoiceInterviewEvent::getInterviewId, interviewId)
+                        .eq(com.moyun.portal.domain.entity.PortalVoiceInterviewEvent::getEventType, "hint"));
+        return (used == null ? 0L : used) + 1L;
+    }
+
+    /** 幂等锁 TTL：覆盖一次 SSE 轮次的正常时长（含 LLM 流式 + 落库 + 建下题） */
+    private static final java.time.Duration QA_TURN_LOCK_TTL = java.time.Duration.ofMinutes(5);
+
+    /** 单场分析互斥锁 TTL（含规则聚合 + 报告 LLM，失败释放） */
+    private static final java.time.Duration ANALYSIS_LOCK_TTL = java.time.Duration.ofMinutes(10);
 
     @Autowired private PortalVoiceInterviewMapper interviewMapper;
     @Autowired private PortalVoiceInterviewQAMapper qaMapper;
@@ -311,6 +372,33 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private com.moyun.system.service.ISysConfigService sysConfigService;
 
     /**
+     * 分布式锁（v13.43 批次 0）。
+     *
+     * <p>用途有二：</p>
+     * <ol>
+     *   <li><b>答题幂等（T2.1）</b>：同一 {@code qaId} 重复提交（双标签页 / 网络重试 / 用户连点）
+     *       只允许一次进入轮次 —— 否则会「后写覆盖前写」+「双倍 token」+「同一 questionIdx 插两条 QA」；</li>
+     *   <li><b>单场分析互斥（T2.7）</b>：替换原 JVM 内 {@code RUNNING_ANALYSIS} 静态内存集合，
+     *       使多实例部署下同一场面试不被重复分析（重复烧 token + 报告互相覆盖）。</li>
+     * </ol>
+     */
+    @Autowired private com.moyun.core.redis.DistributedLockUtil lockUtil;
+
+    /** 提示全场配额计数（INCR 原子；不可用时降级按事件表计数） */
+    @Autowired(required = false)
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
+    /** 答题幂等锁键（同一 qaId 的并发/重复提交互斥） */
+    private String qaTurnLockKey(Long qaId) {
+        return "voice:qa-turn:" + qaId;
+    }
+
+    /** 单场分析互斥锁键 */
+    private String analysisLockKey(Long interviewId) {
+        return "voice:analysis:" + interviewId;
+    }
+
+    /**
      * 事务模板：把事务边界**收窄到只剩 DB/Redis 写**（v13.14「事务内远程 IO」整改）。
      *
      * <p>{@code start()} 原为整方法 {@code @Transactional}，其中包含 RAG 检索与 LLM 预热/开场白生成；
@@ -332,7 +420,28 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private Executor sseExecutor;
 
     /** 批量分析运行中标记（断链自愈：analysis 卡 1 且无运行任务时轮询接口重触发） */
-    private static final java.util.Set<Long> RUNNING_ANALYSIS = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /**
+     * 单场分析「运行中」标记（<b>内存镜像</b>）。
+     *
+     * <p><b>v13.43 批次 0 / T2.7</b>：原实现只有这一个 JVM 内静态集合，
+     * <b>在单体单实例下正确，但多实例部署时每个实例各持一份</b> ⇒ 同一场面试会被
+     * 两个实例同时分析（重复烧 token + 报告互相覆盖；且 {@code user_id NOT NULL} 之外
+     * 没有任何跨实例互斥）。</p>
+     *
+     * <p>现改为「<b>分布式锁为准 + 本 Map 作查询镜像</b>」：</p>
+     * <ul>
+     *   <li>互斥判定用 {@link com.moyun.core.redis.DistributedLockUtil#tryLock}（跨实例、带 TTL）；</li>
+     *   <li>本 Map 仅记录「本实例当前持有的锁句柄」，供
+     *       {@code regenerateReport} 等只读判断使用（避免为此再打一次 Redis）。</li>
+     * </ul>
+     */
+    private static final java.util.Map<Long, com.moyun.core.redis.DistributedLockUtil.Lock>
+            RUNNING_ANALYSIS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** 该场面试当前是否有分析在跑（本实例视角；跨实例由分布式锁保证） */
+    private boolean isAnalysisRunning(Long interviewId) {
+        return RUNNING_ANALYSIS.containsKey(interviewId);
+    }
 
     // ========================================================================
     // 开始面试
@@ -698,6 +807,32 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             throw new ServiceException("答案不能为空");
         }
 
+        // ====================================================================
+        // v13.43 批次 0 / T2.1：答题幂等 + 状态机守卫
+        // ====================================================================
+        // 原实现的唯一守卫是上面的 status=finished 判断，且「读后不锁」——
+        // 双标签页 / 连点 / 网络重试会同时通过校验，后果：
+        //   ① 两次都写 userAnswer（后写覆盖前写，一段作答丢失）
+        //   ② 两次都提交 sseExecutor（双倍 token）
+        //   ③ 两边各自 insert(nextQa) 且 questionIdx 相同（同一 idx 插两条 QA，无唯一约束）
+        // 现用分布式锁（非阻塞）保证同一 qaId 只放行一次；抢不到锁说明已有同题请求在飞。
+        com.moyun.core.redis.DistributedLockUtil.Lock turnLock =
+                lockUtil.tryLock(qaTurnLockKey(qaId), QA_TURN_LOCK_TTL);
+        if (turnLock == null) {
+            recordEvent(interviewId, "answer_dup_rejected", Map.of("qaId", qaId));
+            log.warn("[VoiceInterview] 重复答题请求已拒绝（同 qaId 正在处理）interviewId={} qaId={}",
+                    interviewId, qaId);
+            throw new ServiceException("该题正在处理中，请勿重复提交");
+        }
+        // 状态机守卫：已作答的题不允许再次进入轮次（防止跨轮次重复消费同一 QA）
+        if (!isSkip && StringUtils.isNotEmpty(qa.getUserAnswer())) {
+            turnLock.close();
+            recordEvent(interviewId, "answer_dup_rejected", Map.of("qaId", qaId, "reason", "already_answered"));
+            throw new ServiceException("该题已作答，请回答当前题目");
+        }
+        // 轮次正常/异常结束后由 runAgentTurn 释放锁：轮次 = 「提交答案 → LLM 流式 → 建下一题」，
+        // 锁覆盖整个过程；结束后再次提交同 qaId 由上面的「已作答」守卫兜底拦截。
+
         // 原始回答提交即落库（铁律：先存原始，任何后续失败对话不丢；跳过题保持 userAnswer 为空）
         if (!isSkip) {
             qa.setUserAnswer(transcript);
@@ -735,6 +870,22 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+        // ====================================================================
+        // v13.43 批次 0 / T2.3：客户端断连标记（断连后停止消费 LLM 输出）
+        // ====================================================================
+        // 原实现只有 onTimeout/onError，且**只打日志**（不 complete、不清状态），
+        // 全仓也没有 onCompletion —— 客户端关页面/断网后，上游 langchain4j 流式订阅
+        // 不被取消，onCompleteResponse 照常执行：继续耗 token、继续 tokenCostGuard.consume、
+        // 继续写滑窗与执行日志（纯浪费，且报告侧仍会认为该题有效）。
+        // 现注册 onCompletion 置取消标记；runAgentTurn 的 onToken 检测到标记后停止下发，
+        // 并跳过后续「建下一题」的落库（避免为已离开的用户造题）。
+        final java.util.concurrent.atomic.AtomicBoolean clientGone =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        emitter.onCompletion(() -> {
+            clientGone.set(true);
+            log.info("[VoiceInterview] SSE 已结束（客户端断开或正常完成）interviewId={} qaId={}",
+                    interviewId, qaId);
+        });
         emitter.onTimeout(() -> log.warn(
                 "[VoiceInterview] SSE 请求超时（{}ms）interviewId={} qaId={}", SSE_TIMEOUT, interviewId, qaId));
         emitter.onError(t -> log.warn(
@@ -744,12 +895,15 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // v13.5：长任务池满即拒绝（AbortPolicy），此处必须显式回错——
         // 否则前端会一直等一个永远不会到来的首字（旧实现是静默排队，症状相同）
         try {
-            sseExecutor.execute(() -> runAgentTurn(emitter, interview, qa, isSkip ? "" : transcript, isSkip));
+            sseExecutor.execute(() -> runAgentTurn(emitter, interview, qa,
+                    isSkip ? "" : transcript, isSkip, turnLock, clientGone));
         } catch (RejectedExecutionException ree) {
             log.warn("[VoiceInterview] 面试回合被拒绝（SSE 线程池已满）interviewId={} qaId={}：{}",
                     interviewId, qaId, ree.getMessage());
             sendEvent(emitter, "error", "当前面试请求过多，请稍后重试");
             emitter.complete();
+            // 入队失败必须释放幂等锁，否则该题在 TTL 内无法重试
+            turnLock.close();
         }
         return emitter;
     }
@@ -760,7 +914,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      * SSE 事件协议（delta/end/error）与载荷在本层组装，前端零改动。
      */
     private void runAgentTurn(SseEmitter emitter, PortalVoiceInterview interview,
-                              PortalVoiceInterviewQA qa, String transcript, boolean skip) {
+                              PortalVoiceInterviewQA qa, String transcript, boolean skip,
+                              com.moyun.core.redis.DistributedLockUtil.Lock turnLock,
+                              java.util.concurrent.atomic.AtomicBoolean clientGone) {
         try {
             Agent agent = agentClient.resolveAgent(interview.getAgentId());
             if (agent == null || !agentClient.isEnabled()) {
@@ -787,6 +943,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                         if (token == null || token.isEmpty()) {
                             return;
                         }
+                        // v13.43 批次 0 / T2.3：客户端已断开则不再下发（省一次序列化与写失败日志）
+                        if (clientGone.get()) {
+                            return;
+                        }
                         Map<String, Object> delta = new LinkedHashMap<>();
                         delta.put("t", token);
                         sendEvent(emitter, "delta", toJson(delta));
@@ -794,9 +954,55 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     // onComplete：话术已由网关入滑窗 → 落库 → 创建下一题 → end（nextQaId/finished）
                     full -> {
                         String speak = full == null ? "" : full.trim();
+                        // v13.43 批次 0 / T2.3：客户端已断开 → 不再为已离开的用户造下一题
+                        // （本轮话术与 token 由网关照常记账，此处仅避免污染题目序列）
+                        if (clientGone.get()) {
+                            log.info("[VoiceInterview] 客户端已断开，跳过建下一题 interviewId={} qaId={}",
+                                    interview.getId(), qa.getId());
+                            recordEvent(interview.getId(), "turn_aborted",
+                                    Map.of("qaId", qa.getId(), "reason", "client_gone"));
+                            return;
+                        }
                         try {
-                            qa.setSpeakText(speak);
-                            qaMapper.updateById(qa);
+                            // ============================================================
+                            // v13.43 批次 0 / T2.4：本轮「更新话术 + 预建下一题」原子化
+                            // ============================================================
+                            // 原实现两条写各自自动提交：若「更新话术」成功而「插下一题」失败，
+                            // 会话停在一个已播报但无下一题 QA 的状态（用户无题可答，只能刷新）。
+                            // 现收进事务模板（与 start() 同范式：只包 DB 写，不含 LLM/SSE）。
+                            //
+                            // 幂等兜底（T2.1）：同一 questionIdx 已有「主问题」时不再重复插入，
+                            // 防止极端情况下（锁 TTL 到期后重放）出现同 idx 双主问。
+                            final PortalVoiceInterviewQA[] created = new PortalVoiceInterviewQA[1];
+                            transactionTemplate.executeWithoutResult(status -> {
+                                qa.setSpeakText(speak);
+                                qaMapper.updateById(qa);
+
+                                int nextIdx = (qa.getQuestionIdx() == null ? 0 : qa.getQuestionIdx()) + 1;
+                                Long dupCount = qaMapper.selectCount(
+                                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalVoiceInterviewQA>()
+                                                .eq(PortalVoiceInterviewQA::getInterviewId, interview.getId())
+                                                .eq(PortalVoiceInterviewQA::getQuestionIdx, nextIdx)
+                                                .isNull(PortalVoiceInterviewQA::getParentQaId));
+                                if (dupCount != null && dupCount > 0) {
+                                    log.warn("[VoiceInterview] 第 {} 题已存在，跳过重复创建 interviewId={}",
+                                            nextIdx, interview.getId());
+                                    recordEvent(interview.getId(), "next_dup_skipped",
+                                            Map.of("qaId", qa.getId(), "nextIdx", nextIdx));
+                                    return;
+                                }
+                                PortalVoiceInterviewQA nextQa = new PortalVoiceInterviewQA();
+                                nextQa.setInterviewId(interview.getId());
+                                nextQa.setQuestionSource("agent");
+                                nextQa.setQuestionIdx(nextIdx);
+                                nextQa.setQuestion(speak);
+                                nextQa.setSpeakText(speak);
+                                nextQa.setHintUsed(0);
+                                nextQa.setTranscriptionEdited(0);
+                                nextQa.setCreateTime(LocalDateTime.now());
+                                qaMapper.insert(nextQa);
+                                created[0] = nextQa;
+                            });
 
                             // end 载荷：轮次进度 + 下一题
                             // 时长制：题数仅作软参考，问满不再收尾——
@@ -804,21 +1010,28 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             Map<String, Object> payload = new LinkedHashMap<>();
                             int done = countAnsweredRounds(interview.getId());
                             payload.put("roundDone", done);
-                            // 预创建下一题 QA（question=面试官话术全文，报告回放与作答锚点）
-                            PortalVoiceInterviewQA nextQa = new PortalVoiceInterviewQA();
-                            nextQa.setInterviewId(interview.getId());
-                            nextQa.setQuestionSource("agent");
-                            nextQa.setQuestionIdx((qa.getQuestionIdx() == null ? 0 : qa.getQuestionIdx()) + 1);
-                            nextQa.setQuestion(speak);
-                            nextQa.setSpeakText(speak);
-                            nextQa.setHintUsed(0);
-                            nextQa.setTranscriptionEdited(0);
-                            nextQa.setCreateTime(LocalDateTime.now());
-                            qaMapper.insert(nextQa);
-                            payload.put("nextQaId", nextQa.getId());
-                            payload.put("nextQuestion", speak);
-                            recordEvent(interview.getId(), "next", Map.of(
-                                    "qaId", qa.getId(), "nextQaId", nextQa.getId()));
+                            PortalVoiceInterviewQA nextQa = created[0];
+                            if (nextQa != null) {
+                                payload.put("nextQaId", nextQa.getId());
+                                payload.put("nextQuestion", speak);
+                                recordEvent(interview.getId(), "next", Map.of(
+                                        "qaId", qa.getId(), "nextQaId", nextQa.getId()));
+                            }
+                            // ====================================================
+                            // v13.43 批次 0 / T2.5：自我介绍评分接线
+                            // ====================================================
+                            // 背景：`ScoringEngine.evaluateSelfIntro` 与 `intro_score_json` 列
+                            // 早已存在，但**全仓无调用方** ⇒ 该列恒 NULL ⇒ 报告自介分恒空、
+                            // `fuseTotalScore` 从未纳入自介分（V4 段序把第 1 问固定为自我介绍，
+                            // 评分侧却从未接上）。此处接上：
+                            //   · 仅第 1 题（questionIdx=0）触发一次；
+                            //   · 异步执行（LLM 秒级往返，不阻塞本轮 SSE 收尾）；
+                            //   · 幂等：已有 intro_score_json 或抢不到锁则跳过。
+                            final int answeredIdx = qa.getQuestionIdx() == null ? 0 : qa.getQuestionIdx();
+                            if (answeredIdx == 0 && !skip) {
+                                maybeScoreSelfIntro(interview.getId(), qa.getUserAnswer());
+                            }
+
                             sendEvent(emitter, "end", toJson(payload));
                             emitter.complete();
                         } catch (Exception e) {
@@ -837,6 +1050,81 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             log.error("[VoiceInterview] SSE 处理异常 interviewId={} qaId={}", interview.getId(), qa.getId(), e);
             sendEvent(emitter, "error", e.getMessage());
             emitter.complete();
+        } finally {
+            // v13.43 批次 0 / T2.1：轮次结束（成功或异常）释放幂等锁。
+            // 释放后同 qaId 再提交会被「该题已作答」状态机守卫拦截；
+            // 若本轮失败且未落 userAnswer，则允许用户重试（锁已释放，语义正确）。
+            if (turnLock != null) {
+                turnLock.close();
+            }
+        }
+    }
+
+    /**
+     * v13.43 批次 0 / T2.5：自我介绍评分（异步 + 幂等 + 降级）。
+     *
+     * <p><b>为什么必须接线</b>：{@code ScoringEngine.evaluateSelfIntro} 与
+     * {@code portal_voice_interview.intro_score_json} 早已实现，但全仓无调用方 ——
+     * 该列恒 NULL ⇒ {@code fuseTotalScore} 从未纳入自介分、报告 {@code introScore} 恒空。
+     * 而 V4 段序已把第 1 问固定为自我介绍，等于「问了却不评」。</p>
+     *
+     * <p><b>幂等</b>：① 已有 {@code intro_score_json} 直接返回；② 分布式锁
+     * {@code voice:intro:{id}} 保证同一场只算一次（跨实例）。</p>
+     *
+     * <p><b>降级</b>：{@code evaluateSelfIntro} 内部已是「LLM → 规则评分」两级兜底；
+     * 任何异常只记日志，<b>绝不影响主链路</b>（本轮 SSE 已收尾）。</p>
+     *
+     * @param interviewId 会话 ID
+     * @param transcript  自我介绍原文
+     */
+    private void maybeScoreSelfIntro(Long interviewId, String transcript) {
+        if (StringUtils.isEmpty(transcript)) {
+            return;
+        }
+        try {
+            aiTaskExecutor.execute(() -> {
+                com.moyun.core.redis.DistributedLockUtil.Lock lock = null;
+                try {
+                    PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
+                    if (fresh == null || StringUtils.isNotEmpty(fresh.getIntroScoreJson())) {
+                        return; // 幂等 ①：已算过
+                    }
+                    lock = lockUtil.tryLock("voice:intro:" + interviewId,
+                            java.time.Duration.ofMinutes(3));
+                    if (lock == null) {
+                        return; // 幂等 ②：已在其它实例/线程计算中
+                    }
+                    // 双检：抢锁期间可能已被写入
+                    PortalVoiceInterview recheck = interviewMapper.selectById(interviewId);
+                    if (recheck == null || StringUtils.isNotEmpty(recheck.getIntroScoreJson())) {
+                        return;
+                    }
+                    PortalInterviewConfig cfg = loadInterviewConfigQuietly();
+                    ScoringEngine.IntroScore intro = scoringEngine.evaluateSelfIntro(
+                            recheck.getPosition(), transcript,
+                            cfg == null ? null : cfg.getScoringWeights(), recheck.getUserId());
+                    if (intro == null) {
+                        return;
+                    }
+                    PortalVoiceInterview upd = new PortalVoiceInterview();
+                    upd.setId(interviewId);
+                    upd.setIntroScoreJson(objectMapper.writeValueAsString(intro));
+                    interviewMapper.updateById(upd);
+                    recordEvent(interviewId, "self_intro_scored",
+                            Map.of("total", intro.getTotal() == null ? 0 : intro.getTotal()));
+                    log.info("[VoiceInterview] 自我介绍评分已接线并落库 interviewId={} total={}",
+                            interviewId, intro.getTotal());
+                } catch (Exception e) {
+                    log.warn("[VoiceInterview] 自我介绍评分失败（不影响主链路）interviewId={}：{}",
+                            interviewId, e.getMessage());
+                } finally {
+                    if (lock != null) {
+                        lock.close();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 自我介绍评分任务提交失败 interviewId={}：{}", interviewId, e.getMessage());
         }
     }
 
@@ -992,16 +1280,42 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             throw new ServiceException("问答记录不存在");
         }
 
-        // 1. 原子占额度：并发安全（仅当已用 < 3 才 +1），返回 0 行即"已用完"
+        // ====================================================================
+        // v13.43 批次 0 / T2.6：提示（hint）额度口径
+        // ====================================================================
+        // 【计费口径（用户裁决 D3）】提示**免费**，不计 Token 费用：
+        //   定位是「引导思考」的辅助功能，单次输出上限 128 token，成本可控；
+        //   收费会显著降低使用意愿，与「面试训练」的产品目的相悖。
+        // 【限流口径】两级配额，防止被当作免费 LLM 代理刷：
+        //   ① 每题 ≤ 3 次（原已实现，原子 SQL，并发安全）；
+        //   ② **全场 ≤ 15 次**（v13.43 新增）—— 原实现只有每题上限，
+        //      10 题×3 = 30 次仍可刷；全场上限把最坏情况钉死。
+        //   两级都用「先原子占额、再执行」的顺序，避免并发绕过。
+
+        // 2.1 每题配额：**先占**（原子 SQL，并发安全，仅当已用 < 3 才 +1；返回 0 行即"已用完"）
+        //     顺序说明：每题配额是「更具体、更早失败」的约束，必须先判——
+        //     否则超额的失败请求会白白吃掉全场配额（原实现顺序反了，已修）。
         int reserved = qaMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalVoiceInterviewQA>()
                 .eq(PortalVoiceInterviewQA::getId, qaId)
-                .apply("COALESCE(hint_used, 0) < 3")
+                .apply("COALESCE(hint_used, 0) < " + MAX_HINT_PER_QUESTION)
                 .setSql("hint_used = COALESCE(hint_used, 0) + 1"));
         if (reserved == 0) {
-            throw new ServiceException("提示次数已用完");
+            throw new ServiceException("本题提示次数已用完（上限 " + MAX_HINT_PER_QUESTION + " 次）");
         }
+
+        // 2.2 全场配额：每题额度占成功后，再用 Redis INCR 原子占全场额度（跨实例安全）
+        long hintSeq = incrementHintCounter(interviewId);
+        if (hintSeq > MAX_HINT_PER_INTERVIEW) {
+            // 全场已满：回滚刚占的每题额度，保持两级计数一致（避免"本题显示已用但实际未给提示"）
+            qaMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalVoiceInterviewQA>()
+                    .eq(PortalVoiceInterviewQA::getId, qaId)
+                    .setSql("hint_used = GREATEST(COALESCE(hint_used, 1) - 1, 0)"));
+            throw new ServiceException("本场提示次数已用完（上限 " + MAX_HINT_PER_INTERVIEW + " 次）");
+        }
+
         qa = qaMapper.selectById(qaId);
         int nextUsed = (qa != null && qa.getHintUsed() != null) ? qa.getHintUsed() : 1;
+        recordEvent(interviewId, "hint", Map.of("qaId", qaId, "seq", hintSeq));
 
         // 2. agent 滑窗提示：基于完整对话上下文给一句思考引导（不泄露答案）
         //    —— 事务外执行（这是本方法唯一的远程 IO）
@@ -1130,9 +1444,28 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** V2：批量分析主流程——逐题补 LLM 深度分析（带进度）→ 聚合报告落库 */
     private void runBatchAnalysis(PortalVoiceInterview interview) {
         Long interviewId = interview.getId();
-        // 运行中标记防重入（自愈重触发与正常运行并发时只跑一个）
-        if (!RUNNING_ANALYSIS.add(interviewId)) {
+        // ====================================================================
+        // v13.43 批次 0 / T2.7：单场分析互斥改为分布式锁（多实例安全）
+        // ====================================================================
+        // 互斥语义：同一场面试的分析（规则聚合 + 报告 LLM，可达分钟级）全局只跑一次。
+        // 抢不到锁有三种可能，需区分：① 本实例已有分析在跑；② 其它实例在跑；③ Redis 不可用降级。
+        com.moyun.core.redis.DistributedLockUtil.Lock analysisLock =
+                lockUtil.tryLock(analysisLockKey(interviewId), ANALYSIS_LOCK_TTL);
+        if (analysisLock == null) {
+            // 未拿到锁：本实例已有分析在跑 ⇒ 确定是重复触发，直接跳过。
+            if (isAnalysisRunning(interviewId)) {
+                log.info("[VoiceInterview] 该场分析已在运行（本实例），跳过重复触发 interviewId={}", interviewId);
+                recordEvent(interviewId, "analysis_dup_skipped", Map.of("scope", "local"));
+                return;
+            }
+            // 本实例没在跑却拿不到锁：要么其它实例在跑（正常协作），要么 Redis 不可用导致
+            // DistributedLockUtil 降级为「无效锁」——后者语义上会返回锁而非 null，故此处
+            // 按「其它实例在跑」处理并记录事件，便于多实例排障。
+            log.info("[VoiceInterview] 该场分析已由其它实例执行，跳过 interviewId={}", interviewId);
+            recordEvent(interviewId, "analysis_dup_skipped", Map.of("scope", "remote"));
             return;
+        } else {
+            RUNNING_ANALYSIS.put(interviewId, analysisLock);
         }
         try {
         List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
@@ -1192,7 +1525,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 聚合报告（规则分与草稿分融合）+ 错题本 + 场景工作流
         aggregateAndStoreReport(interview);
         } finally {
+            // v13.43 批次 0 / T2.7：释放分布式锁并清理镜像（顺序：先镜像后锁，
+            // 保证查询方法不会看到「锁已释放但仍显示运行中」的窗口）
             RUNNING_ANALYSIS.remove(interviewId);
+            if (analysisLock != null) {
+                analysisLock.close();
+            }
         }
     }
 
@@ -1482,7 +1820,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 保证前端轮询永远能等到 analysisStatus=2（历史页进度轮询的数据一致性兜底）
         if ("finished".equals(interview.getStatus())
                 && Integer.valueOf(1).equals(interview.getAnalysisStatus())
-                && !RUNNING_ANALYSIS.contains(interviewId)) {
+                && !isAnalysisRunning(interviewId)) {
             log.warn("[VoiceInterview] 检测到中断的分析任务，自愈重触发 interviewId={}", interviewId);
             triggerBatchAnalysis(interviewId);
         }
@@ -1501,7 +1839,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         if (!"finished".equals(interview.getStatus())) {
             throw new ServiceException("面试尚未结束，无法生成报告");
         }
-        if (RUNNING_ANALYSIS.contains(interviewId)) {
+        if (isAnalysisRunning(interviewId)) {
             throw new ServiceException("报告正在生成中，请稍候");
         }
         // 1. 主表重置（report/summary 必须清空，否则聚合幂等分支直接 return）

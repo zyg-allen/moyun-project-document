@@ -2,6 +2,93 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.44 (2026-09-30) 批次 0「修地基」：面试链并发保护 / 超时统一 / 断连中止 / 事务 / 自介接线 / hint 配额 / 多实例
+
+**背景**：方案 V1.2 §8 新增的**批次 0**。依据《全端-评审-报告七再评审-20260930》的 **R1~R6 六项运行期隐患** ——
+V1.2 是「加功能 + 收口入口」，但它跑在一条**无并发保护、无事务、断连不收 token** 的链路上，
+故**先修漏斗再加楼层**。全部改动集中在 `VoiceInterviewServiceImpl`（单文件）。
+
+### T2.1 答题并发保护（R1 —— 唯一会损坏数据的问题）
+
+**原缺陷**：`submitAnswer` 唯一守卫是 `status=finished` 判断且**读后不锁**，双标签页/连点/重试会同时通过校验 ⇒
+① 两次都写 `userAnswer`（**后写覆盖前写**）；② 两次都提交线程（**双倍 token**）；
+③ 两边各自 `insert(nextQa)` 且 `questionIdx` 相同（**同一 idx 插两条 QA**，无唯一约束）。
+
+**修法**（两级）：
+- **入口幂等**：`DistributedLockUtil.tryLock("voice:qa-turn:{qaId}")`（非阻塞，TTL 5 分钟），
+  抢不到即抛「该题正在处理中，请勿重复提交」并记 `answer_dup_rejected` 事件；轮次结束（成功/异常）在 `finally` 释放；
+- **状态机守卫**：`userAnswer` 非空即拒绝重复消费同一 QA（抛「该题已作答，请回答当前题目」）；
+- **落库判重**：建下一题前查「同 `interviewId` + 同 `questionIdx` + `parentQaId IS NULL`」是否已存在，
+  存在则跳过并记 `next_dup_skipped`（锁 TTL 到期后重放的兜底）。
+
+### T2.2 超时口径统一（R3）
+
+`SSE_TIMEOUT` **120s → 210s**。原值**小于** `ai_model_config.timeout` 种子值 180s ⇒
+模型还在推理、SSE 已超时断开（用户看到超时，服务端继续烧 token）。
+现取 **210s = 模型 180s + 30s 缓冲**，保证 SSE 超时一定是模型真超时后的兜底；并在注释写明**联动关系**。
+
+### T2.3 断连中止 LLM（R4）
+
+**原缺陷**：只有 `onTimeout`/`onError` 且**只打日志**，全仓**无 `onCompletion`** ⇒
+客户端关页面后上游流式订阅不被取消，`onCompleteResponse` 照常执行：
+**继续耗 token、继续 `tokenCostGuard.consume`、继续写滑窗与执行日志**。
+
+**修法**：注册 `onCompletion` 置 `AtomicBoolean clientGone`；`onToken` 检测到标记即停止下发；
+`onComplete` 检测到标记则**跳建下一题**（不为已离开的用户造题）并记 `turn_aborted`。
+
+### T2.4 事务边界（R2）
+
+本轮「更新话术 + 预建下一题」收进 `transactionTemplate.executeWithoutResult`
+（与 `start()` 同范式：**只包 DB 写，不含 LLM/SSE**）。
+原实现两条写各自自动提交 ⇒ 若「更新话术」成功而「插下一题」失败，
+会话停在「已播报但无下一题 QA」的状态（用户无题可答，只能刷新）。
+
+### T2.5 自我介绍评分接线（R1 之外的**功能缺失**）
+
+**这是报告七判错、V1.2 §0.1 修正的那条**：`ScoringEngine.evaluateSelfIntro` 与
+`portal_voice_interview.intro_score_json` 早已实现，但**全仓无调用方** ⇒ 该列恒 NULL ⇒
+`fuseTotalScore` 从未纳入自介分、报告 `introScore` 恒空（而 V4 段序已把第 1 问固定为自我介绍，等于「问了却不评」）。
+
+**修法（D1 裁决：接线启用）**：新增 `maybeScoreSelfIntro`，在第 1 题（`questionIdx=0`）作答后
+**异步**评估（LLM 秒级不阻塞 SSE 收尾）；**幂等** = 已有 `intro_score_json` 直接返回 +
+分布式锁 `voice:intro:{id}`（跨实例）；**降级** = 评分器内部已是「LLM→规则」两级，异常只记日志不影响主链路。
+落库后记 `self_intro_scored` 事件。
+
+### T2.6 hint 计费口径 + 两级配额（D3 裁决：免费）
+
+- **计费**：提示**免费**（定位是「引导思考」辅助功能，单次输出 ≤128 token，成本可控；收费会抑制使用）；
+- **限流两级**：① 每题 ≤3（原已实现，原子 SQL）；② **全场 ≤15**（新增，Redis `INCR` 原子 + 跨实例，
+  不可用时降级按事件表计数）—— 原实现只有每题上限，10 题×3=30 次仍可刷；
+- **顺序修正**：**先判每题配额、再占全场配额**（原写法反了会「失败的请求白吃全场额度」），
+  且全场超额时**回滚刚占的每题额度**，保持两级计数一致。
+
+### T2.7 多实例守卫（R5 之外的**横向扩展硬阻塞**）
+
+**原缺陷**：`RUNNING_ANALYSIS` 是 JVM 内 `ConcurrentHashMap.newKeySet()` 静态集合 ——
+单体单实例正确，但**多实例部署时每个实例各持一份** ⇒ 同一场面试被重复分析
+（重复烧 token + 报告互相覆盖）。
+
+**修法**：改为「**分布式锁为准 + 内存 Map 作查询镜像**」：
+互斥判定用 `DistributedLockUtil.tryLock("voice:analysis:{id}", 10min)`（跨实例、带 TTL）；
+Map 仅记录本实例持有的锁句柄，供 `regenerateReport` 等只读判断使用（避免为此再打 Redis）。
+新增 `isAnalysisRunning(id)` 封装替换原 `contains`；跳过时记 `analysis_dup_skipped` 并区分 `local`/`remote`。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `mvn -o clean test` | ✅ **434 例全绿**（含 `IncrementSqlIdempotencyGuardTest` 等守卫） |
+| 编译 | ✅ BUILD SUCCESS |
+| 改动范围 | 单文件 `VoiceInterviewServiceImpl`（+ 无 DDL、无前端、无 SQL 变更） |
+| 自查发现并修正 | hint 两级配额**顺序缺陷**（先占全场后判每题 → 失败请求白吃额度） |
+
+> **未纳入本批（避免范围膨胀）**：QA 表 `(interview_id, question_idx)` 唯一约束 ——
+> 因**追问会共享同一 `questionIdx`**（追问题是同 `question_idx` + 非空 `parent_qa_id`），
+> 简单 `UNIQUE(interview_id, question_idx)` 会**误伤追问**；需设计带 `parent_qa_id` 的复合唯一键
+> （MySQL 唯一索引对 NULL 不去重，需生成列或改用非空默认值）。当前已由「入口幂等锁 + 落库判重」
+> 双层防护覆盖主问重复场景，**唯一约束列为批次 4 待办**。
+
+
 ## v13.43 (2026-09-30) 面试线文档收口：报告七勘误 + 补《报告七再评审》 + 方案 V1.1→V1.2
 
 **背景**：语音面试线存在**三份文档互不咬合**的问题 —— 报告七（问题分析）基于**旧库 `moyun-db`**、

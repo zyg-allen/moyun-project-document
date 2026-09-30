@@ -256,7 +256,7 @@ systemPrompt = mergePersona(request, DEFAULT_SYSTEM_PROMPT) + schemaConstraint(m
   断言改为「网关被调用」且**仍在事务外**（测试职责是验证事务边界，与走哪条 LLM 通道无关）。
 - **清理**：移除已无用的 `SystemMessage` 导入（该类内不再直接构造系统消息）。
 - **SQL 双轨**：`moyun-db-dml-init.sql` 4 行 `enabled=0 → 1`；
-  新增增量 `20260930-01-面试族4行场景配置（批次1收编配套）.sql`（4 行 `INSERT ... WHERE NOT EXISTS`，
+  新增增量 `20260930-03-面试族4行场景配置（批次1收编配套）.sql`（4 行 `INSERT ... WHERE NOT EXISTS`，
   `agent_id` 用 `name` 子查询，幂等）。
 
 ### 校验

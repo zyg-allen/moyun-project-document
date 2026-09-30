@@ -8,14 +8,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.ext.ai.entity.Agent;
+import com.moyun.ext.cms.support.InterviewReportFormatter;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.HintVO;
+import com.moyun.ext.cms.support.InterviewReportFormatter;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewQaVO;
+import com.moyun.ext.cms.support.InterviewReportFormatter;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewReportVO;
+import com.moyun.ext.cms.support.InterviewReportFormatter;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewVO;
+import com.moyun.ext.cms.support.InterviewReportFormatter;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 
@@ -1741,17 +1746,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         report.setHighlights(highlights);
         report.setWeakPoints(weakPoints);
         report.setQuestionReviews(reviews);
-        String summary = buildSummary(interview.getTotalQa(), answered, avg);
+        String summary = InterviewReportFormatter.buildSummary(interview.getTotalQa(), answered, avg);
         if (StringUtils.isNotEmpty(levelEstimate) && !"null".equals(levelEstimate)) {
             String levelText = "junior".equals(levelEstimate) ? "初级（基础需夯实）"
                     : "senior".equals(levelEstimate) ? "高级（具备体系化思维）" : "中级（框架完整，深度待补）";
             summary = summary + " 综合水平画像：" + levelText + "。";
         }
         report.setSummary(summary);
-        report.setSuggestion(buildSuggestion(avg, weakPoints));
+        report.setSuggestion(InterviewReportFormatter.buildSuggestion(avg, weakPoints));
         // v11.x C2：自我介绍独立评分 + 针对性改进建议
         report.setIntroScore(introScoreView);
-        report.setImprovementSuggestions(buildImprovementSuggestions(weakPoints, introScoreView));
+        report.setImprovementSuggestions(InterviewReportFormatter.buildImprovementSuggestions(weakPoints, introScoreView));
         // 相关知识点生成移除（题库 tags 聚合对 agent 自由面试无参考意义，前端 Tab 已删）
         // LLM 深度分析聚合结果（Agent 模式产出；旧数据字段为空，前端按缺失隐藏）
         report.setSentimentTrend(sentimentTrend);
@@ -2251,11 +2256,11 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
 
             // ---------- 结构化亮点 / 薄弱点（双写兼容旧字段） ----------
-            List<String> highlightTitles = parsePointViews(node.path("highlights"), report::setHighlightViews);
+            List<String> highlightTitles = InterviewReportFormatter.parsePointViews(node.path("highlights"), report::setHighlightViews);
             if (!highlightTitles.isEmpty()) {
                 report.setHighlights(highlightTitles);
             }
-            List<String> weakTitles = parsePointViews(node.path("weakPoints"), report::setWeakPointViews);
+            List<String> weakTitles = InterviewReportFormatter.parsePointViews(node.path("weakPoints"), report::setWeakPointViews);
             if (!weakTitles.isEmpty()) {
                 report.setWeakPoints(weakTitles);
             }
@@ -2365,58 +2370,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         } catch (Exception e) {
             log.warn("[VoiceInterview] 整场复盘异常（保留规则兜底）interviewId={}：{}", interview.getId(), e.getMessage());
         }
-    }
-
-    /** 解析亮点/薄弱点数组 → 结构化视图（setter 注入）+ 返回标题列表（旧字段双写） */
-    private List<String> parsePointViews(JsonNode arr,
-                                         java.util.function.Consumer<List<VoiceInterviewReportVO.PointView>> setter) {
-        List<String> titles = new ArrayList<>();
-        if (arr == null || !arr.isArray()) {
-            return titles;
-        }
-        List<VoiceInterviewReportVO.PointView> views = new ArrayList<>();
-        for (JsonNode item : arr) {
-            if (views.size() >= 4) {
-                break;
-            }
-            String title = item.path("title").asText("").trim();
-            if (StringUtils.isEmpty(title)) {
-                continue;
-            }
-            VoiceInterviewReportVO.PointView view = new VoiceInterviewReportVO.PointView();
-            view.setTitle(title);
-            view.setDetail(item.path("detail").asText("").trim());
-            views.add(view);
-            titles.add(title);
-        }
-        if (!views.isEmpty()) {
-            setter.accept(views);
-        }
-        return titles;
-    }
-
-    private List<String> buildImprovementSuggestions(List<String> weakPoints,
-                                                      VoiceInterviewReportVO.IntroScoreView introScore) {
-        List<String> suggestions = new ArrayList<>();
-        if (weakPoints != null) {
-            for (String wp : weakPoints) {
-                if (suggestions.size() >= 3) {
-                    break;
-                }
-                suggestions.add("针对薄弱点「" + wp + "」做专项复习，可结合错题本巩固。");
-            }
-        }
-        if (introScore != null && introScore.getWeaknesses() != null) {
-            for (String wk : introScore.getWeaknesses()) {
-                if (StringUtils.isNotEmpty(wk) && suggestions.size() < 5) {
-                    suggestions.add("自我介绍改进：" + wk);
-                }
-            }
-        }
-        if (suggestions.isEmpty()) {
-            suggestions.add("整体表现均衡，建议挑战更高难度的面试场景以突破上限。");
-        }
-        return suggestions;
     }
 
     /** 低分主问题自动入错题本（<60 分、题库来源、非追问；失败不影响报告生成） */
@@ -2709,26 +2662,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         VoiceInterviewVO vo = toVO(interview);
         vo.setCurrentQa(toQaVO(qa));
         return vo;
-    }
-
-    // ========================================================================
-    // 报告辅助
-    // ========================================================================
-
-    private String buildSummary(int total, int answered, int avg) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("本次面试共 ").append(total).append(" 题，作答 ").append(answered).append(" 题。");
-        if (avg >= 80) sb.append("整体表现优秀，知识点掌握扎实。");
-        else if (avg >= 60) sb.append("整体表现良好，部分知识点需加强。");
-        else sb.append("整体表现一般，建议针对薄弱点深入复习。");
-        return sb.toString();
-    }
-
-    private String buildSuggestion(int avg, List<String> weakPoints) {
-        if (weakPoints.isEmpty()) {
-            return "继续保持，挑战更高难度的题目。";
-        }
-        return "建议重点复习以下薄弱知识点：" + String.join("、", weakPoints) + "。可通过错题本针对性练习。";
     }
 
     private VoiceInterviewReportVO parseReport(PortalVoiceInterview interview) {

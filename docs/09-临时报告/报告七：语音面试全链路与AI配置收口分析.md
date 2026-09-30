@@ -2,6 +2,28 @@
 
 > **状态**：分析稿 + **开发指导稿**，**代码未改动**。
 > **方法**：源码逐行取证（`文件:行号`）+ dev 库实测（`moyun-db`，`COUNT(*)` 实测值）+ 管理端页面/表单核对 + **场景码全量扫描（代码 + SQL）**。
+>
+> ---
+> ### ⚠️ v13.39 勘误与现状更新（2026-09-30 复核，**改前必读**）
+>
+> **① 数据库口径已变更**：本报告成稿时实测的是 **`moyun-db`**（旧库）；应用现连 **`moyun-db2`**（新库，`application-dev.yaml` 默认值）。
+> 两库 AI 配置**不是同一套数据**（`ai_agent` 旧库 7 行 / 新库 2 行；agent id 分叉）。
+> **结论 2 的"dev 库三条链引用全悬空 / 从未成功开面"仅对 `moyun-db2` 成立** ——
+> `moyun-db` 实测有 **18 场**面试记录、绑定链自洽，故"从未成功开面"的表述**不准确**。
+>
+> **② 悬空引用根因已定位并修复（v13.38 / v13.39）**：
+> 根因是 **`init-sql` 种子里硬编码了来源库的 agent id**（`ai_scene_config.agent_id=48/47`、`sys_config.defaultAgentId='48'`），
+> 而 `ai_agent` 的 INSERT **不含 `id` 列**（自增分配，全新库恒为 1/2）→ **任何全新库初始化即带悬空**。
+> 已改为**按 `name` 子查询取 id**（`moyun-db-dml-init.sql`）+ 增量脚本 `20260929-04` 修现网（幂等 + `_bak_` 备份）。
+> **现状：`moyun-db2` 悬空引用 = 0，`defaultAgentId=2`（AI面试官·默认），面试可正常开启。**
+> ⇒ **§0.1 结论 2、§3.5 悬空表、§8 阶段 0 的 T0-1/T0-2 均已过时**（数据已修复，无需再改数据）。
+>
+> **③ 两处判定更正**：见 §0.1 结论 5（P1-2）与 §4 清单 P2-4 的内联勘误。
+>
+> **④ 报告定位澄清**：本报告是**「配置与提示词专项审计」**，**不是**四视角（功能完整性/扩展性/性能/架构）全链路评审。
+> 报告未覆盖的 6 项运行期隐患（并发保护/事务/超时/断连/成本熔断/多实例）见
+> 《全端-评审-报告七再评审-20260930》。
+> ---
 > **用途**：**明天据此指导开发修改**（§8 是可直接照做的实施清单，含验收标准）。
 > **读者**：决策人（§0、§4、§7）；实施人（§2、§3、§5、§6、**§8**、§9）。
 
@@ -17,7 +39,7 @@
 | 2 | **dev 库三条链引用全悬空**（场景 `agent_id=48`、sys_config `=4`、`ai_agent.model_config_id=17` 均不存在）→ `start()` 必抛"AI 面试官未配置或不可用"；实测 **`portal_voice_interview` 0 行**（从未成功开面） | P0 |
 | 3 | **场景码登记不全 + 校验粒度只认整串**：真实**主场景 11 个、枚举仅 10 个**，缺的正是 **`default_chat`**（AI 对话主链，`ChatController:157` 运行时必需，库里 id 5 有配置行）；`AiSceneEnum.of()` 是**精确匹配** → 合法的 `main:task` 子场景反而**存不了**，`resume_optimize:*`／`voice_interview:*`／`default_chat` **共 12 行只能靠 SQL 维护**；子任务侧还缺常量（`jd_keywords` 是裸字面量） | P0 |
 | 4 | **提示词"两个都用"但三条链三种拼法**：场景 JSON 链 = Agent 人设(系统) + 场景 user 模板(用户)；**面试正式对话链完全不用场景模板**（系统提示词是业务代码拼的，首轮写进记忆）；报告链提示词**硬编码在 Java 字符串**。场景 `system_prompt_template` 与 `portal_interview_config.prompt_template` 是**死字段但 UI 可编辑** | P1 |
-| 5 | **上下文与评分三处割裂**：逐题分析**无对话历史**；自我介绍**被评两次**（对话链表现 + 独立 4 维场景）；一题**最多评三次**（逐题→报告骨架→报告 LLM），代码里已留"分数二次融合失真"防错 | P1 |
+| 5 | **上下文与评分三处割裂**：逐题分析**无对话历史**；一题**最多评三次**（逐题→报告骨架→报告 LLM），代码里已留"分数二次融合失真"防错。<br>⚠️ **v13.39 改判**：原写的"自我介绍**被评两次**"**不成立** —— `ScoringEngine.evaluateSelfIntro` **全仓零调用**、`setIntroScoreJson(` **0 处调用** ⇒ `intro_score_json` **恒为 NULL**，**自介评分从未接线**，总分也从不含自介分。这是"**功能缺失**"而非"重复评分"，修法完全不同（应接线或删死代码，不是去重） | P1 |
 | 6 | **面试规则 10 条只有 1 条有配置入口**：`interviewConfig` 仅提供 `scoringWeights`；其余在 `sys_config`／Agent 表／场景表／**硬编码**；该表另有 7 字段 UI 可编辑但后端零消费 | P1 |
 | 7 | **版本锁只覆盖会话链**：`resolveSessionConfig` 仅对带 `sessionId` 的调用锁版本，而预热/分析/自介**不传 sessionId**；且 `ai_scene_config_history` **0 行**（从未写入快照）→ 会话中途改配置会回落当前配置 | P1 |
 
@@ -61,8 +83,8 @@
 |---|---|---|
 | `ai_scene_config` | **20 行 / 45 列** | 主场景 **11**（枚举 10 + `default_chat`）＋ 子任务 **9**（`main:task`） |
 | `ai_scene_config_history` | **0 行** | 版本锁已实现但**从未写入快照** → 改配置回落当前值（warn 日志） |
-| `ai_agent` / `ai_model_config` | 2 / 4 | 两个 agent 的 `model_config_id=17` **不存在**；`ai_model_config` **两行 `is_default=1`** |
-| `portal_voice_interview` / `_qa` / `_event` | **0 / 0 / 0** | 从未成功开面（与结论 2 一致） |
+| `ai_agent` / `ai_model_config` | 2 / 4 | 两个 agent 的 `model_config_id=17` **不存在** → v13.39 说明：**不影响运行**（`AgentModelRouter` 自动挑选默认 chat 模型）；`is_default=1` 两行分属 embedding/chat，**非二义** |
+| `portal_voice_interview` / `_qa` / `_event` | **0 / 0 / 0** | 新库 `moyun-db2` 尚未开面（**旧库 `moyun-db` 实测 18 场**）；v13.38 已修复绑定链，现可正常开面 |
 | `portal_interview_config` | 1 行 / 18 列 | 仅 `scoringWeights` 活，其余 7 字段死 |
 | `portal_user_resume` | 4 行 | 报告链简历摘要可用 |
 | 场景码全量扫描 | 主场景 11 / 子任务 9 / **枚举缺 1** / **常量缺 1** | 见 §3.3 |
@@ -175,12 +197,17 @@
 - 输出：`score/feedback/dimensions(6)/sentiment/fluency/redFlags/completeness` → `QA.llmScoreJson`/`llmAnalysisJson`。
 - **一致性判定**：❌ 割裂点 1；❌ 不参与版本锁（`resolveSessionConfig:528` 注释"非会话模式始终读当前配置"）。
 
-### 2.5 自我介绍（**双评**）
+### 2.5 自我介绍（**⚠️ v13.39 改判：不是"双评"，是"从未接线"**）
 
-- 对话层：V4 段序约束把第 1 问固定为自我介绍；`buildCandidateProfile:1427-1435` 取第 1 题作答。
-- 评分层：`ScoringEngine.evaluateSelfIntro:61-68` → 独立场景（task=`self_intro`）→ 4 维 + comment/followupWorth/strengths/weaknesses → `introScoreJson`。
-- 融合：`fuseTotalScore(introTotal, llmAvg, scoringWeights)`（默认 **intro 20% + tech 80%**，`:1294-1299`）。
-- **一致性判定**：❌ 割裂点 2。
+- 对话层：✅ V4 段序约束把第 1 问固定为自我介绍；`buildCandidateProfile:1427-1435` 取第 1 题作答。
+- 评分层：❌ **死代码**。`ScoringEngine.evaluateSelfIntro:61` **全仓零调用点**（含 test/vue/sql）；
+  `PortalVoiceInterview.introScoreJson` 只被**读**（`:1294`、`:1535-1540`），**全仓无 `setIntroScoreJson(` 调用**
+  ⇒ `intro_score_json` **恒为 NULL**。
+- 融合：❌ 因上游恒 NULL，`:1296-1299` 的 `introScoreView == null` 分支**恒真** ⇒ `fuseTotalScore` 实际只用 LLM 均分，
+  **自介分从未参与总分**；`:1366` `report.setIntroScore(null)` ⇒ **报告里自介分始终为空**。
+- 同向线索：`:1178` 注释「V3 规则引擎已删，ScoreResult 为默认值」；`ScoringEngine.java:29`「随 C1 接入 submitAnswer 链路时启用」。
+- **一致性判定**：❌ 割裂点 2 —— 但性质是**功能缺失（未接线）**，不是"同段话两套标准"。
+  ⚠️ **修法差异**：应做「接线启用」或「删死代码」的**二选一裁决**，而非"消除重复评分"。
 
 ### 2.6 结束与批量分析
 
@@ -277,8 +304,8 @@
 SELECT s.scene_code, s.agent_id, a.id matched FROM ai_scene_config s LEFT JOIN ai_agent a ON a.id=s.agent_id WHERE s.scene_code LIKE 'voice_interview%';
 SELECT c.config_key, c.config_value, a.id matched FROM sys_config c LEFT JOIN ai_agent a ON a.id=CAST(c.config_value AS UNSIGNED) WHERE c.config_key='voice.interview.defaultAgentId';
 SELECT a.id, a.model_config_id, m.id matched FROM ai_agent a LEFT JOIN ai_model_config m ON m.id=a.model_config_id;
--- 默认模型二义
-SELECT id,name,model_type,is_default,enabled FROM ai_model_config WHERE is_default=1;
+-- 默认模型「按 model_type 各一个」核查（v13.39：原注释"二义"有误，AgentModelRouter 只查 CHAT）
+SELECT id,name,model_type,is_default,enabled FROM ai_model_config WHERE is_default=1 ORDER BY model_type;
 ```
 
 | 项 | 实测 | 风险 |
@@ -302,7 +329,7 @@ SELECT id,name,model_type,is_default,enabled FROM ai_model_config WHERE is_defau
 | P0-4 | P0 | **子任务缺白名单 + 裸字面量** | `jd_keywords`（`PortalJobTemplateServiceImpl:185`）不在 `AiSceneTasks`；`default_chat` 亦为裸字面量 | 无法防"乱加子任务"；改名/重构易漏 | 场景登记 |
 | P0-5 | P0 | **校验粒度只认整串 → 12 行只能 SQL 维护** | `AiSceneEnum.of()` 精确匹配 + `validate:233-257` | 面试 3 子场景、`resume_optimize:*`、`default_chat` **管理端无法合法维护** | 场景登记 + UI |
 | P1-1 | P1 | **逐题分析无对话上下文** | `:189-201`（无 sessionId、无历史） | 追问链/一致性无法评估 | 上下文契约 |
-| P1-2 | P1 | **自我介绍双评 + 维度不一致** | `ScoringEngine:73-100` + `:1294-1299` | 同段话两套标准、两次影响总分 | 评分契约 |
+| P1-2 | P1 | **自我介绍评分从未接线**（v13.39 改判，原判"双评"不成立） | `ScoringEngine.java:61` 零调用；全仓无 `setIntroScoreJson(`；`VoiceInterviewServiceImpl.java:1294/1366` | 自介分恒为空、从不参与总分 → **功能缺失**；且后续若在该字段上加消费方必踩空 | 评分契约 |
 | P1-3 | P1 | **一题最多评三次** | 逐题→报告骨架→报告 `perQuestion`；`regenerate-report:1494` 防错注释 | 分数可复现性差 | 评分契约 |
 | P1-4 | P1 | **版本锁不覆盖分析链** | `executeForJson` 无 sessionId；`:528` 注释 | 对话 v1、分析 v2 | 上下文契约 |
 | P1-5 | P1 | **人设漂移** | 对话人设写记忆 vs 分析链现取 `agentPersona` | 提问旧人设、评分新人设 | 提示词契约 |
@@ -313,7 +340,7 @@ SELECT id,name,model_type,is_default,enabled FROM ai_model_config WHERE is_defau
 | P2-1 | P2 | **报告无面试官/模型/场景版本** | `VoiceInterviewReportVO` | 无法回答"谁/哪个模型产出" | 可观测 |
 | P2-2 | P2 | **知识点未与题目/得分关联** | warmup 计划只进提示词 | 无法做题目↔知识点↔得分分析 | 数据模型 |
 | P2-3 | P2 | **会话死列** `style`/`profileSnapshot`/`questionPaper` | 全后端无写读 | 表结构误导 | 数据模型 |
-| P2-4 | P2 | **默认模型二义** | §3.5 | 路由不确定 | 数据 |
+| P2-4 | ~~P2~~ → **已撤销** | ~~默认模型二义~~（v13.39 校正：**不是问题，无需修复**） | `AgentModelRouter.java:72` 只按 `ModelType.CHAT` 查默认；`ai_model_config` 两行 `is_default=1` 分属 `embedding` 与 `chat` | **无影响**：按模型类型各一个默认，符合设计 | — |
 
 ---
 

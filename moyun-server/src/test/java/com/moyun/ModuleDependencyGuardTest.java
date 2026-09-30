@@ -104,8 +104,9 @@ class ModuleDependencyGuardTest {
                 + "v13.22 防腐层适配器 AuditContentAdapter 调用 CMS 4 个业务服务，78→82；"
                 + "v13.38 PortalUserResumeController 改用 ResumeParseService.extractFromUpload（纯内存抽取）→83，"
                 + "再引入 ResumePreviewVO（解析预览 VO）→84");
-        FROZEN_EDGES.put("ext.cms -> portal", 278);
-        FROZEN_REASONS.put("ext.cms -> portal", "同上（反向）；v13.11 迁入 ImportExportHelper 后为 280，"
+        FROZEN_EDGES.put("ext.cms -> portal", 280);
+        FROZEN_REASONS.put("ext.cms -> portal", "同上（反向）；v13.61 抽 InterviewSessionSupport 引用 PortalVoiceInterview/"
+                + "PortalVoiceInterviewQA 后为 280（原为 278）；"
                 + "v13.16 删掉 CmsInterviewController 两个已失效的 portal 依赖（PortalUserStatsMapper/IPortalGrowthService）后降至 278，"
                 + "v13.33 删除 portal_interview_position（并入 portal_job_template）后再降至 275，"
                 + "v13.38 新增 CmsResumeParseConfigController（简历解析配置后台管理）引入 portal 实体与服务 2 处 import →277，"

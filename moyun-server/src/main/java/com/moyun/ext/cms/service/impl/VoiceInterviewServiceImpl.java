@@ -9,18 +9,23 @@ import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.cms.support.InterviewReportFormatter;
+import com.moyun.ext.cms.support.InterviewSessionSupport;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.HintVO;
 import com.moyun.ext.cms.support.InterviewReportFormatter;
+import com.moyun.ext.cms.support.InterviewSessionSupport;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewQaVO;
 import com.moyun.ext.cms.support.InterviewReportFormatter;
+import com.moyun.ext.cms.support.InterviewSessionSupport;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewReportVO;
 import com.moyun.ext.cms.support.InterviewReportFormatter;
+import com.moyun.ext.cms.support.InterviewSessionSupport;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewVO;
 import com.moyun.ext.cms.support.InterviewReportFormatter;
+import com.moyun.ext.cms.support.InterviewSessionSupport;
 import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 
@@ -98,19 +103,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     /** 时长制：sys_config 面试时长键（分钟，缺省 20） */
     private static final String CONFIG_KEY_DURATION = "voice.interview.durationMinutes";
-    /** 时长制：默认面试时长（分钟） */
-    private static final int DEFAULT_DURATION_MINUTES = 20;
-    /** 时长制：服务端超时宽限（分钟，倒计时归零后允许收尾作答提交的余量） */
-    private static final int DURATION_GRACE_MINUTES = 2;
-
-    /**
-     * 口头结束意图检测（严格短语，避免答案中提及"结束"误判）：
-     * 命中即视为候选人主动提出结束面试，服务端直接收尾（不走 agent 轮次）。
-     */
-    private static final Pattern VERBAL_END_PATTERN = Pattern.compile(
-            "结束(这场|本次|这个|一下)?(面试|测试)"
-                    + "|(我想|我要|我准备|想|要|能不能|可以|希望)(结束|停止|到此为止)"
-                    + "|到此为止|就到这里|今天就到这|面试到此(结束|为止)|结束吧|先结束了");
 
     /**
      * 简历摘要：面试官上下文的数据底座（项目名 + 技术栈 + 亮点，最多 3 个项目）。
@@ -167,15 +159,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             return objectMapper.readValue(interview.getConfigJson(), Map.class);
         } catch (Exception e) {
             return new LinkedHashMap<>();
-        }
-    }
-
-    /** SSE 事件发送（异常吞掉记日志，不中断回调链） */
-    private void sendEvent(SseEmitter emitter, String name, Object data) {
-        try {
-            emitter.send(SseEmitter.event().name(name).data(data));
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] SSE 发送 {} 事件失败：{}", name, e.getMessage());
         }
     }
 
@@ -266,6 +249,14 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
+    /** SSE 事件发送（异常吞掉记日志，不中断回调链） */
+    private void sendEvent(SseEmitter emitter, String name, Object data) {
+        try {
+            emitter.send(SseEmitter.event().name(name).data(data));
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] SSE 发送 {} 事件失败：{}", name, e.getMessage());
+        }
+    }
     /** LLM 分析结果（规则评分的超集：漏洞/水平/追问建议） */
     private static class AnswerAnalysis {
         int score;
@@ -307,11 +298,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private static final int MAX_HINT_PER_INTERVIEW = 15;
 
-    /** 全场提示计数器键（Redis INCR，跨实例原子） */
-    private String hintCounterKey(Long interviewId) {
-        return "voice:hint-count:" + interviewId;
-    }
-
     /**
      * 全场提示计数 +1（Redis INCR，原子且跨实例安全）。
      *
@@ -321,11 +307,11 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private long incrementHintCounter(Long interviewId) {
         try {
-            Long v = stringRedisTemplate.opsForValue().increment(hintCounterKey(interviewId));
+            Long v = stringRedisTemplate.opsForValue().increment(InterviewSessionSupport.hintCounterKey(interviewId));
             if (v != null) {
                 // 首次自增时设 TTL（与面试会话同生命周期，24h 足够覆盖一场面试）
                 if (v == 1L) {
-                    stringRedisTemplate.expire(hintCounterKey(interviewId), java.time.Duration.ofHours(24));
+                    stringRedisTemplate.expire(InterviewSessionSupport.hintCounterKey(interviewId), java.time.Duration.ofHours(24));
                 }
                 return v;
             }
@@ -393,16 +379,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired(required = false)
     private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
-    /** 答题幂等锁键（同一 qaId 的并发/重复提交互斥） */
-    private String qaTurnLockKey(Long qaId) {
-        return "voice:qa-turn:" + qaId;
-    }
-
-    /** 单场分析互斥锁键 */
-    private String analysisLockKey(Long interviewId) {
-        return "voice:analysis:" + interviewId;
-    }
-
     /**
      * 事务模板：把事务边界**收窄到只剩 DB/Redis 写**（v13.14「事务内远程 IO」整改）。
      *
@@ -442,11 +418,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private static final java.util.Map<Long, com.moyun.core.redis.DistributedLockUtil.Lock>
             RUNNING_ANALYSIS = new java.util.concurrent.ConcurrentHashMap<>();
-
-    /** 该场面试当前是否有分析在跑（本实例视角；跨实例由分布式锁保证） */
-    private boolean isAnalysisRunning(Long interviewId) {
-        return RUNNING_ANALYSIS.containsKey(interviewId);
-    }
 
     // ========================================================================
     // 开始面试
@@ -648,8 +619,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             if (StringUtils.isNotEmpty(profile)) {
                 sb.append("- 候选人画像：").append(profile).append("\n");
             }
-            appendPlanList(sb, "优势", u.path("strengths"));
-            appendPlanList(sb, "待验证疑点", u.path("concerns"));
+            InterviewSessionSupport.appendPlanList(sb, "优势", u.path("strengths"));
+            InterviewSessionSupport.appendPlanList(sb, "待验证疑点", u.path("concerns"));
             JsonNode areas = plan.path("interviewPlan").path("focusAreas");
             if (areas.isArray() && areas.size() > 0) {
                 sb.append("【考察方向】\n");
@@ -675,23 +646,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         } catch (Exception e) {
             log.warn("[VoiceInterview] 预热计划渲染失败 interviewId={}：{}", interview.getId(), e.getMessage());
             return null;
-        }
-    }
-
-    /** 预热计划列表字段渲染（strengths/concerns） */
-    private void appendPlanList(StringBuilder sb, String label, JsonNode arr) {
-        if (arr == null || !arr.isArray() || arr.isEmpty()) {
-            return;
-        }
-        List<String> items = new ArrayList<>();
-        for (JsonNode n : arr) {
-            String t = n.asText("").trim();
-            if (StringUtils.isNotEmpty(t)) {
-                items.add(t);
-            }
-        }
-        if (!items.isEmpty()) {
-            sb.append("- ").append(label).append("：").append(String.join("；", items)).append("\n");
         }
     }
 
@@ -852,7 +806,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         //   ③ 两边各自 insert(nextQa) 且 questionIdx 相同（同一 idx 插两条 QA，无唯一约束）
         // 现用分布式锁（非阻塞）保证同一 qaId 只放行一次；抢不到锁说明已有同题请求在飞。
         com.moyun.core.redis.DistributedLockUtil.Lock turnLock =
-                lockUtil.tryLock(qaTurnLockKey(qaId), QA_TURN_LOCK_TTL);
+                lockUtil.tryLock(InterviewSessionSupport.qaTurnLockKey(qaId), QA_TURN_LOCK_TTL);
         if (turnLock == null) {
             recordEvent(interviewId, "answer_dup_rejected", Map.of("qaId", qaId));
             log.warn("[VoiceInterview] 重复答题请求已拒绝（同 qaId 正在处理）interviewId={} qaId={}",
@@ -882,7 +836,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         // 时长制守卫：超过配置时长+宽限后拒绝继续作答，并自动收口触发报告（数据不丢）
-        if (isInterviewTimedOut(interview)) {
+        if (InterviewSessionSupport.isInterviewTimedOut(interview, durationOf(interview))) {
             recordEvent(interviewId, "timeout_close", Map.of("qaId", qaId));
             finishQuietly(interview);
             SseEmitter timeoutEmitter = new SseEmitter(SSE_TIMEOUT);
@@ -894,7 +848,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         // 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
-        if (!isSkip && matchesVerbalEnd(transcript)) {
+        if (!isSkip && InterviewSessionSupport.matchesVerbalEnd(transcript)) {
             recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
             SseEmitter endEmitter = new SseEmitter(SSE_TIMEOUT);
             sendEvent(endEmitter, "delta", toJson(Map.of("t", "好的，本场面试就到这里，感谢你的参与，稍后可查看面试报告。")));
@@ -970,7 +924,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             cmd.setUserInput(skip ? "（候选人表示跳过本题）" : transcript);
             cmd.setAgentId(agent.getId());
             cmd.setMaxMessages(memoryService.toMaxMessages(agent.getMaxHistoryTurns()));
-            cmd.setDirectives(List.of(buildTurnDirective(interview, skip)));
+            cmd.setDirectives(List.of(InterviewSessionSupport.buildTurnDirective(
+                    skip, countAnsweredRounds(interview.getId()),
+                    InterviewSessionSupport.remainMinutesOf(interview, durationOf(interview)))));
 
             aiGatewayService.executeConversationStream(cmd,
                     // onToken：面试官话术增量实时下发（前端打字机 + 分句 TTS）
@@ -1163,83 +1119,40 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /**
-     * 每轮任务指令：只约束话术形态，不参与出题决策（面试官自主推进）。
-     * 时长制：以剩余时长提示收尾节奏（临近结束提示自然收口），题数仅作进度展示。
-     */
-    private String buildTurnDirective(PortalVoiceInterview interview, boolean skip) {
-        int done = countAnsweredRounds(interview.getId());
-        String skipNote = skip ? "候选人刚刚选择跳过本题（未作答），请简短带过、不做追问，自然转入下一个方向。"
-                : "请以面试官身份回应候选人的回答：先一两句简要反馈，再自然提出你的下一个问题或针对性追问。";
-        // 时长制：剩余时长感知（结束由候选人主动提出或倒计时归零，不由题数决定）
-        long remainMin = remainMinutesOf(interview);
-        String timeNote;
-        if (remainMin <= 0) {
-            timeNote = "（本场面试时间已到，请以面试官身份做简短收尾致谢。）";
-        } else if (remainMin <= 2) {
-            timeNote = "（本场面试临近结束，请在当前话题自然收口，不再展开新的考察方向。）";
-        } else {
-            timeNote = "（本场面试剩余约 " + remainMin + " 分钟，可自主把握提问节奏与深度。）";
-        }
-        return skipNote
-                + "只输出面试官会说的话，不要任何分析、标记或多余格式。"
-                + "（本场已问 " + done + " 个大问题）" + timeNote;
-    }
-
-    /** 时长制：本场剩余分钟数（负值表示已超时；配置缺失按 sys_config 当前值） */
-    private long remainMinutesOf(PortalVoiceInterview interview) {
-        int duration = durationOf(interview);
-        if (interview.getCreateTime() == null) {
-            return duration;
-        }
-        return java.time.Duration.between(LocalDateTime.now(),
-                interview.getCreateTime().plusMinutes(duration)).toMinutes();
-    }
-
     /** 时长制：是否已超配置时长+宽限（服务端守卫，前端倒计时失灵时兜底收口） */
-    private boolean isInterviewTimedOut(PortalVoiceInterview interview) {
-        if (interview.getCreateTime() == null) {
-            return false;
-        }
-        return LocalDateTime.now()
-                .isAfter(interview.getCreateTime().plusMinutes(durationOf(interview) + DURATION_GRACE_MINUTES));
-    }
 
     /** 时长制：读 sys_config 面试时长（分钟，缺省 20，范围 5-120） */
+    /** 读全局面试时长配置（IO 在本方法；区间钳制委托给 {@link InterviewSessionSupport}） */
     private int resolveDurationMinutes() {
         try {
             String value = sysConfigService.selectConfigByKey(CONFIG_KEY_DURATION);
             if (value != null && !value.isBlank()) {
-                // 配置值：数字（分钟，缺省 20，范围 5-120），
-                return Math.max(5, Math.min(120, Integer.parseInt(value.trim())));
+                return InterviewSessionSupport.clampDuration(Integer.parseInt(value.trim()));
             }
         } catch (Exception e) {
-            log.warn("[VoiceInterview] 读取面试时长配置失败，使用默认 {} 分钟：{}", DEFAULT_DURATION_MINUTES, e.getMessage());
+            log.warn("[VoiceInterview] 读取面试时长配置失败，使用默认 {} 分钟：{}",
+                    InterviewSessionSupport.DEFAULT_DURATION_MINUTES, e.getMessage());
         }
-        return DEFAULT_DURATION_MINUTES;
-    }
-
-    /** 时长制：本场时长（configJson 优先，旧会话回退 sys_config 当前值） */
-    private int durationOf(PortalVoiceInterview interview) {
-        String v = readConfigKey(interview, "durationMinutes");
-        if (!v.isEmpty()) {
-            try {
-                return Math.max(5, Math.min(120, Integer.parseInt(v)));
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return resolveDurationMinutes();
-    }
-
-    /** 口头结束意图检测（严格短语匹配，避免答案内容误判） */
-    private boolean matchesVerbalEnd(String transcript) {
-        return transcript != null && VERBAL_END_PATTERN.matcher(transcript).find();
+        return InterviewSessionSupport.DEFAULT_DURATION_MINUTES;
     }
 
     /**
      * 静默收口（服务端守卫路径）——与 finish() 同逻辑但不返回报告：
      * 收口状态 + 释放滑窗 + 触发异步批量分析；已结束的幂等跳过。
      */
+    /** 本场时长（分钟）：会话配置优先 → 全局配置 → 默认值（区间钳制在支持类内） */
+    private int durationOf(PortalVoiceInterview interview) {
+        Integer global = null;
+        try {
+            String value = sysConfigService.selectConfigByKey(CONFIG_KEY_DURATION);
+            if (value != null && !value.isBlank()) {
+                global = Integer.parseInt(value.trim());
+            }
+        } catch (Exception ignored) {
+            // 全局配置不可用 → 交由支持类回落默认值
+        }
+        return InterviewSessionSupport.resolveDurationMinutes(interview, global, objectMapper);
+    }
     private void finishQuietly(PortalVoiceInterview interview) {
         try {
             if ("finished".equals(interview.getStatus())) {
@@ -1395,7 +1308,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // v13.14：额度已由上面的原子 SQL 占用，这里不再 updateById（避免把整行写回）
 
         VoiceInterviewVO vo = assembleVO(interview, qa);
-        vo.setCurrentQa(toQaVO(qa));
+        vo.setCurrentQa(InterviewSessionSupport.toQaVO(qa));
         vo.setHint(hint);
         return vo;
     }
@@ -1504,10 +1417,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 互斥语义：同一场面试的分析（规则聚合 + 报告 LLM，可达分钟级）全局只跑一次。
         // 抢不到锁有三种可能，需区分：① 本实例已有分析在跑；② 其它实例在跑；③ Redis 不可用降级。
         com.moyun.core.redis.DistributedLockUtil.Lock analysisLock =
-                lockUtil.tryLock(analysisLockKey(interviewId), ANALYSIS_LOCK_TTL);
+                lockUtil.tryLock(InterviewSessionSupport.analysisLockKey(interviewId), ANALYSIS_LOCK_TTL);
         if (analysisLock == null) {
             // 未拿到锁：本实例已有分析在跑 ⇒ 确定是重复触发，直接跳过。
-            if (isAnalysisRunning(interviewId)) {
+            if (RUNNING_ANALYSIS.containsKey(interviewId)) {
                 log.info("[VoiceInterview] 该场分析已在运行（本实例），跳过重复触发 interviewId={}", interviewId);
                 recordEvent(interviewId, "analysis_dup_skipped", Map.of("scope", "local"));
                 return;
@@ -1874,7 +1787,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 保证前端轮询永远能等到 analysisStatus=2（历史页进度轮询的数据一致性兜底）
         if ("finished".equals(interview.getStatus())
                 && Integer.valueOf(1).equals(interview.getAnalysisStatus())
-                && !isAnalysisRunning(interviewId)) {
+                && !RUNNING_ANALYSIS.containsKey(interviewId)) {
             log.warn("[VoiceInterview] 检测到中断的分析任务，自愈重触发 interviewId={}", interviewId);
             triggerBatchAnalysis(interviewId);
         }
@@ -1893,7 +1806,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         if (!"finished".equals(interview.getStatus())) {
             throw new ServiceException("面试尚未结束，无法生成报告");
         }
-        if (isAnalysisRunning(interviewId)) {
+        if (RUNNING_ANALYSIS.containsKey(interviewId)) {
             throw new ServiceException("报告正在生成中，请稍候");
         }
         // 1. 主表重置（report/summary 必须清空，否则聚合幂等分支直接 return）
@@ -2430,7 +2343,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         VoiceInterviewVO vo = toVO(interview);
         List<VoiceInterviewQaVO> qaVOList = new ArrayList<>();
         for (PortalVoiceInterviewQA qa : qaList) {
-            qaVOList.add(toQaVO(qa));
+            qaVOList.add(InterviewSessionSupport.toQaVO(qa));
         }
         vo.setQaList(qaVOList);
         vo.setCurrentQa(qaVOList.isEmpty() ? null : qaVOList.get(qaVOList.size() - 1));
@@ -2596,16 +2509,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /** 从 configJson 读字符串键（resume 重建上下文用） */
+    /** 读会话配置键（解析委托 {@link InterviewSessionSupport}，本方法只负责注入 objectMapper） */
     private String readConfigKey(PortalVoiceInterview interview, String key) {
-        try {
-            if (StringUtils.isEmpty(interview.getConfigJson())) {
-                return "";
-            }
-            JsonNode node = objectMapper.readTree(interview.getConfigJson());
-            return node.path(key).asText("");
-        } catch (Exception e) {
-            return "";
-        }
+        return InterviewSessionSupport.readConfigKey(interview, key, objectMapper);
     }
 
     /**
@@ -2641,7 +2547,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         VoiceInterviewVO vo = toVO(interview);
         List<VoiceInterviewQaVO> qaVOList = new ArrayList<>();
         for (PortalVoiceInterviewQA qa : qaList) {
-            qaVOList.add(toQaVO(qa));
+            qaVOList.add(InterviewSessionSupport.toQaVO(qa));
         }
         vo.setQaList(qaVOList);
         // 当前 QA = currentIdx 对应的最后一条
@@ -2660,7 +2566,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 校验归属：通过 interviewId 反查面试主表，确认属于当前用户
         PortalVoiceInterview interview = mustOwnInterview(qa.getInterviewId(), userId);
         VoiceInterviewVO vo = toVO(interview);
-        vo.setCurrentQa(toQaVO(qa));
+        vo.setCurrentQa(InterviewSessionSupport.toQaVO(qa));
         return vo;
     }
 
@@ -2690,7 +2596,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private VoiceInterviewVO assembleVO(PortalVoiceInterview interview, PortalVoiceInterviewQA currentQa) {
         VoiceInterviewVO vo = toVO(interview);
         if (currentQa != null) {
-            vo.setCurrentQa(toQaVO(currentQa));
+            vo.setCurrentQa(InterviewSessionSupport.toQaVO(currentQa));
             vo.setGreetText(currentQa.getSpeakText());
         }
         return vo;
@@ -2725,28 +2631,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         vo.setAnalysisStatus(interview.getAnalysisStatus());
         vo.setAnalysisProgress(interview.getAnalysisProgress());
         vo.setDurationMinutes(durationOf(interview));
-        return vo;
-    }
-
-    private VoiceInterviewQaVO toQaVO(PortalVoiceInterviewQA qa) {
-        VoiceInterviewQaVO vo = new VoiceInterviewQaVO();
-        vo.setId(qa.getId());
-        vo.setInterviewId(qa.getInterviewId());
-        vo.setQuestionId(qa.getQuestionId());
-        vo.setQuestionSource(qa.getQuestionSource());
-        vo.setQuestionIdx(qa.getQuestionIdx());
-        vo.setParentQaId(qa.getParentQaId());
-        vo.setQuestion(qa.getQuestion());
-        vo.setUserAnswer(qa.getUserAnswer());
-        vo.setTranscriptionEdited(qa.getTranscriptionEdited());
-        vo.setAiFeedback(qa.getAiFeedback());
-        vo.setSpeakText(qa.getSpeakText());
-        vo.setScore(qa.getScore());
-        vo.setRuleDimensionsJson(qa.getRuleDimensionsJson());
-        vo.setHintUsed(qa.getHintUsed());
-        vo.setLatencyMs(qa.getLatencyMs());
-        vo.setNextAction(qa.getNextAction());
-        vo.setCreateTime(qa.getCreateTime());
         return vo;
     }
 

@@ -2,6 +2,52 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.61 (2026-09-30) 批次 4（四）Service 拆分 第③步：抽会话纯函数 → `InterviewSessionSupport`
+
+**收口第③步**（承接第①②步的 `InterviewTextUtils` / `InterviewReportFormatter`）。
+本步按"**只抽不依赖实例成员的方法**"原则，把会话编排里散落的**换算/拼装/映射**逻辑收口，
+**不动**真正的编排主流程（SSE 生命周期、事务、锁、线程池）。
+
+### 抽出内容（11 个方法 + 3 个常量 → 新类 `InterviewSessionSupport`，234 行）
+
+| 分组 | 方法 |
+|---|---|
+| **Redis 键** | `qaTurnLockKey` / `analysisLockKey` / `hintCounterKey`（消灭散落的魔法前缀） |
+| **时长换算** | `resolveDurationMinutes`（会话配置→全局→默认三级回落）/ `clampDuration` / `remainMinutesOf` / `isInterviewTimedOut` |
+| **口头结束识别** | `matchesVerbalEnd`（`VERBAL_END_PATTERN` 常量随迁） |
+| **配置解析** | `readConfigKey` |
+| **指令拼装** | `buildTurnDirective`（签名改为 `(skip, doneRounds, remainMin)` —— 参数在调用点求值，去掉对实例方法的依赖）/ `appendPlanList` |
+| **VO 映射** | `toQaVO` |
+
+**保留为 Service 薄委托的 3 个**（因需注入实例依赖，但逻辑已下沉）：
+`readConfigKey`（注入 `objectMapper`）、`resolveDurationMinutes`（注入 `sysConfigService`）、
+`durationOf`（装配两级配置后委托）。
+
+### 成果（三步累计）
+
+| 指标 | 起点 | 现在 | 累计 |
+|---|---|---|---|
+| `VoiceInterviewServiceImpl` | **2943 行** | **2669 行** | **−274（−9.3%）** |
+| 私有方法数 | 64 | ~50 | −14 |
+| 支持类 | 0 | **3 个**（共 544 行） | +3 |
+| 可单测纯函数 | 0 | **20+** | — |
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `mvn -o test` | ✅ **469 例全绿** |
+| 模块依赖守卫 | ✅ 已同步 `ext.cms -> portal` 278 → **280**（新类引用 2 个 portal 实体）并记录理由 |
+| `npm run check`（vue-tsc） | ✅ 无类型错误 |
+| admin `build:prod` | ✅ 成功 |
+
+### ⚠️ 过程留痕（本轮一次失误）
+
+批量删除时把 `sendEvent` 一并删掉，但其调用点遍布 SSE 链路 ⇒ 编译报 20+ 处「找不到符号」。
+**已恢复**（该方法依赖 `log` 与 `SseEmitter`，属实例方法，本不该迁）。
+教训：**批量删除前应按"是否被其它方法调用"再过一遍清单**，不能只看"是否 PURE"。
+
+
 ## v13.60 (2026-09-30) 前端模板结构守卫（补齐 v13.59 暴露的质量盲区）
 
 v13.59 的缺陷（tab 重复/按钮截断/容器未闭合）**当时 vue-tsc 与 465 例后端测试全部放行**，

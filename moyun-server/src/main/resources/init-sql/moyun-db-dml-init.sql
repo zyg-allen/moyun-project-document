@@ -63,6 +63,32 @@ INSERT INTO ai_knowledge_library_config (library_id,segment_mode,segment_separat
 	 (13,'general','
 
 ',800,100,1,1,1,'high_quality',NULL,'hybrid',10,0,NULL,'2026-09-16 13:45:09','2026-09-16 13:45:09');
+-- 知识库配置模板（v13.39 补齐：支撑「快速配置（推荐）」Tab，缺失时用户只能走自定义配置）
+INSERT INTO ai_knowledge_config_template (template_name,template_desc,template_type,config_json,is_system,use_count,is_recommended) VALUES
+	 ('标准文档','适用于一般文档、技术手册等，平衡性能和准确度','general','{"indexMode": "high_quality", "segmentMode": "general", "rerankEnabled": true, "retrievalMode": "vector", "retrievalTopK": 10, "segmentMaxLength": 800, "preprocessRemoveUrls": false, "segmentOverlapLength": 100, "preprocessReplaceSpaces": true, "preprocessRemoveExtraNewlines": true}',1,0,1),
+	 ('题库/QA精准模式','适用于题库、问答对等短文本，确保每道题独立检索','general','{"indexMode": "high_quality", "segmentMode": "qa", "rerankEnabled": true, "retrievalMode": "vector", "retrievalTopK": 15, "segmentMaxLength": 400, "preprocessRemoveUrls": true, "segmentOverlapLength": 50, "preprocessReplaceSpaces": true, "preprocessRemoveExtraNewlines": true}',1,4,0),
+	 ('长文档深度模式','适用于长篇文章、研究报告等，保留更多上下文','general','{"indexMode": "high_quality", "segmentMode": "general", "rerankEnabled": true, "retrievalTopK": 8, "segmentMaxLength": 1200, "preprocessRemoveUrls": false, "segmentOverlapLength": 200, "preprocessReplaceSpaces": true, "preprocessRemoveExtraNewlines": false}',1,1,0),
+	 ('代码技术文档','适用于代码、API文档等技术内容','technical','{"indexMode": "high_quality", "segmentMode": "code", "rerankEnabled": false, "retrievalMode": "vector", "retrievalTopK": 12, "segmentMaxLength": 600, "preprocessRemoveUrls": false, "segmentOverlapLength": 80, "preprocessReplaceSpaces": false, "preprocessRemoveExtraNewlines": false}',1,0,0),
+	 ('经济快速模式','降低资源消耗，适合大批量文档或测试环境','general','{"indexMode": "economy", "segmentMode": "general", "rerankEnabled": false, "retrievalMode": "vector", "retrievalTopK": 5, "segmentMaxLength": 500, "preprocessRemoveUrls": true, "segmentOverlapLength": 50, "preprocessReplaceSpaces": true, "preprocessRemoveExtraNewlines": true}',1,76,0);
+-- 领域词典（v13.39 补齐：支撑智能体「专业词典」下拉与「领域词典」管理页；专业 14 + 全局 3）
+INSERT INTO ai_domain_dictionary (keyword,related_terms,category,description,is_global,enabled,priority) VALUES
+	 ('服务器','cpu,gpu,npu,内存,存储,硬盘,系统盘,数据盘,鲲鹏,昇腾,算力,主机,机器,配置,规格','硬件','服务器相关术语',0,1,10),
+	 ('架构','系统架构,技术架构,平台架构,设计,模块,组件,层次,结构,框架','技术','架构相关术语',0,1,8),
+	 ('模型','大模型,embedding,向量,llm,ai模型,算法,训练,推理','AI','模型相关术语',0,1,9),
+	 ('知识库','文档,向量库,rag,检索,知识管理,知识图谱','AI','知识库相关术语',0,1,7),
+	 ('部署','安装,配置,环境,运维,上线,发布','运维','部署相关术语',0,1,6),
+	 ('性能','速度,效率,吞吐量,延迟,响应时间,优化','技术','性能相关术语',0,1,5),
+	 ('安全','权限,认证,授权,加密,防护,隔离','安全','安全相关术语',0,1,8),
+	 ('数据库','MySQL,PostgreSQL,MongoDB,Redis,Oracle,SQL,NoSQL,索引,事务,主从,分库分表,读写分离','技术','数据库相关术语，包含关系型和非关系型数据库',0,1,9),
+	 ('微服务','SpringCloud,Dubbo,gRPC,服务注册,服务发现,负载均衡,熔断,限流,网关,配置中心','技术','微服务架构相关术语',0,1,8),
+	 ('容器','Docker,Kubernetes,K8s,Pod,容器编排,镜像,Harbor,Helm,Service,Deployment','运维','容器化和容器编排相关术语',0,1,8),
+	 ('前端','Vue,React,Angular,JavaScript,TypeScript,CSS,HTML,Webpack,Vite,组件,路由,状态管理','技术','前端开发相关术语',0,1,7),
+	 ('测试','单元测试,集成测试,压力测试,自动化测试,测试用例,Bug,缺陷,回归测试,冒烟测试,UAT','质量','软件测试相关术语',0,1,6),
+	 ('DevOps','CI/CD,Jenkins,GitLab,流水线,自动化部署,监控,日志,告警,SRE,可观测性','运维','DevOps和持续集成相关术语',0,1,7),
+	 ('网络','TCP,UDP,HTTP,HTTPS,DNS,CDN,负载均衡,防火墙,VPN,代理,带宽,延迟','基础设施','网络通信相关术语',0,1,6),
+	 ('产品','需求,PRD,原型,用户故事,MVP,迭代,版本,上线,灰度,AB测试,用户体验,交互设计','产品','产品管理相关术语',1,1,5),
+	 ('财务','预算,成本,利润,营收,ROI,现金流,资产负债,损益表,审计,税务,发票,报销','财务','财务管理相关术语',1,1,5),
+	 ('人力资源','招聘,面试,入职,离职,绩效,考核,薪酬,福利,培训,晋升,组织架构,人才盘点','人力','人力资源管理相关术语',1,1,5);
 INSERT INTO ai_model_config (name,provider,model_type,model_name,api_key,base_url,temperature,max_tokens,timeout,streaming_supported,supports_json_mode,enabled,is_default,description,create_time,update_time,input_price,output_price,deleted) VALUES
 	 ('通义千问-多模态Embedding','dashscope','embedding','text-embedding-v3','ENC:7/3JCnmmCxrmLHVDvy06rR87in5AZZVyXi9FeMzSH5uoHBnBg12lP55YHw5J/RdzOqFIiZRg2gzOS0K5zW2raIt/erTxKeQzvDu/HAbvLr1XkOBD+uORu9tBFkBFXjj0Gf/vmKdE/9nY4vwnTVMx45DaKfyk3YGo9aczA8MHOwQaJohrApt3azoyjpKe6Ggt','https://dashscope.aliyuncs.com/compatible-mode/v1',0.3,4089,60,0,0,1,1,'通义千问多模态 Embedding 模型，支持图片和文本的联合向量化，用于图文混合搜索','2025-11-21 17:12:03','2026-09-07 09:13:40',0.000500,0.000000,0),
 	 ('通义千问-VL-Plus','dashscope','chat','qwen-vl-plus','ENC:etybEZmvkCnWb5NTpGzl4XdvyqfUn+Pef7mBT8X7yw==',NULL,0.7,2000,60,1,0,0,0,'通义千问视觉理解模型Plus版本，支持图片内容识别和描述，用于文档图片的多模态理解','2025-11-22 12:16:42','2026-09-07 09:29:14',0.001000,0.002000,0),
@@ -75,7 +101,7 @@ INSERT INTO ai_provider (code,name,api_style,default_base_url,supports_streaming
 	 ('deepseek','DeepSeek','openai_compatible','https://api.deepseek.com',1,1,1,4,'示例：OpenAI 兼容，后台一键启用','2026-09-07 09:15:27',NULL,0),
 	 ('moonshot','Moonshot Kimi','openai_compatible','https://api.moonshot.cn/v1',1,1,1,5,'示例：OpenAI 兼容，后台一键启用','2026-09-07 09:15:27',NULL,0);
 INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
-	 ('voice_interview','AI 语音面试','AI 语音模拟面试：主干走网关会话流式通道，task 子任务（warmup/answer_analysis/self_intro）拆行配置驱动（2B.5，原 VoiceInterviewHandler 已删；人设走 ai_agent(48)）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,NULL,NULL,'sync',NULL,'',2048,0.7,30,3,'',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,1,1,0,'2026-09-07 15:07:33',NULL,0),
+	 ('voice_interview','AI 语音面试','AI 语音模拟面试：主干走网关会话流式通道，task 子任务（warmup/answer_analysis/self_intro）拆行配置驱动（2B.5，原 VoiceInterviewHandler 已删；人设走 ai_agent(48)）','chat',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,NULL,NULL,'sync',NULL,'',2048,0.7,30,3,'',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,1,1,0,'2026-09-07 15:07:33',NULL,0),
 	 ('sensitive_word','敏感词检测','文本敏感词识别与风险分级（2B.3 配置驱动，原 SensitiveWordHandler 提示词逐字收编；降级兜底数据化 fallback_response）','classification',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是内容安全审核专家。检测文本是否包含敏感内容（涉政/色情/暴恐/辱骂/违法广告等），只输出 JSON：
 {"hasSensitive": true/false,
  "words": ["命中的敏感词或类别"],
@@ -93,7 +119,7 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 日期：{{date}}
 {{data:领域|domain}}
 {{data:已生成过的标题（避免重复）|excludeTitles}}','{"date": "生成日期（yyyy-MM-dd）", "domain": "领域（可选，空值自动丢弃）", "excludeTitles": "已生成过的标题（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:47',NULL,0),
-	 ('finance_analysis','AI 财务分析','2B.4 查数下沉：LedgerAiAnalysisServiceImpl 组装 window/ledgerContext，DefaultSceneExecutor 配置驱动执行；人设走 ai_agent(47)','analysis',47,NULL,NULL,NULL,NULL,'{}','defaultSceneExecutor','execute',NULL,'当前统计分析窗口：{{window}}
+	 ('finance_analysis','AI 财务分析','2B.4 查数下沉：LedgerAiAnalysisServiceImpl 组装 window/ledgerContext，DefaultSceneExecutor 配置驱动执行；人设走 ai_agent（按名称解析）','analysis',(SELECT id FROM ai_agent WHERE name='财务分析师' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,'{}','defaultSceneExecutor','execute',NULL,'当前统计分析窗口：{{window}}
 
 以下是系统规则引擎已经计算完成的精确财务数据，包含全量指标、逐月趋势、分类环比、预算执行、债务明细等所有信息，请你直接引用这些数值完成分析，不要自行修改计算：
 {{data:财务数据|ledgerContext}}
@@ -102,7 +128,10 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 -- task 拆行（AI统一网关整改 2B.1）：scene_code 存全码 scene:task，业务调用传主码+input.task；
 -- 任务指令与数据全部进 user_prompt_template（systemPromptTemplate 已废弃，人设由 Agent 表承载）；
 -- {{data:标签|key}} 为数据通道占位符，值经 PromptInjectionGuard 分隔符隔离，空值自动丢弃；
--- voice_interview task 行绑定 agent_id=48 保持模型连续性；resume_optimize 走默认模型（与迁移前一致）
+-- voice_interview 行绑定「AI面试官·默认」agent 以保持模型连续性；resume_optimize 走默认模型。
+-- ⚠️ v13.38 修复：原种子硬编码 agent_id=48，但 ai_agent 的 INSERT **不含 id 列**（自增分配，
+--    全新库恒为 1/2）→ 48 必然悬空 → 会话链解析面试官失败、面试开不起来。
+--    现改为按 name 子查询取 id（执行顺序：ai_model_config L66 → ai_agent L4 → ai_scene_config L77+）。
 INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
 	 ('resume_optimize:advice','简历优化-改进建议','task 拆行：评分明细→改进建议（原 ResumeOptimizeHandler.advice 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深 HR 与简历顾问，擅长基于评分明细给出可执行的改进建议。请返回 JSON 格式，字段：summary(整体总结), advices(数组，每项含 dimension/priority(high/medium/low)/content/type(fill/refine/match)/optimized), missingSkills(字符串数组)。content 为该维度的改进思路说明；optimized 为优化后的完整可用文本（可直接替换简历对应模块内容），必须基于用户简历现有信息改写而非凭空编造，量化数据无依据时可使用占位符如 [X%] 供用户填写；dimension 取值限定：基本信息/求职意向/教育经历/工作经历/项目经历/技能列表/自我介绍/岗位匹配度。建议要具体、可执行，优先关注得分率低于60%的维度与岗位匹配度缺失技能。只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。
 
@@ -119,7 +148,7 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 	 ('resume_optimize:deep_optimize','简历优化-深度优化','task 拆行：整份简历逐项深度优化（原 ResumeOptimizeHandler.deep_optimize 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深简历优化专家，基于目标岗位JD对简历进行逐项深度优化。返回 JSON：summary(总体优化说明，50字内), items(优化建议数组，3-6项)。每项含：section(必为以下枚举之一：objective/education/work/project/skills/selfIntro；严禁使用复数如works/projects，严禁使用experience/introduction 等同义词，必须完全匹配枚举值), index(列表条目索引，从0开始；skills 填 0), field(position/description/name), optimized(优化后完整文本，可直接替换，50-200字), reason(优化理由，一句话，30字内)。不要输出 original 字段（原文由系统回填）。优化原则：STAR法则+量化数据+[X%]占位符（无依据数据用占位符供用户填写）；skills 的 optimized 用"精通：A、B\\n熟练：C"格式；保持语义一致禁止编造经历。只输出 JSON 本体，禁止 markdown 代码块包裹，输出务必完整，禁止中途截断。
 
 {{data:业务数据|context}}','{"context": "业务 Service 组装的目标岗位JD+简历核心内容上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
-	 ('voice_interview:warmup','AI 语音面试-预热','task 拆行：候选人画像+考察计划+开场白+首题（原 VoiceInterviewHandler.warmup 提示词逐字收编）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你正在主持一场模拟面试，请先完成面试预热理解，只输出如下 JSON（不要任何其他文字）：
+	 ('voice_interview:warmup','AI 语音面试-预热','task 拆行：候选人画像+考察计划+开场白+首题（原 VoiceInterviewHandler.warmup 提示词逐字收编）','chat',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你正在主持一场模拟面试，请先完成面试预热理解，只输出如下 JSON（不要任何其他文字）：
 {
   "understanding": {
     "candidateProfile": "50字内的候选人画像（背景/技术栈/经验层次）",
@@ -138,7 +167,7 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 {{data:候选人简历摘要|resumeDigest}}
 {{data:岗位要求JD|jd}}
 {{data:知识库参考片段（出题参考）|kbSnippets}}','{"context": "岗位/难度/计划问题数（业务组装的面试背景，数据通道隔离）", "resumeDigest": "候选人简历摘要（可选，空值自动丢弃）", "jd": "岗位要求JD（可选，空值自动丢弃）", "kbSnippets": "知识库参考片段（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
-	 ('voice_interview:answer_analysis','AI 语音面试-回答分析','task 拆行：候选人回答深度分析（原 VoiceInterviewHandler.answer_analysis 提示词逐字收编）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'{{context}}
+	 ('voice_interview:answer_analysis','AI 语音面试-回答分析','task 拆行：候选人回答深度分析（原 VoiceInterviewHandler.answer_analysis 提示词逐字收编）','chat',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'{{context}}
 候选人的语音转写回答见用户消息（可能口语化、有转写噪音）。
 请以严格的技术面试官标准分析该回答，只输出如下 JSON（不要任何其他文字）：
 {
@@ -155,7 +184,7 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 打分参考：完全跑题<30；浅层正确但无细节50-65；有正确框架和部分细节65-80；深入准确有取舍权衡80+。
 
 {{data:候选人语音转写回答|transcript}}','{"context": "面试官人设+题目+考察要点（业务组装）", "transcript": "候选人语音转写回答（外部不可信数据，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
-	 ('voice_interview:self_intro','AI 语音面试-自我介绍评分','task 拆行：自我介绍 4 维评分（原 VoiceInterviewHandler.self_intro 提示词逐字收编）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一位资深技术面试官，请对候选人的自我介绍进行严格评估。目标岗位：{{context}}。只输出如下 JSON（不要任何其他文字）：
+	 ('voice_interview:self_intro','AI 语音面试-自我介绍评分','task 拆行：自我介绍 4 维评分（原 VoiceInterviewHandler.self_intro 提示词逐字收编）','chat',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一位资深技术面试官，请对候选人的自我介绍进行严格评估。目标岗位：{{context}}。只输出如下 JSON（不要任何其他文字）：
 {
   "scores": {"structure": 0-100, "awareness": 0-100, "matching": 0-100, "fluency": 0-100},
   "comment": "两到三句中文总评，先肯定亮点再指出不足",
@@ -523,7 +552,7 @@ INSERT INTO sys_config (config_name,config_key,config_value,platform_code,config
 	 ('账号自助-是否开启用户注册功能','sys.account.registerUser','false',NULL,'Y','admin','2026-08-19 18:01:44','',NULL,'是否开启注册用户功能（true开启，false关闭）','0'),
 	 ('用户登录-黑名单列表','sys.login.blackIPList','',NULL,'Y','admin','2026-08-19 18:01:44','',NULL,'设置登录IP黑名单限制，多个匹配项以;分隔，支持匹配（*通配、网段）','0'),
 	 ('平台服务费率','pay.platform.fee-rate','0.10',NULL,'Y','admin','2026-08-28 09:24:22','',NULL,'V11.0 支付分账：平台抽成比例（0.10=10%），运行时生效','0'),
-	 ('语音面试默认面试官AgentID','voice.interview.defaultAgentId','48',NULL,'Y','admin','2026-09-07 09:15:33','',NULL,'语音面试绑定的 ai_agent 主键；编辑「AI模块→智能体管理」对应 agent 的人设/提示词/模型即动态生效','0'),
+	 ('语音面试默认面试官AgentID','voice.interview.defaultAgentId',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,'Y','admin','2026-09-07 09:15:33','',NULL,'语音面试绑定的 ai_agent 主键；编辑「AI模块→智能体管理」对应 agent 的人设/提示词/模型即动态生效','0'),
 	 ('语音面试时长（分钟）','voice.interview.durationMinutes','20',NULL,'Y','admin','2026-09-17 08:52:14','',NULL,'语音面试全场倒计时时长（分钟，范围5-120）：结束仅由用户主动（按钮/口头）或倒计时归零触发，题数仅作软参考','0');
 INSERT INTO sys_config (config_name,config_key,config_value,platform_code,config_type,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('AI能力全局开关','ai.global.enabled','true',NULL,'Y','admin','2026-09-17 09:05:37','',NULL,'AI 能力运行时总开关（网关/Agent/简历/面试全链路），true=开启（默认），false=关闭走规则兜底；管理台修改即时生效','0'),

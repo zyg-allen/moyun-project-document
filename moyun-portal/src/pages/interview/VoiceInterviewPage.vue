@@ -170,11 +170,15 @@ let globalCountdownHandle: ReturnType<typeof setInterval> | null = null;
 /** 归零待收尾标记：正在生成/作答中先补交答案，onEnd 后统一收尾 */
 let timeUpPending = false;
 
-// 倒计时（每题 90 秒）
-const ANSWER_LIMIT_SEC = 90;
+// 作答计时（v13.39 改制：不限时、不自动提交——模拟面试允许充分思考，仅展示已用时长；
+// 超过软提醒阈值 toast 一次，思考时长由提交时 latencyMs 上报后台统计）
+const ANSWER_SOFT_REMIND_SEC = 90;
 // 卡壳自动提示阈值（秒，超时未作答自动给一级提示，每题一次）
 const AUTO_HINT_STUCK_SEC = 30;
-const answerRemain = ref(ANSWER_LIMIT_SEC);
+/** 本题已用秒数（正计时） */
+const answerElapsed = ref(0);
+/** 软提醒是否已发（每题一次，只提示不强制） */
+let softRemindFired = false;
 let countdownHandle: ReturnType<typeof setInterval> | null = null;
 
 // ==================== 对话气泡 ====================
@@ -1046,17 +1050,15 @@ function onGlobalTimeUp() {
 
 function startCountdown() {
   stopCountdown();
-  answerRemain.value = ANSWER_LIMIT_SEC;
+  answerElapsed.value = 0;
+  softRemindFired = false;
   countdownHandle = setInterval(() => {
     if (timerPaused.value) return;
-    if (answerRemain.value > 0) {
-      answerRemain.value--;
-    } else {
-      stopCountdown();
-      if (phase.value === 'interview' && !submitting.value) {
-        toast.warning('作答超时，自动提交');
-        handleSubmitAnswer();
-      }
+    answerElapsed.value++;
+    // 软提醒（每题一次）：不自动提交，只做友好提示
+    if (!softRemindFired && answerElapsed.value >= ANSWER_SOFT_REMIND_SEC) {
+      softRemindFired = true;
+      toast.info('已作答 90 秒——不用急，想好再提交也完全可以');
     }
     // 卡壳自动提示：超过阈值仍未开始作答（无文字、无语音），自动给一级提示
     if (
@@ -2369,7 +2371,7 @@ const chatStatus = computed(() => {
               <span class="wave-label">{{ userSpeaking ? '请继续作答' : '请开始说话' }}</span>
             </div>
             <div class="input-timer">
-              <span>⚠️</span><span>{{ answerRemain }} 秒内作答</span>
+              <span>⏱️</span><span>已用时 {{ answerElapsed }} 秒 · 不限时，想好再提交</span>
               <span v-if="asrTranscribing" class="interim-hint">· 正在转写语音…</span>
               <span v-else-if="interimText" class="interim-hint">· 实时识别：{{ interimText }}</span>
             </div>

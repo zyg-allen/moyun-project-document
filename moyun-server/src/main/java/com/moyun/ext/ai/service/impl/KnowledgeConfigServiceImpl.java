@@ -118,6 +118,11 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
             BeanUtils.copyProperties(request, config);
         }
 
+        // null 字段补默认基线（与 resolveEffectiveConfig 兜底同口径）：
+        // 自定义配置请求/模板 JSON 未覆盖的字段直接落默认值，避免半空配置
+        // 被调用方直接拿去处理文档时 NPE（如 splitTextWithConfig 解引用 segmentMaxLength）
+        mergeWithDefaults(config);
+
         // 兜底设置时间戳（strictInsertFill 对 Jackson 反序列化对象可能不生效）
         LocalDateTime now = LocalDateTime.now();
         if (config.getCreatedAt() == null) {
@@ -138,6 +143,27 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
         }
 
         return config;
+    }
+
+    /** 将 config 中为 null 的默认承载字段填为 KnowledgeDefaults 基线值（原地补齐） */
+    private void mergeWithDefaults(KnowledgeConfig config) {
+        KnowledgeConfig d = createDefaultConfigObject();
+        if (config.getSegmentMode() == null) config.setSegmentMode(d.getSegmentMode());
+        if (config.getSegmentSeparator() == null) config.setSegmentSeparator(d.getSegmentSeparator());
+        if (config.getSegmentMaxLength() == null) config.setSegmentMaxLength(d.getSegmentMaxLength());
+        if (config.getSegmentOverlapLength() == null) config.setSegmentOverlapLength(d.getSegmentOverlapLength());
+        if (config.getChunkingStrategy() == null) config.setChunkingStrategy(d.getChunkingStrategy());
+        if (config.getDocumentType() == null) config.setDocumentType(d.getDocumentType());
+        if (config.getFaqChunkSize() == null) config.setFaqChunkSize(d.getFaqChunkSize());
+        if (config.getTechnicalChunkSize() == null) config.setTechnicalChunkSize(d.getTechnicalChunkSize());
+        if (config.getEnableSmartBoundary() == null) config.setEnableSmartBoundary(d.getEnableSmartBoundary());
+        if (config.getPreprocessReplaceSpaces() == null) config.setPreprocessReplaceSpaces(d.getPreprocessReplaceSpaces());
+        if (config.getPreprocessRemoveUrls() == null) config.setPreprocessRemoveUrls(d.getPreprocessRemoveUrls());
+        if (config.getPreprocessRemoveExtraNewlines() == null) config.setPreprocessRemoveExtraNewlines(d.getPreprocessRemoveExtraNewlines());
+        if (config.getIndexMode() == null) config.setIndexMode(d.getIndexMode());
+        if (config.getRetrievalMode() == null) config.setRetrievalMode(d.getRetrievalMode());
+        if (config.getRetrievalTopK() == null) config.setRetrievalTopK(d.getRetrievalTopK());
+        if (config.getRerankEnabled() == null) config.setRerankEnabled(d.getRerankEnabled());
     }
 
     private KnowledgeConfig parseTemplateConfig(String configJson) {

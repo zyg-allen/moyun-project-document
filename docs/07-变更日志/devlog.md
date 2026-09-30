@@ -2,6 +2,60 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.40 (2026-09-30) 语音面试作答不限时：去掉 90 秒自动提交，改正计时 + 软提醒
+
+**用户裁决**：模拟面试应允许充分思考，25/90 秒自动提交不合适——可友好提示，不能替用户交卷；
+思考时长可后台统计。
+
+**改动**（`VoiceInterviewPage.vue`，纯前端）：
+- 删除每题 90 秒倒计时与"作答超时，自动提交"强制提交逻辑
+- 改为**正计时**：输入栏显示「⏱️ 已用时 N 秒 · 不限时，想好再提交」
+- **软提醒**（每题一次）：90 秒 toast「已作答 90 秒——不用急，想好再提交也完全可以」，不阻断不提交
+- **后台统计已有**：提交答案时 `latencyMs`（题目展示→提交的思考耗时）随 `/answer` 上报，
+  报告链路可用；本场总时长倒计时（`voice.interview.durationMinutes`）不受影响，全场时间到仍收口生成报告
+- 卡壳自动提示（30 秒无作答给一级提示）保留不变
+
+**验证**：`vue-tsc -b` exit 0；`answerRemain`/`秒内作答` 全项目零残留。SQL/菜单无变更。
+
+## v13.39 (2026-09-30) fix：知识库/智能体配置链路四连修（MinIO 本地降级 / 半空配置 NPE / 模板与词典种子缺失）
+
+### ① AI 存储 MinIO 本地自动降级（MinioServiceImpl）
+
+**现象**：知识库上传报 `Failed to connect to /127.0.0.1:9001`。**核查结论：并非 git 回退**——AI 模块的
+`MinioServiceImpl` 自首个集成版本起从未有过降级逻辑；此前做的降级在通用文件链路
+（`SysFileServiceImpl`，`sys_config[file.storage.mode]` 三级降级），知识库走独立存储链路从未打通。
+
+**修法**：与 SysFileServiceImpl 同口径——上传（文档/图片）/读取/删除在 MinIO 异常且
+`minio.auto-fallback=true`（dev 默认）时自动降级本地 `profile/ai/{knowledge|images}/`，
+返回 `local:` 前缀路径，读写删按前缀识别；流先读全量再上传，降级复用同一份字节。
+用户实测：上传成功进入处理阶段。
+
+### ② 半空配置 NPE（KnowledgeConfigServiceImpl.applyConfiguration）
+
+**现象**：处理阶段 `getSegmentMaxLength() is null` NPE。
+**根因**：自定义配置分支 `BeanUtils.copyProperties(request, config)` 未覆盖字段全 null 落库并返回，
+Controller 直接把半空对象传 `processKnowledge`（绕过了 `resolveEffectiveConfig` 三层合并兜底）。
+**修法**：保存前 `mergeWithDefaults` 补 KnowledgeDefaults 基线（16 字段，与 resolveEffectiveConfig 同口径），
+模板分支（模板 JSON 缺字段）同样受益。
+
+### ③ 配置模板种子数据补齐（ai_knowledge_config_template）
+
+**现象**：「快速配置（推荐）」Tab 模板列表为空。**根因**：表种子数据从未进 DML 初始化脚本，
+新库/重灌库为空（运行库 moyun-db2 即空表），用户只能走自定义配置（恰是 ② 的触发路径）。
+**修法**：5 个系统模板双轨补齐（DML 初始化脚本 + 增量脚本
+`increment-sql/20260930-01-ai_knowledge_config_template种子数据补齐.sql`，后者已执行于 moyun-db2）。
+
+### ④ 领域词典种子数据补齐（ai_domain_dictionary）
+
+**现象**：智能体编辑弹窗「专业词典」下拉无数据。**根因**：同 ③——`ai_domain_dictionary`
+种子数据从未进 DML 初始化脚本，运行库 moyun-db2 为空表（接口查 `is_global=0 AND enabled=1`）。
+**修法**：17 条词典双轨补齐（专业 14 + 全局 3，与 moyun-db 存量一致；DML 初始化脚本 +
+增量脚本 `increment-sql/20260930-02-ai_domain_dictionary种子数据补齐.sql`，后者已执行于 moyun-db2）。
+
+**验证**：编译通过；db2 模板 5 行（general 4 + technical 1）、词典 17 行（专业 14 + 全局 3）；SQL 双轨同步，菜单无变更。
+**附带**：v13.35 已记录的双库分叉问题再次暴露——moyun-db 与 moyun-db2 数据持续漂移，
+后续数据修复须明确单一运行库或双库同步。
+
 ## v13.38 (2026-09-29) 简历解析重构落地：纯 Java 规则引擎 + 预览校对 + 配置化词表
 
 **方案依据**：《全端-简历-方案-简历解析重构方案-V1.0》（`docs/09-临时报告/`），本次为 **Phase 1（大类划分 + 排版保真 + 内容零丢失）+ Phase 2（条目化）** 的完整落地。

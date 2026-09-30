@@ -183,6 +183,65 @@ class AnswerIdempotencyGuardTest {
     }
 
     @Test
+    @DisplayName("超时口径：超过「配置时长 + 宽限」后拒绝继续作答并自动收口（数据不丢）")
+    void closesInterviewAfterDurationAndGrace() {
+        DistributedLockUtil.Lock lock = mock(DistributedLockUtil.Lock.class);
+        when(lockUtil.tryLock(any(), any(Duration.class))).thenReturn(lock);
+
+        // 夹具 durationMinutes=20（默认）+ DURATION_GRACE_MINUTES=2 ⇒ 阈值 22 分钟
+        PortalVoiceInterview stale = new PortalVoiceInterview();
+        stale.setId(INTERVIEW_ID);
+        stale.setUserId(USER_ID);
+        stale.setStatus("in_progress");
+        stale.setTotalQa(5);
+        stale.setCurrentIdx(0);
+        stale.setConfigJson("{\"durationMinutes\":20}");
+        // 30 分钟前开面 → 已超阈值
+        stale.setCreateTime(java.time.LocalDateTime.now().minusMinutes(30));
+        when(interviewMapper.selectById(anyLong())).thenReturn(stale);
+
+        try {
+            service.submitAnswer(INTERVIEW_ID, USER_ID, QA_ID, "超时后的作答", 1000, false);
+        } catch (Exception e) {
+            // 收口链路中的异步/SSE 部分在本测试环境未装配；本用例只验证超时判定与收口
+        }
+
+        assertTrue(events.contains("timeout_close"),
+                "超阈值应记 timeout_close 事件，实际: " + events);
+        assertEquals("finished", stale.getStatus(), "超时后会话应被自动收口为 finished");
+        assertEquals("timeout", stale.getClosedReason(), "关闭原因应记为 timeout");
+        assertEquals("超时后的作答", qa.getUserAnswer(),
+                "铁律：原始作答必须先落库（超时收口也不得丢数据）");
+    }
+
+    @Test
+    @DisplayName("超时口径：未超阈值时不得误收口（防守卫过严）")
+    void doesNotCloseBeforeDuration() {
+        DistributedLockUtil.Lock lock = mock(DistributedLockUtil.Lock.class);
+        when(lockUtil.tryLock(any(), any(Duration.class))).thenReturn(lock);
+
+        PortalVoiceInterview fresh = new PortalVoiceInterview();
+        fresh.setId(INTERVIEW_ID);
+        fresh.setUserId(USER_ID);
+        fresh.setStatus("in_progress");
+        fresh.setTotalQa(5);
+        fresh.setCurrentIdx(0);
+        fresh.setConfigJson("{\"durationMinutes\":20}");
+        fresh.setCreateTime(java.time.LocalDateTime.now().minusMinutes(3)); // 仅 3 分钟
+        when(interviewMapper.selectById(anyLong())).thenReturn(fresh);
+
+        try {
+            service.submitAnswer(INTERVIEW_ID, USER_ID, QA_ID, "正常作答", 1000, false);
+        } catch (Exception e) {
+            // 同上：后续链路未装配
+        }
+
+        assertTrue(!events.contains("timeout_close"),
+                "未超阈值不得记 timeout_close（否则正常面试会被误收口），实际: " + events);
+        assertEquals("in_progress", fresh.getStatus(), "未超阈值会话状态不得被改");
+    }
+
+    @Test
     @DisplayName("越权守卫：非本人面试直接拒绝（不进入任何后续守卫）")
     void rejectsOtherUsersInterview() {
         ServiceException ex = assertThrows(ServiceException.class,

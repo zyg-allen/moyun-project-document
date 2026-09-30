@@ -2451,7 +2451,7 @@ const chatStatus = computed(() => {
                 v-for="item in progressItems"
                 :key="item.idx"
                 :class="['progress-item', item.status]"
-              >
+          >
                 <div class="progress-dot">{{ item.status === 'completed' ? '✓' : item.idx }}</div>
                 <span>{{ item.title }}</span>
               </div>
@@ -2530,13 +2530,13 @@ const chatStatus = computed(() => {
                 rows="2"
                 :disabled="submitting"
                 @input="onAnswerInput"
-              ></textarea>
+          ></textarea>
               <button
                 class="mic-btn"
                 :class="{ recording: listening }"
                 :disabled="submitting"
                 @click="toggleMic"
-              >
+          >
                 {{ asrTranscribing ? '⏳' : listening ? '⏹️' : '🎙️' }}
               </button>
             </div>
@@ -2691,121 +2691,21 @@ const chatStatus = computed(() => {
           <button
             :class="['report-tab', { active: reportTab === 'summary' }]"
             @click="reportTab = 'summary'"
-          >📋 面试概要</button>
+            >📋 面试概要</button>
           <button
             :class="['report-tab', { active: reportTab === 'analysis' }]"
             @click="reportTab = 'analysis'"
-          >🔍 问题分析</button>
+            >🔍 问题分析</button>
           <span class="report-tabs-group">备战</span>
           <button
             v-if="showPredictTab"
             :class="['report-tab', { active: reportTab === 'predict' }]"
             @click="reportTab = 'predict'"
-          >🔮 追问预测</button>
+            >🔮 追问预测</button>
           <button
-        <!-- ==================================================================
-             Tab「🧭 发展方向」（备战区·环境）v13.50 批次 3
-             懒生成：不自动触发，用户点按钮才调 LLM（不开不花）
-             口径诚实：LLM 无实时行业数据 → 只做方向性判断，不承诺实时动态
-             ================================================================== -->
-        <div v-if="reportTab === 'insight'" class="tab-content active">
-          <div class="insight-head">
-            <div class="insight-head-title">🧭 发展方向</div>
-            <div class="insight-head-desc">
-              基于本场表现与岗位方向的个人化分析 —— 把本场暴露的短板放进岗位坐标系，告诉你往哪补最划算。
-            </div>
-            <div v-if="industryInsight" class="insight-head-meta">
-              <span class="insight-stamp">{{ insightGeneratedAtText }}</span>
-              <span v-if="insightStale" class="insight-stale">· 已超过 7 天，建议刷新</span>
-              <button class="insight-refresh" :disabled="insightLoading" @click="handleGenerateInsight(true)">
-                {{ insightLoading ? '生成中…' : '🔄 刷新' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- 占位：未生成（懒生成，必须用户点击） -->
-          <div v-if="!industryInsight" class="insight-placeholder">
-            <div class="insight-placeholder-icon">🧭</div>
-            <div class="insight-placeholder-title">生成发展方向分析</div>
-            <div class="insight-placeholder-desc">
-              约需 10 秒。内容包含技术趋势、技能供需结构与 3 条针对你本场薄弱点的行动建议。
-            </div>
-            <button
-              class="insight-placeholder-btn"
-              :disabled="insightLoading"
-              @click="handleGenerateInsight(false)"
-            >{{ insightLoading ? '生成中，请稍候…' : '开始生成' }}</button>
-            <div v-if="insightError" class="insight-error">{{ insightError }}</div>
-          </div>
-
-          <!-- 已生成 -->
-          <template v-else>
-            <!-- ① 技术趋势 -->
-            <section v-if="industryInsight.trends?.length" class="insight-section">
-              <div class="insight-section-title">📈 技术趋势</div>
-              <div class="trend-list">
-                <div v-for="(t, i) in industryInsight.trends" :key="'tr' + i" class="trend-card">
-                  <div class="trend-card-head">
-                    <span class="trend-title">{{ t.title }}</span>
-                    <span v-if="t.maturity" :class="['trend-maturity', maturityClass(t.maturity)]">
-                      {{ t.maturity }}
-                    </span>
-                  </div>
-                  <div v-if="t.detail" class="trend-detail">{{ t.detail }}</div>
-                </div>
-              </div>
-            </section>
-
-            <!-- ② 技能供需结构 -->
-            <section
-              v-if="industryInsight.supplyDemand?.existing?.length || industryInsight.supplyDemand?.missing?.length"
-              class="insight-section"
-            >
-              <div class="insight-section-title">🧩 技能供需结构</div>
-              <div class="sd-row">
-                <span class="sd-label">✅ 已具备</span>
-                <span class="sd-tags">
-                  <span
-                    v-for="(s, i) in (industryInsight.supplyDemand?.existing ?? [])"
-                    :key="'se' + i"
-                    class="sd-tag have"
-                  >{{ s }}</span>
-                  <span v-if="!industryInsight.supplyDemand?.existing?.length" class="sd-empty">简历未提取到技能标签</span>
-                </span>
-              </div>
-              <div class="sd-row">
-                <span class="sd-label">⚠️ 建议补充</span>
-                <span class="sd-tags">
-                  <span
-                    v-for="(s, i) in (industryInsight.supplyDemand?.missing ?? [])"
-                    :key="'sm' + i"
-                    class="sd-tag miss"
-                  >{{ s }}</span>
-                  <span v-if="!industryInsight.supplyDemand?.missing?.length" class="sd-empty">暂无建议</span>
-                </span>
-              </div>
-            </section>
-
-            <!-- ③ 行动建议（每条锚定本场真实薄弱点） -->
-            <section v-if="industryInsight.actions?.length" class="insight-section">
-              <div class="insight-section-title">🎯 行动建议</div>
-              <div class="action-list">
-                <div v-for="(a, i) in industryInsight.actions" :key="'ac' + i" class="action-card">
-                  <div class="action-number">{{ i + 1 }}</div>
-                  <div class="action-body">
-                    <div class="action-content">{{ a.content }}</div>
-                    <div v-if="a.relatedWeakPoint" class="action-anchor">
-                      ↳ 对应本场薄弱点：{{ a.relatedWeakPoint }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <div class="insight-disclaimer">
-              本分析为方向性判断（基于你本场的简历、岗位与表现），不包含实时行业数据。
-            </div>
-          </template>
+            :class="['report-tab', { active: reportTab === 'insight' }]"
+            @click="reportTab = 'insight'"
+            >🧭 发展方向</button>
         </div>
 
         <!-- Tab 0: 对话回放（历史面试完整对话） -->
@@ -3085,7 +2985,7 @@ const chatStatus = computed(() => {
                 class="wrong-book-btn"
                 :disabled="wrongBookLoading === q.qaId"
                 @click="handleAddToWrongBook(q.qaId)"
-              >
+          >
                 {{ wrongBookLoading === q.qaId ? '加入中...' : '📚 加入错题本' }}
               </button>
             </div>
@@ -3163,10 +3063,11 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
+
         <!-- ==================================================================
-             v13.47 批次 2：Tab「🧭 发展方向」（备战区·环境）
-             懒生成设计：本批先落占位卡（不自动触发），生成接口与内容渲染在批次 3 交付。
-             口径诚实：LLM 无实时行业数据 → 不承诺"实时行业动态"，只做方向性判断。
+             Tab「🧭 发展方向」（备战区·环境）v13.50 批次 3
+             懒生成：不自动触发，用户点按钮才调 LLM（不开不花）
+             口径诚实：LLM 无实时行业数据 → 只做方向性判断，不承诺实时动态
              ================================================================== -->
         <div v-if="reportTab === 'insight'" class="tab-content active">
           <div class="insight-head">
@@ -3174,16 +3075,98 @@ const chatStatus = computed(() => {
             <div class="insight-head-desc">
               基于本场表现与岗位方向的个人化分析 —— 把本场暴露的短板放进岗位坐标系，告诉你往哪补最划算。
             </div>
+            <div v-if="industryInsight" class="insight-head-meta">
+              <span class="insight-stamp">{{ insightGeneratedAtText }}</span>
+              <span v-if="insightStale" class="insight-stale">· 已超过 7 天，建议刷新</span>
+              <button class="insight-refresh" :disabled="insightLoading" @click="handleGenerateInsight(true)">
+                {{ insightLoading ? '生成中…' : '🔄 刷新' }}
+              </button>
+            </div>
           </div>
-          <div class="insight-placeholder">
+
+          <!-- 占位：未生成（懒生成，必须用户点击） -->
+          <div v-if="!industryInsight" class="insight-placeholder">
             <div class="insight-placeholder-icon">🧭</div>
             <div class="insight-placeholder-title">生成发展方向分析</div>
             <div class="insight-placeholder-desc">
               约需 10 秒。内容包含技术趋势、技能供需结构与 3 条针对你本场薄弱点的行动建议。
-              <br />（本批先交付占位形态，生成能力在下一批开通）
             </div>
-            <button class="insight-placeholder-btn" disabled>即将开通</button>
+            <button
+              class="insight-placeholder-btn"
+              :disabled="insightLoading"
+              @click="handleGenerateInsight(false)"
+            >{{ insightLoading ? '生成中，请稍候…' : '开始生成' }}</button>
+            <div v-if="insightError" class="insight-error">{{ insightError }}</div>
           </div>
+
+          <!-- 已生成 -->
+          <template v-else>
+            <!-- ① 技术趋势 -->
+            <section v-if="industryInsight.trends?.length" class="insight-section">
+              <div class="insight-section-title">📈 技术趋势</div>
+              <div class="trend-list">
+                <div v-for="(t, i) in industryInsight.trends" :key="'tr' + i" class="trend-card">
+                  <div class="trend-card-head">
+                    <span class="trend-title">{{ t.title }}</span>
+                    <span v-if="t.maturity" :class="['trend-maturity', maturityClass(t.maturity)]">
+                      {{ t.maturity }}
+                    </span>
+                  </div>
+                  <div v-if="t.detail" class="trend-detail">{{ t.detail }}</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ② 技能供需结构 -->
+            <section
+              v-if="industryInsight.supplyDemand?.existing?.length || industryInsight.supplyDemand?.missing?.length"
+              class="insight-section"
+            >
+              <div class="insight-section-title">🧩 技能供需结构</div>
+              <div class="sd-row">
+                <span class="sd-label">✅ 已具备</span>
+                <span class="sd-tags">
+                  <span
+                    v-for="(s, i) in (industryInsight.supplyDemand?.existing ?? [])"
+                    :key="'se' + i"
+                    class="sd-tag have"
+                  >{{ s }}</span>
+                  <span v-if="!industryInsight.supplyDemand?.existing?.length" class="sd-empty">简历未提取到技能标签</span>
+                </span>
+              </div>
+              <div class="sd-row">
+                <span class="sd-label">⚠️ 建议补充</span>
+                <span class="sd-tags">
+                  <span
+                    v-for="(s, i) in (industryInsight.supplyDemand?.missing ?? [])"
+                    :key="'sm' + i"
+                    class="sd-tag miss"
+                  >{{ s }}</span>
+                  <span v-if="!industryInsight.supplyDemand?.missing?.length" class="sd-empty">暂无建议</span>
+                </span>
+              </div>
+            </section>
+
+            <!-- ③ 行动建议（每条锚定本场真实薄弱点） -->
+            <section v-if="industryInsight.actions?.length" class="insight-section">
+              <div class="insight-section-title">🎯 行动建议</div>
+              <div class="action-list">
+                <div v-for="(a, i) in industryInsight.actions" :key="'ac' + i" class="action-card">
+                  <div class="action-number">{{ i + 1 }}</div>
+                  <div class="action-body">
+                    <div class="action-content">{{ a.content }}</div>
+                    <div v-if="a.relatedWeakPoint" class="action-anchor">
+                      ↳ 对应本场薄弱点：{{ a.relatedWeakPoint }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div class="insight-disclaimer">
+              本分析为方向性判断（基于你本场的简历、岗位与表现），不包含实时行业数据。
+            </div>
+          </template>
         </div>
 
         <div class="report-actions">

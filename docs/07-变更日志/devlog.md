@@ -2,6 +2,43 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.52 (2026-09-30) 批次 4（二）统一 LLM 调用端口 —— 审计确认 + 守卫固化
+
+**结论先行**：批次 1 的 3 处收编完成后，「统一 LLM 端口」目标**已事实达成**，
+本批**无需改代码**，改为**审计确认 + 用守卫测试固化**，防止后人重引直连。
+
+### 1) 全仓审计结果
+
+| 入口 | 文件数 | 调用点 | 是否走网关 |
+|---|---|---|---|
+| `AiSceneJsonClient#executeForJson` | 9 | 15 | ✅ 同步/JSON 任务型场景唯一入口 |
+| `AiGatewayService#executeConversationStream` | 3 | 3 | ✅ 会话流式唯一入口 |
+| `AiGatewayService#execute` | 1 | 1 | ✅ 网关本体 |
+| `agentClient.chat(` | 1 | 3 | ✅ **仅注释提及**（批次 1 收编说明），**代码零调用** |
+
+并核实 `executeConversationStream` **确实经过治理三件套**：
+`resolveSessionConfig`（按首轮锁定版本读快照）+ `SceneRateLimiter`（限流）+ `TokenCostGuard`（成本熔断）。
+
+### 2) 新增守卫测试 `LlmCallPortGuardTest`（3 例）
+
+| 用例 | 钉死的契约 |
+|---|---|
+| `noDirectModelChatInBusinessCode` | 扫描 `ext/cms` 与 `portal` 全部 Java 源码，**剥离注释后**不得出现 `agentClient.chat(`；违规时打印 `文件:行号` |
+| `gatewayEntryPointsExist` | 两个网关入口方法名不得被改名/删除；且会话流式**必须**经 `resolveSessionConfig` / `rateLimiter` / `tokenCostGuard`（否则"走网关"名不副实） |
+| `stripCommentsWorks` | **自我验证**：确认注释剥离器真能剔除行注释与块注释中的调用、并保留真实调用 —— 防止守卫被注释骗过或产生误报 |
+
+> **为什么这类守卫值得写**：绕过网关**编译不报错、既有测试不失败**（静默退化：
+> 该次调用不进 `ai_execute_log`、不受限流与成本熔断、不走版本锁）。
+> 只靠代码评审维持这种约束是脆弱的，故钉成可回归断言。
+> 守卫自带**自我验证用例**（`stripCommentsWorks`），避免"守卫本身有 bug 却一直绿灯"。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `mvn -o test` | ✅ **440 例全绿**（本次 +3） |
+
+
 ## v13.51 (2026-09-30) 批次 4（一）场景配置双下拉 —— 清偿报告七 P0-4「子场景只能靠 SQL 维护」
 
 **背景**：场景代码支持两段式 `主场景:子任务`（如 `voice_interview:warmup`），

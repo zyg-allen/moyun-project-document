@@ -8,10 +8,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.ext.ai.entity.Agent;
+import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.HintVO;
+import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewQaVO;
+import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewReportVO;
+import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewVO;
+import com.moyun.ext.cms.support.InterviewTextUtils;
 import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 
 import com.moyun.ext.cms.service.IVoiceInterviewService;
@@ -219,7 +224,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private AnswerAnalysis parseAnalysis(JsonNode node, AnswerScoringEngine.ScoreResult ruleScore) {
         try {
             AnswerAnalysis a = new AnswerAnalysis();
-            a.score = clamp(node.path("score").asInt(ruleScore.score), 0, 100);
+            a.score = InterviewTextUtils.clamp(node.path("score").asInt(ruleScore.score), 0, 100);
             a.feedback = node.path("feedback").asText("");
             if (StringUtils.isEmpty(a.feedback)) {
                 a.feedback = ruleScore.feedback;
@@ -235,7 +240,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 int finalVal = llmVal >= 0
                         ? scoringEngine.fuseAnswerScore(llmVal, ruleVal, dimWeights)
                         : ruleVal;
-                dims.put(key, clamp(finalVal, 0, 100));
+                dims.put(key, InterviewTextUtils.clamp(finalVal, 0, 100));
             }
             a.dimensions = dims;
             List<String> flaws = new ArrayList<>();
@@ -254,10 +259,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private int clamp(int v, int min, int max) {
-        return Math.max(min, Math.min(max, v));
     }
 
     /** LLM 分析结果（规则评分的超集：漏洞/水平/追问建议） */
@@ -289,9 +290,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      * <p>⚠️ 若调整 {@code ai_model_config.timeout}，本值须同步：<b>SSE ≥ 模型超时 + 缓冲</b>。</p>
      */
     private static final long SSE_TIMEOUT = 210_000L;
-
-    /** 追问预测条数上限（v13.47 批次 2；提示词已约束，代码再兜底一次） */
-    private static final int MAX_PREDICTED_QUESTIONS = 6;
 
     /** 每题提示上限（与 §原实现一致） */
     private static final int MAX_HINT_PER_QUESTION = 3;
@@ -1363,9 +1361,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             try {
                 Map<String, Object> input = new LinkedHashMap<>();
                 input.put("task", AiSceneTasks.INTERVIEW_HINT);
-                input.put("question", truncateText(qa.getQuestion(), 500));
+                input.put("question", InterviewTextUtils.truncateText(qa.getQuestion(), 500));
                 if (StringUtils.isNotEmpty(qa.getUserAnswer())) {
-                    input.put("answer", truncateText(qa.getUserAnswer(), 500));
+                    input.put("answer", InterviewTextUtils.truncateText(qa.getUserAnswer(), 500));
                 }
                 if (StringUtils.isNotEmpty(agent.getSystemPrompt())) {
                     input.put("agentPersona", agent.getSystemPrompt());
@@ -1803,7 +1801,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     }
                     if (StringUtils.isNotEmpty(resume.getSkills())) {
                         // 技能 JSON 格式化（"Java·了解 / Python·了解"），不再透出原始 JSON
-                        candidate.put("skills", formatSkills(resume.getSkills()));
+                        candidate.put("skills", InterviewTextUtils.formatSkills(objectMapper, resume.getSkills()));
                     }
                     if (StringUtils.isNotEmpty(resume.getSelfIntro())) {
                         candidate.put("resumeSelfIntro", resume.getSelfIntro());
@@ -1975,13 +1973,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             input.put("task", AiSceneTasks.INTERVIEW_INDUSTRY_INSIGHT);
             input.put("position", position);
             if (StringUtils.isNotEmpty(jobRequirements)) {
-                input.put("jd", truncateText(jobRequirements, 600));
+                input.put("jd", InterviewTextUtils.truncateText(jobRequirements, 600));
             }
             // 简历技能
             if (interview.getResumeId() != null) {
                 PortalUserResume resume = userResumeMapper.selectById(interview.getResumeId());
                 if (resume != null && StringUtils.isNotEmpty(resume.getSkills())) {
-                    input.put("skills", truncateText(formatSkills(resume.getSkills()), 500));
+                    input.put("skills", InterviewTextUtils.truncateText(InterviewTextUtils.formatSkills(objectMapper, resume.getSkills()), 500));
                 }
             }
             // 本场报告上下文：薄弱点 + 定级 + 低分维度（V1.1#3）
@@ -1996,7 +1994,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 weakTitles.addAll(cur.getWeakPoints());
             }
             if (!weakTitles.isEmpty()) {
-                input.put("weakPoints", truncateText(String.join("；", weakTitles), 500));
+                input.put("weakPoints", InterviewTextUtils.truncateText(String.join("；", weakTitles), 500));
             }
             if (StringUtils.isNotEmpty(cur.getLevelEstimate())) {
                 input.put("levelEstimate", cur.getLevelEstimate());
@@ -2172,10 +2170,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             StringBuilder input = new StringBuilder();
             input.append("目标岗位：").append(position).append('\n');
             if (StringUtils.isNotEmpty(jobRequirements)) {
-                input.append("岗位要求：").append(truncateText(jobRequirements, 600)).append('\n');
+                input.append("岗位要求：").append(InterviewTextUtils.truncateText(jobRequirements, 600)).append('\n');
             }
             if (StringUtils.isNotEmpty(resumeDigest)) {
-                input.append("候选人简历摘要：\n").append(truncateText(resumeDigest, 800)).append('\n');
+                input.append("候选人简历摘要：\n").append(InterviewTextUtils.truncateText(resumeDigest, 800)).append('\n');
             }
             input.append("整场对话记录（含每题初评分，供参考）：\n");
             for (PortalVoiceInterviewQA qa : qaList) {
@@ -2183,8 +2181,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     continue;
                 }
                 input.append("【第").append(qa.getQuestionIdx()).append("题】")
-                        .append(truncateText(qa.getQuestion(), 150)).append('\n')
-                        .append("候选人回答：").append(truncateText(qa.getUserAnswer(), 400)).append('\n')
+                        .append(InterviewTextUtils.truncateText(qa.getQuestion(), 150)).append('\n')
+                        .append("候选人回答：").append(InterviewTextUtils.truncateText(qa.getUserAnswer(), 400)).append('\n')
                         .append("初评分：").append(qa.getScore() == null ? 50 : qa.getScore()).append('\n');
             }
             input.append("请输出整场面试复盘报告 JSON。");
@@ -2203,10 +2201,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             reportInput.put("task", AiSceneTasks.INTERVIEW_REPORT_REVIEW);
             reportInput.put("position", position);
             if (StringUtils.isNotEmpty(jobRequirements)) {
-                reportInput.put("jd", truncateText(jobRequirements, 600));
+                reportInput.put("jd", InterviewTextUtils.truncateText(jobRequirements, 600));
             }
             if (StringUtils.isNotEmpty(resumeDigest)) {
-                reportInput.put("resumeDigest", truncateText(resumeDigest, 800));
+                reportInput.put("resumeDigest", InterviewTextUtils.truncateText(resumeDigest, 800));
             }
             reportInput.put("qaList", input.toString());
             if (StringUtils.isNotEmpty(agent.getSystemPrompt())) {
@@ -2237,14 +2235,14 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
 
             // ---------- v13.47 批次 2：追问预测（上限 6 条，解析失败置空 → 前端隐藏 tab） ----------
-            List<VoiceInterviewReportVO.PredictedQuestionView> predictions = parsePredictedQuestions(node.path("predictedQuestions"));
+            List<VoiceInterviewReportVO.PredictedQuestionView> predictions = InterviewTextUtils.parsePredictedQuestions(node.path("predictedQuestions"));
             if (!predictions.isEmpty()) {
                 report.setPredictedQuestions(predictions);
             }
             JsonNode jobMatchNode = node.path("jobMatch");
             if (jobMatchNode.has("rate")) {
                 VoiceInterviewReportVO.JobMatchView jobMatch = new VoiceInterviewReportVO.JobMatchView();
-                jobMatch.setRate(clamp(jobMatchNode.path("rate").asInt(ruleAvg), 0, 100));
+                jobMatch.setRate(InterviewTextUtils.clamp(jobMatchNode.path("rate").asInt(ruleAvg), 0, 100));
                 jobMatch.setReason(jobMatchNode.path("reason").asText(""));
                 report.setJobMatch(jobMatch);
                 if (report.getJobInfo() != null) {
@@ -2282,7 +2280,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 for (String key : dimKeys) {
                     int v = dimsNode.path(key).asInt(-1);
                     if (v >= 0) {
-                        dims.put(key, clamp(v, 0, 100));
+                        dims.put(key, InterviewTextUtils.clamp(v, 0, 100));
                     }
                 }
                 if (dims.size() == dimKeys.length) {
@@ -2308,7 +2306,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             int correctedCount = 0;
             for (JsonNode pq : node.path("perQuestion")) {
                 int idx = pq.path("questionIdx").asInt(-1);
-                int score = clamp(pq.path("score").asInt(-1), 0, 100);
+                int score = InterviewTextUtils.clamp(pq.path("score").asInt(-1), 0, 100);
                 if (idx < 0 || score < 0) {
                     continue;
                 }
@@ -2395,95 +2393,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             setter.accept(views);
         }
         return titles;
-    }
-
-    /** 容错提取 JSON 对象主体（v13.19：统一走 LlmJsonExtractor —— 剥围栏/前后杂文本/括号配平一处实现） */
-    private JsonNode extractJsonObject(String raw) {
-        return LlmJsonExtractor.extractNode(objectMapper, raw);
-    }
-
-    /**
-     * v13.47 批次 2：解析复盘产出的「追问预测」（上限 {@value #MAX_PREDICTED_QUESTIONS} 条）。
-     *
-     * <p>解析失败或空数组返回空列表 → 调用方不设置该字段 → 前端**整 tab 隐藏**
-     * （对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）。</p>
-     *
-     * <p>字段口径：{@code question/briefAnswer/analysis/knowledgePoint/askedThisRound/askedScore}，
-     * 其中 {@code askedThisRound=true} 的条目在前端归入分组 A「本次已问」（复盘视角），
-     * 其余归入分组 B「未被问到」（预警视角，核心价值）。</p>
-     *
-     * @param arr LLM 产出的 predictedQuestions 节点（可能缺失/非数组/元素非对象）
-     * @return 解析成功的预测列表（可能为空，永不为 null）
-     */
-    private List<VoiceInterviewReportVO.PredictedQuestionView> parsePredictedQuestions(JsonNode arr) {
-        List<VoiceInterviewReportVO.PredictedQuestionView> out = new ArrayList<>();
-        if (arr == null || !arr.isArray()) {
-            return out;
-        }
-        for (JsonNode item : arr) {
-            if (out.size() >= MAX_PREDICTED_QUESTIONS) {
-                break; // 硬约束：上限 6 条（提示词已约束，此处再兜底一次）
-            }
-            if (item == null || !item.isObject()) {
-                continue;
-            }
-            String question = item.path("question").asText("").trim();
-            if (StringUtils.isEmpty(question)) {
-                continue; // 没有问题文本的条目无价值
-            }
-            VoiceInterviewReportVO.PredictedQuestionView v = new VoiceInterviewReportVO.PredictedQuestionView();
-            v.setQuestion(question);
-            v.setBriefAnswer(item.path("briefAnswer").asText(""));
-            v.setAnalysis(item.path("analysis").asText(""));
-            v.setKnowledgePoint(item.path("knowledgePoint").asText(""));
-            boolean asked = item.path("askedThisRound").asBoolean(false);
-            v.setAskedThisRound(asked);
-            if (asked) {
-                int s = item.path("askedScore").asInt(-1);
-                if (s >= 0) {
-                    v.setAskedScore(clamp(s, 0, 100));
-                }
-            }
-            out.add(v);
-        }
-        return out;
-    }
-
-    /** 文本截断（超长加省略号） */
-    private String truncateText(String text, int maxLen) {
-        if (text == null) {
-            return "";
-        }
-        String flat = text.replaceAll("\\s+", " ").trim();
-        return flat.length() > maxLen ? flat.substring(0, maxLen) + "…" : flat;
-    }
-
-    /**
-     * 技能 JSON 格式化——{"Java":{"level":"了解"}} 或数组 → "Java·了解 / Python·了解"；
-     * 解析失败原样返回（兜底存量/异构数据）。
-     */
-    private String formatSkills(String rawSkills) {
-        if (StringUtils.isEmpty(rawSkills) || !rawSkills.trim().startsWith("{")) {
-            return rawSkills;
-        }
-        try {
-            JsonNode node = objectMapper.readTree(rawSkills);
-            if (!node.isObject()) {
-                return rawSkills;
-            }
-            List<String> parts = new ArrayList<>();
-            java.util.Iterator<Map.Entry<String, JsonNode>> it = node.fields();
-            while (it.hasNext()) {
-                Map.Entry<String, JsonNode> entry = it.next();
-                String name = entry.getKey();
-                String level = entry.getValue().isContainerNode()
-                        ? entry.getValue().path("level").asText("") : entry.getValue().asText("");
-                parts.add(StringUtils.isEmpty(level) ? name : name + "·" + level);
-            }
-            return String.join(" / ", parts);
-        } catch (Exception e) {
-            return rawSkills;
-        }
     }
 
     private List<String> buildImprovementSuggestions(List<String> weakPoints,

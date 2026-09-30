@@ -75,7 +75,23 @@ public enum AiSceneEnum {
     WRITING_PROMPT("writing_prompt", "写作主题",
             "每日写作主题生成",
             "日期 + 特殊日期上下文",
-            "标题/分类/描述");
+            "标题/分类/描述"),
+
+    /**
+     * 智能体对话（AI 对话主链）。
+     *
+     * <p><b>v13.43 补登记（报告七 P0-3）</b>：该场景由 {@code ChatController}
+     * （裸字面量 {@code "default_chat"}）在运行时**必需** —— 经
+     * {@code AiSceneRegistry.getConfig("default_chat")} 读取限流/治理参数，
+     * 库中亦有配置行（{@code ai_scene_config.default_chat}）。但枚举一直漏登记，
+     * 导致两个后果：① 管理端场景页看不到它；② 因
+     * {@code AiSceneConfigController.validate()} 用 {@link #of(String)} 精确匹配，
+     * 它在管理端**无法保存**（只能靠 SQL 维护）。补齐后两问题同时消失。</p>
+     */
+    DEFAULT_CHAT("default_chat", "智能体对话",
+            "多轮对话（流式）+ 意图分类 + 记忆滑窗",
+            "用户输入 + 会话历史 + Agent 人设",
+            "对话回复（流式）");
 
     /** 场景代码（数据库 ai_scene_config.scene_code） */
     private final String code;

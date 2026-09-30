@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.aigateway.support.AiSceneJsonClient;
 import com.moyun.ext.cms.service.IPortalJobTemplateService;
@@ -28,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 
 /**
  * 岗位模板服务实现（v11.x 智能出题）
@@ -182,7 +184,7 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
      */
     private List<String> extractByLlm(String jdText) {
         JsonNode node = aiSceneJsonClient.executeForJson(SCENE_QUESTION_GENERATE,
-                Map.of("task", "jd_keywords", "context", jdText), null);
+                Map.of("task", AiSceneTasks.QUESTION_JD_KEYWORDS, "context", jdText), null);
         JsonNode keywordsNode = node == null ? null : node.path("keywords");
         if (!keywordsNode.isArray() || keywordsNode.isEmpty()) {
             log.warn("[JobTemplate] 网关关键词提取未得结果");

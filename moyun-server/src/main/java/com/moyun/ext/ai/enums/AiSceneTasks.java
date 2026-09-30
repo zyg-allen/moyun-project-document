@@ -44,4 +44,41 @@ public final class AiSceneTasks {
     public static final String INTERVIEW_ANSWER_ANALYSIS = "answer_analysis";
     /** 自我介绍 4 维评分（ScoringEngine） */
     public static final String INTERVIEW_SELF_INTRO = "self_intro";
+
+    // ===== question_generate（智能出题）=====
+
+    /**
+     * JD 原文 → 岗位关键词提取（PortalJobTemplateServiceImpl）。
+     *
+     * <p><b>v13.43 补常量（报告七 P0-4）</b>：原实现用**裸字面量** {@code "jd_keywords"}，
+     * 不在本白名单内 —— 既无法防「乱加子任务」，改名/重构也容易漏。
+     * 补齐后 {@code validate()} 的两段式校验才能覆盖它。</p>
+     */
+    public static final String QUESTION_JD_KEYWORDS = "jd_keywords";
+
+    // ===== voice_interview 新增子任务（方案 V1.2 批次 1）=====
+
+    /**
+     * 开场降级：warmup 失败后的简版开场白 + 首题（VoiceInterviewServiceImpl）。
+     *
+     * <p>方案 V1.1#1「收编不删除」：warmup 失败多为**瞬时网络抖动**（长期存在），
+     * 删除兜底 = 一次抖动一场面试开不了头；而模型能力缺失才属配置错误（修一次永绝）。
+     * 两类失败性质不同，故保留兜底但把提示词从代码迁到配置行。</p>
+     */
+    public static final String INTERVIEW_OPENING_FALLBACK = "opening_fallback";
+
+    /** 思考提示：一句话引导（不泄答案），用户点击触发（VoiceInterviewServiceImpl#requestHint） */
+    public static final String INTERVIEW_HINT = "hint";
+
+    /**
+     * 整场复盘 + 追问预测（一次调用双产出）。
+     *
+     * <p>方案 V1.2 §3.2 裁决：追问预测**并入**复盘调用而**不单开** task ——
+     * 两触点输入完全同源（简历摘要 + 岗位 + JD + qaList），单开等于输入 token 翻倍，
+     * 且模型一次看完对话后「顺带」产出预测问题质量更高（它知道哪些问过哪些没问）。</p>
+     */
+    public static final String INTERVIEW_REPORT_REVIEW = "report_review";
+
+    /** 发展方向建议（懒生成：首次打开 tab 才调用；配置行预留 RAG 知识库绑定） */
+    public static final String INTERVIEW_INDUSTRY_INSIGHT = "industry_insight";
 }

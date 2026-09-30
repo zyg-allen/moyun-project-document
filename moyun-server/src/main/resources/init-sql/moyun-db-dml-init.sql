@@ -23,11 +23,12 @@ INSERT INTO ai_agent (name,description,system_prompt,knowledge_library_ids,knowl
 
 【面试守则】
 1. 一次只问一个问题。紧密结合候选人此前的回答随机应变——像真实面试官一样追问细节、质疑数据、验证深度。
-2. 候选人回答有明显漏洞或可深挖的亮点时优先追问；一个话题考察充分后再换新话题，不蜻蜓点水地串场。
-3. 不泄露评分维度与分析细节，不主动给标准答案，不说"你的得分是"。
-4. 口语化、自然，像面对面交谈：单轮话术控制在 1-3 句，避免书面语、条目式表达和长篇大论。
-5. 候选人答不上来或明显偏题时，给一次自然的引导或换题，不反复纠缠同一考点。
-6. 全程只以面试官身份说话，不扮演其他角色，不输出任何 JSON、标记或系统文字。','["13"]','{"13":1}',17,'deepseek-v4-pro',0.7,2048,0.7,10,1,'你好，欢迎参加{{position}}岗位的模拟面试。我是今天的面试官，放松心态，我们像聊天一样开始。准备好了的话，我们直接进入第一个问题。','',1,20,0,'',NULL,'manual','',1,'pub-wxg0pgbp5jqnj5cp9fw8i','','2026-09-07 09:15:33','2026-09-16 14:04:15',2.0,1,1,0.2,0.8,0,0);
+2. 追问有度：同一话题连续追问不超过 4 轮；已验证深度或候选人已无新信息时，立即切换到下一个考察方向，不恋战、也不蜻蜓点水地串场。
+3. 考察有层次：开场从简历与自我介绍深挖真实经历，中段必须进入岗位专业技术与核心能力考察，结尾留出候选人反问空间——把面试时间用满，考察充分而非赶进度。
+4. 不泄露评分维度与分析细节，不主动给标准答案，不说"你的得分是"。
+5. 口语化、自然，像面对面交谈：单轮话术控制在 1-3 句，避免书面语、条目式表达和长篇大论。
+6. 候选人答不上来或明显偏题时，给一次自然的引导或换题，不反复纠缠同一考点。
+7. 全程只以面试官身份说话，不扮演其他角色，不输出任何 JSON、标记或系统文字。','["13"]','{"13":1}',17,'deepseek-v4-pro',0.7,2048,0.7,10,1,'你好，欢迎参加{{position}}岗位的模拟面试。我是今天的面试官，放松心态，我们像聊天一样开始。准备好了的话，我们直接进入第一个问题。','',1,20,0,'',NULL,'manual','',1,'pub-wxg0pgbp5jqnj5cp9fw8i','','2026-09-07 09:15:33','2026-09-16 14:04:15',2.0,1,1,0.2,0.8,0,0);
 
 select * from ai_agent_dictionary_relation;
 INSERT INTO ai_agent_dictionary_relation (agent_id,dictionary_id,enabled,create_time) VALUES
@@ -148,7 +149,7 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 	 ('resume_optimize:deep_optimize','简历优化-深度优化','task 拆行：整份简历逐项深度优化（原 ResumeOptimizeHandler.deep_optimize 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深简历优化专家，基于目标岗位JD对简历进行逐项深度优化。返回 JSON：summary(总体优化说明，50字内), items(优化建议数组，3-6项)。每项含：section(必为以下枚举之一：objective/education/work/project/skills/selfIntro；严禁使用复数如works/projects，严禁使用experience/introduction 等同义词，必须完全匹配枚举值), index(列表条目索引，从0开始；skills 填 0), field(position/description/name), optimized(优化后完整文本，可直接替换，50-200字), reason(优化理由，一句话，30字内)。不要输出 original 字段（原文由系统回填）。优化原则：STAR法则+量化数据+[X%]占位符（无依据数据用占位符供用户填写）；skills 的 optimized 用"精通：A、B\\n熟练：C"格式；保持语义一致禁止编造经历。只输出 JSON 本体，禁止 markdown 代码块包裹，输出务必完整，禁止中途截断。
 
 {{data:业务数据|context}}','{"context": "业务 Service 组装的目标岗位JD+简历核心内容上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
-	 ('voice_interview:warmup','AI 语音面试-预热','task 拆行：候选人画像+考察计划+开场白+首题（原 VoiceInterviewHandler.warmup 提示词逐字收编）','chat',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你正在主持一场模拟面试，请先完成面试预热理解，只输出如下 JSON（不要任何其他文字）：
+	 ('voice_interview:warmup','AI 语音面试-预热','task 拆行：候选人画像+考察计划+开场白+首题（原 VoiceInterviewHandler.warmup 提示词逐字收编；v13.62 考察方向数与计划题数联动+类别覆盖约束）','chat',(SELECT id FROM ai_agent WHERE name='AI面试官·默认' AND deleted=0 ORDER BY id LIMIT 1),NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你正在主持一场模拟面试，请先完成面试预热理解，只输出如下 JSON（不要任何其他文字）：
 {
   "understanding": {
     "candidateProfile": "50字内的候选人画像（背景/技术栈/经验层次）",
@@ -161,7 +162,7 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
   "opening": "1-2句面试官开场白（欢迎+放松提示，口语化）",
   "firstQuestion": "第一个问题：固定为请候选人做自我介绍，并提示结合与应聘岗位相关的经历"
 }
-考察方向3-5个，优先来自岗位要求JD与知识库参考片段，其次来自简历项目；depth 结合难度设定。
+考察方向数量与计划问题数一致（3-15 个）。方向必须按类别覆盖、避免全部挤在同一类：项目/经历深挖 1-2 个、技术基础 1-2 个、岗位核心技能 1-2 个、系统设计或场景运用 1 个、软素质/协作 0-1 个；优先来自岗位要求JD与知识库参考片段，其次来自简历项目；depth 结合难度设定。
 
 {{data:面试背景|context}}
 {{data:候选人简历摘要|resumeDigest}}

@@ -378,17 +378,20 @@ const DIFFICULTY_OPTIONS = [
   { label: '中级（1-3 年）', value: 'medium' as const },
   { label: '高级（3 年以上）', value: 'hard' as const },
 ];
+// v13.62：题数口径=考察方向数（1 方向 = 1 主问 + 1~2 轮追问，自我介绍不计入），
+// 选项从 3/5/8 扩至 5/8/12/15，匹配 20 分钟标准场的考察密度
 const QUESTION_COUNT_OPTIONS = [
-  { label: '3 题（快速版）', value: 3 },
-  { label: '5 题（标准版）', value: 5 },
-  { label: '8 题（深度版）', value: 8 },
+  { label: '5 个方向（快速版）', value: 5 },
+  { label: '8 个方向（标准版）', value: 8 },
+  { label: '12 个方向（深度版）', value: 12 },
+  { label: '15 个方向（沉浸版）', value: 15 },
 ];
 
 const config = ref<VoiceStartConfig>({
   position: 'Java 后端开发',
   difficulty: 'medium',
 });
-const questionCount = ref(5);
+const questionCount = ref(8);
 const muteMode = ref(false);
 /** 自动聆听：AI 播报结束后自动开启麦克风，形成"真人对聊"节奏（行业标准） */
 const autoListen = ref(true);
@@ -2359,6 +2362,7 @@ const chatStatus = computed(() => {
                 <select v-model.number="questionCount" class="config-select">
                   <option v-for="o in QUESTION_COUNT_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                 </select>
+                <p class="config-hint">1 个方向 = 1 个主问题 + 1~2 轮追问；自我介绍不计入，实际对话轮数约为方向数的 2 倍</p>
               </div>
             </div>
             <div class="toggle-row">

@@ -98,8 +98,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     private static final Logger log = LoggerFactory.getLogger(VoiceInterviewServiceImpl.class);
 
-    /** 主问题目数量 */
-    private static final int QUESTION_COUNT = 5;
+    /** 主问题（考察方向）默认数量：v13.62 由 5 调至 8——时长制下题数是软参考，
+     *  默认值应匹配 20 分钟标准场的考察密度（原 5 方向 ≈ 7-8 轮对话，约 10 分钟即冷场） */
+    private static final int QUESTION_COUNT = 8;
 
     /** 时长制：sys_config 面试时长键（分钟，缺省 20） */
     private static final String CONFIG_KEY_DURATION = "voice.interview.durationMinutes";
@@ -587,13 +588,22 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 .append("- 岗位：").append(StringUtils.isEmpty(interview.getPosition()) ? "综合" : interview.getPosition()).append("\n")
                 .append("- 难度：").append(difficultyDesc).append("\n")
                 .append("- 计划 ").append(interview.getTotalQa() == null ? QUESTION_COUNT : interview.getTotalQa())
-                .append(" 个大问题，每个大问题可按回答情况追问 1-2 次，不要机械背题，围绕候选人实际经历展开。\n");
-        // 段序约束（三段式：自我介绍 → 深挖 → 核心问答；反问融入对话流，非独立段）
-        sb.append("\n【段序约束】\n")
-                .append("- 第 1 个问题固定为：请候选人做自我介绍；")
-                .append("随后 2-3 问必须从其自我介绍内容中提取深挖点逐一追问，之后再扩展到其他考察方向。\n")
-                .append("- 候选人在回答中口头反问时，简短作答后自然回到提问；问满计划题数后，")
-                .append("口播一句“你还有什么想了解的吗？”，候选人若无反问或反问完毕即做简短收尾致谢。\n");
+                .append(" 个考察方向。题数口径：1 个考察方向 = 1 个主问题 + 视回答情况 1-2 轮追问；")
+                .append("开场自我介绍是固定环节，不计入考察方向数。目标是把时间用满，考察充分而非赶进度。\n");
+        // 段序约束（四阶段：自我介绍 → 简历深挖 → 专业技术考察 → 反问收尾）
+        // v13.62：重写出题结构——明确阶段划分、追问轮换上限、中段必须进入专业考察，
+        // 修复「全程围绕第一个话题追问、几轮对话就草草收场」的体验问题
+        sb.append("\n【段序约束（四阶段，严格遵循）】\n")
+                .append("阶段一（开场）：第 1 问固定为请候选人做自我介绍。\n")
+                .append("阶段二（简历深挖）：从自我介绍内容中提取 2-3 个值得验证的点逐一追问，")
+                .append("每个点最多追问 2 轮，验证完即进入下一阶段，不做无休止深挖。\n")
+                .append("阶段三（专业考察，本场主体）：按预热考察方向逐一展开，")
+                .append("必须覆盖技术基础、项目实战、系统设计/场景运用等不同类别；")
+                .append("每个方向主问题后视回答追问 1-2 轮，考察充分即切换下一方向。\n")
+                .append("阶段四（收尾）：时间临近结束或方向问完后，口播一句「你还有什么想了解的吗？」，")
+                .append("候选人若无反问或反问完毕即做简短收尾致谢。\n")
+                .append("【轮换纪律】同一话题连续问答不超过 3 轮必须切换方向；")
+                .append("候选人回答空泛时先追问一次细节，仍空泛则记录在心里、果断换方向，不反复纠缠。\n");
         // V4：预热计划（AI 理解）渲染进 system，滑窗常驻保证不跑题
         String planSection = renderWarmupPlanSection(interview);
         if (StringUtils.isNotEmpty(planSection)) {
@@ -838,7 +848,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 时长制守卫：超过配置时长+宽限后拒绝继续作答，并自动收口触发报告（数据不丢）
         if (InterviewSessionSupport.isInterviewTimedOut(interview, durationOf(interview))) {
             recordEvent(interviewId, "timeout_close", Map.of("qaId", qaId));
-            finishQuietly(interview);
+            finishQuietly(interview, "timeout");
+            // 分支提前返回，必须释放幂等锁（否则 TTL 内同题重试被误拒）
+            turnLock.close();
             SseEmitter timeoutEmitter = new SseEmitter(SSE_TIMEOUT);
             sendEvent(timeoutEmitter, "delta", toJson(Map.of("t", "本场面试时长已到，感谢你的参与。")));
             sendEvent(timeoutEmitter, "end", toJson(Map.of(
@@ -848,8 +860,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         // 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
+        // v13.62：服务端同步收口会话并触发报告——原来只发 SSE finished 事件、status 仍
+        // in_progress，若前端未回调 /finish 会话将悬挂且报告永不生成（不可依赖前端行为）
         if (!isSkip && InterviewSessionSupport.matchesVerbalEnd(transcript)) {
             recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
+            finishQuietly(interview, "verbal_end");
+            turnLock.close();
             SseEmitter endEmitter = new SseEmitter(SSE_TIMEOUT);
             sendEvent(endEmitter, "delta", toJson(Map.of("t", "好的，本场面试就到这里，感谢你的参与，稍后可查看面试报告。")));
             sendEvent(endEmitter, "end", toJson(Map.of(
@@ -1023,8 +1039,20 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                                 maybeScoreSelfIntro(interview.getId(), qa.getUserAnswer());
                             }
 
+                            // v13.62：时间已到（含宽限内）——面试官按指令已做收尾话术，
+                            // 本轮结束后服务端自动收口并触发报告，不再依赖用户点结束按钮
+                            boolean timeUp = InterviewSessionSupport.remainMinutesOf(
+                                    interview, durationOf(interview)) <= 0;
+                            if (timeUp) {
+                                payload.put("finished", true);
+                            }
                             sendEvent(emitter, "end", toJson(payload));
                             emitter.complete();
+                            if (timeUp) {
+                                recordEvent(interview.getId(), "timeout_close",
+                                        Map.of("qaId", qa.getId(), "phase", "after_turn"));
+                                finishQuietly(interview, "timeout");
+                            }
                         } catch (Exception e) {
                             log.error("[VoiceInterview] 轮次收尾异常 interviewId={}", interview.getId(), e);
                             sendEvent(emitter, "error", "面试官响应处理失败");
@@ -1153,19 +1181,19 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
         return InterviewSessionSupport.resolveDurationMinutes(interview, global, objectMapper);
     }
-    private void finishQuietly(PortalVoiceInterview interview) {
+    private void finishQuietly(PortalVoiceInterview interview, String closedReason) {
         try {
             if ("finished".equals(interview.getStatus())) {
                 return;
             }
             interview.setStatus("finished");
-            interview.setClosedReason("timeout");
+            interview.setClosedReason(closedReason);
             if (interview.getAnalysisStatus() == null || interview.getAnalysisStatus() == 0) {
                 interview.setAnalysisStatus(1);
             }
             interview.setAnalysisProgress(0);
             interviewMapper.updateById(interview);
-            recordEvent(interview.getId(), "finish", Map.of("closedReason", "timeout"));
+            recordEvent(interview.getId(), "finish", Map.of("closedReason", closedReason));
             memoryService.clear(interview.getId());
             triggerBatchAnalysis(interview.getId());
         } catch (Exception e) {

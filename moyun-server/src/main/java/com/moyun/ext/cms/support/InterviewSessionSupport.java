@@ -156,6 +156,9 @@ public final class InterviewSessionSupport {
     /**
      * 每轮任务指令：只约束话术形态，不参与出题决策。
      *
+     * <p>v13.62：按已答轮数注入分阶段引导（开场深挖 → 专业考察 → 轮换提醒），
+     * 配合系统提示词四阶段段序约束，防止面试官全程恋战第一个话题。</p>
+     *
      * @param skip        本题是否被跳过
      * @param doneRounds  已问大问题数
      * @param remainMin   剩余分钟（可为负）
@@ -173,9 +176,16 @@ public final class InterviewSessionSupport {
         } else {
             timeNote = "（本场面试剩余约 " + remainMin + " 分钟，可自主把握提问节奏与深度。）";
         }
+        // 分阶段引导（v13.62）：按轮次推进提醒面试官切换考察阶段/方向
+        String phaseNote = "";
+        if (doneRounds >= 2 && doneRounds <= 3) {
+            phaseNote = "（简历与自我介绍深挖应接近尾声，请转入预热计划中的专业技术考察方向。）";
+        } else if (doneRounds >= 4) {
+            phaseNote = "（注意考察方向轮换：若当前话题已连续追问 2 轮以上且验证充分，请果断切换下一个方向，不要恋战。）";
+        }
         return skipNote
                 + "只输出面试官会说的话，不要任何分析、标记或多余格式。"
-                + "（本场已问 " + doneRounds + " 个大问题）" + timeNote;
+                + "（本场已问 " + doneRounds + " 个大问题）" + timeNote + phaseNote;
     }
 
     /**

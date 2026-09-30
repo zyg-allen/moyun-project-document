@@ -3133,11 +3133,13 @@ CREATE TABLE `portal_voice_interview_qa` (
                                              `answer_time` datetime DEFAULT NULL COMMENT '回答时间（提交时刻）',
                                              `score_draft` int DEFAULT NULL COMMENT '草稿评分（异步 LLM 分析写回，报告批量分析融合）',
                                              `analysis_status` tinyint NOT NULL DEFAULT '0' COMMENT '单题分析状态：0未分析 1分析中 2已分析',
+                                             `uk_qa` varchar(48) GENERATED ALWAYS AS (concat(`interview_id`,_utf8mb4':',`question_idx`,_utf8mb4':',ifnull(`parent_qa_id`,0))) STORED COMMENT 'v13.53 唯一键载体：会话:题号:父问答（NULL→0），绕开 MySQL 唯一索引对 NULL 不去重的语义',
                                              PRIMARY KEY (`id`),
                                              KEY `idx_interview` (`interview_id`),
                                              KEY `idx_question_idx` (`interview_id`,`question_idx`),
                                              KEY `idx_parent` (`parent_qa_id`),
-                                             KEY `idx_del_flag` (`del_flag`)
+                                             KEY `idx_del_flag` (`del_flag`),
+                                             UNIQUE KEY `uk_qa_main` (`uk_qa`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试问答表（V10.1，含追问链）';
 
 

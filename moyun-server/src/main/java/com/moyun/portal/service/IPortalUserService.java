@@ -180,4 +180,11 @@ public interface IPortalUserService {
      * @return 符合条件的用户列表
      */
     List<PortalUser> selectAuthors(int limit, Long excludeUserId);
+
+    /**
+     * 名家录分页查询（清单 P2）。
+     *
+     * @return 长度 2 的 List：index 0 = 当前页用户列表，index 1 = 总数
+     */
+    List<Object> selectAuthorsPage(String keyword, String sort, int pageNum, int pageSize, Long excludeUserId);
 }

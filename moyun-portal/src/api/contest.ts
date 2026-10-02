@@ -70,8 +70,16 @@ export const getContestList = (params?: ContestListQuery) => {
  * 活动详情（公开，含投稿列表）
  * GET /portal/contest/{id}
  */
-export const getContestDetail = (id: string | number) => {
-  return httpGet<ContestDetailVO>(`/portal/contest/${id}`);
+/**
+ * 活动详情（清单 P2：投稿列表已支持服务端分页）。
+ *
+ * @param params 可选投稿分页参数；不传时后端按默认（第 1 页 20 条）返回
+ */
+export const getContestDetail = (
+  id: string | number,
+  params?: { submissionPage?: number; submissionSize?: number },
+) => {
+  return httpGet<ContestDetailVO>(`/portal/contest/${id}`, params as Record<string, unknown>);
 };
 
 /**

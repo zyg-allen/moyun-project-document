@@ -64,6 +64,10 @@ public class PortalPayController {
         data.put("payNo", order.getPayNo());
         data.put("status", order.getStatus());
         data.put("amount", order.getAmount());
+        // 清单 P2：收银台原先只显示金额与支付单号，用户看不到"买的是什么"；
+        // 而下单时订单已写入 subject（如"会员订阅-XX"）与 bizType —— 这里如实下发。
+        data.put("subject", order.getSubject());
+        data.put("bizType", order.getBizType());
         data.put("expireTime", order.getExpireTime());
         data.put("codeUrl", order.getCodeUrl());
         data.put("mockEnabled", payProperties.getWechat().isMockEnabled());

@@ -242,6 +242,25 @@ function totalPages() {
   return Math.max(1, Math.ceil(total.value / pageSize));
 }
 
+/**
+ * 分页窗口（清单 P2）：原先把**所有页码**都渲染出来（`v-for="p in totalPages()"`），
+ * 页数多时一排按钮撑爆布局。这里改为"首尾 + 当前页附近 + 省略号"的窗口，最多 7 个按钮，
+ * 省略处用字符串 '...' 占位（模板按 typeof 区分是否可点）。
+ */
+const visiblePages = computed<(number | string)[]>(() => {
+  const last = totalPages();
+  const current = page.value;
+  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+  const pages: (number | string)[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(last - 1, current + 1);
+  if (start > 2) pages.push('...');
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < last - 1) pages.push('...');
+  pages.push(last);
+  return pages;
+});
+
 function gotoPage(p: number) {
   if (p < 1 || p > totalPages()) return;
   page.value = p;
@@ -422,9 +441,10 @@ function gotoPage(p: number) {
               <ChevronLeft class="w-4 h-4" />
             </button>
             <button
-              v-for="p in totalPages()"
-              :key="p"
-              @click="gotoPage(p)"
+              v-for="(p, pi) in visiblePages"
+              :key="typeof p === 'number' ? 'p' + p : 'gap' + pi"
+              :disabled="typeof p !== 'number'"
+              @click="typeof p === 'number' && gotoPage(p)"
               class="min-w-[40px] px-3 py-2 rounded-lg text-sm transition"
               :class="page === p ? 'bg-theme-primary text-white' : 'bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-accent)]'"
             >

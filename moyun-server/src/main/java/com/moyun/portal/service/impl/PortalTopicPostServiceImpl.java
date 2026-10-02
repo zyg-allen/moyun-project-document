@@ -291,6 +291,20 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
             return voPage;
         }
 
+        // 清单 P2：批量回填「所属话题标题」（我的观点列表混合多个话题，原先只显示楼层号）
+        Map<Long, String> topicTitleMap = new java.util.HashMap<>();
+        Set<Long> topicIds = records.stream()
+                .map(PortalTopicPost::getTopicId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!topicIds.isEmpty()) {
+            for (PortalTopic topic : portalTopicMapper.selectBatchIds(topicIds)) {
+                if (topic != null && topic.getTitle() != null) {
+                    topicTitleMap.put(topic.getId(), topic.getTitle());
+                }
+            }
+        }
+
         // 批量查询发布者
         Set<Long> userIds = records.stream()
                 .map(PortalTopicPost::getUserId)
@@ -328,7 +342,8 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
             PortalUser author = userMap.get(post.getUserId());
             if (author != null) {
                 vo.setUsername(author.getUsername());
-                vo.setNickname(author.getNickname());
+                vo.setTopicTitle(topicTitleMap.get(vo.getTopicId()));
+            vo.setNickname(author.getNickname());
                 vo.setAvatar(author.getAvatar());
             }
             if (post.getReplyToUserId() != null) {

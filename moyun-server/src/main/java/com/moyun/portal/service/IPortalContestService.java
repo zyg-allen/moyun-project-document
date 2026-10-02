@@ -28,6 +28,17 @@ public interface IPortalContestService extends IService<PortalWritingContest> {
     Map<String, Object> getContestDetail(Long contestId, Long currentUserId);
 
     /**
+     * 活动详情（投稿列表**服务端分页**，清单 P2）。
+     *
+     * <p>原先 getContestDetail 用 selectList **一次性返回该活动全部未淘汰投稿**（无分页、无上限），
+     * 前端整屏渲染。投稿量增大后既拖慢接口也拖垮首屏。</p>
+     *
+     * @param pageNum  页码（从 1 开始）
+     * @param pageSize 每页条数
+     */
+    Map<String, Object> getContestDetail(Long contestId, Long currentUserId, int pageNum, int pageSize);
+
+    /**
      * 投稿（需登录）：同一活动同一用户仅可投稿一次
      *
      * @return 投稿ID

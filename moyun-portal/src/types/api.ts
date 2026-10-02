@@ -2377,6 +2377,10 @@ export interface PayCashierResult {
 
 /** 支付状态轮询结果 */
 export interface PayStatusResult {
+  /** 商品名称（清单 P2：下单时写入，收银台展示"买的是什么"） */
+  subject?: string;
+  /** 业务类型 */
+  bizType?: string;
   payNo: string;
   /** CREATED/PAID/SETTLED/CLOSED */
   status: string;

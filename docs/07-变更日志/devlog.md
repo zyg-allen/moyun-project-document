@@ -2,6 +2,86 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v14.66 (2026-10-01) 全端评审落地（第 107 批）：征文投稿列表**服务端分页**（附 hasSubmitted 口径修正）
+
+| 层 | 改动 |
+|---|---|
+| **Service** | 新增重载 `getContestDetail(contestId, userId, pageNum, pageSize)`；**旧 2 参方法委托到默认（第 1 页 20 条）**，调用方零改动；投稿查询由 `selectList` → `selectPage`，响应新增 `submissionTotal` / `submissionPage` / `submissionSize` |
+| **Controller** | `GET /portal/contest/{id}` 增加 `submissionPage` / `submissionSize`（默认 1/20，页大小上限 50） |
+| **前端 API** | `getContestDetail(id, params?)` 支持分页参数并**透传** |
+| **前端页面** | `ContestDetailPage` 投稿总数改用**服务端 total**；新增 `loadMoreSubmissions()`（按页追加 + **按 id 去重**）与「**加载更多投稿（还有 N 篇）**」按钮 |
+
+**★ 顺带修掉一个真 bug（口径错位）**：`hasSubmitted` 原先在**当前页记录**里 `anyMatch` ⇒ 改成服务端分页后，用户自己的投稿若**不在第 1 页**就会被判为"未投稿"，页面上仍显示可投稿并**诱导重复投稿**。已改为对该活动 + 当前用户做**独立计数**（与分页解耦）。
+
+**★ 过程自纠 3 次**：
+① `hasSubmitted` 锚点带 dump 的 `]` 未命中 ⇒ 按行定位重写；
+② 首版把 `loadMoreSubmissions` **插进了 `loadDetail` 的 JSDoc 中间**（把注释块劈开）⇒ `vue-tsc` 报一串 `TS1109/TS1125`；**从备份回滚该文件**后，改为插在 JSDoc 起始 `/**` 之前，注释块完整；
+③ **自查发现半成品**：`getContestDetail` 的 `params` 声明后**未透传**（eslint unused warning）⇒ 立即接进请求。
+
+**验证**：后端 `mvn -o -B test` **481/481** · 门户 `vue-tsc`（strict）0 / `eslint` **0 problems** / build ✓（52.48s）· 对账 **已修 459（P0 6 / P1 76 / P2 291 / P3 86）· 订正 20 · 不做 5 · 未修 398 · 有结论率 54.3%**
+
+## v14.65 (2026-10-01) 全端评审落地（第 106 批）：名家列表**服务端分页**（关键词 + 四种排序下沉到 SQL）
+
+**背景**：前端原先是 `getAuthors(100)` 后**在浏览器内**搜索/排序/分页 ⇒ ① **第 101 位之后的作者永不出现**；② "最受欢迎/粉丝最多"只在**已加载的 100 人子集**内排序（名不副实）。这不是"加个加载更多"能解决的，**必须把关键词与排序下沉到 SQL**。
+
+| 层 | 改动 |
+|---|---|
+| **Mapper XML** | 新增 `authorVisibilityFilter` 片段（原三条件 + 排除自己 + **关键词**模糊匹配 `username`/`bio`）；新增 `countAuthors`；新增 `selectAuthorsPage`，排序用 `<choose>`：`newest`（create_time）/ `fans`（子查询 `portal_follow.following_id` 计数）/ `popular`（子查询 `SUM(views)+SUM(likes)*10`）/ 默认 `works`（发布文章数），均带 `create_time DESC` 兜底，末尾 `LIMIT #{offset}, #{size}` |
+| **Mapper 接口** | 新增 `selectAuthorsPage(keyword, sort, offset, size, excludeUserId)` 与 `countAuthors(keyword, excludeUserId)` |
+| **Service** | 新增 `selectAuthorsPage(...)`（页码/页大小归一，页大小上限 50），返回 `[list, total, pageNum, pageSize]` |
+| **Controller** | `/portal/user/authors` 增加 `pageNum/pageSize/keyword/sort`；**传 `pageNum` 才启用分页并返回 `{list,total,pageNum,pageSize}`，不传则保持旧行为返回数组**（向后兼容） |
+| **前端 API** | `getAuthors` 支持 `number`（旧用法）与对象（分页）两种入参 |
+| **前端页面** | `AuthorsPage` **删除本地过滤/排序与二次切片**，改用**服务端 `total`** 计算总页数；关键词/排序变化与翻页均**重新请求**；`HomePage` 的旧调用兼容两种返回结构 |
+
+**★ 过程自纠 3 次**：
+① 首批锚点又**误带 dump 的 `]`**（3 处未命中）⇒ 按行定位补上；
+② `getAuthors` 返回类型变为联合类型后 **`HomePage` 编译失败**（`Property 'map' does not exist`）⇒ 加 `Array.isArray` 兼容分支；
+③ **自查发现半成品**：`watch([searchQuery, sortBy])` 只重置了页码、**没有重新请求** ⇒ 搜索/排序不会生效；立即补 `void loadUsers()`（这正是本轮反复抓出的 defect class，不能自己犯）。
+
+**验证**：后端 `mvn -o -B test` **481/481** · 门户 `vue-tsc`（strict）0 / `eslint` **0 problems** / build ✓（1m3s）· 对账 **已修 458（P0 6 / P1 76 / P2 290 / P3 86）· 订正 20 · 不做 5 · 未修 399 · 有结论率 54.2%**
+
+## v14.64 (2026-10-01) 全端评审落地（第 105 批）：话题评论「加载更多」
+
+| 缺陷 | 修复 |
+|---|---|
+| `TopicDetailPage` 评论**固定 `pageNum=1, pageSize=10`**，返回的 `total` **只存不用**，评论区既无分页也无「加载更多」⇒ **评论超过 10 条，后面的永远看不到** | ① `CommentState` 增加 `page` / `loadingMore`；② `loadComments(..., loadMore)` 支持**按页追加 + 按 id 去重**，追加失败**不清空**已加载数据；③ 新增 `loadMoreComments()`；④ 模板在评论区末尾加「**加载更多评论（还有 N 条）**」按钮（仅在 `list.length < total` 时显示，加载中禁用并显示"加载中…"） |
+
+**验证**：门户 `vue-tsc`（strict）0 / `eslint` **0 problems** · 对账 **已修 457（P0 6 / P1 76 / P2 289 / P3 86）· 订正 20 · 不做 5 · 未修 400 · 有结论率 54.1%**
+
+### 未完成（据实说明，未做半成品）
+
+原列"5 条可改"中，**征文投稿分页**与**作者列表分页**这两条**未做**，原因如下（均为**需要改接口签名 + 查询层**的改造，不是单点修改）：
+
+| 项 | 需要的改造 |
+|---|---|
+| `ContestDetailPage` 投稿列表 | 后端 `getContestDetail` 用 `selectList` **一次性返回全部未淘汰投稿**（无分页/无上限）⇒ 需改为分页查询（mapper 增加 count + `LIMIT offset,size`）、在详情响应中改/增投稿分页结构，前端改「加载更多」并处理 `total` 口径变更 |
+| `AuthorsPage` 作者列表 | 前端 `getAuthors(100)` 后在**浏览器内**搜索/排序/分页 ⇒ **第 101 位之后的作者永不出现**，且"最受欢迎/粉丝最多"只在 100 人子集内排序。需把**搜索与排序一并下沉到服务端**（mapper 增加条件与排序分支 + count），前端改服务端分页 |
+
+> 这两项若只做"前端加个加载更多"而不动后端查询，会形成**半成品**（数据源仍是截断的 100 条/全量列表），因此**没有动手**，留作独立改造。
+
+## v14.63 (2026-10-01) 全端评审落地（第 104 批）：**后端回填 2 项**（观点话题归属 · 面经作者信息）
+
+| # | 缺陷 | 修复 |
+|---|---|---|
+| 1 | **我的观点看不出属于哪个话题**：`TopicPostVO` 只有 `topicId`，卡片只显示「#N 楼」（而该列表按时间倒序**混合了所有话题**的观点） | ① `TopicPostVO` 新增 `topicTitle`；② `convertToPostVOPage` 按 `topicId` 去重后**一次批量查询** `portal_topic` 回填；③ 前端卡片展示「所属话题：<标题>」并可点击跳转 |
+| 2 | **面经作者名/头像恒为空**：`toExperienceVO` 里只有一行注释「作者信息（这里省略用户名查询…）」，**从未填充** ⇒ 列表与详情页作者信息都是空的 | 新增 `fillExperienceAuthors(List<vo>)`：按 `userId` 去重后**一次批量查询**回填 `userNickname`/`userAvatar`；**列表与详情两个入口都调用**（顺带避免逐条查询造成 N+1） |
+
+**★ 过程自纠 1 次**：前端首个版本把类型断言写进模板表达式（`v-if="(post as unknown as {...}).topicTitle"`）并用内联模板字符串跳转 ⇒ Vue 编译报 `TS1109/TS1128`；改为**脚本内 helper**（`postTopicTitle()` / `goTopic()`）后通过。
+
+**验证**：门户 `vue-tsc`（strict）0 / `eslint` **0 problems** / build ✓（1m6s）· 后端 **481/481** · 对账 **已修 456（P0 6 / P1 76 / P2 288 / P3 86）· 订正 20 · 不做 5 · 未修 401 · 有结论率 54.0%**
+
+## v14.62 (2026-10-01) 全端评审落地（第 103 批）：**"可改"组 5 项**（URL 同步 · 分页窗口 · 口径标注 · 分区空态 · 收银台商品信息）
+
+| # | 页面 | 缺陷 | 修复 |
+|---|---|---|---|
+| 1 | `QuestionListPage` | URL 同步**只单向**（本地 → URL），**没有 watch `route.query`** ⇒ 浏览器后退/前进时地址栏 query 变了、本地筛选不变（列表与 URL 脱节） | 补**反向同步** `watch(() => route.query)`：取值确有变化才更新并重载（避免与 `router.replace` 形成循环） |
+| 2 | `ResumeTemplatePage` | 分页 `v-for="p in totalPages()"` **全量渲染**页码，页数多时一排按钮撑爆布局 | 改为**窗口化** `visiblePages`（首尾 + 当前页附近 + 省略号，最多 7 个），模板按 `typeof` 区分数值与占位 |
+| 3 | `KnowledgeGraphPage` | 后端只返回**题目数 Top 60** 标签（`ORDER BY question_count DESC LIMIT 60`），页面把这份**截断数据当全量**渲染（汇总卡/标签云/关系图） | 如实标注口径为"Top 60 标签"，不再假装全站全量 |
+| 4 | `InterviewPage` | 五个分区（分类/热门题目/热门面经/简历模板/热门公司）**只有 `v-if="length > 0"`**，为空时分区**直接消失**、无任何说明 | 五个分区各补**空态文案** |
+| 5 | `PayCashierPage` | 收银台只显示金额与支付单号 ⇒ **用户不知道"买的是什么"**（而 `PayOrder` 下单时就写入了 `subject`/`bizType`） | `/portal/pay/status` **下发 `subject`/`bizType`**；待支付区展示商品名；`PayStatusResult` 类型同步补字段 |
+
+**验证**：门户 `vue-tsc`（strict）0 / `eslint` **0 problems** / build ✓（52.94s）· 后端 **481/481** · 对账 **已修 454（P0 6 / P1 76 / P2 286 / P3 86）· 订正 20 · 不做 5 · 未修 403 · 有结论率 53.7%**
+
 ## v14.61 (2026-10-01) 全端评审落地（第 102 批）：**工程/配置类 3 项**（文档暴露面 · 安全链匹配 · SQL 日志）
 
 | # | 缺陷 | 修复 |

@@ -27,6 +27,14 @@ public class TopicPostVO implements Serializable {
     @Schema(description = "所属话题ID")
     private Long topicId;
 
+    /**
+     * 所属话题标题（清单 P2）。
+     *
+     * <p>列表（尤其是"我的观点"，按时间倒序混合了所有话题）原先只显示楼层号，
+     * 用户看不出这条观点属于哪个话题；后端原 VO 也只有 topicId。</p>
+     */
+    private String topicTitle;
+
     @Schema(description = "发布者ID")
     private Long userId;
 

@@ -310,6 +310,9 @@ interface CommentState {
   list: TopicComment[];
   loading: boolean;
   total: number;
+  /** 已加载页数 / 是否正在加载更多（清单 P2：原先固定只拉第 1 页 10 条，评论多于 10 条就永远看不到） */
+  page: number;
+  loadingMore: boolean;
   expanded: boolean;
   newContent: string;
   replyingRoot: TopicComment | null;
@@ -331,6 +334,8 @@ function getCommentState(targetType: string, targetId: number | string): Comment
       list: [],
       loading: false,
       total: 0,
+      page: 1,
+      loadingMore: false,
       expanded: false,
       newContent: '',
       replyingRoot: null,
@@ -369,33 +374,62 @@ function getReplyToName(comment: TopicComment): string {
   return comment.replyToNickname || '';
 }
 
-async function loadComments(targetType: string, targetId: number | string) {
+/**
+ * 加载评论（清单 P2）。
+ *
+ * <p>原先固定 `pageNum: 1, pageSize: 10`，返回的 total 只存不用、评论区既无分页也无"加载更多"
+ * ⇒ 评论超过 10 条后**后面的永远看不到**。现支持追加加载：`loadMore=true` 时按页追加，并按 id 去重。</p>
+ */
+async function loadComments(targetType: string, targetId: number | string, loadMore = false) {
   const state = getCommentState(targetType, targetId);
-  state.loading = true;
+  if (loadMore) {
+    if (state.loadingMore || state.loading) return;
+    state.loadingMore = true;
+  } else {
+    state.loading = true;
+    state.page = 1;
+  }
+  const requestPage = loadMore ? state.page + 1 : 1;
   try {
     const res = await getTopicComments({
       targetType,
       targetId,
-      pageNum: 1,
+      pageNum: requestPage,
       pageSize: 10,
     });
     if (res.code === 200 && res.data) {
-      state.list = (res.data.list || []).map(c => {
+      const incoming = (res.data.list || []).map(c => {
         if (!c.replies) c.replies = [];
         return c;
       });
+      if (loadMore) {
+        // 追加去重（后端按时间排序，翻页期间若有新增评论可能出现重复）
+        const seen = new Set(state.list.map(c => String(c.id)));
+        state.list = [...state.list, ...incoming.filter(c => !seen.has(String(c.id)))];
+      } else {
+        state.list = incoming;
+      }
+      state.page = requestPage;
       state.total = res.data.total || 0;
-    } else {
+    } else if (!loadMore) {
       state.list = [];
       state.total = 0;
     }
   } catch (err) {
     console.error('加载评论失败:', err);
-    state.list = [];
-    state.total = 0;
+    if (!loadMore) {
+      state.list = [];
+      state.total = 0;
+    }
   } finally {
     state.loading = false;
+    state.loadingMore = false;
   }
+}
+
+/** 加载更多评论（清单 P2：原评论区没有分页入口） */
+function loadMoreComments(targetType: string, targetId: number | string) {
+  return loadComments(targetType, targetId, true);
 }
 
 function toggleComments(targetType: string, targetId: number | string) {
@@ -1227,6 +1261,21 @@ async function handleDeleteComment(
                             </div>
                           </div>
                         </div>
+                      </div>
+
+                      <!-- 清单 P2：原先评论区固定只展示第 1 页 10 条，没有分页/加载更多入口 -->
+                      <div
+                        v-if="postCommentState(post).expanded && postCommentState(post).list.length < postCommentState(post).total"
+                        class="mt-3 text-center"
+                      >
+                        <button
+                          class="px-4 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50"
+                          style="background-color: var(--theme-accent); color: var(--theme-text);"
+                          :disabled="postCommentState(post).loadingMore"
+                          @click="loadMoreComments('post', post.id)"
+                        >
+                          {{ postCommentState(post).loadingMore ? '加载中…' : `加载更多评论（还有 ${postCommentState(post).total - postCommentState(post).list.length} 条）` }}
+                        </button>
                       </div>
 
                       <!-- 一级评论输入框 -->

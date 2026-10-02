@@ -32,13 +32,18 @@ const followingMap = ref<Record<string, boolean>>({});
 // 关注操作中：userId -> true（避免重复点击）
 const followingLoading = ref<Record<string, boolean>>({});
 
-// 分页：服务端一次拉取后前端分页，避免每次排序都重新计算
+// 分页：**服务端分页**（清单 P2：原先前端 getAuthors(100) 后在浏览器内搜索/排序/分页
+// ⇒ 第 101 位之后的作者永不出现，且排序只在已加载的 100 人子集内生效）
 const currentPage = ref(1);
+/** 服务端返回的作者总数（清单 P2：用于总页数，原先按已加载条数算） */
+const totalCount = ref(0);
 
 // 搜索词/排序变化必须回到第 1 页：否则在已翻到第 N 页时过滤结果变短，
 // pagedUsers 会切片出空数组 → 误显"没有找到作者"，且分页控件因 totalPages<=1 被隐藏。
+// 清单 P2：关键词/排序变化 → 回到第 1 页并**重新请求**（过滤与排序都在服务端完成）
 watch([searchQuery, sortBy], () => {
   currentPage.value = 1;
+  void loadUsers();
 });
 const pageSize = 12;
 
@@ -79,44 +84,23 @@ const usersWithStats = computed<UserWithStats[]>(() => {
   });
 });
 
-const filteredUsers = computed(() => {
-  let result = [...usersWithStats.value];
-
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    result = result.filter(user =>
-      user.username.toLowerCase().includes(query) ||
-      (user.bio?.toLowerCase().includes(query))
-    );
-  }
-
-  switch (sortBy.value) {
-    case 'newest':
-      return result.sort((a, b) => new Date(b.createTime ?? 0).getTime() - new Date(a.createTime ?? 0).getTime());
-    case 'works':
-      return result.sort((a, b) => b._stats.articles - a._stats.articles);
-    case 'fans':
-      return result.sort((a, b) => b._stats.followers - a._stats.followers);
-    default: // popular
-      return result.sort((a, b) =>
-        (b._stats.views + b._stats.likes * 10) - (a._stats.views + a._stats.likes * 10)
-      );
-  }
-});
+// 清单 P2：关键词过滤与排序**已下沉到后端 SQL**（见 PortalUserMapper.selectAuthorsPage）。
+// 原先在这里对"一次拉取的 100 条"做过滤/排序 ⇒ 搜索找不到第 101 位之后的作者、排序也不代表全站。
 
 // 分页后的当前页数据
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize)));
+// 清单 P2：总页数用**服务端 total**（原先按已加载的 100 条算，永远只有 ≤9 页）
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize)));
 
-const pagedUsers = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return filteredUsers.value.slice(start, start + pageSize);
-});
+// 清单 P2：服务端已分页，前端不再二次切片（原先是在浏览器内对 100 条做切片）
+const pagedUsers = computed(() => usersWithStats.value);
 
 function gotoPage(p: number) {
   if (p < 1 || p > totalPages.value) return;
   currentPage.value = p;
   // 翻页后回到列表顶部
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  // 清单 P2：服务端分页，翻页需重新请求
+  void loadUsers();
 }
 
 onMounted(() => {
@@ -127,9 +111,22 @@ async function loadUsers() {
   isLoading.value = true;
   errorMsg.value = null;
   try {
-    const response = await userApi.getAuthors(100);
+    // 清单 P2：服务端分页 + 关键词 + 排序
+    const response = await userApi.getAuthors({
+      pageNum: currentPage.value,
+      pageSize,
+      keyword: searchQuery.value.trim() || undefined,
+      sort: sortBy.value,
+    });
     if (response.code === 200 && response.data) {
-      users.value = response.data;
+      const payload = response.data as unknown as { list?: User[]; total?: number };
+      if (Array.isArray(payload)) {
+        users.value = payload;
+        totalCount.value = payload.length;
+      } else {
+        users.value = payload.list || [];
+        totalCount.value = payload.total || 0;
+      }
       // 批量检查关注状态（已登录才有意义；未登录则全 false）
       await loadFollowingStates();
     } else {
@@ -404,7 +401,7 @@ useHead(
           上一页
         </button>
         <span class="px-4 py-2 text-sm" style="color: var(--theme-text-secondary);">
-          第 {{ currentPage }} / {{ totalPages }} 页（共 {{ filteredUsers.length }} 位）
+          第 {{ currentPage }} / {{ totalPages }} 页（共 {{ totalCount }} 位）
         </span>
         <button
           @click="gotoPage(currentPage + 1)"

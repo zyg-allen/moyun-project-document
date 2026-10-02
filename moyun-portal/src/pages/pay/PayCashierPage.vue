@@ -71,6 +71,8 @@
           <p class="text-4xl font-bold" style="color: var(--theme-text);">
             <span class="text-base font-normal mr-1">¥</span>{{ amountYuan }}
           </p>
+          <!-- 清单 P2：原先只显示金额与支付单号，用户不知道"买的是什么"（后端已下发 subject/bizType） -->
+          <p v-if="subject" class="text-sm mt-2 font-medium" style="color: var(--theme-text);">{{ subject }}</p>
           <p class="text-xs mt-2" style="color: var(--theme-text-secondary);">
             支付单号：{{ payNo }}
           </p>
@@ -146,6 +148,8 @@ const payNo = ref('');
 const codeUrl = ref('');
 const amountYuan = ref('0.00');
 const expireMinutes = ref(30);
+/** 商品名称（清单 P2：来自订单 subject，用于"买的是什么"） */
+const subject = ref('');
 const mockEnabled = ref(false);
 const paid = ref(false);
 const settled = ref(false);
@@ -237,6 +241,7 @@ const pollStatus = async () => {
       }
     }
     mockEnabled.value = !!data.mockEnabled;
+    if (data.subject) subject.value = String(data.subject);
     if (data.status === 'PAID') {
       paid.value = true;
       stopPolling();

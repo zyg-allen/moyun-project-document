@@ -29,6 +29,11 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const contest = ref<WritingContestVO | null>(null);
 const submissions = ref<ContestSubmissionVO[]>([]);
+/** 投稿分页（清单 P2：后端已改为服务端分页，原先一次性返回全部未淘汰投稿） */
+const submissionPage = ref(1);
+const submissionTotal = ref(0);
+const submissionLoadingMore = ref(false);
+const SUBMISSION_PAGE_SIZE = 20;
 const votedIds = ref<Set<string | number>>(new Set());
 const hasSubmitted = ref(false);
 
@@ -64,6 +69,27 @@ watch(contestId, (newId, oldId) => {
   }
 });
 
+/** 加载更多投稿（清单 P2：原先一次返回全部投稿，现改为服务端分页 + 追加去重） */
+async function loadMoreSubmissions() {
+  if (submissionLoadingMore.value || submissions.value.length >= submissionTotal.value) return;
+  submissionLoadingMore.value = true;
+  try {
+    const next = submissionPage.value + 1;
+    const res = await getContestDetail(contestId.value, { submissionPage: next, submissionSize: SUBMISSION_PAGE_SIZE });
+    if (res.code === 200 && res.data) {
+      const incoming = (res.data.submissions || []) as ContestSubmissionVO[];
+      const seen = new Set(submissions.value.map((s) => String(s.id)));
+      submissions.value = [...submissions.value, ...incoming.filter((s) => !seen.has(String(s.id)))];
+      submissionPage.value = next;
+      submissionTotal.value = Number((res.data as unknown as { submissionTotal?: number }).submissionTotal) || submissionTotal.value;
+    }
+  } catch (e) {
+    toast.error((e as { message?: string })?.message || '加载更多投稿失败');
+  } finally {
+    submissionLoadingMore.value = false;
+  }
+}
+
 /**
  * 加载活动详情。
  *
@@ -84,6 +110,8 @@ async function loadDetail(silent = false) {
     if (res.code === 200 && res.data) {
       contest.value = res.data.contest;
       submissions.value = res.data.submissions || [];
+      submissionPage.value = Number((res.data as unknown as { submissionPage?: number }).submissionPage) || 1;
+      submissionTotal.value = Number((res.data as unknown as { submissionTotal?: number }).submissionTotal) || submissions.value.length;
       votedIds.value = new Set(res.data.votedSubmissionIds || []);
       hasSubmitted.value = !!res.data.hasSubmitted;
     } else {
@@ -418,7 +446,7 @@ const canSubmit = computed(() => {
               <Trophy class="w-5 h-5 mr-2" style="color: var(--theme-primary);" />
               投稿列表
               <span class="ml-2 text-xs font-normal" style="color: var(--theme-text-secondary);">
-                共 {{ submissions.length }} 篇
+                共 {{ submissionTotal || submissions.length }} 篇
               </span>
             </h2>
 
@@ -504,6 +532,18 @@ const canSubmit = computed(() => {
               </div>
             </div>
           </div>
+
+        <!-- 清单 P2：投稿列表为服务端分页，这里提供「加载更多」入口 -->
+        <div v-if="submissions.length < (submissionTotal || submissions.length)" class="mt-4 text-center">
+          <button
+            class="px-5 py-2 rounded-lg text-sm transition hover:opacity-80 disabled:opacity-50"
+            style="background-color: var(--theme-accent); color: var(--theme-text);"
+            :disabled="submissionLoadingMore"
+            @click="loadMoreSubmissions()"
+          >
+            {{ submissionLoadingMore ? '加载中…' : `加载更多投稿（还有 ${(submissionTotal || submissions.length) - submissions.length} 篇）` }}
+          </button>
+        </div>
         </div>
       </div>
     </template>

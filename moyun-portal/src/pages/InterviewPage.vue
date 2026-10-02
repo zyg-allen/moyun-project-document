@@ -450,7 +450,10 @@ const sectionNav = [
 
         <template v-else>
           <!-- 分类快捷入口 -->
-          <div v-if="categories.length > 0" id="interview-categories" class="mb-8 sm:mb-10 scroll-mt-24">
+          <div v-if="categories.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+        暂无面试分类
+      </div>
+      <div v-if="categories.length > 0" id="interview-categories" class="mb-8 sm:mb-10 scroll-mt-24">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title flex items-center gap-2">
                 <BookOpen class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
@@ -479,7 +482,10 @@ const sectionNav = [
           </div>
 
           <!-- 热门题目 -->
-          <div v-if="hotQuestions.length > 0" id="interview-questions" class="mb-8 sm:mb-10 scroll-mt-24">
+          <div v-if="hotQuestions.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+        暂无热门题目
+      </div>
+      <div v-if="hotQuestions.length > 0" id="interview-questions" class="mb-8 sm:mb-10 scroll-mt-24">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title flex items-center gap-2">
                 <Trophy class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
@@ -541,7 +547,10 @@ const sectionNav = [
           </div>
 
           <!-- 热门面经 -->
-          <div v-if="hotExperiences.length > 0" id="interview-experiences" class="mb-8 sm:mb-10 scroll-mt-24">
+          <div v-if="hotExperiences.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+        暂无热门面经
+      </div>
+      <div v-if="hotExperiences.length > 0" id="interview-experiences" class="mb-8 sm:mb-10 scroll-mt-24">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title flex items-center gap-2">
                 <Briefcase class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
@@ -590,7 +599,10 @@ const sectionNav = [
           </div>
 
           <!-- 简历模板 -->
-          <div v-if="resumeTemplates.length > 0" id="interview-resume" class="mb-8 sm:mb-10 scroll-mt-24">
+          <div v-if="resumeTemplates.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+        暂无简历模板
+      </div>
+      <div v-if="resumeTemplates.length > 0" id="interview-resume" class="mb-8 sm:mb-10 scroll-mt-24">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title flex items-center gap-2">
                 <FileText class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
@@ -626,7 +638,10 @@ const sectionNav = [
           </div>
 
           <!-- 热门公司墙 -->
-          <div v-if="hotCompanies.length > 0" id="interview-companies" class="mb-8 sm:mb-10 scroll-mt-24">
+          <div v-if="hotCompanies.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+        暂无热门公司数据
+      </div>
+      <div v-if="hotCompanies.length > 0" id="interview-companies" class="mb-8 sm:mb-10 scroll-mt-24">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title flex items-center gap-2">
                 <Building2 class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />

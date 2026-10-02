@@ -173,7 +173,11 @@ const loadAuthors = async () => {
     const response = await getAuthors(10)
     if (response.code === 200 && response.data) {
       // 后端 /portal/user/authors 已返回真实统计字段 works/views/likes/days
-      authors.value = response.data.map((user: any) => ({
+      // 清单 P2：getAuthors 支持服务端分页后返回类型为「数组 | { list, total }」，此处兼容两种结构
+      const authorList: any[] = Array.isArray(response.data)
+        ? response.data
+        : ((response.data as unknown as { list?: any[] }).list || []);
+      authors.value = authorList.map((user: any) => ({
         id: String(user.id),
         name: user.nickname || user.username,
         // 清单 P2：接口已返回 avatar 却只取昵称首字母渲染 ⇒ 有头像的作者也显示成字母。

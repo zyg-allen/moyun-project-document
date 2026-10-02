@@ -60,6 +60,12 @@ public class PortalContestServiceImpl extends ServiceImpl<PortalWritingContestMa
 
     @Override
     public Map<String, Object> getContestDetail(Long contestId, Long currentUserId) {
+        // 兼容旧调用：默认第 1 页
+        return getContestDetail(contestId, currentUserId, 1, 20);
+    }
+
+    @Override
+    public Map<String, Object> getContestDetail(Long contestId, Long currentUserId, int pageNum, int pageSize) {
         PortalWritingContest contest = contestMapper.selectById(contestId);
         Map<String, Object> result = new HashMap<>();
         if (contest == null) {
@@ -73,8 +79,18 @@ public class PortalContestServiceImpl extends ServiceImpl<PortalWritingContestMa
                 .ne(PortalContestSubmission::getStatus, "eliminated")
                 .orderByDesc(PortalContestSubmission::getVoteCount)
                 .orderByAsc(PortalContestSubmission::getCreatedTime);
-        List<PortalContestSubmission> submissions = submissionMapper.selectList(subWrapper);
+        // 清单 P2：改为服务端分页（原先 selectList 一次性返回全部未淘汰投稿）
+        int page = Math.max(1, pageNum);
+        int size = pageSize <= 0 ? 20 : Math.min(pageSize, 50);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<PortalContestSubmission> subPage =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<PortalContestSubmission> pageResult =
+                submissionMapper.selectPage(subPage, subWrapper);
+        List<PortalContestSubmission> submissions = pageResult.getRecords();
         result.put("submissions", submissions);
+        result.put("submissionTotal", pageResult.getTotal());
+        result.put("submissionPage", pageResult.getCurrent());
+        result.put("submissionSize", pageResult.getSize());
 
         // 当前用户已投票的投稿ID集合（用于前端展示 voted 标记）
         Set<Long> votedSubmissionIds = new HashSet<>();
@@ -92,8 +108,13 @@ public class PortalContestServiceImpl extends ServiceImpl<PortalWritingContestMa
                     .collect(Collectors.toSet());
 
             // 是否已投稿
-            hasSubmitted = submissions.stream()
-                    .anyMatch(s -> currentUserId.equals(s.getUserId()));
+            // 是否已投稿
+            // 清单 P2：原先在**当前页**记录里判断 ⇒ 用户自己的投稿若不在第 1 页就误判为"未投稿"，
+            // 会诱导重复投稿。改为对该活动下当前用户的投稿做独立计数。
+            LambdaQueryWrapper<PortalContestSubmission> mySubWrapper = new LambdaQueryWrapper<>();
+            mySubWrapper.eq(PortalContestSubmission::getContestId, contestId)
+                    .eq(PortalContestSubmission::getUserId, currentUserId);
+            hasSubmitted = submissionMapper.selectCount(mySubWrapper) > 0;
         }
         result.put("votedSubmissionIds", votedSubmissionIds);
         result.put("hasSubmitted", hasSubmitted);

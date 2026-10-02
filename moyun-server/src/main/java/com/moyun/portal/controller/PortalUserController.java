@@ -407,16 +407,39 @@ public class PortalUserController extends BaseController {
 
     @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表（已认证 + 已开启公开主页 + 至少 1 篇已发布文章），含文章数/浏览/获赞/创作天数等统计")
     @GetMapping("/authors")
-    public AjaxResult getAuthors(@Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer limit) {
+    public AjaxResult getAuthors(
+            @Parameter(description = "每页数量（兼容旧调用）") @RequestParam(required = false) Integer limit,
+            @Parameter(description = "页码（传则启用服务端分页）") @RequestParam(required = false) Integer pageNum,
+            @Parameter(description = "每页条数（默认 12）") @RequestParam(required = false) Integer pageSize,
+            @Parameter(description = "关键词（用户名/简介）") @RequestParam(required = false) String keyword,
+            @Parameter(description = "排序：popular/newest/works/fans") @RequestParam(required = false) String sort) {
         // 名家录展示三条件（用户指令）：
         //   1. privacy_profile=1（已开启公开主页）
         //   2. is_certified_creator=1（创作者认证审核通过）
         //   3. 至少 1 篇已发布文章（EXISTS portal_article status='published'）
         // 详见 PortalUserMapper.selectAuthors
         // 排除当前登录用户：登录用户不应出现在自己的名家录里
-        List<PortalUser> limited = portalUserService.selectAuthors(limit, PortalSecurityUtils.getUserId());
+        // 清单 P2：原先前端只能 `getAuthors(100)` 后在浏览器内搜索/排序/分页 ⇒ 第 101 位之后的作者永不出现。
+        // 现在支持服务端分页（传 pageNum 即启用）与关键词/排序下沉；未传 pageNum 时**保持旧行为**（返回 List）。
+        boolean paged = pageNum != null;
+        long total = 0L;
+        List<PortalUser> limited;
+        if (paged) {
+            List<Object> pageResult = portalUserService.selectAuthorsPage(
+                    keyword, sort, pageNum, pageSize == null ? 12 : pageSize, PortalSecurityUtils.getUserId());
+            @SuppressWarnings("unchecked")
+            List<PortalUser> pageList = (List<PortalUser>) pageResult.get(0);
+            limited = pageList;
+            total = (Long) pageResult.get(1);
+        } else {
+            limited = portalUserService.selectAuthors(limit == null ? 10 : limit, PortalSecurityUtils.getUserId());
+        }
         if (limited.isEmpty()) {
-            return success(limited);
+            return paged ? success(new HashMap<String, Object>() {{
+                put("list", new ArrayList<>());
+                put("total", 0L);
+                put("pageNum", pageNum);
+            }}) : success(limited);
         }
 
         // 提取作者 ID 集合
@@ -516,6 +539,14 @@ public class PortalUserController extends BaseController {
                 item.put("createTime", null);
             }
             result.add(item);
+        }
+        if (paged) {
+            Map<String, Object> pageData = new HashMap<>();
+            pageData.put("list", result);
+            pageData.put("total", total);
+            pageData.put("pageNum", pageNum);
+            pageData.put("pageSize", pageSize == null ? 12 : pageSize);
+            return success(pageData);
         }
         return success(result);
     }

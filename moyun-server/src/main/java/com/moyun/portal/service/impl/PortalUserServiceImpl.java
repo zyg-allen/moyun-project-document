@@ -329,6 +329,24 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     }
 
     /**
+     * 名家录分页查询（清单 P2）。
+     *
+     * <p>把关键词与排序下沉到 SQL，使第 101 位之后的作者也能被翻到、排序不再局限于前 100 人。</p>
+     *
+     * @return `[List<PortalUser> 当前页, Long total]`
+     */
+    @Override
+    public List<Object> selectAuthorsPage(String keyword, String sort, int pageNum, int pageSize, Long excludeUserId) {
+        int page = Math.max(1, pageNum);
+        int size = pageSize <= 0 ? 12 : Math.min(pageSize, 50);
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        Long total = portalUserMapper.countAuthors(kw, excludeUserId);
+        List<PortalUser> list = portalUserMapper.selectAuthorsPage(kw, sort, (page - 1) * size, size, excludeUserId);
+        list.forEach(this::clearPassword);
+        return java.util.Arrays.asList(list, total == null ? 0L : total, (long) page, (long) size);
+    }
+
+    /**
      * 清空用户对象的 password 字段（双重防护，防止接口泄露密码哈希）
      * 配合 PortalUser 实体上的 @JsonProperty(access = WRITE_ONLY) 使用
      *

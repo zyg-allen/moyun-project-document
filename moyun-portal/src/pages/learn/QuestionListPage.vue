@@ -191,6 +191,36 @@ function syncFilterToUrl() {
   router.replace({ query });
 }
 
+/**
+ * 清单 P2：原先只做**单向**同步（本地状态 → URL），没有 watch route.query，
+ * 于是浏览器后退/前进时地址栏 query 变了、本地筛选状态不变（列表与 URL 脱节）。
+ * 这里补反向同步：仅当取值确有变化才更新并重新加载，避免与上面的 replace 形成循环。
+ */
+watch(
+  () => route.query,
+  (q) => {
+    const nextCategory = (q.categoryId as string) || null;
+    const nextDifficulty = (q.difficulty as string) || '';
+    const nextType = (q.questionType as string) || '';
+    const nextKeyword = (q.keyword as string) || '';
+    const nextPage = parseInt(q.page as string) || 1;
+    const changed =
+      String(activeCategoryId.value ?? '') !== String(nextCategory ?? '') ||
+      activeDifficulty.value !== nextDifficulty ||
+      activeQuestionType.value !== nextType ||
+      keyword.value !== nextKeyword ||
+      page.value !== nextPage;
+    if (!changed) return;
+    activeCategoryId.value = nextCategory;
+    activeDifficulty.value = nextDifficulty;
+    activeQuestionType.value = nextType;
+    keyword.value = nextKeyword;
+    searchInput.value = nextKeyword;
+    page.value = nextPage;
+    void loadQuestions();
+  }
+);
+
 // ========== 数据加载 ==========
 async function loadCategories() {
   try {

@@ -20,6 +20,18 @@ import type { TopicPost } from '@/types/api';
 
 const router = useRouter();
 
+/** 观点所属话题标题（清单 P2：后端 TopicPostVO 新增 topicTitle，列表混合多话题时展示归属） */
+const postTopicTitle = (p: unknown): string => {
+  const t = (p as { topicTitle?: string } | null)?.topicTitle;
+  return typeof t === 'string' ? t : '';
+};
+
+/** 跳转到该观点所属话题 */
+const goTopic = (topicId: unknown) => {
+  if (topicId == null) return;
+  router.push(`/topic/${topicId}`);
+};
+
 const loading = ref(false);
 const error = ref<string | null>(null);
 const posts = ref<TopicPost[]>([]);
@@ -174,6 +186,24 @@ function gotoPage(p: number) {
                   #{{ post.floor }} 楼
                 </span>
               </div>
+
+              <!--
+                清单 P2：本列表按时间倒序**混合了所有话题**的观点，而卡片原先只显示楼层号，
+                用户看不出这条观点属于哪个话题（后端 TopicPostVO 原先也只有 topicId）。
+                后端已补 topicTitle（批量回填），这里展示出来。
+              -->
+              <p
+                v-if="postTopicTitle(post)"
+                class="text-xs mb-2 flex items-center gap-1"
+                style="color: var(--theme-text-secondary);"
+              >
+                <span>所属话题：</span>
+                <button
+                  class="hover:underline"
+                  style="color: var(--theme-primary);"
+                  @click="goTopic(post.topicId)"
+                >{{ postTopicTitle(post) }}</button>
+              </p>
 
               <!-- 观点内容（统一用 markdown 模式渲染，支持图片/格式化） -->
               <div

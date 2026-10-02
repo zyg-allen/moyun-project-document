@@ -114,6 +114,22 @@ export const getUserById = (userId: string) => {
 };
 
 // 获取名家列表
-export const getAuthors = (limit = 10) => {
-  return httpGet<any[]>('/portal/user/authors', { limit });
+/**
+ * 获取名家列表（清单 P2）。
+ *
+ * <p>原先只接受 `limit`，前端只能一次拉 100 条再在浏览器内搜索/排序/分页 ⇒
+ * **第 101 位之后的作者永不出现**，且"最受欢迎/粉丝最多"只在前 100 人子集内排序。
+ * 现支持服务端分页：传对象即分页（返回 `{ list, total, pageNum, pageSize }`），
+ * 传数字保持旧行为（返回数组）。</p>
+ */
+export const getAuthors = (
+  params: number | { pageNum?: number; pageSize?: number; keyword?: string; sort?: string } = 10,
+) => {
+  if (typeof params === 'number') {
+    return httpGet<any[]>('/portal/user/authors', { limit: params });
+  }
+  return httpGet<{ list: any[]; total: number; pageNum: number; pageSize: number }>(
+    '/portal/user/authors',
+    params as Record<string, unknown>,
+  );
 };

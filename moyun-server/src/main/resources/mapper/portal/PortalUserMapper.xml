@@ -318,6 +318,45 @@
     <select id="selectBoundPortalUserIds" resultType="java.lang.Long">
         select id from portal_user where user_id is not null and del_flag = '0'
     </select>
+    <!--
+      名家录筛选条件（清单 P2）：原先前端 `getAuthors(100)` 后**在浏览器内**搜索/排序/分页 ⇒
+      第 101 位之后的作者**永不出现**，且"最受欢迎/粉丝最多"只在 100 人子集内排序。
+      这里把关键词与排序**下沉到 SQL**，并配套 count 以支持服务端分页。
+    -->
+    <sql id="authorVisibilityFilter">
+        u.status = '0' AND u.del_flag = '0' AND u.is_certified_creator = 1 AND u.privacy_profile = 1
+        <if test="excludeUserId != null"> AND u.id != #{excludeUserId} </if>
+        <if test="keyword != null and keyword != ''">
+            AND (u.username LIKE CONCAT('%', #{keyword}, '%') OR u.bio LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        AND EXISTS (SELECT 1 FROM portal_article a WHERE a.author_id = u.id AND a.status = 'published')
+    </sql>
+
+    <select id="countAuthors" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM portal_user u WHERE <include refid="authorVisibilityFilter"/>
+    </select>
+
+    <select id="selectAuthorsPage" resultType="com.moyun.portal.domain.entity.PortalUser">
+        SELECT u.* FROM portal_user u WHERE <include refid="authorVisibilityFilter"/>
+        ORDER BY
+        <choose>
+            <when test="sort == 'newest'">u.create_time DESC</when>
+            <when test="sort == 'fans'">
+                (SELECT COUNT(*) FROM portal_follow f WHERE f.following_id = u.id) DESC, u.create_time DESC
+            </when>
+            <when test="sort == 'popular'">
+                (SELECT COALESCE(SUM(a.views), 0) + COALESCE(SUM(a.likes), 0) * 10
+                   FROM portal_article a WHERE a.author_id = u.id AND a.status = 'published') DESC,
+                u.create_time DESC
+            </when>
+            <otherwise>
+                (SELECT COUNT(*) FROM portal_article a WHERE a.author_id = u.id AND a.status = 'published') DESC,
+                u.create_time DESC
+            </otherwise>
+        </choose>
+        LIMIT #{offset}, #{size}
+    </select>
+
     <select id="selectAuthors" resultType="com.moyun.portal.domain.entity.PortalUser">
         SELECT u.* FROM portal_user u WHERE u.status = '0'   AND u.del_flag = '0'   AND u.is_certified_creator = 1   AND u.privacy_profile = 1
         <!-- 清单 P2：登录用户不应出现在自己的名家录里（否则"关注自己"这类无效操作会暴露在页面上） -->

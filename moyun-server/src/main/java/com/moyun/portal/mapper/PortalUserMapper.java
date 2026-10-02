@@ -178,4 +178,23 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
      */
 
     List<PortalUser> selectAuthors(@Param("limit") int limit, @Param("excludeUserId") Long excludeUserId);
+
+    /**
+     * 名家录分页查询（清单 P2：关键词与排序在 SQL 内完成，支持第 101 位之后的作者）。
+     *
+     * @param keyword       关键词（用户名/简介模糊匹配，可空）
+     * @param sort          排序：popular（浏览量+获赞×10，默认）/ newest / works（作品数）/ fans
+     * @param offset        偏移量
+     * @param size          每页条数
+     * @param excludeUserId 需排除的用户（当前登录用户，可空）
+     */
+    List<PortalUser> selectAuthorsPage(@Param("keyword") String keyword,
+                                       @Param("sort") String sort,
+                                       @Param("offset") int offset,
+                                       @Param("size") int size,
+                                       @Param("excludeUserId") Long excludeUserId);
+
+    /** 名家录总数（与 selectAuthorsPage 同条件，用于服务端分页） */
+    Long countAuthors(@Param("keyword") String keyword,
+                      @Param("excludeUserId") Long excludeUserId);
 }

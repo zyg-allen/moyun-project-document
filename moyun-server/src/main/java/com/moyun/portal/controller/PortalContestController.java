@@ -53,8 +53,12 @@ public class PortalContestController extends BaseController {
     @Operation(summary = "活动详情", description = "公开查询活动详情（含投稿列表，已登录则附带当前用户投票标记）")
     @GetMapping("/{id:[0-9]+}")
     @Anonymous
-    public AjaxResult detail(@Parameter(description = "活动ID") @PathVariable Long id) {
-        Map<String, Object> data = contestService.getContestDetail(id, currentUserId());
+    public AjaxResult detail(
+            @Parameter(description = "活动ID") @PathVariable Long id,
+            @Parameter(description = "投稿页码（默认 1）") @RequestParam(defaultValue = "1") Integer submissionPage,
+            @Parameter(description = "投稿每页条数（默认 20，上限 50）") @RequestParam(defaultValue = "20") Integer submissionSize) {
+        // 清单 P2：投稿列表改为服务端分页（原先一次性返回全部未淘汰投稿）
+        Map<String, Object> data = contestService.getContestDetail(id, currentUserId(), submissionPage, submissionSize);
         if (data == null || data.isEmpty()) {
             return AjaxResult.error("活动不存在");
         }

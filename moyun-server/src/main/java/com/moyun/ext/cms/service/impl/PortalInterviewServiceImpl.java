@@ -1238,6 +1238,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         Page<PortalInterviewExperience> entityPage = new Page<>(page.getCurrent(), page.getSize());
         experienceMapper.selectPage(entityPage, qw);
         List<InterviewExperienceVO> vos = entityPage.getRecords().stream().map(e -> toExperienceVO(e, currentUserId)).collect(Collectors.toList());
+        fillExperienceAuthors(vos);   // 清单 P2：批量回填作者昵称/头像（原为空）
         page.setRecords(vos);
         page.setTotal(entityPage.getTotal());
         return page;
@@ -1251,6 +1252,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         experienceMapper.incrementViewCount(id);
         entity.setViewCount((entity.getViewCount() == null ? 0L : entity.getViewCount()) + 1);
         InterviewExperienceVO vo = toExperienceVO(entity, currentUserId);
+        fillExperienceAuthors(java.util.Collections.singletonList(vo));   // 清单 P2：详情页作者信息同样需要回填
         if (vo != null && vo.getId() != null) {
             List<com.moyun.portal.domain.vo.TagVO> tagList = portalTagService.getTagsByEntity("interview_experience", vo.getId());
             if (tagList != null) vo.setTagList(tagList);
@@ -1815,6 +1817,43 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         return vo;
     }
 
+    /**
+     * 批量回填经验作者昵称/头像（清单 P2）。
+     *
+     * <p>原先 {@code toExperienceVO} 里只有一行"省略用户名查询"的注释，作者信息从未填充，
+     * 列表与详情页的作者名/头像恒为空。这里按 userId 去重后**一次批量查询**再回填，避免 N+1。</p>
+     */
+    private void fillExperienceAuthors(List<InterviewExperienceVO> vos) {
+        if (vos == null || vos.isEmpty()) {
+            return;
+        }
+        java.util.Set<Long> userIds = vos.stream()
+                .map(InterviewExperienceVO::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (userIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<Long, com.moyun.portal.domain.entity.PortalUser> userMap = new java.util.HashMap<>();
+        try {
+            for (com.moyun.portal.domain.entity.PortalUser u : portalUserMapper.selectBatchIds(userIds)) {
+                if (u != null) {
+                    userMap.put(u.getId(), u);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量回填经验作者信息失败（不影响主流程）: {}", e.getMessage());
+            return;
+        }
+        for (InterviewExperienceVO vo : vos) {
+            com.moyun.portal.domain.entity.PortalUser u = vo.getUserId() == null ? null : userMap.get(vo.getUserId());
+            if (u != null) {
+                vo.setUserNickname(u.getNickname() != null ? u.getNickname() : u.getUsername());
+                vo.setUserAvatar(u.getAvatar());
+            }
+        }
+    }
+
     private InterviewExperienceVO toExperienceVO(PortalInterviewExperience entity, Long currentUserId) {
         InterviewExperienceVO vo = new InterviewExperienceVO();
         org.springframework.beans.BeanUtils.copyProperties(entity, vo);
@@ -1822,7 +1861,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (StringUtils.isNotEmpty(entity.getTags())) {
             vo.setTags(Arrays.stream(entity.getTags().split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList()));
         }
-        // 作者信息（这里省略用户名查询，可结合 sys_user 表或 portal_user 表）
+        // 作者信息（清单 P2）：原注释自认"这里省略用户名查询" ⇒ 列表/详情页作者名与头像恒为空。
+        // 改为由调用方批量回填（见 fillExperienceAuthors），避免逐条查询造成 N+1。
         vo.setUserId(entity.getUserId());
         if (currentUserId != null) {
             vo.setLiked(experienceLikeMapper.selectLike(entity.getId(), currentUserId) != null);

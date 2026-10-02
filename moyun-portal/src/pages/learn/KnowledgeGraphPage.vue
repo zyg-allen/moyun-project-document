@@ -185,6 +185,9 @@ const stats = computed(() => {
   const avgMastery = nodes.length > 0
     ? Math.round(nodes.reduce((s, n) => s + (n.mastery || 0), 0) / nodes.length)
     : 0;
+  // 清单 P2：后端只返回**题目数 Top 60** 的标签（KNOWLEDGE_NODE_LIMIT = 60，
+  // SQL `ORDER BY question_count DESC LIMIT #{limit}`），页面原先把这份截断数据当全量渲染。
+  // 这里如实标注口径，不假装是全站全量。
   return { tagCount: nodes.length, totalQuestions, mastered, avgMastery };
 });
 </script>

@@ -101,7 +101,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     @Override
     public DashboardVO getDashboardData() {
         // 尝试命中完整缓存
-        // 注意：旧版本曾将 List.subList() 视图直接序列化进 Redis，反序列化会抛
+        // 注意：缓存里若存过 List.subList() 视图，反序列化会抛
         // SerializationException（ArrayList$SubList 无默认构造器）。这里做防御性
         // 读取——若缓存数据损坏则删除脏 key 并回源重建，避免线上持续报错。
         DashboardVO cached = readCacheSafely(CACHE_KEY_FULL);
@@ -122,7 +122,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         vo.setSystemActivities(buildSystemActivities());
         vo.setHotArticles(buildHotArticles());
         vo.setConfigOverview(buildConfigOverview());
-        // 分平台运营概览（v13.25 起）：平台定位 + 端/模块统计 + 运营警报
+        // 分平台运营概览：平台定位 + 端/模块统计 + 运营警报
         vo.setPlatformIdentity(buildPlatformIdentity());
         vo.setPlatformStats(buildPlatformStats());
         vo.setAlerts(buildAlerts());
@@ -793,7 +793,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         return item;
     }
 
-    // ========== 分平台运营概览（v13.25） ==========
+    // ========== 分平台运营概览 ==========
 
     /**
      * 构建平台定位（品牌条）：平台名/口号/战略 + 端清单。

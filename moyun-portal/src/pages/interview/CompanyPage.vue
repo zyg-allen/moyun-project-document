@@ -99,9 +99,18 @@ async function loadCompany() {
   }
 }
 
+/** Tab 区加载失败（清单 P2）：与页面级 error 分开，保证 Tab 失败可见 */
+const tabError = ref<string | null>(null);
+
+// 清单 P2：page/total/tabLoading 全局共享且无序号守卫 —— 切 Tab 与翻页并发时，
+// 先返回的请求会覆盖列表，其 finally 还会把 loading 提前置 false。
+let tabSeq = 0;
+
 async function loadTabData() {
+  const seq = ++tabSeq;
   if (!company.value) return;
   tabLoading.value = true;
+  tabError.value = null;
   try {
     if (activeTab.value === 'questions') {
       const res = await getCompanyQuestions(companyId.value, { pageNum: page.value, pageSize });
@@ -113,11 +122,13 @@ async function loadTabData() {
       total.value = res.data?.total || 0;
     }
   } catch (err) {
-    // 静默失败，保持列表为空
+    // 清单 P2：原先把错误写进 error 却"静默失败"，而模板错误块条件是 error && !company，
+    // 且本函数在 !company 时已 return ⇒ **Tab 加载失败永远不会被渲染**，列表清空后直接落到空态。
+    // 这里改用独立的 tabError，由 Tab 区域内渲染。
     const e = err as { message?: string };
-    error.value = e?.message || null;
+    tabError.value = e?.message || '加载失败，请稍后重试';
   } finally {
-    tabLoading.value = false;
+    if (seq === tabSeq) tabLoading.value = false;
   }
 }
 
@@ -209,6 +220,16 @@ function goExperience(e: InterviewExperienceVO) {
           <!-- Tab 内容 -->
           <div v-if="tabLoading" class="text-center py-16">
             <Loader2 class="w-7 h-7 animate-spin mx-auto" style="color: var(--theme-primary);" />
+          </div>
+
+          <!-- Tab 失败态（清单 P2）：原 error 块条件是 error && !company，Tab 失败永远不显示 -->
+          <div v-else-if="tabError" class="rounded-xl p-10 text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <p class="mb-4" style="color: var(--theme-text);">{{ tabError }}</p>
+            <button
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
+              @click="loadTabData()"
+            >重试</button>
           </div>
 
           <div v-else>

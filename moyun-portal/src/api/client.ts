@@ -45,7 +45,7 @@ export const removeRefreshToken = (): void => {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
-// ==================== v10.23：AI 慢请求追踪（离开页面/关页提醒） ====================
+// ==================== AI 慢请求追踪（离开页面/关页提醒） ====================
 
 /** 进行中的 AI 慢请求 key 集合（key = url|时间戳|随机数，避免同 URL 并发覆盖） */
 const pendingAiRequests = new Set<string>();
@@ -128,7 +128,7 @@ const request = async <T>(
     url: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-  // v10.23：POST 慢接口登记进行中（用于路由离开/关页提醒），finally 统一清理
+  // POST 慢接口登记进行中（用于路由离开/关页提醒），finally 统一清理
   const aiTrackKey = (options.method || '').toUpperCase() === 'POST' && isAiSlowUrl(url)
     ? trackAiSlowRequest(url)
     : null;
@@ -174,7 +174,12 @@ const request = async <T>(
 
     // 转换响应格式：msg -> message
     if (!response.ok || data.code !== 200) {
-      throw new Error(data.msg || '请求失败');
+      // 附上业务 code：上层据此区分"业务失败"与"网络/未知失败"，
+      // 从而优先展示**服务端文案**（如 @VipOnly 的 402"次数已用完，请开通会员"），
+      // 避免被页面的通用 errorToast 覆盖掉关键引导。
+      const bizErr = new Error(data.msg || '请求失败') as Error & { code?: number };
+      bizErr.code = data.code;
+      throw bizErr;
     }
 
     // v11.x：写操作成功后失效列表缓存，避免"写后回列表看不到新数据"
@@ -223,72 +228,72 @@ export const httpGet = <T>(
 };
 
 /** 实际发起分页请求并归一化响应（httpGetList 的请求主体，缓存命中时不执行） */
-const fetchListPage = <T>(
+const fetchListPage = async <T>(
     url: string,
     query: string,
     params?: Record<string, any>
 ): Promise<ApiResponse<PaginationResponse<T>>> => {
-  // 这里直接处理分页响应
-  return new Promise(async (resolve, reject) => {
-    try {
-      const token = getToken();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
 
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-      const response = await fetch(`${API_BASE_URL}${url}${query}`, {
-        method: 'GET',
-        headers,
-      });
-
-      // 处理401未授权（HTTP 状态码 401，Spring Security 拦截）
-      if (response.status === 401) {
-        showAuthExpiredDialog();
-        reject(new Error('登录已过期，请重新登录'));
-        return;
-      }
-
-      const data: BackendResponse<T> = await response.json();
-
-      // 处理业务 code 401（后端 Controller 主动返回的未登录/登录过期）
-      if (data.code === 401) {
-        await handleUnauthorized(data.msg);
-        reject(new Error(data.msg || '请先登录'));
-        return;
-      }
-
-      if (!response.ok || data.code !== 200) {
-        reject(new Error(data.msg || '请求失败'));
-        return;
-      }
-
-      // 兼容后端两种返回格式：
-      // 1. TableDataInfo格式（后台）：rows, total
-      // 2. MyBatis-Plus Page对象（前台）：records, total, current, size, pages
-      const pageData = (data as any).data || {};
-      const list = pageData.records || pageData.rows || pageData.list || [];
-      const total = pageData.total || 0;
-      const current = pageData.current || pageData.page || params?.page || 1;
-      const size = pageData.size || pageData.pageSize || params?.pageSize || 10;
-
-      resolve({
-        code: data.code,
-        message: data.msg,
-        data: {
-          list: list as T[],
-          total: total,
-          page: current,
-          pageSize: size,
-        },
-      });
-    } catch (error) {
-      reject(error);
-    }
+  const response = await fetch(`${API_BASE_URL}${url}${query}`, {
+    method: 'GET',
+    headers,
   });
+
+  // 处理401未授权（HTTP 状态码 401，Spring Security 拦截）
+  if (response.status === 401) {
+    showAuthExpiredDialog();
+    throw new Error('登录已过期，请重新登录');
+  }
+
+  // JSON 解析守卫：网关/代理返回 HTML 错误页（500/502）时 response.json() 会抛 SyntaxError，
+  // 用户看到的是原始报错而不是可读提示（与 request() 的既有口径保持一致）。
+  let data: BackendResponse<T>;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('服务暂时不可用（返回内容非 JSON），请稍后重试');
+  }
+
+  // 处理业务 code 401（后端 Controller 主动返回的未登录/登录过期）
+  if (data.code === 401) {
+    await handleUnauthorized(data.msg);
+    throw new Error(data.msg || '请先登录');
+  }
+
+  if (!response.ok || data.code !== 200) {
+    // 同 fetch 路径：附 code，供上层优先展示服务端文案
+    const bizErr = new Error(data.msg || '请求失败') as Error & { code?: number };
+    bizErr.code = data.code;
+    throw bizErr;
+  }
+
+  // 兼容后端两种返回格式：
+  // 1. TableDataInfo格式（后台）：rows, total
+  // 2. MyBatis-Plus Page对象（前台）：records, total, current, size, pages
+  const pageData = (data as any).data || {};
+  const list = pageData.records || pageData.rows || pageData.list || [];
+  const total = pageData.total || 0;
+  const current = pageData.current || pageData.page || params?.page || 1;
+  const size = pageData.size || pageData.pageSize || params?.pageSize || 10;
+
+  return {
+    code: data.code,
+    message: data.msg,
+    data: {
+      list: list as T[],
+      total: total,
+      page: current,
+      pageSize: size,
+    },
+  };
 };
 
 // 获取分页数据的专用方法（v11.x：TTL 缓存 + 并发去重，列表切回秒显）

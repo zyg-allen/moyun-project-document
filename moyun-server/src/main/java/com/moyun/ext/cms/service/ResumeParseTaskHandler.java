@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
  * <p>异步执行 {@link ResumeParseService#executeParse}：对<b>上传阶段已就地抽取的文本</b>
  * 做 LLM 结构化解析，并在<b>解析成功后</b>创建简历记录。</p>
  *
- * <p><b>不读取任何文件</b>（v13.38 架构修正）：附件是客户端一次性输入，只取其内容，
+ * <p><b>不读取任何文件</b>：附件是客户端一次性输入，只取其内容，
  * 不落盘、不进对象存储；抽取文本经 {@code portal_ai_task.payload} 传入本任务。
  * 解析失败不产生任何记录，杜绝空简历脏数据。</p>
  *

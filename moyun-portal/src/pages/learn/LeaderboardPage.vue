@@ -31,12 +31,23 @@ const breadcrumbs = computed(() => [
   { label: '刷题排行榜' },
 ]);
 
+/** 请求序号（清单 P2）：快速切 Tab 会并发，先发后到会把旧类型数据写进当前 Tab */
+let loadSeq = 0;
+
 async function loadLeaderboard() {
+  const seq = ++loadSeq;
+  const requestedType = activeType.value;
   loading.value = true;
   error.value = null;
   try {
-    const res = await getLeaderboard(activeType.value, 100);
+    const res = await getLeaderboard(requestedType, 100);
+    // 清单 P2：请求期间用户已切 Tab（或已有更新请求）⇒ 丢弃本次响应，
+    // 否则"刷题积分"页会一直显示通过题目数榜单（响应里的 type 原先也从不校验）。
+    if (seq !== loadSeq || activeType.value !== requestedType) return;
     if (res.code === 200) {
+      // 双保险：响应自带的榜单类型与当前 Tab 不一致时也不采用
+      const respType = (res.data as { type?: string } | undefined)?.type;
+      if (respType && respType !== requestedType) return;
       data.value = res.data;
     } else {
       error.value = res.message || '加载排行榜失败';
@@ -73,7 +84,14 @@ function rankStyle(rank: number) {
 
 const myInfo = computed(() => {
   if (!data.value) return null;
-  if (data.value.myRank == null && data.value.myValue == null) return null;
+  // 清单 P2：后端只要登录就会回填 myValue/mySubmitCount（无提交时为 0、myRank 为 null），
+  // 而原判空写成 `myRank == null && myValue == null` ⇒ myInfo 恒为真，
+  // 模板 `v-else` 的「去刷第一道题」引导卡**永不出现**，卡片只显示"#— / 0 题"。
+  // 这里按"确实没有任何数据"判定。
+  const noRank = data.value.myRank == null;
+  const noValue = (data.value.myValue ?? 0) <= 0;
+  const noSubmit = (data.value.mySubmitCount ?? 0) <= 0;
+  if (noRank && noValue && noSubmit) return null;
   return {
     rank: data.value.myRank,
     value: data.value.myValue ?? 0,
@@ -189,7 +207,12 @@ const currentUnit = computed(() => tabs.find((t) => t.type === activeType.value)
               <div class="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full" style="background-color: var(--theme-bg); color: var(--theme-text-secondary);">
                 {{ rankStyle(item.rank)?.label }}
               </div>
-              <div class="w-20 h-20 rounded-full ring-4 overflow-hidden mb-3" :class="`ring-${rankStyle(item.rank)?.ring}`">
+              <!--
+              清单 P2：rankStyle 返回的 ring 已是完整类名（如 ring-yellow-400），
+              原先再拼一次 `ring-` 前缀 ⇒ 实际类名 ring-ring-yellow-400，Tailwind 扫不到该字面量，
+              金银铜环色**全部失效**（rankStyle 为 null 时还会拼出 ring-undefined）。
+            -->
+            <div class="w-20 h-20 rounded-full ring-4 overflow-hidden mb-3" :class="rankStyle(item.rank)?.ring || ''">
                 <img :src="getSafeAvatar(item.avatar, String(item.userId))" :alt="item.nickname" class="w-full h-full object-cover" />
               </div>
               <div class="font-semibold truncate max-w-full" style="color: var(--theme-text);">{{ item.nickname }}</div>

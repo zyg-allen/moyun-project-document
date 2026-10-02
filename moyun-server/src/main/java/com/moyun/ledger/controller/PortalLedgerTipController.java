@@ -1,7 +1,6 @@
 package com.moyun.ledger.controller;
 
 import com.moyun.core.base.AjaxResult;
-import com.moyun.ledger.domain.entity.LedgerTipOrder;
 import com.moyun.ledger.service.ILedgerTipService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;

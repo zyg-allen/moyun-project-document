@@ -3,7 +3,6 @@ package com.moyun.ext.cms.domain.query;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import com.moyun.core.base.BaseEntity;
 import com.moyun.core.base.page.PageDomain;
 
 /**

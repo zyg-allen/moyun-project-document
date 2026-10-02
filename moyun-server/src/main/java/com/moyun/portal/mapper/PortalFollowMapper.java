@@ -130,7 +130,8 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @return 分页结果，每条记录含粉丝用户信息
      */
 
-    Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, @Param("followingId") Long followingId);
+    Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, @Param("followingId") Long followingId,
+                                              @Param("viewerId") Long viewerId);
 
     /**
      * 查询指定用户的关注列表（JOIN portal_user，返回用户信息）
@@ -140,5 +141,6 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @return 分页结果，每条记录含被关注用户信息
      */
 
-    Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, @Param("followerId") Long followerId);
+    Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, @Param("followerId") Long followerId,
+                                               @Param("viewerId") Long viewerId);
 }

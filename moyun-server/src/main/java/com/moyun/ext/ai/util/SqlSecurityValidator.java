@@ -273,10 +273,34 @@ public class SqlSecurityValidator {
         int unionIndex = upperSql.indexOf("UNION");
         if (unionIndex < 0) return true;
         
-        // 检查 UNION 前面是否有完整的 SELECT 语句
-        String beforeUnion = upperSql.substring(0, unionIndex).trim();
-        // 合法的 UNION 前面应该是完整的查询（以 ) 或字段/表名结尾）
-        return beforeUnion.endsWith(")") || beforeUnion.matches(".*\\w$");
+        // 清单 P2：原判定是 beforeUnion.endsWith(")") || beforeUnion.matches(".*\w$")，
+        // 而任何查询在 UNION 之前都以单词字符结尾（如 "... WHERE id = 1"）⇒ **恒为 true**，
+        // 于是第 7 步的 UNION 检查从未拦下任何语句。改为按"典型注入特征"判定：
+        String beforeUnion = sql.substring(0, unionIndex);
+        // ① UNION 之前单引号未配对：典型注入（WHERE x = '' UNION SELECT ...）
+        long quoteCount = beforeUnion.chars().filter(c -> c == '\'').count();
+        if (quoteCount % 2 != 0) {
+            return false;
+        }
+        // ② UNION 之后必须是 SELECT（可带 ALL / DISTINCT），否则不是合法的合并查询
+        String afterUnion = upperSql.substring(unionIndex + "UNION".length()).trim();
+        if (afterUnion.startsWith("ALL")) {
+            afterUnion = afterUnion.substring(3).trim();
+        } else if (afterUnion.startsWith("DISTINCT")) {
+            afterUnion = afterUnion.substring(8).trim();
+        }
+        if (!afterUnion.startsWith("SELECT")) {
+            return false;
+        }
+        // ③ 左侧必须是顶层 SELECT（本类第 2 步已保证以 SELECT 开头，这里做双保险）
+        if (!upperSql.trim().startsWith("SELECT")) {
+            return false;
+        }
+        // ④ 注释符出现在 UNION 之前：典型注入拼接手法（注释已在第 8 步拦，这里再兜一层）
+        if (beforeUnion.contains("--") || beforeUnion.contains("/*")) {
+            return false;
+        }
+        return true;
     }
 
     /**

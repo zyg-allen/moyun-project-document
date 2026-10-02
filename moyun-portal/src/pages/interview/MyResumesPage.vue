@@ -16,7 +16,7 @@ import {
   updateResumeStatus, getResumeVersions, convertAttachmentToOnline,
 } from '@/api/interview';
 import { getToken } from '@/api/client';
-import type { UserResumeVO } from '@/types/api';
+import type { UserResumeVO, UserResumeQuery } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
 
@@ -69,11 +69,30 @@ watch(page, () => {
   loadResumes();
 });
 
+// 状态筛选：后端 /resume/user/list 支持 status，且**不传时默认排除已归档**（历史行为）。
+// 页面此前既不传 status 也没有筛选控件 ⇒ 归档后的简历从列表消失、"恢复"按钮永不可达。
+const statusFilter = ref<'all' | 'draft' | 'published' | 'archived'>('all');
+const statusOptions: Array<{ value: 'all' | 'draft' | 'published' | 'archived'; label: string }> = [
+  { value: 'all', label: '全部（不含归档）' },
+  { value: 'draft', label: '草稿' },
+  { value: 'published', label: '已发布' },
+  { value: 'archived', label: '已归档' },
+];
+
+watch(statusFilter, () => {
+  page.value = 1;
+  loadResumes();
+});
+
 async function loadResumes() {
   try {
     loading.value = true;
     error.value = null;
-    const res = await getMyResumeList({ pageNum: page.value, pageSize });
+    const params: UserResumeQuery = { pageNum: page.value, pageSize };
+    if (statusFilter.value !== 'all') {
+      params.status = statusFilter.value;
+    }
+    const res = await getMyResumeList(params);
     if (res.code === 200 && res.data) {
       resumes.value = res.data.list || [];
       total.value = res.data.total || 0;
@@ -91,7 +110,7 @@ function gotoCreate() {
   router.push('/interview/resume/edit');
 }
 
-// v10.0 P0-2: 跳转到简历模板库,引导用户基于模板快速创建(语音面试官题源前置)
+// 跳转到简历模板库,引导用户基于模板快速创建(语音面试官题源前置)
 function gotoCreateWithTemplate() {
   router.push('/interview/resume-templates');
 }
@@ -129,8 +148,13 @@ async function handleCopy(r: UserResumeVO) {
   }
 }
 
-// 认证下载 PDF（fetch blob + a 标签，避免 window.open 无法携带 token）
-async function downloadPdfAuth(url: string, id: string | number) {
+/**
+ * 带 token 的文件下载（fetch blob + a 标签）。
+ *
+ * <p>为什么不用 window.open：它**既不带 Authorization，也不会走 /api 前缀**
+ * （vite 只代理 /api、/moyun）⇒ 对受保护端点必然 401/404，且用户只看到空白页。</p>
+ */
+async function downloadFileAuth(url: string, filename: string) {
   const token = getToken();
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
   const resp = await fetch(baseUrl + url, {
@@ -143,11 +167,16 @@ async function downloadPdfAuth(url: string, id: string | number) {
   const blob = await resp.blob();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `resume_${id}.pdf`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
+}
+
+// 认证下载导出的 PDF
+async function downloadPdfAuth(url: string, id: string | number) {
+  await downloadFileAuth(url, `resume_${id}.pdf`);
 }
 
 async function handleExportPdf(r: UserResumeVO) {
@@ -270,13 +299,26 @@ async function handleDelete(r: UserResumeVO) {
   }
 }
 
-// v10.22：附件简历下载源文件（认证下载流，window.open 新标签打开）
-function handleDownloadAttachment(r: UserResumeVO) {
-  if (!r.id) return;
-  window.open(`/portal/interview/resume/user/${r.id}/download-attachment`, '_blank');
+// 附件简历下载源文件：必须走**带鉴权**的下载流。
+// 原实现 window.open 裸路径（无 /api 前缀、无 Authorization）⇒ 双重不可用；
+// 且后端在 /parse/confirm 之后不再持久化源文件（sourceFileUrl 恒为 null），
+// 故按钮另按 sourceFileUrl 兜底隐藏（见模板 v-if）。
+async function handleDownloadAttachment(r: UserResumeVO) {
+  if (!r.id || actionId.value) return;
+  try {
+    actionId.value = r.id;
+    await downloadFileAuth(
+      `/portal/interview/resume/user/${r.id}/download-attachment`,
+      r.sourceFileName || `resume_${r.id}`,
+    );
+  } catch (err: any) {
+    toast.error(err?.message || '源文件已不可用（后端不再保留上传原件）');
+  } finally {
+    actionId.value = null;
+  }
 }
 
-// v10.22：附件简历转为在线简历（后端将解析结果写入在线表单字段，返回新在线简历 ID）
+// 附件简历转为在线简历（后端将解析结果写入在线表单字段，返回新在线简历 ID）
 async function handleConvertToOnline(r: UserResumeVO) {
   if (!r.id || actionId.value) return;
   if (!await confirmModal.confirm(`确定将附件简历「${r.sourceFileName || r.title || ''}」转为在线简历吗？转换后可编辑各字段内容。`, { title: '确认操作' })) return;
@@ -331,6 +373,22 @@ function gotoPage(p: number) {
     <!-- 内容区 -->
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 状态筛选（归档简历需在此切到"已归档"才能看到并恢复） -->
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <span class="text-sm" style="color: var(--theme-text-secondary);">状态：</span>
+          <button
+            v-for="opt in statusOptions"
+            :key="opt.value"
+            @click="statusFilter = opt.value"
+            class="px-3 py-1.5 rounded-lg text-xs sm:text-sm transition"
+            :style="statusFilter === opt.value
+              ? { backgroundColor: 'var(--theme-primary)', color: '#fff' }
+              : { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text)', border: '1px solid var(--theme-border)' }"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-16">
           <div
@@ -365,7 +423,7 @@ function gotoPage(p: number) {
           <FileText class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有简历，立即创建</p>
 
-          <!-- v10.0 P0-2: 语音面试官场景引导 - 简历是语音面试 40% 题源 -->
+          <!-- 语音面试官场景引导 - 简历是语音面试 40% 题源 -->
           <div
             class="mb-5 mx-auto max-w-md p-4 rounded-lg text-left text-sm"
             style="background-color: var(--theme-bg); border: 1px dashed var(--theme-border);"
@@ -419,7 +477,7 @@ function gotoPage(p: number) {
                   {{ r.title || '未命名简历' }}
                 </h3>
                 <div class="shrink-0 flex items-center gap-1">
-                  <!-- v10.22：附件简历标签 -->
+                  <!-- 附件简历标签 -->
                   <span
                     v-if="isAttachment(r)"
                     class="px-2 py-1 rounded-full text-xs font-medium"
@@ -436,7 +494,7 @@ function gotoPage(p: number) {
                 </div>
               </div>
 
-              <!-- 附件文件名（v10.22：附件简历显示源文件名） -->
+              <!-- 附件文件名（附件简历显示源文件名） -->
               <div
                 v-if="isAttachment(r) && r.sourceFileName"
                 class="flex items-center text-sm mb-2"
@@ -495,11 +553,14 @@ function gotoPage(p: number) {
                 >
                   <Pencil class="w-3 h-3 mr-1" />编辑
                 </button>
-                <!-- v10.22：附件简历专属操作——下载源文件 + 转为在线 -->
+                <!-- 附件简历专属操作——下载源文件 + 转为在线 -->
+                <!-- v-if 追加 sourceFileUrl：后端在 /parse/confirm 后不再持久化上传原件
+                     （sourceFileUrl 恒为 null），此时按钮点了必然 404，故直接不展示。 -->
                 <button
-                  v-if="isAttachment(r)"
+                  v-if="isAttachment(r) && r.sourceFileUrl"
                   @click="handleDownloadAttachment(r)"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                  :disabled="actionId === r.id"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
                   style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                 >
                   <Download class="w-3 h-3 mr-1" />下载源文件

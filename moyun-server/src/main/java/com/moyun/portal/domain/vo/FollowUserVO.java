@@ -40,4 +40,18 @@ public class FollowUserVO {
     /** 关注时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+
+    /**
+     * **当前登录用户**是否已关注该用户（粉丝列表场景下即"我是否回关"）。
+     *
+     * <p>未登录（观察者为游客）时为 {@code null}：列表本身是公开接口，但"我关注了他没有"
+     * 对游客无意义，用 null 与"未关注(false)"区分开。</p>
+     */
+    private Boolean following;
+
+    /** 是否互相关注（我关注 TA 且 TA 关注我）；游客为 null */
+    private Boolean mutualFollow;
+
+    /** 该用户是否就是当前登录用户本人；游客为 null */
+    private Boolean isMe;
 }

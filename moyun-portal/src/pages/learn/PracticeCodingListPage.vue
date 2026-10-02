@@ -9,6 +9,7 @@ import {
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import { getQuestionList } from '@/api/interview';
 import type { InterviewQuestionVO, InterviewQuestionQuery } from '@/types/api';
 
@@ -16,12 +17,15 @@ const router = useRouter();
 const route = useRoute();
 
 // ========== 筛选 ==========
-const activeDifficulty = ref<string>((route.query.difficulty as string) || '');
+// 清单 P2：难度值是后端小写枚举（easy/medium/hard），而 URL 里可能写成 Hard/EASY；
+// 后端按精确 eq 匹配 ⇒ 大小写不符会"命中 0 条且 4 个难度按钮全不高亮"。这里统一小写归一。
+const activeDifficulty = ref<string>(((route.query.difficulty as string) || '').toLowerCase());
 const keyword = ref<string>((route.query.keyword as string) || '');
 const searchInput = ref(keyword.value);
 
 // ========== 分页 ==========
-const page = ref<number>(parseInt(route.query.page as string) || 1);
+// 清单 P2：parseInt(...) || 1 不兜负数（?page=-5 会渲染「-5 / n」并把 pageNum=-5 发给后端）
+const page = ref<number>(Math.max(1, parseInt(route.query.page as string, 10) || 1));
 const pageSize = 10;
 const total = ref(0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
@@ -38,18 +42,36 @@ useHead(computed(() => generateSeo({
   canonicalPath: '/learn/practice/coding',
 })));
 
-// 难度配置
-const DIFFICULTY_OPTIONS = [
-  { label: '全部', value: '' },
-  { label: '简单', value: 'easy' },
-  { label: '中等', value: 'medium' },
-  { label: '困难', value: 'hard' },
-];
-const DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
+// 难度配置：字典 portal_question_difficulty 驱动（v13.91）
+//
+// 原先选项与徽章色板全部写死在组件内，后台调整难度字典门户不跟随；
+// 而同一份字典后台题库管理早已在用。现改为字典驱动 + **本地兜底**
+// （字典未加载/为空时退回原写死口径，保证不出现空白下拉）。
+const difficultyDict = useDictData(['portal_question_difficulty']);
+
+const DIFFICULTY_FALLBACK_MAP: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
   medium: { label: '中等', class: 'bg-yellow-100 text-yellow-700' },
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
+const DIFFICULTY_OPTIONS = computed(() => {
+  const items = difficultyDict['portal_question_difficulty'];
+  const rest = items && items.length > 0
+    ? items.map(i => ({ label: i.dictLabel, value: i.dictValue }))
+    : Object.entries(DIFFICULTY_FALLBACK_MAP).map(([value, m]) => ({ label: m.label, value }));
+  return [{ label: '全部', value: '' }, ...rest];
+});
+const DIFFICULTY_MAP = computed<Record<string, { label: string; class: string }>>(() => {
+  const items = difficultyDict['portal_question_difficulty'];
+  if (items && items.length > 0) {
+    const m: Record<string, { label: string; class: string }> = {};
+    for (const i of items) {
+      m[i.dictValue] = { label: i.dictLabel, class: dictBadgeClass(i.listClass) || 'bg-gray-100 text-gray-600' };
+    }
+    return m;
+  }
+  return DIFFICULTY_FALLBACK_MAP;
+});
 
 const breadcrumbs = computed(() => [
   { label: '学习中心', path: '/learn' },
@@ -82,6 +104,19 @@ async function loadQuestions() {
     loading.value = false;
   }
 }
+
+/**
+ * 字典就绪后校验一次难度值（清单 P2）。
+ *
+ * <p>字典是异步加载的，声明期无法校验；若 URL 传了字典里不存在的值，会出现
+ * "筛选项未高亮但列表按该值过滤"的错位。此处把非法值归零（回到"全部"）。</p>
+ */
+watch(DIFFICULTY_OPTIONS, (opts) => {
+  if (!activeDifficulty.value) return;
+  if (!opts.some(o => o.value === activeDifficulty.value)) {
+    activeDifficulty.value = '';
+  }
+});
 
 function doSearch() {
   keyword.value = searchInput.value.trim();

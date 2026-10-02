@@ -88,7 +88,7 @@ public class ImageExtractionServiceImpl implements ImageExtractionService {
         }
 
         // 从 MinIO 下载 PDF 文件到临时目录
-        // 使用 try-with-resources 确保 InputStream 在 Files.copy 抛异常时也能被关闭（旧版在 copy 后内联 close()，异常时泄漏）
+        // 使用 try-with-resources 确保 InputStream 在 Files.copy 抛异常时也能被关闭
         java.nio.file.Path tempPdfFile = null;
         try (java.io.InputStream inputStream = minioService.getFileStream(pdfObjectName, minioService.getKnowledgeBucket())) {
             if (inputStream == null) {

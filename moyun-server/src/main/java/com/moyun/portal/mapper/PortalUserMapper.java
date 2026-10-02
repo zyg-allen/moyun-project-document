@@ -177,5 +177,5 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
      * @return 符合条件的用户列表
      */
 
-    List<PortalUser> selectAuthors(@Param("limit") int limit);
+    List<PortalUser> selectAuthors(@Param("limit") int limit, @Param("excludeUserId") Long excludeUserId);
 }

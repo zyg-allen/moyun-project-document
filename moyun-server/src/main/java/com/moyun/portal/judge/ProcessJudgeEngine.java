@@ -124,20 +124,35 @@ public class ProcessJudgeEngine implements JudgeEngine {
             }
         }
         try {
+            // 输出重定向到文件：**不能先阻塞读 stdout 再 waitFor** ——
+            // 用户代码不退出时 readAllBytes() 会一直阻塞，waitFor 根本执行不到，
+            // 于是既不判 TLE 也不 destroyForcibly，判题线程被永久占用。
+            Path outFile = Files.createTempFile(workDir, "oj-compile-", ".log");
             Process p = new ProcessBuilder(cmd).directory(workDir.toFile())
-                    .redirectErrorStream(true).start();
-            String output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                    .redirectErrorStream(true)
+                    .redirectOutput(outFile.toFile())
+                    .start();
             boolean finished = p.waitFor(60, TimeUnit.SECONDS);
             if (!finished) {
                 p.destroyForcibly();
                 return "编译超时";
             }
+            String output = readTruncated(outFile);
             if (p.exitValue() != 0) {
                 return truncate(output);
             }
             return null;
         } catch (IOException | InterruptedException e) {
             return "编译执行失败: " + e.getMessage();
+        }
+    }
+
+    /** 读取重定向到文件的进程输出（读文件不阻塞，超时后才读也安全）；失败返回空串。 */
+    private String readTruncated(Path file) {
+        try {
+            return truncate(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return "";
         }
     }
 
@@ -208,14 +223,17 @@ public class ProcessJudgeEngine implements JudgeEngine {
         }
         long start = System.currentTimeMillis();
         try {
-            Process p = new ProcessBuilder(cmd).directory(workDir.toFile()).start();
+            // stdout/stderr 重定向到文件（而不是先 readAllBytes）：见 compile() 的说明。
+            Path outFile = Files.createTempFile(workDir, "oj-case-" + caseIndex + "-", ".out");
+            Process p = new ProcessBuilder(cmd).directory(workDir.toFile())
+                    .redirectErrorStream(true)
+                    .redirectOutput(outFile.toFile())
+                    .start();
             // 写入 stdin
             if (tc.getInput() != null) {
                 p.getOutputStream().write(tc.getInput().getBytes(StandardCharsets.UTF_8));
             }
             p.getOutputStream().close();
-            // 读取 stdout（异步避免缓冲区满导致死锁：用 redirectErrorStream 合并 stderr）
-            String stdout = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             boolean finished = p.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
             long elapsed = System.currentTimeMillis() - start;
             if (!finished) {
@@ -224,6 +242,8 @@ public class ProcessJudgeEngine implements JudgeEngine {
                         Integer.valueOf(1).equals(tc.getIsSample()),
                         (int) Math.min(elapsed, Integer.MAX_VALUE), null, "[TLE] 运行超时");
             }
+            // 进程已结束（或被强杀）后读文件不再阻塞
+            String stdout = readTruncated(outFile);
             int exit = p.exitValue();
             if (exit != 0) {
                 return CaseJudgeResult.fail(tc.getId(), caseIndex,

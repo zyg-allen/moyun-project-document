@@ -53,26 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 门户文章 Controller
  *
- * 清理说明（仅删 Controller 方法，保留 Service/Mapper/XML）：
- * 以下 13 个接口经前端调用链核对确认已无任何调用方，属于死接口，已删除：
- *   - export                 前端未调用文章导出
- *   - getInfoBySlug          SEO slug 接口，前端未调用 getArticleDetailBySlug
- *   - add                    前端使用 publish / saveDraft 而非 add
- *   - checkLikeStatus        前端 checkLikeStatus 函数仅定义未调用
- *   - checkViewsConsistency  阅读量一致性校验，无前端调用
- *   - repairArticleViews     单篇阅读量修复，无前端调用
- *   - repairAllArticleViews  批量阅读量修复，无前端调用
- *   - getRealViews           真实阅读量查询，无前端调用
- *   - getHotArticles         前端 getHotArticles 仅定义未调用，home 已聚合
- *   - getFeaturedArticles    同上，home 已聚合
- *   - getCarouselArticles    同上，home 已聚合
- *   - getRelatedArticles     前端 getRelatedArticles 仅定义未调用
- *   - getArticlesByCategory  前端 mockData 有同名 mock 函数，与 API 无关
- *
- * 保留的 11 个在用接口：list / myArticles / getInfo / publish / saveDraft /
- * edit / remove / toggleLikeArticle / incrementView / getCategoryRecommendedArticles / getHomeData
- *
- * 依赖保留说明：
+ * 依赖使用说明：
  *   - portalArticleMapper      : toggleLikeArticle(incrementLikes) / incrementView(incrementViews) 仍使用
  *   - portalLikeMapper         : toggleLikeArticle(selectOne/insert/deleteById) 仍使用
  *   - portalArticleViewMapper  : incrementView(countRecentViews/countRecentViewsByIp) 仍使用
@@ -118,6 +99,10 @@ public class PortalArticleController extends BaseController {
 
     @Autowired
     private ISensitiveWordService sensitiveWordService;
+
+    /** 付费阅读开关（moyun.pay.article-paid-enabled） */
+    @Autowired
+    private com.moyun.pay.config.PayProperties payProperties;
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
@@ -182,6 +167,8 @@ public class PortalArticleController extends BaseController {
             vo.setIsBookmarked(portalBookmarkMapper.selectOne(bookmarkWrapper) != null);
         }
 
+        // 付费阅读是否已开通（配置驱动，供前端决定按钮可点/置灰，避免"点了才知道不可用"）
+        vo.setPaidPurchaseEnabled(payProperties.isArticlePaidEnabled());
         // 付费阅读：未购买用户只返回 preview_length 字数的试读部分，并隐藏付费内容
         if (vo.getIsPaid() != null && vo.getIsPaid() == 1) {
             boolean canReadFull = false;
@@ -308,6 +295,10 @@ public class PortalArticleController extends BaseController {
         article.setCategoryId(publishDTO.getCategoryId());
         article.setLink(publishDTO.getLink());
         article.setIsFeatured(publishDTO.getIsFeatured());
+        // SEO 三字段（v13.89 补齐：此前前端采集但不落库）
+        article.setSeoTitle(publishDTO.getSeoTitle());
+        article.setSeoDescription(publishDTO.getSeoDescription());
+        article.setSeoKeywords(publishDTO.getSeoKeywords());
         article.setIsTop(publishDTO.getIsTop());
         article.setIsCarousel(publishDTO.getIsCarousel());
 
@@ -362,8 +353,12 @@ public class PortalArticleController extends BaseController {
     public AjaxResult edit(@Validated @RequestBody PortalArticle portalArticle) {
         try {
             int result = portalArticleService.updatePortalArticle(portalArticle);
-            // 修改成功后同步更新标签绑定（bindTags 内部会计算差集，只增减变化的 tag）
-            if (result > 0 && portalArticle.getId() != null) {
+            // 修改成功后同步更新标签绑定（bindTags 内部会计算差集，只增减变化的 tag）。
+            // 仅当**显式提供了标签字段**时才更新，以区分"省略字段"与"传空数组"：
+            //   · 字段省略（null）  => 不改标签（避免"重新提交审核"这类未带标签的调用把旧标签全解绑）
+            //   · 字段传 []（非 null）=> 视为显式清空
+            boolean tagsProvided = portalArticle.getTagIds() != null || portalArticle.getTagNames() != null;
+            if (result > 0 && portalArticle.getId() != null && tagsProvided) {
                 portalTagService.bindTags("article", portalArticle.getId(),
                         portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
             }

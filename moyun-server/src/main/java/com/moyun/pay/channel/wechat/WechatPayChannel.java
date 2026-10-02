@@ -24,8 +24,7 @@ import java.util.Map;
  *       query 由前端"模拟支付"按钮触发（/portal/pay/mock/{payNo}）置为已支付，回调链路全真演练。</li>
  *   <li><b>未配置商户参数（mock-enabled=false 但 appId/mchId/merchantSerial/privateKeyPath/apiV3Key/notifyUrl
  *       任一缺失或仍为 todo- 占位）：四处入口（prepay / query / close / verifyNotify）一律
- *       fail-closed 明确拒绝，绝不静默降级为 mock。</b>（2026-09-27 收紧；此前只有 verifyNotify
- *       收敛，prepay 会返回假二维码并让网关落库"无法支付的假支付单"，与回调 fail-closed 自相矛盾）</li>
+ *       fail-closed 明确拒绝，绝不静默降级为 mock。</b></li>
  *   <li>商户参数齐备：进入真实 API 分支。因工程按规范未引入 wechatpay-java SDK 依赖
  *       （pom 无 com.github.wechatpay-apiv3:wechatpay-java），真实调用以完整注释骨架给出
  *       （SDK 调用组装 / 参数构造 / 响应解析 / 异常处理），实际发起调用的位置统一标注
@@ -57,12 +56,8 @@ public class WechatPayChannel implements PayChannel {
         PayChannelResponse response = new PayChannelResponse();
         PayProperties.Wechat wechat = payProperties.getWechat();
         // mock 分支仅当显式开启 mock-enabled 时进入；真实模式参数缺失一律 fail-closed。
-        // 历史实现用 `isMockEnabled() || !isConfigured()`，使"真实模式但商户参数漏配"
-        // 静默降级为 mock：
-        //   ① prepay 会返回假二维码（weixin://wxpay/mock/...）并让网关落库 CREATED 单，
-        //      用户看到支付码却无法真正付款，留下无法支付的"假支付单"；
-        //   ② 与 verifyNotify 的 fail-closed 形成不对称 —— 订单按 mock 建但回调按真实模式
-        //      拒绝，链路自相矛盾。故四处（prepay/query/close/verifyNotify）统一 fail-closed。
+        // 参数缺失时若静默降级为 mock，prepay 会返回假二维码并让网关落库 CREATED 单；
+        // 且订单按 mock 建、回调按真实模式拒绝，链路自相矛盾 —— 故四处（prepay/query/close/verifyNotify）统一 fail-closed。
         if (wechat.isMockEnabled()) {
             // ===== mock 模式：生成模拟二维码链接，前端收银台渲染为二维码 =====
             response.setPaid(false);
@@ -154,13 +149,27 @@ public class WechatPayChannel implements PayChannel {
     @Override
     public boolean verifyNotify(Map<String, String> headers, String body) {
         PayProperties.Wechat wechat = payProperties.getWechat();
-        // mock 分支：仅当显式开启 mock-enabled 时进入（历史实现用 `isMockEnabled() || !isConfigured()`，
-        // 使"真实模式但商户参数漏配"静默降级为 mock，验签退化为自算 sha256(body)，可被攻击者任意伪造回调）。
+        // mock 分支：仅当显式开启 mock-enabled 时进入（否则静默降级会让验签退化为自算 sha256(body)，可被攻击者伪造回调）。
         if (wechat.isMockEnabled()) {
-            // mock：约定头 X-Mock-Signature = sha256(body)，模拟验签通过
-            String expect = sha256(body == null ? "" : body);
+            // mock：约定头 X-Mock-Signature = hex(HMAC-SHA256(mock-signature-secret, body))
+            //
+            // 原实现是 sha256(body) —— 无密钥，等于"验签"只是完整性校验，
+            // 任何能构造 body 的人都能伪造回调把订单置为已支付（清单 #12）。
+            String secret = wechat.getMockSignatureSecret();
+            if (secret == null || secret.isBlank()) {
+                // 未配置密钥：fail-closed 拒绝，并给出可操作的配置指引（不做静默降级）
+                log.error("[wechat-mock] 未配置 moyun.pay.wechat.mock-signature-secret，"
+                        + "mock 回调验签无法进行，已拒绝本次回调。请在 application-dev.yaml 或环境变量"
+                        + " PAY_MOCK_SIGNATURE_SECRET 中配置密钥后重试。");
+                return false;
+            }
+            String expect = hmacSha256Hex(secret, body == null ? "" : body);
             String actual = headers == null ? null : headers.get("X-Mock-Signature");
-            return expect != null && expect.equalsIgnoreCase(actual);
+            // 恒时比较：避免通过响应时间侧信道逐字节猜签名
+            return expect != null && actual != null
+                    && java.security.MessageDigest.isEqual(
+                            expect.getBytes(StandardCharsets.UTF_8),
+                            actual.trim().toLowerCase().getBytes(StandardCharsets.UTF_8));
         }
 
         // 真实模式：商户参数缺失属部署错误 → fail-closed 明确拒绝，绝不降级
@@ -205,6 +214,17 @@ public class WechatPayChannel implements PayChannel {
         message.setTradeState(firstNonNull(extractJsonField(body, "tradeState"), extractJsonField(body, "trade_state")));
         message.setChannelOrderNo(firstNonNull(extractJsonField(body, "channelOrderNo"), extractJsonField(body, "transaction_id")));
         message.setSuccessTime(firstNonNull(extractJsonField(body, "successTime"), extractJsonField(body, "success_time")));
+        // 金额（用于与本地订单金额比对）：
+        //   · 扁平 "amount"（元）—— mock / 自定义报文
+        //   · 微信 v3 "amount":{"total":100,...} —— total 单位是**分**，movePointLeft(2) 归一到元
+        java.math.BigDecimal amountYuan = extractJsonNumber(body, "amount");
+        if (amountYuan == null) {
+            java.math.BigDecimal totalFen = extractJsonNumber(body, "total");
+            if (totalFen != null) {
+                amountYuan = totalFen.movePointLeft(2);
+            }
+        }
+        message.setAmount(amountYuan);
         message.setAckBody("{\"code\":\"SUCCESS\",\"message\":\"成功\"}");
         return message;
     }
@@ -258,9 +278,7 @@ public class WechatPayChannel implements PayChannel {
      * 真实模式但商户参数未配置时的统一拒绝原因（fail-closed）。
      *
      * <p>prepay / query / close / verifyNotify 四处共用同一口径：**mock 关闭且商户参数缺失
-     * 即视为部署错误并显式拒绝**，绝不静默降级为 mock 模拟逻辑。
-     * 历史实现只在 verifyNotify 收敛（见该类注释），其余三处仍会降级，
-     * 其中 prepay 降级会返回假二维码并让网关落库"无法支付的假支付单"。</p>
+     * 即视为部署错误并显式拒绝**，绝不静默降级为 mock 模拟逻辑。</p>
      *
      * <p>保留 {@code todo：配置第三方：} 标记，便于沿用既有的配置位检索约定。</p>
      */
@@ -272,6 +290,52 @@ public class WechatPayChannel implements PayChannel {
 
     private String firstNonNull(String a, String b) {
         return a != null ? a : b;
+    }
+
+    /**
+     * 提取**数值**字段（{@link #extractJsonField} 只取带引号的字符串，读不了金额数字）。
+     *
+     * <p>兼容两种写法：{@code "amount": 1.00}（裸数字）与 {@code "amount":"1.00"}（字符串）。
+     * 若该 key 后面跟的是对象/数组（如微信 {@code "amount":{"total":100}}），返回 null，
+     * 由调用方改用嵌套子键（{@code total}）读取。</p>
+     */
+    private java.math.BigDecimal extractJsonNumber(String json, String field) {
+        if (json == null || field == null) {
+            return null;
+        }
+        String key = "\"" + field + "\"";
+        int idx = json.indexOf(key);
+        if (idx < 0) {
+            return null;
+        }
+        int colon = json.indexOf(':', idx + key.length());
+        if (colon < 0) {
+            return null;
+        }
+        int i = colon + 1;
+        while (i < json.length() && Character.isWhitespace(json.charAt(i))) {
+            i++;
+        }
+        if (i < json.length() && json.charAt(i) == '"') {
+            i++;
+        }
+        int start = i;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (Character.isDigit(c) || c == '.' || c == '-') {
+                i++;
+            } else {
+                break;
+            }
+        }
+        if (i == start) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(json.substring(start, i));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -307,6 +371,28 @@ public class WechatPayChannel implements PayChannel {
      */
     private int yuanToFen(BigDecimal yuan) {
         return yuan.multiply(new BigDecimal("100")).setScale(0, RoundingMode.HALF_UP).intValueExact();
+    }
+
+    /**
+     * HMAC-SHA256 十六进制小写摘要（mock 回调验签用）。
+     *
+     * @param secret 服务端密钥（非空）
+     * @param body   原始报文体
+     */
+    private String hmacSha256Hex(String secret, String body) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(
+                    secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] raw = mac.doFinal(body.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(raw.length * 2);
+            for (byte b : raw) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IllegalStateException("HmacSHA256 不可用", e);
+        }
     }
 
     private String sha256(String input) {

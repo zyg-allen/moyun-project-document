@@ -79,7 +79,6 @@ function dateGroupLabel(time?: string): string {
     const d = new Date(time);
     if (Number.isNaN(d.getTime())) return '';
     const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const dayMs = 24 * 60 * 60 * 1000;
     const diffDays = Math.floor((startOfToday - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / dayMs);

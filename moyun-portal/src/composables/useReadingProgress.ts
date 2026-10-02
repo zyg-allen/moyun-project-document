@@ -11,7 +11,7 @@ import type { ReadingProgress } from '@/types/api';
  * 2. 续读恢复：进入章节时调用 restoreProgress 获取上次阅读位置
  * 3. 未登录静默：未登录用户不上报，仅本地保留
  * 4. 容错：上报失败静默忽略，不阻塞阅读
- * 5. v1.1 阅读闭环：markChapterFinished 上报章节完成标记，
+ * 5. 阅读闭环：markChapterFinished 上报章节完成标记，
  *    后端据此将整书状态置为 finished 并触发成长事件 + Feed 动态
  */
 export function useReadingProgress(bookId: Ref<string | number | undefined>) {
@@ -84,7 +84,7 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
   }
 
   /**
-   * v1.1 阅读闭环：标记当前章节已读完（由阅读器在滚动到底部/翻到最后一页时调用）
+   * 阅读闭环：标记当前章节已读完（由阅读器在滚动到底部/翻到最后一页时调用）
    * 调用后立即触发一次强制上报，将 chapterFinished=true 发送给后端。
    * 若上报失败，pendingChapterFinished 保留为 true，下次 30s 心跳会自动重试。
    */

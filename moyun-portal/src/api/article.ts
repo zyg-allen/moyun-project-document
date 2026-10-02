@@ -1,6 +1,7 @@
 import {httpDelete, httpGet, httpGetList, httpPost, httpPut} from './client';
 import type {
     Article,
+    MyArticlesResult,
     ArticleDetailParams,
     ArticleListParams,
     CreateArticleParams,
@@ -50,7 +51,7 @@ export const getMyArticles = (params: {
     title?: string;
     categoryId?: number;
 }) => {
-    return httpGet<any>('/portal/article/my', params);
+    return httpGet<MyArticlesResult>('/portal/article/my', params);
 };
 
 // 更新文章

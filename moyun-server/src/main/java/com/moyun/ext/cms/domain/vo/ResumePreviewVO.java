@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 简历解析「预览」结果 VO（v13.38）
+ * 简历解析「预览」结果 VO
  *
  * <p>与 {@link ResumeParseVO} 的区别：</p>
  * <ul>

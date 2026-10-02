@@ -34,7 +34,17 @@
           </div>
           <div>
             <label class="text-sm font-medium text-theme-text">岗位描述（JD）<span class="text-theme-danger">*</span></label>
-            <textarea :value="form.jdText" @input="updateField('jdText', ($event.target as HTMLTextAreaElement).value)" rows="7" placeholder="粘贴 BOSS直聘/拉勾等平台的岗位描述...&#10;例如：&#10;1. 5年以上Java开发经验，精通Spring Boot&#10;2. 熟悉微服务架构..." class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary resize-y" />
+            <!-- 清单 P2：原表单没有"设为默认"控件 ⇒ createJobTarget 从不提交 isDefault，后端 clearDefault 分支永不触发 -->
+        <label class="flex items-center gap-2 mt-3 text-sm" style="color: var(--theme-text);">
+          <input
+            type="checkbox"
+            :checked="form.isDefault === 1"
+            @change="updateField('isDefault', ($event.target as HTMLInputElement).checked ? 1 : 0)"
+          />
+          <span>设为默认岗位</span>
+        </label>
+
+        <textarea :value="form.jdText" @input="updateField('jdText', ($event.target as HTMLTextAreaElement).value)" rows="7" placeholder="粘贴 BOSS直聘/拉勾等平台的岗位描述...&#10;例如：&#10;1. 5年以上Java开发经验，精通Spring Boot&#10;2. 熟悉微服务架构..." class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary resize-y" />
             <p class="text-xs text-theme-text-secondary mt-1">JD 越完整，匹配分析与优化建议越精准</p>
           </div>
         </div>
@@ -54,7 +64,7 @@ import { Plus, X } from 'lucide-vue-next';
 import type { ResumeJobTarget } from '@/types/api';
 
 /**
- * 新建岗位弹窗（v10.18 阶段三独立组件）
+ * 新建岗位弹窗
  * props:
  *   - visible: 弹窗显示
  *   - saving: 保存中

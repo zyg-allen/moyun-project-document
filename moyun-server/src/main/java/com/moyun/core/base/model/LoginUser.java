@@ -101,7 +101,7 @@ public class LoginUser implements UserDetails, PrincipalProvider {
     }
 
     /**
-     * 模块中立的主体视图（v13.11）：供 core 侧横切组件（操作日志/限流）使用，
+     * 模块中立的主体视图：供 core 侧横切组件（操作日志/限流）使用，
      * 避免 core 反向依赖门户模块的主体类型。
      */
     @Override

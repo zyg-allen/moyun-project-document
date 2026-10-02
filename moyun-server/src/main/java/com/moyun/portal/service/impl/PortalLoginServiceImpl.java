@@ -117,7 +117,7 @@ public class PortalLoginServiceImpl {
         // 记录门户登录成功日志（user_type=portal）
         AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_SUCCESS, "门户登录成功", "portal"));
 
-        // 更新 portal_user 最后登录IP/时间（修复：原为死字段，门户登录不维护）
+        // 更新 portal_user 最后登录IP/时间
         try {
             String ip = IpUtils.getIpAddr(ServletUtils.getRequest());
             portalUser.setLoginIp(ip);

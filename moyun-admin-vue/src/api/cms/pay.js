@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 
-// ============ V11.0 支付中心 ============
+// ============ 支付中心 ============
 
 // 支付订单分页（status/bizType/payNo 筛选）
 export function listPayOrder(query) {
@@ -53,6 +53,15 @@ export function payLedgerSummary() {
 }
 
 // 用户银行卡列表（脱敏）
+// 人工核实银行卡：把四要素通道无法自动判定的 PENDING 卡置为终态（VERIFIED/REJECTED）
+export function verifyBankCard(cardId, verifyStatus) {
+  return request({
+    url: '/cms/pay/bank-card/' + cardId + '/verify',
+    method: 'post',
+    data: { verifyStatus }
+  });
+}
+
 export function listBankCard(query) {
   return request({
     url: '/cms/pay/bank-card/list',
@@ -78,7 +87,7 @@ export function updateFeeRate(data) {
   })
 }
 
-// 收入总览（平台×渠道聚合，v11.78）
+// 收入总览（平台×渠道聚合）
 export function getRevenueOverview() {
   return request({
     url: '/cms/pay/revenue/overview',
@@ -86,7 +95,7 @@ export function getRevenueOverview() {
   })
 }
 
-// ============ v11.79 收入管理模块（统一标准重构） ============
+// ============ 收入管理模块 ============
 
 // 收入订单（全平台业务订单统一视图：ledger_tip_order + portal_tip_order 合并）
 export function listIncomeOrder(query) {

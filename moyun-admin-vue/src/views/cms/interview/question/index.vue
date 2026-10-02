@@ -350,7 +350,7 @@ function makeDefaultForm() {
     solution: '',
     sort: 0,
     status: 'published',
-    // v10.6 题库重构：练习模式扩展字段
+    // 练习模式扩展字段
     practiceMode: 'reading',
     optionList: makeDefaultOptions(),  // 选择题选项数组（前端临时态）
     correctAnswer: '',                 // 正确答案（提交值：选项字母，多选逗号分隔）
@@ -518,7 +518,7 @@ async function handleEdit(row) {
       solution: data.solution || '',
       sort: data.sort || 0,
       status: data.status || 'published',
-      // v10.6 扩展字段
+      // 扩展字段
       practiceMode: data.practiceMode || 'reading',
       optionList,
       correctAnswer: correctAnswerArr.join(','),

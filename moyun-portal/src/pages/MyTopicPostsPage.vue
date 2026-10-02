@@ -153,14 +153,14 @@ function gotoPage(p: number) {
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center">
                   <img
-                    :src="getSafeAvatar(post.user?.avatar, String(post.userId))"
-                    :alt="post.user?.nickname || '我'"
+                    :src="getSafeAvatar(post.avatar, String(post.userId))"
+                    :alt="post.nickname || '我'"
                     class="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0"
                     loading="lazy"
                   />
                   <div>
                     <div class="text-sm font-medium" style="color: var(--theme-text);">
-                      {{ post.user?.nickname || '我' }}
+                      {{ post.nickname || '我' }}
                     </div>
                     <div class="text-xs" style="color: var(--theme-text-secondary);">
                       {{ formatRelativeTime(post.createdTime) }} · {{ formatShortDate(post.createdTime) }}

@@ -10,10 +10,10 @@ import java.util.Map;
 /**
  * 文章审核业务处理器
  *
- * <p><b>v13.22 防腐层</b>：本类不再直接依赖门户实体 / Mapper（迁移前 {@code system -> portal}
+ * <p><b>防腐层</b>：本类不再直接依赖门户实体 / Mapper（迁移前 {@code system -> portal}
  * 共 24 条边，其中 8 个 AuditBizHandler 占 18 条）。详情读取与审核落地一律经
  * {@link AuditContentPort}（依赖倒置；实现见 {@code com.moyun.portal.audit.AuditContentAdapter}）。
- * 各业务的状态取值（如 published/rejected/active/resolved）与字段口径均由适配器按原实现搬运，
+ * 各业务的状态取值（如 published/rejected/active/resolved）与字段口径均由适配器维护，
  * 本类只负责"任务类型 → 端口调用"的映射。</p>
  *
  * @author moyun

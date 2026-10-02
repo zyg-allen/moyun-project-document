@@ -322,8 +322,8 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      * @return 符合条件的用户列表
      */
     @Override
-    public List<PortalUser> selectAuthors(int limit) {
-        List<PortalUser> list = portalUserMapper.selectAuthors(limit);
+    public List<PortalUser> selectAuthors(int limit, Long excludeUserId) {
+        List<PortalUser> list = portalUserMapper.selectAuthors(limit, excludeUserId);
         list.forEach(this::clearPassword);
         return list;
     }

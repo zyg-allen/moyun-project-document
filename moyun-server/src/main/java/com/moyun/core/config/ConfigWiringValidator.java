@@ -96,7 +96,7 @@ public class ConfigWiringValidator implements ApplicationRunner {
     /**
      * 门户站点域名（消费点：{@code PortalSitemapController} 生成动态 sitemap 的绝对 URL）。
      *
-     * <p>默认占位 {@code https://xulin.example.com}；v13.9 起纳入了 prod 阻断断言（见 W-5）。
+     * <p>默认占位 {@code https://xulin.example.com}；已纳入 prod 阻断断言（见 W-5）。
      * 前端同源要求：moyun-portal 的 {@code VITE_SITE_URL}（构建期注入 canonical/og:url/robots/sitemap）。</p>
      */
     @Value("${moyun.portal.domain:}")
@@ -265,9 +265,8 @@ public class ConfigWiringValidator implements ApplicationRunner {
                 this::smsMockDisabled);
 
         // ---- W-5：门户站点域名必须真实（**仅生产阻断**） ---------------------------
-        // 背景（v13.9）：moyun.portal.domain 默认值是占位域名 https://xulin.example.com，
-        // 消费点是 PortalSitemapController 生成的动态 sitemap（绝对 URL）。历史上靠"注释提醒
-        // 部署时替换 + 手工同步前端 robots/sitemap"，结果占位域名会随产物上线：
+        // 背景：moyun.portal.domain 默认值是占位域名 https://xulin.example.com，
+        // 消费点是 PortalSitemapController 生成的动态 sitemap（绝对 URL）；
         //   前端已改为构建期注入（VITE_SITE_URL，production 构建缺值即失败）；
         //   后端在此处对齐：prod 下仍是占位/空值 → 阻断启动。
         // 非 prod 命中属本地默认形态（sitemap 在本地无 SEO 意义），记 info 提示。
@@ -319,6 +318,12 @@ public class ConfigWiringValidator implements ApplicationRunner {
         return v.startsWith("moyun-dev-")
                 || v.equals("admin123")
                 || v.equals("123456")
+                // 曾在 application-dev.yaml 作为 spring.mail.password 默认值提交过的 163 授权码：
+                // 已进入 git 历史 ⇒ 视为已泄露，生产若注入该值必须阻断启动。
+                // 此处只比对前 8 位（足以命中该泄露值），避免把完整口令再写进源码；
+                // ⚠ 真正的修复是到 163 后台重新生成授权码并作废旧值。
+                || v.startsWith("MNQ7bDtJ")
+                || v.equals("moyun-dev-mock-pay-secret")
                 || v.startsWith("todo")
                 || v.contains("placeholder")
                 || v.contains("example");

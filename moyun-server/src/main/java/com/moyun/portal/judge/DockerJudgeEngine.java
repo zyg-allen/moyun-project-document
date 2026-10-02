@@ -146,17 +146,35 @@ public class DockerJudgeEngine implements JudgeEngine {
         ));
         pb.directory(hostWorkDir.toFile());
         pb.redirectErrorStream(true);
+        // 输出重定向到文件：避免"先阻塞读 stdout 再 waitFor"使超时永不生效（详见 readTruncated）
+        Path outFile = Files.createTempFile(hostWorkDir, "oj-docker-compile-", ".log");
+        pb.redirectOutput(outFile.toFile());
         Process p = pb.start();
-        String output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         boolean finished = p.waitFor(COMPILE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         if (!finished) {
             p.destroyForcibly();
             return "编译超时";
         }
+        String output = readTruncated(outFile);
         if (p.exitValue() != 0) {
             return truncate(output);
         }
         return null;
+    }
+
+    /**
+     * 读取重定向到文件的进程输出（超长截断）。
+     *
+     * <p><b>为什么必须这样读</b>：原实现先 {@code readAllBytes()} 再 {@code waitFor(timeout)}。
+     * {@code readAllBytes()} 会阻塞到子进程关闭 stdout，用户代码若无限循环/持续输出就**永远读不完**，
+     * {@code waitFor} 根本执行不到 —— 既不判 TLE、也不 {@code destroyForcibly}，判题线程被永久占用。</p>
+     */
+    private String readTruncated(Path file) {
+        try {
+            return truncate(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return "";
+        }
     }
 
     // ==================== 容器内逐用例运行 ====================
@@ -185,9 +203,15 @@ public class DockerJudgeEngine implements JudgeEngine {
             }
             // 首个失败用例即停止
             result.setFailedCaseId(tc.getId());
-            result.setFailedCaseInput(tc.getInput());
-            result.setFailedCaseExpected(tc.getExpectedOutput());
-            result.setFailedCaseActual(cr.getActualOutput());
+            // 安全策略：仅样例用例失败时回填输入/期望/实际输出；
+            // 隐藏用例是判题资产，明文下发会泄露判题数据（与选择题答案剥离同标准）。
+            // 注：此处与 ProcessJudgeEngine#runCases 保持同一口径——生产默认引擎为 docker，
+            // 若漏掉该守卫则泄露发生在**生产**而非开发环境。
+            if (Integer.valueOf(1).equals(tc.getIsSample())) {
+                result.setFailedCaseInput(tc.getInput());
+                result.setFailedCaseExpected(tc.getExpectedOutput());
+                result.setFailedCaseActual(cr.getActualOutput());
+            }
             result.setErrorMessage(cr.getErrorMessage());
             if (cr.getErrorMessage() != null && cr.getErrorMessage().contains("[TLE]")) {
                 result.setStatus(JudgeStatus.TIME_LIMIT_EXCEEDED);
@@ -234,12 +258,14 @@ public class DockerJudgeEngine implements JudgeEngine {
 
         long start = System.currentTimeMillis();
         try {
+            // 输出重定向到文件：见 readTruncated 的说明（不能让阻塞读挡住 waitFor）
+            Path outFile = Files.createTempFile(hostWorkDir, "oj-docker-case-" + caseIndex + "-", ".out");
+            pb.redirectOutput(outFile.toFile());
             Process p = pb.start();
             if (tc.getInput() != null) {
                 p.getOutputStream().write(tc.getInput().getBytes(StandardCharsets.UTF_8));
             }
             p.getOutputStream().close();
-            String stdout = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             boolean finished = p.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
             long elapsed = System.currentTimeMillis() - start;
             if (!finished) {
@@ -248,6 +274,7 @@ public class DockerJudgeEngine implements JudgeEngine {
                         Integer.valueOf(1).equals(tc.getIsSample()),
                         (int) Math.min(elapsed, Integer.MAX_VALUE), null, "[TLE] 运行超时");
             }
+            String stdout = readTruncated(outFile);
             int exit = p.exitValue();
             if (exit != 0) {
                 return CaseJudgeResult.fail(tc.getId(), caseIndex,

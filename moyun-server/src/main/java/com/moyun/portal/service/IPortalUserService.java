@@ -179,5 +179,5 @@ public interface IPortalUserService {
      * @param limit 取前 N 条
      * @return 符合条件的用户列表
      */
-    List<PortalUser> selectAuthors(int limit);
+    List<PortalUser> selectAuthors(int limit, Long excludeUserId);
 }

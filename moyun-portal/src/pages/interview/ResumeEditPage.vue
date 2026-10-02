@@ -8,11 +8,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } 
 import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import {
-  Save, Download, Star, Plus, Trash2, User, Briefcase, GraduationCap,
-  Code, FileText, Target, Sparkles, XCircle, AlertCircle,
-  PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck, Loader2,
-} from 'lucide-vue-next';
+import { Plus, Trash2, User, Briefcase, GraduationCap, FileText, Target, Sparkles, AlertCircle, PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck, Loader2 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SectionCard from '@/components/resume/SectionCard.vue';
@@ -33,18 +29,13 @@ import { getCurrentUser } from '@/api/user';
 import { getMyCertification, type CreatorCertification } from '@/api/certification';
 import {
   aiFieldAssist, type FieldAssistSuggestion,
-  saveScoreReport, getScoreReports, getOptimizeHistory,
+  getScoreReports, getOptimizeHistory,
 } from '@/api/resumeOptimize';
 import { submitAiTask, pollAiTask } from '@/api/aiTask';
 import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
 import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
-import type {
-  ResumePreviewVO,
-  UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
-  UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
-  ResumeScoreReport, ResumeOptimizeHistory, ResumeParseVO,
-} from '@/types/api';
+import type { ResumePreviewVO, UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem, UserResumeProjectItem, UserResumeSkillItem, ResumeScoreReport, ResumeOptimizeHistory, ResumeParseVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 import { useResumeStore } from '@/stores/resume';
 
@@ -90,7 +81,7 @@ const loaded = ref(false);
 // 弹窗控制：预览弹窗
 const previewVisible = ref(false);
 
-// ============ 评分报告与优化历史（v10.18 阶段五） ============
+// ============ 评分报告与优化历史 ============
 // 评分后归档为可追溯报告；弹窗同时承载优化历史，便于回看采纳前后对比
 const scoreReports = ref<ResumeScoreReport[]>([]);
 const optimizeHistory = ref<ResumeOptimizeHistory[]>([]);
@@ -101,7 +92,6 @@ const templateSource = ref<string>('');
 
 // 左侧导航当前高亮项（scroll spy）
 const activeSection = ref('sec-personal');
-const mainScrollRef = ref<HTMLElement | null>(null);
 
 // 技能输入框（chip cloud 添加）
 const skillInput = ref('');
@@ -148,7 +138,9 @@ function removeAvatar() {
 }
 
 // 表单
-const form = reactive<UserResumeVO>({
+// 清单 P1（strict）：UserResumeVO.jobIntention 是可选字段，但本页**始终**会给它赋值并使用，
+// 故在建表单时收窄为非空（避免模板/脚本里逐处 `?.` 与 TS18049 噪音；运行时行为不变）。
+const form = reactive<UserResumeVO & { jobIntention: NonNullable<UserResumeVO['jobIntention']> }>({
   id: undefined,
   title: '',
   name: '',
@@ -290,11 +282,6 @@ function ensureJobIntention(): UserResumeJobIntention {
   return form.jobIntention;
 }
 
-// 评分进度条百分比
-function scorePercent(item: UserResumeScoreItem): number {
-  if (!item.maxScore || item.maxScore <= 0) return 0;
-  return Math.max(0, Math.min(100, (item.score / item.maxScore) * 100));
-}
 
 // ========== 保存 ==========
 async function doSave(silent = false): Promise<boolean> {
@@ -398,19 +385,11 @@ async function handleScore() {
       form.score = res.data.score;
       form.scoreDetail = res.data.scoreDetail || [];
       form.scoredTime = res.data.scoredTime || '';
-      // 评分成功后归档为评分报告（source=manual），便于后续追溯
-      // 后端 saveScoreReport 在 source 非 manual 或带 jobTargetId 时会补全报告记录；
-      // 这里显式传 manual 触发归档，失败不影响主流程
-      try {
-        await saveScoreReport({
-          resumeId: form.id,
-          source: 'manual',
-          position: form.jobIntention?.position || undefined,
-        });
-        refreshScoreReports();
-      } catch (e) {
-        console.warn('评分报告归档失败:', e);
-      }
+      // 清单 P2：原先在 scoreResume 之后**又调了一次 saveScoreReport** ——
+      // 而 scoreResume 内部已经存档一条评分报告，且 /score-report 内部还会**再执行一次
+      // scoreResume 并存档** ⇒ 一次点击产生两条报告、评分也被重复计算。
+      // 这里只刷新报告列表，不再重复调用。
+      refreshScoreReports();
       toast.success(`评分完成：${form.score} 分`);
     } else {
       toast.error(res.message || '评分失败，请稍后重试');
@@ -422,7 +401,7 @@ async function handleScore() {
   }
 }
 
-// ============ 评分报告与优化历史（v10.18 阶段五） ============
+// ============ 评分报告与优化历史 ============
 /** 加载评分报告列表（按时间倒序） */
 async function loadScoreReports() {
   if (!form.id) { scoreReports.value = []; return; }
@@ -491,7 +470,7 @@ function goOptimizeFromHistory(h: ResumeOptimizeHistory) {
   router.push(`/interview/resume/optimize?resumeId=${targetId}`);
 }
 
-// AI 优化：统一跳转到岗位优化工作台（v10.22 统一入口，原 aiAdvice 弹窗已移除）
+// AI 优化：统一跳转到岗位优化工作台（统一入口）
 function handleOptimize() {
   if (!form.id) {
     toast.error('请先保存简历再进行 AI 优化');
@@ -500,15 +479,8 @@ function handleOptimize() {
   router.push(`/interview/resume/optimize?resumeId=${form.id}`);
 }
 
-// 评分等级样式（附件解析预览弹窗复用）
-const gradeStyle: Record<string, string> = {
-  A: 'bg-theme-success-bg text-theme-success',
-  B: 'bg-theme-info-bg text-theme-info',
-  C: 'bg-theme-warning-bg text-theme-warning',
-  D: 'bg-theme-danger-bg text-theme-danger',
-};
 
-// ============ AI 实时辅助编辑（v10.14 设计文档 P0 需求#2） ============
+// ============ AI 实时辅助编辑（设计文档 P0 需求#2） ============
 // 字段级 AI 优化：工作/项目描述、自我评价旁「✨AI优化」→ 3 个差异化版本 → 采纳替换
 
 const assistVisible = ref(false);
@@ -548,7 +520,8 @@ async function openFieldAssist(type: 'work' | 'project' | 'selfIntro', index: nu
       field,
       originalText: text,
       position: form.jobIntention?.position || undefined,
-      skillNames: form.skills?.map(s => s.name).filter(Boolean),
+      // 清单 P1（strict）：filter(Boolean) 不会收窄类型，这里显式过滤出 string
+      skillNames: form.skills?.map(s => s.name).filter((n): n is string => !!n),
     });
     if (res.code === 200 && res.data) {
       assistSuggestions.value = res.data;
@@ -585,7 +558,7 @@ function autoSaveAfterAdopt() {
   }
 }
 
-// ============ AI 填充空字段草稿（v10.22 阶段二） ============
+// ============ AI 填充空字段草稿 ============
 // 当工作经历/项目经历/自我介绍为空时，一键调用 AI 生成草稿填充
 
 const drafting = ref(false);
@@ -603,7 +576,7 @@ async function generateDraft() {
   }
   drafting.value = true;
   try {
-    // v10.23：草稿生成改为通用 AI 异步任务（提交 ai_draft → 轮询到 success）
+    // 草稿生成走通用 AI 异步任务（提交 ai_draft → 轮询到 success）
     const submitRes = await submitAiTask('ai_draft', { resumeId: form.id });
     if (submitRes.code !== 200 || !submitRes.data?.taskId) {
       toast.error(submitRes.message || '提交 AI 草稿任务失败');
@@ -619,8 +592,13 @@ async function generateDraft() {
       const beforeWorks = form.works?.length ?? 0;
       const beforeProjects = form.projects?.length ?? 0;
       const hadSelfIntro = !!form.selfIntro?.trim();
-      if (d.works?.length) form.works.push(...d.works);
-      if (d.projects?.length) form.projects.push(...d.projects);
+      // 清单 P1（strict）：works/projects 可选，push 前兜底初始化
+      if (d.works?.length) {
+        form.works = [...(form.works ?? []), ...d.works];
+      }
+      if (d.projects?.length) {
+        form.projects = [...(form.projects ?? []), ...d.projects];
+      }
       if (d.selfIntro && !hadSelfIntro) form.selfIntro = d.selfIntro;
       const changed = (form.works?.length ?? 0) > beforeWorks
         || (form.projects?.length ?? 0) > beforeProjects
@@ -641,7 +619,7 @@ async function generateDraft() {
   }
 }
 
-// ============ 附件简历：上传 + 解析 + 覆盖填充（v10.12） ============
+// ============ 附件简历：上传 + 解析 + 覆盖填充 ============
 
 const ACCEPT_EXTS = ['.pdf', '.doc', '.docx', '.txt', '.md'];
 const UPLOAD_MAX_SIZE = 10 * 1024 * 1024; // 10MB（与后端一致）
@@ -664,7 +642,7 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-// ============ v10.23：附件解析异步任务（上传后 AI 后台解析，前端轮询） ============
+// ============ 附件解析异步任务（上传后 AI 后台解析，前端轮询） ============
 // 上传只建附件简历记录 + 提交后台解析任务；URL 带 parseTaskId，刷新页面可恢复轮询
 
 /** 进行中的解析任务 ID（非空时上传区显示"AI 解析中"状态） */
@@ -713,9 +691,9 @@ async function pollParseTask(taskId: number | string, resumeId?: string | number
   }
 }
 
-// ==================== v13.38：简历解析「预览 → 确认」两步式 ====================
+// ==================== 简历解析「预览 → 确认」两步式 ====================
 // 为什么改：① 附件是客户端一次性输入，只读内容，不落盘/不进对象存储；
-//          ② 规则解析毫秒级、离线可用，不再依赖 AI 与轮询；
+//          ② 规则解析毫秒级、离线可用，不依赖 AI 与轮询；
 //          ③ 解析阶段不落库（避免失败留空简历脏数据），用户校对后确认才落库；
 //          ④ 原文与解析结果左右对照（U1），把"准确性"交给可见的校对而非算法承诺。
 const parsePreviewVisible = ref(false);
@@ -926,7 +904,7 @@ async function reflectLatestResume(): Promise<boolean> {
 }
 
 onMounted(() => {
-  // v10.23：刷新恢复解析任务（URL 带 parseTaskId 时继续轮询，完成后跳附件简历编辑页）
+  // 刷新恢复解析任务（URL 带 parseTaskId 时继续轮询，完成后跳附件简历编辑页）
   const qParseTaskId = route.query.parseTaskId as string | undefined;
   if (qParseTaskId) {
     pollParseTask(qParseTaskId, route.query.resumeId as string | undefined);
@@ -936,7 +914,7 @@ onMounted(() => {
       if (ok) nextTick(() => { loaded.value = true; });
     });
   } else if (route.query.fromTemplate || route.query.source === 'template') {
-    // 模板入口（v10.13 起 fromTemplate，v10.18 改为 source=template）：
+    // 模板入口（兼容 fromTemplate，现用 source=template）：
     // 跳过最新简历反显；先个人中心预填基础信息，再 applyTemplateQuery 消费 resumeStore 结构化字段
     prefillFromProfile().then(() => {
       applyTemplateQuery();
@@ -978,7 +956,7 @@ async function prefillFromProfile() {
 }
 
 /**
- * 模板入口预填（v10.18 阶段一打通模板套用）：
+ * 模板入口预填（打通模板套用）：
  * 优先消费 resumeStore.templateSource（含 sampleData 解析出的结构化字段），
  * 回退到 query 参数预填标题/期望岗位（模板为纯文件资源、sampleData 为空时）。
  * 消费后立即 clearTemplateSource，避免刷新页面残留旧模板数据。
@@ -1027,7 +1005,7 @@ function applyTemplateQuery() {
   }
 }
 
-// ============ 实名姓名可选填充（v10.8 实名合规） ============
+// ============ 实名姓名可选填充（实名合规） ============
 // 已通过身份认证的用户可在姓名字段一键使用实名姓名（主动选择，不自动回填，保护隐私边界）
 const certifiedInfo = ref<CreatorCertification | null>(null);
 const hasApprovedIdentity = computed(() =>
@@ -1068,6 +1046,16 @@ watch(() => route.params.id, (newId, oldId) => {
     loaded.value = false;
     form.id = undefined;
     form.title = '';
+    // 清单 P2：原先只重置 id/title，educations/works/projects/skills/selfIntro
+    // 仍保留**上一份简历**的内容 —— 用户"新建简历"时看到的是别人的/上次的数据。
+    form.educations = [];
+    form.works = [];
+    form.projects = [];
+    form.skills = [];
+    form.selfIntro = '';
+    form.score = undefined;
+    form.scoreDetail = [];
+    form.scoredTime = '';
     prefillFromProfile(); // 切回新建态同样反显个人中心信息
     nextTick(() => { loaded.value = true; });
     return;
@@ -1081,7 +1069,7 @@ watch(() => route.params.id, (newId, oldId) => {
 
 // 离开页提示
 onBeforeRouteLeave(async (to, from, next) => {
-  // v10.23：AI 解析任务进行中，离开将丢失轮询进度（刷新可恢复），需确认
+  // AI 解析任务进行中，离开将丢失轮询进度（刷新可恢复），需确认
   if (parsingTaskId.value) {
     if (!(await confirmModal.confirm('AI 正在解析简历，离开将中断解析进度展示，确定离开吗？', { danger: true, title: '确认操作' }))) {
       next(false);
@@ -1105,7 +1093,7 @@ onBeforeRouteLeave(async (to, from, next) => {
       <div class="re-topbar-inner">
         <Breadcrumb :items="breadcrumbs" />
         <div class="re-topbar-actions">
-          <!-- 模板来源标识（v10.18 阶段一）：基于模板创建时展示派生关系 -->
+          <!-- 模板来源标识：基于模板创建时展示派生关系 -->
           <span
             v-if="templateSource"
             class="re-template-source"
@@ -1160,7 +1148,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 
       <!-- 中间主区：表单 -->
       <main class="re-main">
-        <!-- 岗位优化入口（v10.13） -->
+        <!-- 岗位优化入口 -->
         <div
           v-if="form.id"
           class="flex items-center justify-between gap-3 rounded-xl border p-3.5 mb-4"
@@ -1174,7 +1162,7 @@ onBeforeRouteLeave(async (to, from, next) => {
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <!-- v10.22 阶段二：工作/项目/自我介绍为空时，一键 AI 生成草稿 -->
+            <!-- 工作/项目/自我介绍为空时，一键 AI 生成草稿 -->
             <button
               v-if="hasEmptyDraftFields"
               class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-lg border"
@@ -1585,7 +1573,7 @@ onBeforeRouteLeave(async (to, from, next) => {
           desc="上传已有简历，可同步至在线简历或直接用于 AI 优化"
           status="empty"
         >
-          <!-- 附件上传区（点击 / 拖拽，v10.12 实装；v10.23 解析异步化） -->
+          <!-- 附件上传区（点击 / 拖拽） -->
           <div
             class="re-upload-zone"
             :class="{ 're-upload-dragover': dragOver, 're-upload-disabled': uploading || !!parsingTaskId }"
@@ -1614,7 +1602,7 @@ onBeforeRouteLeave(async (to, from, next) => {
             </div>
           </div>
 
-          <!-- v10.23：AI 后台解析中状态（异步任务轮询，进度文案来自任务 progressMsg） -->
+          <!-- AI 后台解析中状态（异步任务轮询，进度文案来自任务 progressMsg） -->
           <div v-if="parsingTaskId" class="re-parse-status">
             <Loader2 class="w-4 h-4 animate-spin flex-shrink-0" />
             <span>{{ parsingMsg || 'AI 正在解析简历，通常需要 10-60 秒，请勿关闭页面' }}</span>
@@ -1683,7 +1671,7 @@ onBeforeRouteLeave(async (to, from, next) => {
       @export-pdf="handleExportPdf"
     />
 
-    <!-- AI 实时辅助弹窗（v10.18 阶段二抽离为 AIHelperDialog 组件：字段级 3 版本建议） -->
+    <!-- AI 实时辅助弹窗（AIHelperDialog 组件：字段级 3 版本建议） -->
     <AIHelperDialog
       :visible="assistVisible"
       :loading="assistLoading"
@@ -1695,7 +1683,7 @@ onBeforeRouteLeave(async (to, from, next) => {
       @adopt="adoptAssist"
     />
 
-    <!-- 评分报告弹窗（v10.18 阶段五抽离为 ScoreReportDialog 组件：评分快照 + 优化历史） -->
+    <!-- 评分报告弹窗（ScoreReportDialog 组件：评分快照 + 优化历史） -->
     <ScoreReportDialog
       v-model:visible="scoreReportVisible"
       :reports="scoreReports"
@@ -1708,7 +1696,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 
     <SiteFooter />
 
-  <!-- v13.38：简历解析校对（U1 左右对照）——解析不落库，确认才落库。
+  <!-- 简历解析校对（U1 左右对照）——解析不落库，确认才落库。
        注意与上面的「简历文档预览」ResumePreviewModal 是两个不同弹窗，勿混。 -->
   <ResumeParsePreviewModal
     :visible="parsePreviewVisible"
@@ -1777,7 +1765,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 .re-save-badge.saving { background: var(--theme-warning-bg); color: var(--theme-warning); }
 .re-save-badge.saved { background: var(--theme-success-bg); color: var(--theme-success); }
-/* 模板来源标识徽章（v10.18 阶段一） */
+/* 模板来源标识徽章 */
 .re-template-source {
   display: inline-flex;
   align-items: center;
@@ -1868,7 +1856,7 @@ onBeforeRouteLeave(async (to, from, next) => {
   align-items: flex-start;
   gap: 4px;
 }
-/* 字段级 AI 优化按钮（v10.14 P0 需求#2：AI 实时辅助编辑） */
+/* 字段级 AI 优化按钮（P0 需求#2：AI 实时辅助编辑） */
 .re-ai-assist-btn {
   display: inline-flex;
   align-items: center;
@@ -1966,7 +1954,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 .re-assist-adopt-btn:hover {
   opacity: 0.85;
 }
-/* 实名姓名一键填充按钮（v10.8：已实名用户专属，主动选择填充） */
+/* 实名姓名一键填充按钮（已实名用户专属，主动选择填充） */
 .re-certified-fill {
   margin-top: 6px;
   display: inline-flex;
@@ -2351,7 +2339,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 
 .re-advice-list { display: flex; flex-direction: column; gap: 12px; }
 
-/* ===== 附件上传区交互态（v10.12） ===== */
+/* ===== 附件上传区交互态 ===== */
 .re-upload-zone { cursor: pointer; transition: all 0.15s; }
 .re-upload-dragover {
   border-color: var(--theme-primary) !important;
@@ -2360,7 +2348,7 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 .re-upload-disabled { pointer-events: none; opacity: 0.6; }
 
-/* ===== v10.23：AI 后台解析中状态条 ===== */
+/* ===== AI 后台解析中状态条 ===== */
 .re-parse-status {
   display: flex;
   align-items: center;

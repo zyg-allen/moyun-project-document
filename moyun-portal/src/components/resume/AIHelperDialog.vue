@@ -43,7 +43,7 @@
             :class="{ 're-assist-recommend': i === 0 }"
           >
             <div class="re-assist-version-head">
-              <span class="re-assist-version-tag">{{ versionLabels[i] || `版本 ${i + 1}` }}</span>
+              <span class="re-assist-version-tag">{{ versionLabels?.[i] || `版本 ${i + 1}` }}</span>
               <span v-if="s.reason" class="re-assist-reason">💡 {{ s.reason }}</span>
             </div>
             <p class="re-assist-text">{{ s.text }}</p>
@@ -66,7 +66,7 @@ import { Sparkles, X } from 'lucide-vue-next';
 import type { FieldAssistSuggestion } from '@/api/resumeOptimize';
 
 /**
- * AI 实时辅助弹窗（v10.18 阶段二独立组件）
+ * AI 实时辅助弹窗
  * props:
  *   - visible: 弹窗显示
  *   - loading: AI 生成中

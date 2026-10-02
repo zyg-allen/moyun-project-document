@@ -40,7 +40,7 @@ public class SendEmailTool implements ToolExecutor {
     /**
      * 邮件通道就绪判定（单一事实来源）。
      *
-     * <p>历史实现用 {@code mailSender == null} 判定未配置——该判据永假：
+     * <p>{@code mailSender == null} 不能作为未配置的判据：dev 的 {@code spring.mail.host} 是固定值，
      * dev 的 {@code spring.mail.host} 是固定值，JavaMailSender 始终被装配。
      * 详见 {@link MailChannelStatus} 类注释。</p>
      */

@@ -139,7 +139,8 @@ mybatis-plus:
   type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 清单 P2：原先用 StdOutImpl 直接打印 stdout，绕过 logback（无法分级、无法与 traceId 关联、污染容器日志）。改为走 logback。
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
   global-config:
     db-config:
       id-type: auto

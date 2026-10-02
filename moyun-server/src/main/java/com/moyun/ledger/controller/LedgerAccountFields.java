@@ -10,7 +10,6 @@ import java.time.format.DateTimeParseException;
  * <p>为什么账户"修改"接口用 {@code Map<String, Object>} 接参而不是直接绑定实体：
  * 必须区分「**请求体里没这个字段**」与「传了 {@code null}」——后者是用户主动**清空**
  * （App 清空月供/还款日/总期数时会发 {@code null}）。实体绑定会把两者都变成 {@code null}，
- * 于是旧的 {@code updateById}（null 则跳过）让"清空"静默失效。
  * 控制器因此改为显式映射白名单字段，并把 {@code body.keySet()}（显式出现的字段名）
  * 透传给 service，由 service 决定该列是否写入。</p>
  *

@@ -40,7 +40,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     private final ISysConfigService sysConfigService;
     /** AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml AiProperties） */
     private final AiGlobalSwitch aiGlobalSwitch;
-    /** per-agent 模型路由（网关侧公共能力，迁移自本类） */
+    /** per-agent 模型路由（网关侧公共能力） */
     private final AgentModelRouter agentModelRouter;
 
     public InterviewAgentClientImpl(AgentService agentService,

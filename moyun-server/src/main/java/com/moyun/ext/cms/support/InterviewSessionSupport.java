@@ -13,14 +13,13 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * 面试会话「纯函数」支持类（v13.61 批次 4 四 / 第③步）。
+ * 面试会话「纯函数」支持类。
  *
  * <p>承接拆分第①②步（{@link InterviewTextUtils} / {@link InterviewReportFormatter}），
  * 本类收口**会话编排中不依赖实例成员**的那部分逻辑：Redis 键、时长换算、配置读取、
  * 上下文指令拼装、VO 映射。全部 {@code static}，不注入依赖、不做 IO。</p>
  *
- * <p><b>为什么值得抽</b>：这些方法原先埋在 2700+ 行的 Service 里，
- * 与 SSE 生命周期、事务、锁混在一起；抽走后"编排"与"换算/拼装"边界清晰，
+ * <p><b>为什么值得抽</b>：拆分后编排与换算/拼装边界清晰，
  * 且可被单测直接覆盖（无需构造 Spring 上下文）。</p>
  *
  * <p><b>不属于本类</b>：任何需要 Mapper / 锁 / 网关 / 线程池的方法
@@ -156,7 +155,7 @@ public final class InterviewSessionSupport {
     /**
      * 每轮任务指令：只约束话术形态，不参与出题决策。
      *
-     * <p>v13.62：按已答轮数注入分阶段引导（开场深挖 → 专业考察 → 轮换提醒），
+     * <p>按已答轮数注入分阶段引导（开场深挖 → 专业考察 → 轮换提醒），
      * 配合系统提示词四阶段段序约束，防止面试官全程恋战第一个话题。</p>
      *
      * @param skip        本题是否被跳过
@@ -176,7 +175,7 @@ public final class InterviewSessionSupport {
         } else {
             timeNote = "（本场面试剩余约 " + remainMin + " 分钟，可自主把握提问节奏与深度。）";
         }
-        // 分阶段引导（v13.62）：按轮次推进提醒面试官切换考察阶段/方向
+        // 分阶段引导：按轮次推进提醒面试官切换考察阶段/方向
         String phaseNote = "";
         if (doneRounds >= 2 && doneRounds <= 3) {
             phaseNote = "（简历与自我介绍深挖应接近尾声，请转入预热计划中的专业技术考察方向。）";

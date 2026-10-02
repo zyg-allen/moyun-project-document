@@ -3,10 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import {
-  BookOpen, Star, Flame, Clock, CheckCircle2,
-  TrendingUp, Gift, Calendar, ChevronRight
-} from 'lucide-vue-next';
+import { BookOpen, Star, Flame, CheckCircle2, TrendingUp, Gift, Calendar } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -35,10 +32,11 @@ const rankingTabs: { key: RankingType; name: string; icon: typeof Flame }[] = [
 const activeRankingTab = ref<RankingType>('hot');
 const rankingList = ref<Book[]>([]);
 const rankingLoading = ref(false);
+/** 排行榜加载失败提示（清单 P2：原 catch 只 console.error 后置空，与"暂无排行数据"同态） */
+const rankingError = ref<string | null>(null);
 
 const hasBanner = computed(() => banners.value.length > 0);
 const currentBannerIndex = ref(0);
-const currentBanner = computed(() => banners.value[currentBannerIndex.value] || null);
 
 // 面包屑
 const breadcrumbs = computed(() => [
@@ -73,18 +71,38 @@ async function loadDiscoverData() {
   }
 }
 
+/**
+ * 请求序号（清单 P2）。
+ *
+ * <p>原先 `loadRanking` 直接覆盖写 `rankingList`，既无请求序号也无取消机制，
+ * Tab 按钮在 `rankingLoading` 期间仍可点击 ⇒ 连点「热门榜→字数榜→完结榜」时，
+ * 先发请求的响应若后到会把**旧类型的数据写进当前 Tab**
+ *（client.ts 的并发去重只对完全相同 URL 生效，不同 type 不会被去重）。</p>
+ */
+let loadSeq = 0;
+
 async function loadRanking(type: RankingType) {
+  const seq = ++loadSeq;
+  const requestedType = type;
   activeRankingTab.value = type;
   rankingLoading.value = true;
+  rankingError.value = null;
   try {
     const response = await getRanking(type, 10);
     if (response.code === 200 && response.data) {
       const result = response.data as RankingResult;
+      // 清单 P2：已切 Tab 或已有更新的请求 ⇒ 丢弃过期响应（避免旧类型数据写进当前 Tab）
+      if (seq !== loadSeq || activeRankingTab.value !== requestedType) return;
       rankingList.value = result.list || [];
     } else {
+      if (seq !== loadSeq) return;
+      rankingError.value = response.message || '加载排行数据失败';
       rankingList.value = [];
     }
   } catch (err) {
+    if (seq !== loadSeq) return;
+    // 清单 P2：原 catch 只 console.error 后置空，与"暂无排行数据"同一分支且无重试入口
+    rankingError.value = (err as Error)?.message || '加载排行数据失败，请稍后重试';
     console.error('加载排行榜失败:', err);
     rankingList.value = [];
   } finally {
@@ -202,8 +220,22 @@ useHead(
               </button>
             </div>
 
+            <!-- 排行榜加载失败（清单 P2）：与"暂无排行数据"区分，并给重试 -->
+            <div
+              v-if="rankingError && !rankingLoading"
+              class="rounded-xl border p-6 text-center"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            >
+              <p class="mb-3 text-sm" style="color: var(--theme-text);">{{ rankingError }}</p>
+              <button
+                class="px-4 py-2 rounded-lg text-sm font-medium text-white"
+                style="background-color: var(--theme-primary);"
+                @click="loadRanking(activeRankingTab)"
+              >重试</button>
+            </div>
+
             <!-- 排行榜列表 -->
-            <div v-if="rankingLoading" class="text-center py-8">
+            <div v-else-if="rankingLoading" class="text-center py-8">
               <div class="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style="border-bottom-color: var(--theme-primary);"></div>
             </div>
             <div v-else-if="rankingList.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -261,11 +293,24 @@ useHead(
                   <div class="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-xs font-bold text-white" style="background-color: var(--theme-danger);">
                     限免
                   </div>
+                  <!--
+                    清单 P2：原先 :src="''" 永远为空 —— LazyImage 的 loading 初值为 true，
+                    空 src 下 img 不会触发 load，卡片会一直停在 loading 遮罩（或报图片加载失败）。
+                    后端已 JOIN 返回 bookCover，此处用真实封面；确实无封面时给占位块而不是空图。
+                  -->
                   <LazyImage
-                      :src="''"
+                      v-if="item.bookCover"
+                      :src="item.bookCover"
                       :alt="item.bookTitle || ''"
                       class="w-full h-full object-cover group-hover:scale-105 transition"
                   />
+                  <div
+                      v-else
+                      class="w-full h-full flex items-center justify-center"
+                      style="background-color: var(--theme-accent);"
+                  >
+                    <BookOpen class="w-8 h-8" style="color: var(--theme-text-secondary);" />
+                  </div>
                 </div>
                 <h3 class="font-medium text-sm mb-1 line-clamp-2 group-hover:opacity-80" style="color: var(--theme-text);">{{ item.bookTitle }}</h3>
                 <p v-if="item.endTime" class="text-xs" style="color: var(--theme-text-secondary);">
@@ -307,9 +352,16 @@ useHead(
             </div>
           </div>
 
+          <!--
+            清单 P2：hotRanking 只在空态条件里被引用、模板中没有任何区块渲染它。
+            当后端只返回 hotRanking（例如运营只配了首页热门位，banner/限免为空且无最近更新）时：
+            空态条件因 hotRanking 非空而不成立，其它区块各自 v-if 隐藏 ⇒
+            页面只剩「排行榜」标题区，**既无内容也无提示**。
+            这里把 hotRanking 从"空态条件"中排除，让这种情形正确落到空态提示。
+          -->
           <!-- 空状态 -->
           <div
-              v-if="!hasBanner && hotRanking.length === 0 && limitFree.length === 0 && recentUpdate.length === 0"
+              v-if="!hasBanner && limitFree.length === 0 && recentUpdate.length === 0"
               class="text-center py-16"
           >
             <BookOpen class="w-16 h-16 mx-auto mb-4 opacity-30" style="color: var(--theme-text-secondary);" />

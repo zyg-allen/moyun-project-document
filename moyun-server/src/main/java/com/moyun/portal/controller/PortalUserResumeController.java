@@ -275,6 +275,38 @@ public class PortalUserResumeController extends BaseController {
                 .body(new FileSystemResource(f));
     }
 
+    @Operation(summary = "下载导出的简历 PDF",
+            description = "下载本人简历导出的 PDF（需登录且仅本人）。"
+                    + "PDF 落盘后不经公开目录暴露，必须走本端点鉴权读取。")
+    @GetMapping("/{id:[0-9]+}/file")
+    public ResponseEntity<Resource> downloadExportedPdf(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        // 归属校验在 service 内（非本人抛 ServiceException）
+        UserResumeVO vo = userResumeService.selectResumeDetail(id, userId);
+        // entity.file_url 存的是**磁盘路径**（见 UserResumeServiceImpl#exportResumePdf：
+        // 落库存磁盘路径、返回给前端的 fileUrl 才是本端点地址），故这里直接读磁盘。
+        if (vo == null || vo.getFileUrl() == null || vo.getFileUrl().isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+        String storedUrl = vo.getFileUrl();
+        String diskPath;
+        if (storedUrl.startsWith(Constants.RESOURCE_PREFIX)) {
+            diskPath = RuoYiConfig.getProfile() + storedUrl.substring(Constants.RESOURCE_PREFIX.length());
+        } else {
+            diskPath = storedUrl;
+        }
+        File f = new File(diskPath);
+        if (!f.exists() || !f.isFile()) return ResponseEntity.notFound().build();
+        String fileName = "resume_" + id + ".pdf";
+        String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encoded + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(f.length())
+                .body(new FileSystemResource(f));
+    }
+
     @Operation(summary = "附件转在线简历", description = "将附件简历转为在线简历（source_type 改为 online，保留解析数据）")
     @PostMapping("/{id:[0-9]+}/convert-to-online")
     public AjaxResult convertToOnline(@PathVariable("id") Long id) {

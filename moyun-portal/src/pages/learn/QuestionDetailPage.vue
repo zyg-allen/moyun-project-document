@@ -23,11 +23,15 @@ import type {
 } from '@/types/api.ts';
 import { getSafeAvatar } from '@/utils/avatar.ts';
 import { useToast } from '@/composables/useToast.ts';
+import { useAuth } from '@/composables/useAuth';
 import { useDictData, dictBadgeClass } from '@/composables/useDictData.ts';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+// 阅读埋点需要登录态：该接口非 @Anonymous，未登录会 401，被客户端全局拦截后弹出
+// "登录已过期/请先登录"确认框 —— 与代码注释"未登录静默失败"的意图相矛盾（清单 P2）。
+const { isAuthenticated } = useAuth();
 
 const questionId = computed(() => route.params.id as string);
 
@@ -141,7 +145,16 @@ watch(() => route.params.id, (newId, oldId) => {
   }
 });
 
+/**
+ * 详情加载失败原因（清单 P2）。
+ *
+ * <p>原先失败只 toast，`question` 保持 null ⇒ 模板落入「未找到题目信息」分支，
+ * 与"这道题真的不存在"无法区分，且除「返回题库」外**没有重试入口**。</p>
+ */
+const detailError = ref<string | null>(null);
+
 async function loadQuestionDetail() {
+  detailError.value = null;
   try {
     loading.value = true;
     const res = await getQuestionDetail(questionId.value);
@@ -150,12 +163,14 @@ async function loadQuestionDetail() {
       // 阅读埋点：停留 ≥60s 上报（同题每日幂等，未登录/失败静默，不打扰阅读体验）
       scheduleReadReport();
     } else {
+      // 接口成功但无数据：确实是"题目不存在/已下架"
       toast.error(res.message || '加载题目失败');
     }
     // 并行加载精选笔记
     loadFeaturedNotes();
   } catch (err: any) {
     console.error('加载题目详情失败:', err);
+    detailError.value = err?.message || '加载题目详情失败，请稍后重试';
     toast.error(err?.message || '加载题目详情失败，请稍后重试');
   } finally {
     loading.value = false;
@@ -177,7 +192,10 @@ async function loadNeighbor() {
     if (typeof q.questionType === 'string' && q.questionType) params.questionType = q.questionType;
     if (typeof q.difficulty === 'string' && q.difficulty) params.difficulty = q.difficulty;
     if (typeof q.keyword === 'string' && q.keyword) params.keyword = q.keyword;
-    const res = await getQuestionNeighbor(questionId.value, params);
+    const requestedId = questionId.value;
+    const res = await getQuestionNeighbor(requestedId, params);
+    // 清单 P2：切题后旧响应不得覆盖新题的相邻导航
+    if (questionId.value !== requestedId) return;
     if (res.code === 200 && res.data) {
       neighbor.value = res.data;
     }
@@ -201,6 +219,8 @@ function gotoNeighbor(id: string | number | null | undefined, dir: 'prev' | 'nex
 }
 
 async function reportRead() {
+  // 游客直接跳过：不发请求，就不会触发全局 401 弹窗（阅读埋点本就该静默）
+  if (!isAuthenticated()) return;
   try {
     const res = await recordQuestionRead(questionId.value);
     if (res.code === 200 && res.data?.readRecorded) {
@@ -233,8 +253,12 @@ function clearReadReportTimer() {
 onUnmounted(clearReadReportTimer);
 
 async function loadFeaturedNotes() {
+  // 清单 P2：切题时本函数是 fire-and-forget，慢响应回来会覆盖**新题**的笔记列表。
+  // 记录请求时的题号，响应回来若已切题则丢弃。
+  const requestedId = questionId.value;
   try {
-    const res = await getFeaturedNotes(questionId.value);
+    const res = await getFeaturedNotes(requestedId);
+    if (questionId.value !== requestedId) return;
     if (res.code === 200 && res.data) {
       featuredNotes.value = res.data;
     }
@@ -442,14 +466,16 @@ const breadcrumbs = computed(() => [
                 <!-- 公司标签 -->
                 <div v-if="question.companies && question.companies.length > 0" class="flex items-center flex-wrap gap-2">
                   <span class="text-sm mr-2" style="color: var(--theme-text-secondary);">出现公司：</span>
-                  <span
+                  <router-link
                     v-for="c in question.companies"
                     :key="c.id"
-                    class="px-3 py-1 rounded-full text-xs font-medium"
+                    :to="`/interview/company/${c.id}`"
+                    class="px-3 py-1 rounded-full text-xs font-medium transition hover:opacity-80"
                     style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                    :title="`查看 ${c.name} 的公司主页与高频题目`"
                   >
                     {{ c.name }}
-                  </span>
+                  </router-link>
                 </div>
               </div>
 
@@ -771,7 +797,16 @@ const breadcrumbs = computed(() => [
         </template>
 
         <div v-else class="text-center py-12">
-          <p style="color: var(--theme-text-secondary);">未找到题目信息</p>
+          <!-- 清单 P2：加载失败与"题目不存在"必须区分，前者给重试 -->
+          <p style="color: var(--theme-text-secondary);">
+            {{ detailError ? detailError : '未找到题目信息' }}
+          </p>
+          <button
+            v-if="detailError"
+            class="mt-4 px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style="background-color: var(--theme-primary);"
+            @click="loadQuestionDetail()"
+          >重试</button>
           <button
             @click="router.push('/learn/questions')"
             class="mt-4 px-4 py-2 text-white rounded-lg text-sm hover:opacity-90 transition"

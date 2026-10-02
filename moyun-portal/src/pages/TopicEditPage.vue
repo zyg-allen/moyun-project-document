@@ -26,6 +26,8 @@ const loading = ref(false);
 const loadError = ref<string | null>(null);
 
 const title = ref('');
+/** 与 portal_topic.description varchar(500) 对齐的长度上限 */
+const TOPIC_DESCRIPTION_MAX = 500;
 const description = ref('');
 const cover = ref('');
 const submitting = ref(false);
@@ -98,17 +100,20 @@ async function handleUploadCover(e: Event) {
   }
 }
 
-async function handleRemoveCover() {
+/**
+ * 待删除的旧封面：点 × 时**只标记**，保存成功后才真删存储文件。
+ *
+ * <p>原实现点 × 立刻 `deletePortalFile`（连 sys_file 记录一起删），但"保存"未必发生——
+ * 用户随后点取消/直接离开，话题记录里的 cover 仍是旧 URL，而文件已经不存在 ⇒ 封面永久 404。</p>
+ */
+const pendingCoverDeletion = ref<string | null>(null);
+
+function handleRemoveCover() {
   const oldCover = cover.value;
+  if (!oldCover) return;
+  // 若之前标记过又换了新封面，旧的待删标记保留（仍应在保存后清理），此处只覆盖为最早的待删项
+  pendingCoverDeletion.value = pendingCoverDeletion.value || oldCover;
   cover.value = '';
-  // 清理已上传的封面文件，避免产生孤儿文件
-  if (oldCover) {
-    try {
-      await deletePortalFile(oldCover);
-    } catch (e) {
-      console.warn('删除封面文件失败:', e);
-    }
-  }
 }
 
 async function handleSubmit() {
@@ -121,16 +126,33 @@ async function handleSubmit() {
     toast.warning('标题至少 2 个字符');
     return;
   }
+  // 与后端列宽（varchar(500)）同口径
+  if (description.value.trim().length > TOPIC_DESCRIPTION_MAX) {
+    toast.warning(`话题描述不能超过 ${TOPIC_DESCRIPTION_MAX} 个字符`);
+    return;
+  }
   if (submitting.value) return;
   submitting.value = true;
   try {
     const res = await updateTopic(topicId.value, {
       title: t,
-      description: description.value.trim() || undefined,
-      cover: cover.value || undefined,
+      // 空串 = **显式清空**（后端以 null=不改 / ''=清空 区分）。
+      // 原写法 `|| undefined` 会让"清空描述/封面"被 JSON.stringify 直接丢弃，
+      // 用户以为删掉了，实际旧内容仍在。
+      description: description.value.trim(),
+      cover: cover.value,
     });
     if (res.code === 200) {
-      toast.success('保存成功');
+      // 保存成功后才清理被移除的旧封面（见 handleRemoveCover：点 × 只做标记）
+      if (pendingCoverDeletion.value) {
+        deletePortalFile(pendingCoverDeletion.value).catch((e) => {
+          console.warn('删除旧封面文件失败（不影响保存结果）:', e);
+        });
+        pendingCoverDeletion.value = null;
+      }
+      // 被驳回/待审核的话题编辑后，后端会重置为待审核并**重新送审**（见 updateTopic），
+      // 提示要如实说明，否则用户会以为已经公开发布。
+      toast.success(res.data?.status === 'pending' ? '已提交审核，审核通过后公开展示' : '保存成功');
       router.replace(`/topic/${topicId.value}`);
     } else {
       toast.error(res.message || '保存失败');
@@ -261,6 +283,7 @@ function goBack() {
             </label>
             <MarkdownEditor
               v-model="description"
+              :maxlength="TOPIC_DESCRIPTION_MAX"
               placeholder="补充话题背景、讨论方向、参与规则等..."
             />
           </div>

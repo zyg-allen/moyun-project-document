@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * WebSocket 握手**一次性短时效票据**（v13.21）
+ * WebSocket 握手**一次性短时效票据**
  *
  * <h3>为什么需要它</h3>
  * <p>浏览器的 {@code new WebSocket(url)} **不能自定义请求头**，所以 WebSocket 握手没法像普通请求那样带
- * {@code Authorization}。历史实现只能把 token 塞进 URL（{@code /ws-asr?token=xxx}），于是门户 JWT
+ * {@code Authorization}。若把 token 塞进 URL（{@code /ws-asr?token=xxx}），门户 JWT
  * 会进入 <b>Nginx access log / 浏览器历史 / 代理日志</b>——而 JWT 在有效期内可重放，泄漏即等于账号被接管。</p>
  *
  * <h3>票据语义</h3>

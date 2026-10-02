@@ -1,7 +1,6 @@
 package com.moyun.portal.domain.entity;
 
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDate;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;

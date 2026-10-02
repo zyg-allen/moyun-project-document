@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * WebSocket 握手鉴权拦截器
  *
- * <p>鉴权来源（v13.21 起）：</p>
+ * <p>鉴权来源：</p>
  * <ol>
  *   <li><b>{@code ?ticket=xxx}</b>：一次性短时效票据（{@link com.moyun.portal.security.ws.WsTicketService}，
  *       60 秒、原子消费一次）——<b>浏览器唯一可行</b>的方式（{@code new WebSocket()} 不能自定义请求头）；
@@ -30,7 +30,7 @@ import java.util.Map;
  *   <li><b>{@code Authorization: Bearer xxx}</b>：非浏览器客户端（小程序、原生、服务端）可直接用门户 token 建连。</li>
  * </ol>
  *
- * <p><b>已移除</b>：{@code ?token=<门户JWT>}（历史实现）。门户 JWT 在有效期内可重放，一旦进 URL 就会
+ * <p><b>安全约束</b>：不接受 {@code ?token=<门户JWT>}——门户 JWT 在有效期内可重放，一旦进 URL 就会
  * 落到 Nginx access log / 浏览器历史 / 代理日志里 → 等于账号被接管。现在遇到该参数**直接拒绝握手**
  * 并告警，防止老客户端"看起来还能用"而把漏洞带回来。</p>
  *
@@ -78,7 +78,7 @@ public class PortalWebSocketAuthInterceptor implements HandshakeInterceptor {
         }
         HttpServletRequest http = servletRequest.getServletRequest();
 
-        // ⓪ Origin 校验（v13.23）：WebSocket 不受同源策略保护，必须服务端自判。
+        // ⓪ Origin 校验：WebSocket 不受同源策略保护，必须服务端自判。
         //    口径与 CORS 一致：无 Origin（小程序/原生/服务端）放行；回环/环境变量白名单/（显式开启的）私网 IP 放行；
         //    其余（含 http://192.168.evil.com 这类"像内网"的可注册域名）拒绝。
         String origin = http.getHeader("Origin");
@@ -97,7 +97,7 @@ public class PortalWebSocketAuthInterceptor implements HandshakeInterceptor {
             return userId;
         }
 
-        // ② 显式拒绝历史写法：明文 token 进 URL（v13.21 安全修复）
+        // ② 显式拒绝历史写法：明文 token 进 URL
         if (StringUtils.isNotEmpty(http.getParameter("token"))) {
             log.warn("WebSocket 握手拒绝 ?token= 明文传参（JWT 会进访问日志/浏览器历史）"
                     + "——请改用 POST /portal/ws-ticket 换取一次性票据");

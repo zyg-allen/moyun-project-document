@@ -37,7 +37,7 @@
 import { CheckCircle2, RefreshCw } from 'lucide-vue-next';
 
 /**
- * 分析进度弹窗（v10.18 阶段四独立组件）
+ * 分析进度弹窗
  * props:
  *   - analyzing: 是否分析中（false 时不渲染进度条）
  *   - percent: 进度百分比 0-100

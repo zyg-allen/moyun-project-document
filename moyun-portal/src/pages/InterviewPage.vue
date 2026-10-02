@@ -13,6 +13,7 @@ import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getInterviewHome } from '@/api/interview';
+import { getVipStatus, benefitLeft } from '@/api/vip';
 import { useToast } from '@/composables/useToast';
 import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import { useAuth } from '@/composables/useAuth';
@@ -34,7 +35,11 @@ const hotCompanies = ref<InterviewCompanyVO[]>([]);
 const totalQuestionCount = ref<number>(0);
 const totalSubmissionCount = ref<number>(0);
 
-onMounted(() => loadInterviewHome());
+onMounted(() => {
+  loadInterviewHome();
+  // 徽标需要会员状态（免费剩余次数），与主页数据并行加载、互不阻塞
+  loadVipStatus();
+});
 
 async function loadInterviewHome() {
   try {
@@ -48,8 +53,11 @@ async function loadInterviewHome() {
       hotExperiences.value = d.hotExperiences || d.experiences || [];
       resumeTemplates.value = d.resumeTemplates || [];
       hotCompanies.value = d.hotCompanies || [];
-      totalQuestionCount.value = d.totalQuestionCount || hotQuestions.value.length * 500 || 0;
-      totalSubmissionCount.value = d.totalSubmissionCount || hotQuestions.value.length * 1000 || 0;
+      // 清单 P2：原先取不到真实计数时用 `hotQuestions.length * 500` / `* 1000` 兜底，
+      // 凭空放大成"5000 道题 / 10000 次提交"的平台数据 —— 属**编造数据**，前端不得伪造运营指标。
+      // 改为取不到即 0（模板会按 0 展示，不误导用户）。
+      totalQuestionCount.value = d.totalQuestionCount ?? 0;
+      totalSubmissionCount.value = d.totalSubmissionCount ?? 0;
     } else {
       error.value = res.message || '加载数据失败';
     }
@@ -122,6 +130,36 @@ function goMyAttempts() {
   if (!requireAuth('/interview/my/attempts')) return;
   router.push('/interview/my/attempts');
 }
+// ── 面试入口徽标：按真实会员状态显示（清单 #17）──
+//
+// 「立即开始面试」原先挂死一个 FREE 徽标，但语音面试后端是
+// @VipOnly(benefit = "interview_unlimited")：free 档仅有限次数，用完返回 402 引导开通。
+// 「FREE」会让人以为不限次。改为查 /portal/vip/status（额度来自 vip_tier_benefit 表，非前端写死）。
+const vipStatus = ref<{ isVip?: boolean } | null>(null);
+const freeInterviewLeft = computed(() => {
+  const left = benefitLeft(vipStatus.value as never, 'interview_unlimited');
+  return left;
+});
+/** 徽标文案：会员→「会员不限次」；免费有额度→「免费剩余 N 次」；用完→「需开通会员」 */
+const interviewBadge = computed(() => {
+  if (vipStatus.value?.isVip) return '会员不限次';
+  const left = freeInterviewLeft.value;
+  if (left == null) return '';        // 状态未知：不显示徽标（宁可不显示也不误导）
+  return left > 0 ? `免费剩余 ${left} 次` : '需开通会员';
+});
+
+async function loadVipStatus() {
+  try {
+    const res = await getVipStatus();
+    if (res.code === 200 && res.data) {
+      vipStatus.value = res.data;
+    }
+  } catch {
+    // 会员状态获取失败：徽标置空，不影响页面其它内容
+    vipStatus.value = null;
+  }
+}
+
 function goVip() {
   if (!requireAuth('/membership')) return;
   router.push('/membership');
@@ -270,7 +308,10 @@ const sectionNav = [
                 >
                   <PlayCircle class="w-4 h-4" />
                   立即开始面试
-                  <span class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-theme-primary bg-white/90">FREE</span>
+                  <span
+                    v-if="interviewBadge"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-theme-primary bg-white/90"
+                  >{{ interviewBadge }}</span>
                 </button>
                 <button
                   @click="goMyAttempts"
@@ -356,7 +397,7 @@ const sectionNav = [
             </div>
           </button>
 
-          <!-- 4. 多语言面试支持（V10.3 · 置灰占位） -->
+          <!-- 4. 多语言面试支持（置灰占位） -->
           <button
             disabled
             class="relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm cursor-not-allowed opacity-75 bg-theme-surface border-theme-border"
@@ -594,10 +635,11 @@ const sectionNav = [
               <span class="meta-text">高频出现公司</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-              <div
+              <router-link
                 v-for="c in hotCompanies"
                 :key="c.id"
-                class="rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition cursor-pointer text-center bg-theme-surface border border-theme-border"
+                :to="`/interview/company/${c.id}`"
+                class="rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition cursor-pointer text-center bg-theme-surface border border-theme-border block"
               >
                 <div class="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-xl flex items-center justify-center mb-2 sm:mb-3 overflow-hidden bg-theme-bg">
                   <LazyImage v-if="c.logo" :src="c.logo" :alt="c.name" class="w-full h-full object-contain" />
@@ -605,7 +647,7 @@ const sectionNav = [
                 </div>
                 <h3 class="card-title mb-0.5 line-clamp-1">{{ c.name }}</h3>
                 <p class="meta-text">{{ c.questionCount || 0 }} 道题</p>
-              </div>
+              </router-link>
             </div>
           </div>
         </template>

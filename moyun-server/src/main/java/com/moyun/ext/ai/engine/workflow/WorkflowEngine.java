@@ -10,7 +10,6 @@ import com.moyun.ext.ai.mapper.WorkflowExecutionMapper;
 import com.moyun.ext.ai.mapper.WorkflowMapper;
 import com.moyun.ext.ai.util.JsonUtils;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;

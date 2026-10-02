@@ -1,7 +1,7 @@
 import { ref, readonly, onUnmounted } from 'vue';
 
 /**
- * 实时音量可视化 Composable —— V10.1 语音面试官 UI 增强
+ * 实时音量可视化 Composable
  *
  * <p>基于 getUserMedia + AudioContext + AnalyserNode 的频域分析，
  * 为"正在聆听"状态提供行业标准的实时音浪柱状动画。

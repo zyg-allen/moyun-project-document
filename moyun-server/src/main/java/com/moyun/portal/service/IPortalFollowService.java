@@ -137,7 +137,7 @@ public interface IPortalFollowService {
      * @param userId 被查询用户ID
      * @return 分页结果，records 为 FollowUserVO（含 username/nickname/avatar 等）
      */
-    Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, Long userId);
+    Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, Long userId, Long viewerId);
 
     /**
      * 查询指定用户的关注列表（JOIN portal_user，返回用户信息）
@@ -146,5 +146,5 @@ public interface IPortalFollowService {
      * @param userId 被查询用户ID
      * @return 分页结果，records 为 FollowUserVO（含 username/nickname/avatar 等）
      */
-    Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, Long userId);
+    Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, Long userId, Long viewerId);
 }

@@ -8,9 +8,9 @@ import java.util.List;
 /**
  * 岗位模板服务接口
  *
- * <p><b>全 portal 岗位配置的唯一来源</b>（v13.37 起）：岗位下拉、JD 回填、难度/题量建议、
+ * <p><b>全 portal 岗位配置的唯一来源</b>：岗位下拉、JD 回填、难度/题量建议、
  * 简历岗位匹配评分、用户画像必备技能统一读 {@code portal_job_template}。
- * 原 {@code portal_interview_position} 已删除，其 {@code findByName / findByCode} 职责并入本接口。</p>
+ * 岗位名称/编码反查（{@code findActiveByName / findActiveByCode}）也由本接口提供。</p>
  *
  * @author moyun
  */

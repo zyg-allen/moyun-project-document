@@ -180,7 +180,6 @@ import { getDashboard, listMemos } from '@/api/ledger';
 import { toFixedYuan, formatAmount, formatSigned, typeText } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
-import { storage } from '@/utils/storage';
 
 export default {
   data() {

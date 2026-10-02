@@ -12,7 +12,7 @@ interface Props {
   article: Article;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 
 // 获取作者用户名
 function getAuthorUsername(article: Article): string {

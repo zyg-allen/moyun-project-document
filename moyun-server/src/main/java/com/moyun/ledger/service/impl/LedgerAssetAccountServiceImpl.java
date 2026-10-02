@@ -101,8 +101,8 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
     /**
      * 「账户业务属性」列级更新条件 —— **只更新可编辑列**
      *
-     * <h4>为什么不再用 {@code updateById(account)}（原实现）</h4>
-     * 原实现是 <b>读整行 → 改字段 → {@code updateById} 写回整行</b>：
+     * <h4>为什么用列级更新而非 {@code updateById(account)}</h4>
+     * 若用 <b>读整行 → 改字段 → {@code updateById} 写回整行</b>：
      * <pre>
      * exist = getOwned(...);                      // 快照读（含 balance / version）
      * account.setBalance(exist.getBalance());     // 把"读到的"余额塞回待写实体
@@ -187,7 +187,7 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
         if (exist == null) {
             throw new IllegalArgumentException("资产账户不存在或无权操作");
         }
-        // 归档同理只改 status：原实现 updateById(exist) 会把快照里的 balance/version 一起写回，
+        // 归档同理只改 status：若用 updateById(exist) 会把快照里的 balance/version 一起写回，
         // 并发记账的结果会被抹掉（见 LedgerAccountMetaUpdateIsolationDbTest#assetArchive...）
         int rows = baseMapper.update(null, new LambdaUpdateWrapper<LedgerAssetAccount>()
                 .eq(LedgerAssetAccount::getId, accountId)

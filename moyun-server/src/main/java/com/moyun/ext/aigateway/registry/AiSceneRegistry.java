@@ -24,9 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>统一接入层的路由核心：Handler Bean 注册（Spring容器扫描）+ 场景配置读取（ai_scene_config 表）。
  * 依据《AI能力统一接入层 — 完整方案文档》V2.0 §5.2。</p>
  *
- * <p>合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
+ * <p>绑定关系与执行配置统一由 {@code ai_scene_config} 表管理。</p>
  *
- * <p><b>配置读取口径（v13.19）</b>：{@code getConfig} 采用<b>请求级记忆化</b>——同一次 HTTP 请求内
+ * <p><b>配置读取口径</b>：{@code getConfig} 采用<b>请求级记忆化</b>——同一次 HTTP 请求内
  * 同一 sceneCode 只查一次库（结果含"未配置"也会被记住）。这样既消除了"一次请求查 2~4 次同表"的浪费
  * （通用入口：{@code rejectIfNotOpen} 查主码 → 网关再查全码 + 主码），又<b>不改变"管理端改配置下次调用立即生效"</b>
  * 的语义（缓存随请求结束自动失效，无 TTL、无跨请求残留）。非 HTTP 上下文
@@ -103,7 +103,7 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 按场景代码获取启用配置（v13.19：请求级记忆化，见类注释）
+     * 按场景代码获取启用配置（请求级记忆化，见类注释）
      *
      * <p>同场景多版本时按 priority DESC 取第一条（与原内存缓存口径一致）。
      * 同一次请求内重复调用（含 {@link #getConfig(String, String)} 的"全码未命中回退主码"路径）
@@ -137,7 +137,7 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 当前请求的属性容器；非 HTTP 上下文返回 {@code null}（此时退化为每次直查，行为与 v13.19 前一致）
+     * 当前请求的属性容器；非 HTTP 上下文返回 {@code null}（此时退化为每次直查）
      */
     private static RequestAttributes currentRequestAttributesOrNull() {
         try {

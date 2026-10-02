@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * WebSocket 握手票据签发（v13.21）
+ * WebSocket 握手票据签发
  *
  * <p>路径 {@code POST /portal/ws-ticket}：落在门户链 {@code anyRequest().authenticated()} 上，
  * 必须携带正常登录态（{@code Authorization} 头）——**这正是关键**：用受保护的普通 HTTP 换取一张

@@ -46,7 +46,7 @@ export function delInterviewQuestion(ids) {
   });
 }
 
-// ==================== 题库导入导出（v8.2 通用导入模板） ====================
+// ==================== 题库导入导出（通用导入模板） ====================
 // 说明：
 //   - exportInterviewQuestion：导出当前筛选条件下的题目到 Excel（POST blob）
 //   - downloadInterviewQuestionTemplate：下载动态模板（优先 portal_import_template_config 配置）
@@ -382,7 +382,7 @@ export function unfeatureSubmission(id) {
   });
 }
 
-// ==================== 测试用例管理（v6.3 OJ 判题） ====================
+// ==================== 测试用例管理（OJ 判题） ====================
 // 路径前缀 /portal/admin/ 由核心安全链识别 admin token；
 // 原 /portal/judge/admin/** 走门户安全链（仅识别门户用户 token），后台访问会 401
 

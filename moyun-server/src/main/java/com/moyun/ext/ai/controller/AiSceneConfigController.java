@@ -73,11 +73,9 @@ public class AiSceneConfigController {
     }
 
     /**
-     * 子任务白名单（v13.51 批次 4）：供管理端「场景代码」**双下拉**的第二级使用。
+     * 子任务白名单：供管理端「场景代码」**双下拉**的第二级使用。
      *
-     * <p>背景：{@code scene_code} 支持两段式 {@code main:task}，但管理端原先只有一个
-     * 整串下拉 ⇒ 用户无法组合出 {@code voice_interview:warmup} 这类合法子场景，
-     * 只能靠 SQL 维护（结果就是"管理端看得见、改不了"）。本接口暴露 task 白名单后，
+     * <p>背景：{@code scene_code} 支持两段式 {@code main:task}，本接口暴露 task 白名单后，
      * 管理端可用「主场景 + 子任务」两个下拉拼出完整代码。</p>
      */
     @Operation(summary = "子任务白名单 + 主场景清单（双下拉数据源）")
@@ -256,13 +254,7 @@ public class AiSceneConfigController {
         if (config.getSceneCode() == null || config.getSceneCode().isBlank()) {
             return "场景代码不能为空";
         }
-        // ====================================================================
-        // v13.51 批次 4：场景代码改「两段式」校验（原为整串精确匹配 —— 有缺陷）
-        // ====================================================================
-        // 原实现用 AiSceneEnum.of(sceneCode) 做整串匹配 ⇒ 合法的子场景
-        // （voice_interview:warmup / resume_optimize:advice 等）反而**存不了**，
-        // 只能靠 SQL 维护；管理端表现为"看得见、改不了"。
-        // 现改为：有 ':' 时拆两段 —— 主场景校验 AiSceneEnum，task 校验 AiSceneTasks 白名单。
+        // 有 ':' 时拆两段：主场景校验 AiSceneEnum，task 校验 AiSceneTasks 白名单。
         String sceneCode = config.getSceneCode().trim();
         config.setSceneCode(sceneCode);
         String mainCode = sceneCode;

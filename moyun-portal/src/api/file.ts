@@ -1,7 +1,6 @@
 import { httpDelete, httpPost } from './client';
 import type {
   FileInfo,
-  UploadFileParams,
 } from '@/types/api';
 
 // 上传文件

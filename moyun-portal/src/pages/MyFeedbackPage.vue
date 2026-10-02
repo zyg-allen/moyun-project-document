@@ -9,6 +9,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import Pagination from '@/components/Pagination.vue';
 import Empty from '@/components/Empty.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import { useDictData } from '@/composables/useDictData';
 import { generateSeo } from '@/utils/seo';
 import { useToast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
@@ -39,32 +40,70 @@ const typeFilter = ref<FeedbackType | ''>('');
 const detailOpen = ref(false);
 const detailRecord = ref<MyFeedbackRecord | null>(null);
 
-const statusOptions: { value: HandleStatus; label: string; color: string }[] = [
-  { value: 'pending', label: '待处理', color: '#f59e0b' },
-  { value: 'processing', label: '处理中', color: '#3b82f6' },
-  { value: 'resolved', label: '已解决', color: '#10b981' },
-  { value: 'rejected', label: '已驳回', color: '#6b7280' }
-];
+// 处理状态 / 反馈类型：字典驱动 + 本地兜底（v14.03）
+//
+// 「处理状态 cms_handle_status」「反馈类型 cms_feedback_type」在 sys_dict_type 中有类型行，
+// 但 sys_dict_data 此前**一行数据都没有** ⇒ 后台字段管理下拉为空，门户只能把枚举写死在组件里。
+// 本批已把这两类字典数据补齐（见 20261001-06 增量脚本），前端同步改为字典驱动；
+// 与「我的举报」页保持同一写法（字典优先、缺失回退本地），避免再次出现"字典空转"。
+const feedbackDict = useDictData(['cms_handle_status', 'cms_feedback_type']);
 
-const typeOptions: { value: FeedbackType; label: string }[] = [
-  { value: 'suggestion', label: '功能建议' },
-  { value: 'bug', label: 'Bug反馈' },
-  { value: 'experience', label: '体验问题' },
-  { value: 'other', label: '其他' }
-];
+/** 状态语义色：色值属展示样式，字典 list_class 映射的是徽章类名，两者口径不同，不强行合并 */
+const STATUS_COLORS: Record<string, string> = {
+  pending: '#f59e0b',
+  processing: '#3b82f6',
+  resolved: '#10b981',
+  rejected: '#6b7280'
+};
+const STATUS_LABELS_FALLBACK: Record<string, string> = {
+  pending: '待处理',
+  processing: '处理中',
+  resolved: '已解决',
+  rejected: '已驳回'
+};
+const TYPE_LABELS_FALLBACK: Record<string, string> = {
+  suggestion: '功能建议',
+  bug: 'Bug反馈',
+  experience: '体验问题',
+  other: '其他'
+};
+
+const statusOptions = computed<{ value: HandleStatus; label: string; color: string }[]>(() => {
+  const items = feedbackDict['cms_handle_status'];
+  const pairs = items && items.length > 0
+    ? items.map(i => ({ value: i.dictValue as HandleStatus, label: i.dictLabel }))
+    : Object.entries(STATUS_LABELS_FALLBACK).map(([value, label]) => ({ value: value as HandleStatus, label }));
+  return pairs.map(p => ({ ...p, color: STATUS_COLORS[p.value] || '#6b7280' }));
+});
+
+const typeOptions = computed<{ value: FeedbackType; label: string }[]>(() => {
+  const items = feedbackDict['cms_feedback_type'];
+  if (items && items.length > 0) {
+    return items.map(i => ({ value: i.dictValue as FeedbackType, label: i.dictLabel }));
+  }
+  return Object.entries(TYPE_LABELS_FALLBACK).map(([value, label]) => ({ value: value as FeedbackType, label }));
+});
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1);
 
 function getStatusMeta(status: HandleStatus) {
-  return statusOptions.find(s => s.value === status) || { value: status, label: status, color: '#6b7280' };
+  // statusOptions 已改为 computed（字典驱动）⇒ 脚本内需 .value
+  return statusOptions.value.find(s => s.value === status) || { value: status, label: status, color: '#6b7280' };
 }
 
 function getTypeLabel(type: FeedbackType) {
-  return typeOptions.find(t => t.value === type)?.label || type;
+  return typeOptions.value.find(t => t.value === type)?.label || type;
 }
+
+/** 加载失败提示（清单 P2）：与"暂无反馈"空态区分 */
+const loadError = ref<string | null>(null);
+
+/** 是否处于筛选状态（清单 P2）：空态文案据此区分"没有数据"与"筛选无结果" */
+const isFiltering = computed(() => !!statusFilter.value || !!typeFilter.value);
 
 async function loadList() {
   loading.value = true;
+  loadError.value = null;
   try {
     const params: any = { pageNum: pageNum.value, pageSize: pageSize.value };
     if (statusFilter.value) params.status = statusFilter.value;
@@ -73,6 +112,7 @@ async function loadList() {
     feedbackList.value = res.data.list;
     total.value = res.data.total;
   } catch (e: any) {
+    loadError.value = e?.message || '加载反馈列表失败，请稍后重试';
     toast.error(e?.message || '加载反馈列表失败');
   } finally {
     loading.value = false;
@@ -107,7 +147,9 @@ function closeDetail() {
 }
 
 function goSubmit() {
-  router.push('/report');
+  // 清单 P2：/report 页（ReportFeedback.vue）的 activeTab 默认是 'report'（举报），
+  // 且原先不读任何 query ⇒ 点"提交反馈"会落到**举报**表单。这里显式带上 tab=feedback。
+  router.push('/report?tab=feedback');
 }
 
 onMounted(() => {
@@ -181,9 +223,19 @@ onMounted(() => {
 
         <!-- 列表 -->
         <LoadingSpinner v-if="loading" />
-        <Empty v-else-if="feedbackList.length === 0" title="暂无反馈记录" description="您还没有提交过反馈">
+        <!-- 失败态（清单 P2）：必须排在空态之前，否则失败会被说成"暂无反馈" -->
+        <div v-else-if="loadError" class="text-center py-12 rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+          <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ loadError }}</p>
+          <button @click="loadList()" class="px-5 py-2 rounded-xl text-sm font-medium" style="background-color: var(--theme-primary); color: white;">重试</button>
+        </div>
+        <Empty
+          v-else-if="feedbackList.length === 0"
+          :title="isFiltering ? '没有符合筛选条件的反馈' : '暂无反馈记录'"
+          :description="isFiltering ? '试试放宽筛选条件或重置后查看全部' : '您还没有提交过反馈'"
+        >
           <template #action>
-            <button @click="goSubmit" class="px-5 py-2 rounded-xl text-sm font-medium" style="background-color: var(--theme-primary); color: white;">去提交反馈</button>
+            <button v-if="isFiltering" @click="resetQuery" class="px-5 py-2 rounded-xl text-sm font-medium" style="background-color: var(--theme-bg); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);">重置筛选</button>
+            <button v-else @click="goSubmit" class="px-5 py-2 rounded-xl text-sm font-medium" style="background-color: var(--theme-primary); color: white;">去提交反馈</button>
           </template>
         </Empty>
         <div v-else class="space-y-3">

@@ -466,7 +466,6 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     newAccount.setName(name);
                     newAccount.setType(LedgerLiabilityAccount.TYPE_OTHER);
                     // 修复：balance 置 0，欠款由下方 applyLiabilityDelta 累加
-                    // （原实现 balance=amount 再 +amount，首笔借款欠款双倍计入）
                     newAccount.setBalance(BigDecimal.ZERO);
                     newAccount.setPrincipal(amount);
                     newAccount.setIncludeInTotal(1);

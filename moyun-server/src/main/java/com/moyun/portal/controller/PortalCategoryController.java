@@ -32,7 +32,7 @@ import com.moyun.portal.service.IPortalCategoryService;
  * 以便未来恢复或在其他场景复用。仅保留 getPublicCategoryTree（/public/tree）供
  * HomePage.vue / PublishPage.vue 等前端页面调用。
  *
- * 2026-07-24 新增 getNavCategoryTree（/nav/tree）：
+ * getNavCategoryTree（/nav/tree）：
  *   供前端 Navbar.vue 动态渲染头部栏目使用，仅返回 show_in_nav=1 且 status=0 的分类。
  *   配合 portal_category 表新增的 4 个导航字段：
  *     - show_in_nav     : 是否在头部栏目展示

@@ -10,6 +10,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
+import { useDictData } from '@/composables/useDictData';
 import { getContestList } from '@/api/contest';
 import type { WritingContestVO, ContestListQuery } from '@/api/contest';
 
@@ -24,12 +25,36 @@ const pageSize = 12;
 
 const statusFilter = ref<string>('');
 
-const statusOptions: { value: string; label: string; color: string }[] = [
-  { value: '', label: '全部', color: 'var(--theme-text-secondary)' },
-  { value: 'collecting', label: '征稿中', color: '#16a34a' },
-  { value: 'voting', label: '投票中', color: '#d97706' },
-  { value: 'ended', label: '已结束', color: '#6b7280' },
-];
+// 征文状态：字典 cms_contest_status 驱动（v14.02；该字典此前"有类型无数据"，已由
+// 20261001-04 补齐）。同一份枚举原先在本页与 ContestDetailPage 各写死一遍，后台却用字典 —— 三处口径不一致。
+//
+// 颜色仍取本地**语义色板**：色值属展示样式，字典 list_class 映射的是徽章类名，两者口径不同，不强行合并。
+const CONTEST_STATUS_COLORS: Record<string, string> = {
+  draft: '#9ca3af',
+  collecting: '#16a34a',
+  voting: '#d97706',
+  ended: '#6b7280',
+};
+const CONTEST_STATUS_LABELS: Record<string, string> = {
+  draft: '草稿',
+  collecting: '征稿中',
+  voting: '投票中',
+  ended: '已结束',
+};
+const contestDict = useDictData(['cms_contest_status']);
+const statusOptions = computed<{ value: string; label: string; color: string }[]>(() => {
+  const items = contestDict['cms_contest_status'];
+  const rest = items && items.length > 0
+    ? items.map(i => ({ value: i.dictValue, label: i.dictLabel }))
+    : Object.entries(CONTEST_STATUS_LABELS).map(([value, label]) => ({ value, label }));
+  // 列表接口不返回 draft（草稿不对外），故筛选项里也不放 draft
+  return [
+    { value: '', label: '全部', color: 'var(--theme-text-secondary)' },
+    ...rest
+      .filter(o => o.value !== 'draft')
+      .map(o => ({ ...o, color: CONTEST_STATUS_COLORS[o.value] || 'var(--theme-text-secondary)' })),
+  ];
+});
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 
@@ -91,9 +116,17 @@ function gotoPage(p: number) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+/**
+ * 状态徽章元数据。
+ *
+ * <p>原实现找不到匹配时 `return statusOptions[0]`（即「全部」）⇒ 一旦出现未登记状态
+ * （如 draft 或将来新增状态），卡片会被标成"全部"，语义完全错乱（清单 P2 #34）。
+ * 现改为：命中则用字典/兜底文案，未命中则**原样显示状态码**并给中性色，便于发现漏配。</p>
+ */
 function statusMeta(status?: string) {
-  const opt = statusOptions.find(o => o.value === status);
-  return opt || statusOptions[0];
+  const opt = statusOptions.value.find(o => o.value === status);
+  if (opt) return opt;
+  return { value: status || '', label: status || '未知', color: 'var(--theme-text-secondary)' };
 }
 
 </script>

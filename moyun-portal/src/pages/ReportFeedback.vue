@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { AlertTriangle, MessageSquare, CheckCircle, Upload, X, History } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
+import { CONTACT_EMAIL } from '@/constants/site';
 import { useToast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
-import { submitReport, submitFeedback } from '@/api/report';
+import { submitReport, submitFeedback, type ReportTargetType } from '@/api/report';
 import { uploadImage } from '@/api/upload';
+import { deletePortalFile } from '@/api/file';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useDictData } from '@/composables/useDictData';
 
 const router = useRouter();
+const route = useRoute();   // 清单 P2：读取 ?tab= 以支持从"我的反馈"直接进入反馈表单
 const toast = useToast();
 const { isAuthenticated, requireAuth } = useAuth();
 
@@ -25,7 +29,30 @@ useHead(
   })
 );
 
-const activeTab = ref('report'); // 'report' 或 'feedback'
+// 'report' 或 'feedback'；query.tab=feedback 时直接进入反馈表单（清单 P2：原默认写死 'report'，不读参数）
+const activeTab = ref(route.query.tab === 'feedback' ? 'feedback' : 'report');
+
+/**
+ * 举报目标上下文（清单 P2）。
+ *
+ * <p>后端与举报接口都支持 `targetType/targetId`（`buildReportExtra` 会写入审核详情），
+ * 但页面原先只有自由文本 `targetUrl`，也不读 `route.query`，仓库内更没有页面带参跳转过来 ⇒
+ * 从内容页发起举报时，"举报的是哪条内容"只能靠用户手抄 URL。这里从查询参数接收上下文。</p>
+ */
+const REPORT_TARGET_TYPES: ReportTargetType[] = ['comment', 'article', 'user'];
+
+function normalizeTargetType(raw: unknown): ReportTargetType | '' {
+  // 路由参数是任意字符串，只有落在后端支持的枚举内才采用（否则视为未指定）
+  return typeof raw === 'string' && (REPORT_TARGET_TYPES as string[]).includes(raw)
+    ? (raw as ReportTargetType)
+    : '';
+}
+
+const targetContext = ref<{ targetType: ReportTargetType | ''; targetId: string } | null>(
+  typeof route.query.targetId === 'string' && route.query.targetId
+    ? { targetType: normalizeTargetType(route.query.targetType), targetId: route.query.targetId }
+    : null,
+);
 
 const reportForm = ref({
   reportType: 'spam',
@@ -80,6 +107,8 @@ const feedbackTypes = computed(() => {
   return DEFAULT_FEEDBACK_TYPES;
 });
 
+const confirmModal = useConfirmModal();
+
 const MAX_IMAGES = 3;
 
 /** 选择/上传图片 */
@@ -97,6 +126,9 @@ async function handleImageSelect(event: Event) {
 
   const toUpload = Array.from(files).slice(0, remain);
   isUploading.value = true;
+  // 上传成功/失败计数（清单 P2）：原实现无论成败都提示"图片上传成功"
+  let uploadedCount = 0;
+  let failedCount = 0;
   try {
     for (const file of toUpload) {
       // 类型与大小校验
@@ -111,9 +143,22 @@ async function handleImageSelect(event: Event) {
       const res = await uploadImage(file, { businessType: 'report' });
       if (res.data?.fileUrl) {
         reportForm.value.images.push(res.data.fileUrl);
+        uploadedCount += 1;
+      } else {
+        // 业务失败（类型/大小/存储被后端拒绝）时 httpUpload 仍会 resolve 返回信封，
+        // 原实现只 console.warn 跳过，循环结束后却**无条件** toast.success ⇒ 用户以为传上去了（清单 P2）
+        failedCount += 1;
+        console.warn('图片上传失败：', res.message || '未返回 fileUrl');
       }
     }
-    toast.success('图片上传成功');
+    // 按真实结果反馈，不再把"部分/全部失败"说成成功
+    if (failedCount === 0) {
+      toast.success(`图片上传成功（${uploadedCount} 张）`);
+    } else if (uploadedCount === 0) {
+      toast.error(`图片上传失败（${failedCount} 张）`);
+    } else {
+      toast.warning(`部分图片上传失败：成功 ${uploadedCount} 张 / 失败 ${failedCount} 张`);
+    }
   } catch (e: any) {
     toast.error(e?.message || '图片上传失败');
   } finally {
@@ -123,6 +168,28 @@ async function handleImageSelect(event: Event) {
 }
 
 /** 移除已上传图片 */
+/**
+ * 移除单张图片（清单 P2）。
+ *
+ * <p>原先只从本地数组 `splice`，**不调用后端删除** ⇒ 已上传文件成为孤儿文件（占用存储且后台文件管理里堆积）。</p>
+ */
+async function removeImageAndClean(idx: number, url: string) {
+  const ok = await confirmModal.confirm('确认移除这张图片？已上传的文件将一并清理。', {
+    title: '移除图片',
+    confirmText: '确认移除',
+    danger: true,
+  });
+  if (!ok) return;
+  removeImage(idx);
+  if (url) {
+    try {
+      await deletePortalFile(url);
+    } catch (e) {
+      console.warn('图片文件清理失败（仅本地移除）：', e);
+    }
+  }
+}
+
 function removeImage(idx: number) {
   reportForm.value.images.splice(idx, 1);
 }
@@ -145,7 +212,12 @@ const handleSubmitReport = async () => {
       targetUrl: reportForm.value.targetUrl || undefined,
       description: reportForm.value.description.trim(),
       contact: reportForm.value.contact || undefined,
-      images: reportForm.value.images
+      images: reportForm.value.images,
+      // 清单 P2：把从 route.query 接收到的举报目标上下文一并提交
+      //（后端 buildReportExtra 会写入审核详情；原先页面完全不带该上下文）
+      ...(targetContext.value && targetContext.value.targetType
+        ? { targetType: targetContext.value.targetType, targetId: targetContext.value.targetId }
+        : {}),
     });
     submitSuccess.value = true;
     toast.success('举报提交成功，我们会尽快处理');
@@ -320,7 +392,7 @@ const handleSubmitFeedback = async () => {
                 <img :src="img" :alt="`证据图${idx + 1}`" class="w-full h-full object-cover" />
                 <button
                   type="button"
-                  @click="removeImage(idx)"
+                  @click="removeImageAndClean(idx, img)"
                   class="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   style="background-color: rgba(0,0,0,0.6); color: white;"
                 >
@@ -444,10 +516,16 @@ const handleSubmitFeedback = async () => {
       <!-- 温馨提示 -->
       <div class="mt-6 p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-accent);">
         <h3 class="font-medium text-sm sm:text-base mb-2" style="color: var(--theme-text);">温馨提示</h3>
+        <!--
+          清单 P2：原先写死「3 个工作日内处理」这一**服务承诺时限**，以及占位客服热线
+          400-888-8888（无主号码，且用户协议页也出现过同一假号）。
+          处理时限属对外承诺，应由运营确定口径后再写入；这里改为不计期限的表述，
+          联系方式改用与页脚同源的邮箱常量，避免各页口径不一致。
+        -->
         <ul class="text-xs sm:text-sm space-y-1" style="color: var(--theme-text-secondary);">
           <li>• 请如实举报或反馈，恶意举报将承担相应责任</li>
-          <li>• 我们会在收到后的 3 个工作日内处理您的举报</li>
-          <li>• 如情况紧急，可联系客服热线：400-888-8888</li>
+          <li>• 我们会在收到后尽快核实处理，处理结果可在「我的举报」中查看</li>
+          <li>• 如需进一步沟通，可邮件联系：{{ CONTACT_EMAIL }}</li>
         </ul>
       </div>
       </div>

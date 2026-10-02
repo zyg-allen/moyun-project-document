@@ -202,7 +202,13 @@ public interface IPortalInterviewService {
     // ==================== 评论 ====================
     Page<InterviewCommentVO> selectCommentPage(Page<InterviewCommentVO> page, InterviewCommentQuery query, Long currentUserId);
 
-    int insertComment(PortalInterviewComment comment, Long userId);
+    /**
+     * 发表评论/回复。
+     *
+     * @return 新建评论的 VO（供调用方直接插入列表）；插入失败返回 null。
+     *         <p>历史上返回 {@code int}（影响行数），而门户前端按 VO 解析 ⇒ 会把数字当评论对象渲染。</p>
+     */
+    InterviewCommentVO insertComment(PortalInterviewComment comment, Long userId);
 
     int deleteCommentById(Long id, Long userId);
 

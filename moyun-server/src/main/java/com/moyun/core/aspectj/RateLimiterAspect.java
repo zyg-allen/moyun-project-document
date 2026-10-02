@@ -86,8 +86,7 @@ public class RateLimiterAspect {
     /**
      * 解析当前登录用户ID（后台 LoginUser / 门户 PortalLoginUser），未登录返回 null
      *
-     * <p>v13.11：改用 {@link PrincipalResolver}（core 侧主体抽象）——原实现直接
-     * {@code instanceof LoginUser / PortalLoginUser}，导致 {@code core → portal} 反向依赖。</p>
+     * <p>使用 core 侧主体抽象 {@link PrincipalResolver} 解析，避免 {@code core} 反向依赖 {@code portal}。</p>
      */
     private Long resolveUserId() {
         PrincipalInfo principal = PrincipalResolver.resolve();

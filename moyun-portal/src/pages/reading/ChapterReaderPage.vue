@@ -33,7 +33,7 @@ import {
 import { useReadingProgress } from '@/composables/useReadingProgress'
 import { useReadingPreference } from '@/composables/useReadingPreference'
 import { useUserStore } from '@/stores/user'
-import type { Book, BookChapter, BookChapterNav, ReadingPreference } from '@/types/api'
+import type { Book, BookChapter, BookChapterNav } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -170,18 +170,28 @@ const viewCountText = computed(() => {
 })
 
 // 顶部进度文本：第 X / Y 章
+// 清单 P2：原先分子用 chapter.chapterNo（**全局章节号**），分母用 chapters.length
+//（getBookChapterList **只返回 isPublished=true** 的章节）—— 两者口径不同，
+// 存在未发布章节时会出现"分子 > 分母"（例如第 30 章显示 30 / 25）。
+// 改为：分子取当前章节在**已发布章节列表**中的序号。
 const progressText = computed(() => {
-  const current = chapter.value?.chapterNo
-  const total = chapters.value.length || book.value?.chapterCount
+  const current = chapter.value
   if (!current) return ''
-  if (total) return `${current} / ${total}`
-  return `${current}`
+  const list = chapters.value
+  const idx = list.findIndex((c) => String(c.id) === String(current.id))
+  const position = idx >= 0 ? idx + 1 : (current.chapterNo ?? 0)
+  const total = list.length || book.value?.chapterCount
+  if (total) return `${position} / ${total}`
+  return `${position}`
 })
 
 // 是否为最后一章（用于判断"本书已读完"）
+// 清单 P2：原判据为 `if (!nav?.next) return true` —— 而 nav 在请求失败/非 200 时会被置为 null
+//（见 loadAll 中的 catch(() => null) 与 navResp 校验），于是**导航加载失败也会宣告"恭喜完成整本书"**。
+// 改为：只有"导航确实加载成功且没有下一章"才算最后一章。
 const isLastChapter = computed(() => {
-  if (!nav.value?.next) return true // 没有 next 即视为最后一章
-  return false;
+  if (!nav.value) return false          // 导航未知（加载中/失败）：不宣称已读完
+  return !nav.value.next
 })
 
 // 章节阅读百分比（0-100）：替代页码显示，两种模式统一
@@ -267,8 +277,14 @@ const readerStyle = computed(() => {
 
 // ----- 加载逻辑 -----
 async function loadAll() {
-  if (!chapterId.value) {
-    error.value = '缺少章节 ID'
+  // 清单 P2：原先只判空、不判格式；非数字章节号（如 /reading/book/1/chapter/abc）
+  // 会被直接拼进后端 Long 路径变量，由后端抛参数转换异常。这里一并校验格式。
+  if (!chapterId.value || !/^\d+$/.test(chapterId.value)) {
+    error.value = '缺少或非法的章节 ID'
+    return
+  }
+  if (!bookId.value || !/^\d+$/.test(bookId.value)) {
+    error.value = '缺少或非法的书籍 ID'
     return
   }
   // 章节切换前强制上报上一章进度（startReporting 内部会先 stopReporting）
@@ -286,6 +302,14 @@ async function loadAll() {
 
     if (chapterResp.code === 200 && chapterResp.data) {
       chapter.value = chapterResp.data
+      // 清单 P2：后端 getChapterDetail 只按 chapterId 查询，**不校验章节是否属于 URL 里的 bookId**，
+      // 因此 /reading/book/A/chapter/B的章节 也能打开，出现"书是 A、内容却是 B"的错配。
+      // 前端拿到章节后做归属校验：不一致就用**正确地址**替换（保持在阅读流里，不报错打断）。
+      const realBookId = chapter.value.bookId
+      if (realBookId != null && bookId.value && String(realBookId) !== String(bookId.value)) {
+        router.replace(`/reading/book/${realBookId}/chapter/${chapter.value.id}`)
+        return
+      }
       // 章节切换：重置分页状态 + 章节完成标记
       currentPage.value = 0
       totalPages.value = 1
@@ -406,7 +430,7 @@ function onPaginateScroll() {
     // 注意：不能用 round 判断末页，因为 Math.round 与 Math.ceil 在非整数倍时失配
     // （如 scrollHeight/clientHeight = 3.1 时 totalPages-1 = 3 但 max round = 2，永不触发）
     currentPage.value = Math.round(el.scrollTop / el.clientHeight)
-    // 修复 v1.1.1：改用"距底部距离"判断末页，与 scroll 模式 onScroll 一致
+    // 用"距底部距离"判断末页，与 scroll 模式 onScroll 一致
     // 阈值 5px 容忍浮点误差 + smooth scroll 惯性
     const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distanceToBottom <= 5 && !chapterFinishedMarked.value) {
@@ -820,16 +844,24 @@ watch(
                 </h1>
               </div>
 
-              <!-- VIP 标记 -->
+              <!-- VIP 试读提示：以服务端 preview 为准（后端已把正文裁成试读片段）。
+                   此前判 chapter.isFree === false，而正文却是**全文** ⇒ 横幅与内容自相矛盾。 -->
               <div
-                  v-if="chapter.isFree === false"
-                  class="mb-4 p-3 rounded-lg flex items-center gap-2 text-sm"
+                  v-if="chapter.preview === true"
+                  class="mb-4 p-3 rounded-lg flex flex-wrap items-center gap-2 text-sm"
                   style="background-color: var(--theme-accent); color: var(--theme-primary);"
               >
                 <span class="px-2 py-0.5 rounded text-xs font-bold" style="background-color: var(--theme-primary); color: white;">
                   VIP
                 </span>
-                <span>本章为 VIP 章节当前为预览模式，完整内容需开通 VIP</span>
+                <span>本章为 VIP 章节，当前仅展示试读段落，开通会员后可阅读全文</span>
+                <router-link
+                  to="/membership"
+                  class="ml-auto shrink-0 px-3 py-1 rounded-lg text-xs font-medium text-white hover:opacity-90"
+                  style="background-color: var(--theme-primary);"
+                >
+                  开通 VIP
+                </router-link>
               </div>
 
               <!-- 正文 -->
@@ -1064,7 +1096,7 @@ watch(
   font-family: var(--reader-font-family, system-ui, sans-serif);
 }
 
-/* ===== v1.1 分页阅读模式 =====
+/* ===== 分页阅读模式 =====
  * 设计要点：
  *   - 容器固定高度（viewport - 头部 - 内边距 - 其他 UI 元素）
  *   - overflow-y: auto 内部滚动，window 滚动不参与

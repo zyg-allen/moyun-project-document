@@ -70,15 +70,46 @@ async function loadExperience() {
   }
 }
 
+/**
+ * 评论加载失败态（清单 P2）。
+ *
+ * <p>原实现失败只 console.error，而模板在 loading=false 且 comments 为空时**无条件**渲染
+ * 「还没有评论，来抢沙发吧~」—— 把"加载失败"说成了"确实没有评论"。</p>
+ */
+const commentError = ref(false);
+
+/** 评论分页状态（清单 P2：原固定 pageSize=50、无页码、无分页控件） */
+const COMMENT_PAGE_SIZE = 20;
+const commentPage = ref(1);
+const commentTotal = ref(0);
+const commentHasMore = ref(false);
+
+/** 加载更多评论 */
+async function loadMoreComments() {
+  if (!commentHasMore.value || commentLoading.value) return;
+  commentPage.value += 1;
+  await loadComments();
+}
+
 async function loadComments() {
   try {
     commentLoading.value = true;
-    const res = await getCommentList({ experienceId: experienceId.value, pageSize: 50 });
+    commentError.value = false;
+    const res = await getCommentList({ experienceId: experienceId.value, pageNum: commentPage.value, pageSize: COMMENT_PAGE_SIZE });
     if (res.code === 200 && res.data) {
-      comments.value = (res.data as any).list || [];
+      const page: any = res.data;
+      const list = page.list || [];
+      comments.value = commentPage.value === 1 ? list : [...comments.value, ...list];
+      // 清单 P2：标题计数原先用 comments.length（**已加载条数**），
+      // 当评论超过一页时会永远显示上限值；改为用接口返回的 total。
+      commentTotal.value = typeof page.total === 'number' ? page.total : comments.value.length;
+      commentHasMore.value = comments.value.length < commentTotal.value;
+    } else {
+      commentError.value = true;
     }
   } catch (err: any) {
     console.error('加载评论失败:', err);
+    commentError.value = true;
   } finally {
     commentLoading.value = false;
   }
@@ -271,7 +302,7 @@ const breadcrumbs = computed(() => [
           <div class="rounded-xl shadow-sm p-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <h2 class="text-xl font-bold mb-4 flex items-center" style="color: var(--theme-text);">
               <MessageSquare class="w-5 h-5 mr-2 text-blue-500" />
-              评论区 ({{ comments.length }})
+              评论区 ({{ commentTotal || comments.length }})
             </h2>
 
             <!-- 发表评论 -->
@@ -298,6 +329,11 @@ const breadcrumbs = computed(() => [
 
             <!-- 评论列表 -->
             <div v-if="commentLoading" class="py-6 text-center text-sm" style="color: var(--theme-text-secondary);">加载评论中...</div>
+            <!-- 失败态（清单 P2）：必须排在"还没有评论"之前，否则失败会被当成"确实没有" -->
+            <div v-else-if="commentError" class="py-8 text-center text-sm" style="color: #ef4444;">
+              评论加载失败
+              <button class="ml-2 underline" style="color: var(--theme-primary);" @click="loadComments()">重试</button>
+            </div>
             <div v-else-if="comments.length === 0" class="py-8 text-center text-sm" style="color: var(--theme-text-secondary);">
               还没有评论，来抢沙发吧~
             </div>
@@ -379,8 +415,12 @@ const breadcrumbs = computed(() => [
                           <div class="flex-1">
                             <div class="flex items-center">
                               <span class="font-medium text-xs" style="color: var(--theme-text);">{{ displayName(reply) }}</span>
-                              <span v-if="reply.replyToUser" class="text-xs mx-1" style="color: var(--theme-text-secondary);">回复</span>
-                              <span v-if="reply.replyToUser" class="font-medium text-xs" style="color: var(--theme-text);">{{ reply.replyToUser.nickname }}</span>
+                              <!-- 清单 P2：后端 InterviewCommentVO 只有 replyToUserNickname（字符串），
+                                   且 toCommentVO 仅 BeanUtils.copyProperties ⇒ 原先读 reply.replyToUser.nickname 恒不显示 -->
+                              <template v-if="(reply as any).replyToUserNickname || reply.replyToUser">
+                                <span class="text-xs mx-1" style="color: var(--theme-text-secondary);">回复</span>
+                                <span class="font-medium text-xs" style="color: var(--theme-text);">{{ (reply as any).replyToUserNickname || reply.replyToUser?.nickname }}</span>
+                              </template>
                             </div>
                             <div class="mt-1 whitespace-pre-wrap" style="color: var(--theme-text-secondary);">{{ reply.content }}</div>
                             <div class="text-xs mt-1" style="color: var(--theme-text-secondary);">{{ reply.createTime }}</div>
@@ -391,6 +431,16 @@ const breadcrumbs = computed(() => [
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- 清单 P2：评论分页"加载更多"（原固定 pageSize=50 且无任何分页入口） -->
+            <div v-if="commentHasMore" class="mt-4 text-center">
+              <button
+                class="px-4 py-2 rounded-lg text-sm"
+                style="border: 1px solid var(--theme-border); color: var(--theme-text);"
+                :disabled="commentLoading"
+                @click="loadMoreComments()"
+              >{{ commentLoading ? '加载中...' : '加载更多评论' }}</button>
             </div>
           </div>
         </template>
@@ -413,13 +463,15 @@ const breadcrumbs = computed(() => [
 </template>
 
 <style scoped>
+/* 清单 P2：以下正文样式原为**浅色主题硬编码**（#1f2937 等），
+   在暗色主题下标题/引用几乎不可见、行内代码块是刺眼的浅灰。改用站点主题变量，随主题自适应。 */
 .article-content :deep(h1),
 .article-content :deep(h2),
 .article-content :deep(h3) {
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--theme-text);
 }
 .article-content :deep(h1) { font-size: 1.75rem; }
 .article-content :deep(h2) { font-size: 1.35rem; }
@@ -428,8 +480,8 @@ const breadcrumbs = computed(() => [
 .article-content :deep(ul),
 .article-content :deep(ol) { margin: 1rem 0; padding-left: 1.5rem; }
 .article-content :deep(li) { margin-bottom: 0.35rem; }
-.article-content :deep(code) { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+.article-content :deep(code) { background: var(--theme-accent); color: var(--theme-text); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
 .article-content :deep(pre) { background: #111827; color: #e5e7eb; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
 .article-content :deep(pre code) { background: transparent; padding: 0; color: inherit; }
-.article-content :deep(blockquote) { border-left: 4px solid #3b82f6; padding: 0.5rem 1rem; color: #6b7280; background: #f9fafb; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+.article-content :deep(blockquote) { border-left: 4px solid var(--theme-primary); padding: 0.5rem 1rem; color: var(--theme-text-secondary); background: var(--theme-bg); margin: 1rem 0; border-radius: 0 6px 6px 0; }
 </style>

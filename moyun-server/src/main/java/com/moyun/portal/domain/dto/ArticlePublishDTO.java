@@ -80,6 +80,15 @@ public class ArticlePublishDTO implements Serializable {
     @Schema(description = "分类ID", example = "1")
     private Long categoryId;
 
+    /** SEO 自定义标题（留空回退文章标题） */
+    private String seoTitle;
+
+    /** SEO 自定义描述（留空回退摘要） */
+    private String seoDescription;
+
+    /** SEO 关键词（逗号分隔） */
+    private String seoKeywords;
+
     /**
      * 文章URL别名，用于SEO语义化路径
      * 用户可自定义；为空时后端根据标题自动生成

@@ -44,7 +44,7 @@ import java.util.Map;
  *   <li>平台直接所得 = 公共通道 PLATFORM/credit 分录合计（含 App 打赏全额 + 门户通道抽成，分录为准不双算）</li>
  *   <li>用户所得 = 公共通道 USER/credit 分录合计（门户作者分账累计，含钱包余额）</li>
  *   <li>pay_order 为通道单据，不重复计入 GMV（业务订单为准，避免与打赏订单双算）</li>
- *   <li>VIP 订阅（统一会员 v12.0）：pay_order biz_type='vip'（PAID/SETTLED），平台直收类，
+ *   <li>VIP 订阅（统一会员）：pay_order biz_type='vip'（PAID/SETTLED），平台直收类，
  *       记账端/门户端按 platform_code 列分组（ledger→记账App，portal→门户）</li>
  * </ul>
  *

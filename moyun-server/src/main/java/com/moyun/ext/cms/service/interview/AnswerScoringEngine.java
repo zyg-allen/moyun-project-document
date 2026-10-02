@@ -64,7 +64,7 @@ public class AnswerScoringEngine {
                 ? new ArrayList<>()
                 : extractKeywords(question.getTags(), question.getSolution());
         // LLM 动态题（追问/系统设计/自我介绍）无 tags/solution，从题干提取关键词，
-        // 保证 matched/coverage 有意义（此前恒为 0 导致 professionalism/interactivity/logic 输出固定值）
+        // 保证 matched/coverage 有意义（否则 keywords 为空时恒为 0，各维度输出固定值）
         if (keywords.isEmpty() && question != null && StringUtils.isNotEmpty(question.getTitle())) {
             keywords = extractKeywords(null, question.getTitle());
         }
@@ -87,7 +87,7 @@ public class AnswerScoringEngine {
         int score = (int) Math.min(100, Math.round(coverage * 80 + lengthBonus));
 
         // 维度分（6 维连续计算，重构：以覆盖率/长度/结构词/互动信号连续映射，
-        // 消除旧版二值阈值导致的固定值；对齐前端雷达图维度键）
+        // 对齐前端雷达图维度键）
         Map<String, Integer> dimensions = new LinkedHashMap<>();
         int coverageScore = (int) Math.round(coverage * 100);
         double matchRatio = coverage; // 命中比例（0-1）

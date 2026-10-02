@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  *
  * <p><b>注意</b>：{@code @Async} 依赖 AOP 代理，**同类内部调用会绕过代理**导致退化为同步执行。
  * 因此 {@code @Async} 方法必须抽到独立 Bean，由调用方注入后调用；
- * 结构守卫见 {@code AsyncSelfInvocationGuardTest}（v13.4 起全量源码扫描）。</p>
+ * 结构守卫见 {@code AsyncSelfInvocationGuardTest}（全量源码扫描）。</p>
  *
  * <p>本类提供的 Bean：</p>
  * <ul>
@@ -166,7 +166,7 @@ public class AsyncConfig {
      *
      * <p>单线程是有意的：摘要是对 Redis 同一 key 的覆盖写，并发生成没有收益。</p>
      *
-     * <p><strong>v13.5 前的问题</strong>：该池是 {@code ContextManager} 内的 {@code static}
+     * <p><strong>此前的问题</strong>：该池是 {@code ContextManager} 内的 {@code static}
      * 字段（{@code Executors.newSingleThreadExecutor}）——脱离 Spring 容器、无优雅停机、
      * 无界队列（LLM 变慢时任务可无限堆积）。</p>
      *

@@ -205,6 +205,51 @@ public class DataMaskingUtils {
     }
 
     /**
+     * **严格档**脱敏（供数据分析结果集使用）。
+     *
+     * <p>为什么单独一档：{@link #needsMasking(String)} / {@link #autoMask(String, String)}
+     * 会把**任何字段名含 "name"** 的列按姓名脱敏（除 username），也会把含 address 的列脱敏。
+     * 在"自然语言查数据"这类分析场景里，这会把公司名/产品名/标题等**业务名称**一并打码，
+     * 使分析结果失去意义 —— 这也正是该脱敏原先被整段注释禁用的现实原因。</p>
+     *
+     * <p>本档只处理**能由值格式自证**的敏感信息：手机号/固话、身份证号、邮箱、银行卡号；
+     * 字段名只用于"允许尝试匹配"，实际仍要求值形匹配（避免误伤）。姓名/地址不在本档范围，
+     * 如需按列脱敏，应由后台配置列策略，而不是用子串规则一刀切。</p>
+     */
+    public static String autoMaskStrict(String fieldName, String value) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+        String f = fieldName == null ? "" : fieldName.toLowerCase();
+
+        if ((f.contains("mobile") || f.contains("phone") || f.contains("tel"))
+                && MOBILE_PATTERN.matcher(value).matches()) {
+            return maskMobile(value);
+        }
+        if ((f.contains("idcard") || f.contains("id_card") || f.contains("identity"))
+                && ID_CARD_PATTERN.matcher(value).matches()) {
+            return maskIdCard(value);
+        }
+        if ((f.contains("email") || f.contains("mail")) && EMAIL_PATTERN.matcher(value).matches()) {
+            return maskEmail(value);
+        }
+        if ((f.contains("bank") || f.contains("card")) && BANK_CARD_PATTERN.matcher(value).matches()) {
+            return maskBankCard(value);
+        }
+        // 字段名判断不出来时，用值格式兜底（与 autoMask 一致）
+        if (MOBILE_PATTERN.matcher(value).matches()) {
+            return maskMobile(value);
+        }
+        if (ID_CARD_PATTERN.matcher(value).matches()) {
+            return maskIdCard(value);
+        }
+        if (EMAIL_PATTERN.matcher(value).matches()) {
+            return maskEmail(value);
+        }
+        return value;
+    }
+
+    /**
      * 检查字段是否需要脱敏
      *
      * @param fieldName 字段名

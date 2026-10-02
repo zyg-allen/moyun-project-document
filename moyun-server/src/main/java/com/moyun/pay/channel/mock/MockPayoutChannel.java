@@ -15,9 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p><b>用途</b>：在未接入真实代付通道（银行/三方）时，让"申请 → 审核通过 → 出金 → 已打款"
  * 整条提现链路可端到端联调。与 {@code MockSmsSender} 同思路：**逻辑按真实走，只有出金这一步是模拟**。</p>
  *
- * <p><b>与历史实现的区别</b>：历史 {@code WithdrawOrderServiceImpl.payout()} 内置了
- * "未配置通道即模拟打款成功"的分支——那是**隐式降级**（生产漏配也会走到假打款）。
- * 现改为显式渠道 Bean：</p>
+ * <p><b>设计取向</b>：不做"未配置通道即模拟打款成功"的**隐式降级**（生产漏配会走到假打款）；
+ * 由显式渠道 Bean 装配：</p>
  * <ul>
  *   <li>本类仅在 {@code moyun.pay.payout.mock-enabled=true} 时装配 → 联调环境走它；</li>
  *   <li>真实通道实现（接入后新增）在 {@code mock-enabled=false} 时装配；</li>

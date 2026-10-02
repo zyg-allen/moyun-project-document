@@ -3,7 +3,6 @@ package com.moyun.ext.ai.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.moyun.ext.ai.entity.AiProvider;
 
-import java.util.List;
 
 /**
  * AI 提供商注册表服务（配置驱动改造核心）

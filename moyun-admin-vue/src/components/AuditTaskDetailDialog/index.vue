@@ -368,7 +368,7 @@ async function handleReject() {
   }
 }
 
-/** 跳转到原业务管理页（v11.35.1：优先 bizRoutePath；兜底 routePath 但排除审核中心自身，避免跳回自己） */
+/** 跳转到原业务管理页（优先 bizRoutePath；兜底 routePath 但排除审核中心自身，避免跳回自己） */
 function goBizPage() {
   const t = task.value
   if (!t) return

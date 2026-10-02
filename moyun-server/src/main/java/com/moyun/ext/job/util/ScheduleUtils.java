@@ -9,7 +9,6 @@ import com.moyun.util.spring.SpringUtils;
 import com.moyun.ext.job.domain.entity.SysJob;
 import org.quartz.*;
 
-import java.util.Date;
 
 /**
  * 定时任务工具类
@@ -21,7 +20,7 @@ public class ScheduleUtils {
     /**
      * 得到quartz任务类
      *
-     * <p>v13.7 起由 {@code private} 改为 {@code public}：启动同步需要用它判断
+     * <p>声明为 {@code public}：启动同步需要用它判断
      * "JobStore 中已存在的任务类是否与当前 sys_job 配置（concurrent 标记）一致"。</p>
      *
      * @param sysJob 执行计划

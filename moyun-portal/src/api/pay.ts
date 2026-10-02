@@ -2,9 +2,7 @@ import { httpGet, httpPost } from './client';
 import type {
   PayStatusResult,
   PayAccountOverview,
-  PayLedgerEntry,
   PayLedgerListResult,
-  PayNotification,
   PayNotificationListResult,
   PayWithdrawListResult,
   UserBankCard,
@@ -79,7 +77,6 @@ export const setDefaultBankCard = (cardId: number | string) => {
   );
 };
 
-// ============ v11.79 提现闭环 ============
 
 /**
  * 发起提现（校验余额/绑卡，落审核单，不扣款）
@@ -120,6 +117,14 @@ export const getUnreadNotificationCount = () => {
  * 标记通知已读
  * POST /portal/pay/notifications/{id}/read
  */
+/**
+ * 一键把全部支付通知标记为已读（服务端批量，覆盖**所有页**而不只是已加载的那一页）
+ * POST /portal/pay/notifications/read-all
+ */
+export const markAllNotificationsRead = () => {
+  return httpPost<number>('/portal/pay/notifications/read-all');
+};
+
 export const markNotificationRead = (notificationId: number | string) => {
   return httpPost<Record<string, unknown>>(`/portal/pay/notifications/${notificationId}/read`);
 };

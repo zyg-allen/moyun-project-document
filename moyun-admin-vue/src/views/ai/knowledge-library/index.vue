@@ -594,7 +594,6 @@ const embedded = props.embedded
 const loading = ref(false)
 const loadingDetail = ref(false)
 const creating = ref(false)
-const uploading = ref(false)
 const libraries = ref([])
 const totalLibraries = ref(0)
 const currentPage = ref(1)

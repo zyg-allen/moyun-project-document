@@ -91,10 +91,6 @@
 </template>
 
 <script setup>
-import variables from '@/assets/styles/variables.module.scss'
-import axios from 'axios'
-import { ElLoading, ElMessage } from 'element-plus'
-import { useDynamicTitle } from '@/utils/dynamicTitle'
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
@@ -192,13 +188,6 @@ defineExpose({
     img {
       width: 48px;
       height: 48px;
-    }
-
-    .custom-img {
-      width: 48px;
-      height: 38px;
-      border-radius: 5px;
-      box-shadow: 1px 1px 2px #898484;
     }
 
     .setting-drawer-block-checbox-selectIcon {

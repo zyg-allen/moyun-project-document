@@ -1,6 +1,5 @@
 package com.moyun.ext.ai.controller;
 
-import com.moyun.core.base.AjaxResult;
 import com.moyun.ext.ai.dto.DiagramChatDTO;
 import com.moyun.ext.ai.service.DiagramChatService;
 import io.swagger.v3.oas.annotations.Operation;

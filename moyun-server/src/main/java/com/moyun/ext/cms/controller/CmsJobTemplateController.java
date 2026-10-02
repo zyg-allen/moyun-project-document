@@ -8,7 +8,6 @@ import com.moyun.ext.cms.service.IPortalJobTemplateService;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.mapper.PortalInterviewQuestionMapper;
 import com.moyun.portal.domain.entity.PortalJobTemplate;
-import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;

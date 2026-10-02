@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 门户记账-VIP订阅控制器（统一 VIP 体系 v12.0 重写，保持 App 端接口契约不变）
+ * 门户记账-VIP订阅控制器（统一 VIP 体系，保持 App 端接口契约不变）
  *
  * <p>链路：GET /packages 上架等级列表（vip_tier，价格后台可配）→
  * POST /subscribe 下单（bizType='vip'，bizNo='ledger:{tier}:{uuid}'）→

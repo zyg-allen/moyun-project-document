@@ -79,9 +79,7 @@ public class VipServiceImpl implements IVipService {
     private RedisCache redisCache;
 
     /**
-     * 系统级通用执行器（v13.5：权益使用记录异步落库用）。
-     * <p>原实现 {@code CompletableFuture.runAsync(task)} 未指定执行器 → 落
-     * {@code ForkJoinPool.commonPool()}（并行度 = CPU-1），与全站并行任务互相抢占。</p>
+     * 系统级通用执行器（权益使用记录异步落库用）。
      */
     @Autowired
     @Qualifier("applicationTaskExecutor")
@@ -241,17 +239,40 @@ public class VipServiceImpl implements IVipService {
                 .last("LIMIT 1"));
     }
 
-    /** 周期内已用次数：Redis 优先，DB 兜底 */
+    /**
+     * 周期内已用次数：Redis 优先，**未命中或异常时一律回退 DB**。
+     *
+     * <p><b>为什么未命中也要回退</b>：已用次数是"付费墙的额度账"，Redis 只是它的快表。
+     * 若把"未命中"当作 0 返回，则 Redis 被清空/重启/提前淘汰（无持久化、TTL 未设或设错）时，
+     * 所有用户在本周期内的已用次数都会归零 ⇒ 额度被无限重置（付费墙失效）。
+     * DB 侧有 {@code asyncPersistUsage} 落库的计数，作为兜底事实来源。</p>
+     */
     private int getUsedCount(Long userId, String platformCode, String benefitCode, String period) {
         try {
             Object v = redisCache.getCacheObject(usageKey(userId, platformCode, benefitCode, period));
-            if (v != null) {
-                return Integer.parseInt(String.valueOf(v));
+            if (v == null) {
+                return reseedUsedCountFromDb(userId, platformCode, benefitCode, period);
             }
-            return 0;
+            return Integer.parseInt(String.valueOf(v));
         } catch (Exception e) {
+            log.warn("[vip] Redis 计数读取失败，回退 DB 统计 benefit={}", benefitCode, e);
             return dbUsedCount(userId, platformCode, benefitCode, period);
         }
+    }
+
+    /** Redis 未命中：以 DB 统计为准，并尽力把值回填 Redis（回填失败不影响判定）。 */
+    private int reseedUsedCountFromDb(Long userId, String platformCode, String benefitCode, String period) {
+        int used = dbUsedCount(userId, platformCode, benefitCode, period);
+        if (used > 0) {
+            String key = usageKey(userId, platformCode, benefitCode, period);
+            try {
+                redisCache.setCacheObject(key, used);
+                touchUsageTtl(key, period);
+            } catch (Exception e) {
+                log.debug("[vip] 已用次数回填 Redis 失败（不影响判定）benefit={}", benefitCode);
+            }
+        }
+        return used;
     }
 
     /** DB 统计周期内使用次数（异步落库数据，统计口径） */
@@ -330,7 +351,6 @@ public class VipServiceImpl implements IVipService {
 
     /** 异步落库（Redis 是周期内计数事实源，DB 仅统计口径，可容忍短暂延迟） */
     private void asyncPersistUsage(Long userId, String platformCode, String benefitCode) {
-        // v13.5：原先未指定执行器 → 落在 ForkJoinPool.commonPool()（并行度 = CPU-1）。
         // 权益校验是高频路径，把统计落库塞进公共池会与全站并行任务互相拖累；
         // 现走系统级通用执行器（有界队列 + CallerRuns 兜底，不丢统计）。
         applicationTaskExecutor.execute(() -> {

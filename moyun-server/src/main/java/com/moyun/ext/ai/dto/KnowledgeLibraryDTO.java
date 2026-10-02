@@ -2,7 +2,6 @@ package com.moyun.ext.ai.dto;
 
 import lombok.Data;
 
-import java.util.List;
 
 /**
  * 知识库创建/更新DTO

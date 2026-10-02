@@ -2,25 +2,24 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter, RouterLink as Link } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { Clock, Flame, Tag, ArrowRight, PenLine, Eye, Megaphone } from 'lucide-vue-next';
+import { Clock, Flame, Tag, ArrowRight, PenLine, Eye } from 'lucide-vue-next';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Pagination from '@/components/Pagination.vue';
 import Empty from '@/components/Empty.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import AdCard from '@/components/AdCard.vue';
 import BackToTop from '@/components/BackToTop.vue';
 
 import * as articleApi from '@/api/article';
-import * as categoryApi from '@/api/category';
 import { getHotTags } from '@/api/tag';
 import { generateSeo, fromSlug } from '@/utils/seo';
 import { transformArticle } from '@/utils/articleTransform';
 import { useAuth } from '@/composables/useAuth';
 import { useUrlState } from '@/composables/useUrlState';
-import type { Article as ApiArticle } from '@/types/api';
+/* 已移除未使用导入：ApiArticle（v14.00 清理） */
 
-const isSpecialPageName = (name: string) => ['读书空间', '面试指南'].includes(name);
 
 // 前台Article类型
 interface User {
@@ -222,7 +221,14 @@ const pageDescription = computed(() => {
   return desc;
 });
 
+/**
+ * 请求序号（清单 P2）：翻页/切换分类时先发出的响应可能后到达，无守卫会**覆盖新结果**
+ * （列表与当前页码/分类不一致）。只接受最后一次请求的响应。
+ */
+let loadSeq = 0;
+
 async function loadArticles() {
+  const seq = ++loadSeq;
   try {
     loading.value = true;
     error.value = null;
@@ -242,6 +248,9 @@ async function loadArticles() {
 
     const response = await articleApi.getArticleList(params);
 
+    // 过期响应直接丢弃（只认最后一次请求）
+    if (seq !== loadSeq) return;
+
     if (response.code === 200 && response.data) {
       const apiArticles = response.data.list || [];
       allArticles.value = apiArticles.map(transformArticle) as unknown as Article[];
@@ -251,11 +260,13 @@ async function loadArticles() {
       allArticles.value = [];
     }
   } catch (err) {
+    if (seq !== loadSeq) return;   // 过期请求的异常不覆盖当前状态
     console.error('加载文章失败:', err);
     error.value = '加载文章失败，请稍后重试';
     allArticles.value = [];
   } finally {
-    loading.value = false;
+    // 只有"最后一次请求"才有权关闭 loading，否则会提前结束新请求的加载态
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -438,22 +449,13 @@ useHead(
               </div>
             </div>
 
-            <!-- 小广告位（纯静态占位卡，预留后端接口位置） -->
-            <div class="rounded-xl p-4 relative overflow-hidden" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-              <div class="flex items-center gap-2 mb-2">
-                <Megaphone class="w-4 h-4 text-white/80" />
-                <span class="caption-text text-white/80 font-medium">合作推广</span>
-              </div>
-              <h4 class="text-white font-semibold text-sm mb-1">成为认证创作者</h4>
-              <p class="text-white/80 text-xs mb-3 leading-relaxed">享受专属权益，让你的创作被更多人看见</p>
-              <button
-                @click="router.push('/creator/certification')"
-                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
-              >
-                了解更多
-                <ArrowRight class="w-3 h-3" />
-              </button>
-            </div>
+            <!--
+              清单 P2：原为**写死文案 + 写死跳转**的静态推广卡（渐变与链接硬编码），注释自认"预留后端接口位置"。
+              项目已有广告位体系（AdCard + GET /portal/ad/list?slotKey= + 后台广告位管理），故改为按 slotKey 取广告；
+              该 slotKey 已登记进字典 portal_ad_slot_key（见增量脚本 20261001-07）。
+              注意：广告位未配置广告时本区块不渲染（属预期——由后台投放决定展示内容）。
+            -->
+            <AdCard slot-key="article_list_sidebar" />
           </aside>
         </div>
       </div>

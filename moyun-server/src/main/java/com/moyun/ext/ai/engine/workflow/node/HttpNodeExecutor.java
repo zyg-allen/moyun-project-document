@@ -11,8 +11,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * HTTP 请求节点执行器
@@ -71,6 +69,10 @@ public class HttpNodeExecutor extends BaseNodeExecutor {
             if (body instanceof String) {
                 body = replaceVariables((String) body, context);
             }
+
+            // 清单 P2：原先直接 new RestTemplate().exchange(url, ...) —— 无协议/内网/元数据地址校验，
+            // 典型 SSRF 面。发送前统一做守卫（协议白名单 + 本机/内网/保留地址拦截 + DNS 解析后校验）。
+            com.moyun.ext.ai.util.OutboundUrlGuard.assertAllowed(url);
 
             log.info("🌐 HTTP节点执行: {} {}", method, url);
 

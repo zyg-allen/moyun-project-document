@@ -6,6 +6,7 @@ import {
     Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar, ClipboardList, Wallet, Coins, BadgeCheck
 } from 'lucide-vue-next';
 import type { Notification, MessageSessionVO, PeerUser, PayNotification } from '@/types/api';
+import type { NotificationType } from '@/types';
 import * as notificationApi from '@/api/notification';
 import * as messageApi from '@/api/message';
 import * as payApi from '@/api/pay';
@@ -45,18 +46,30 @@ const isBoundSysUser = computed(() => {
 });
 type TabKey = 'notification' | 'pay' | 'message' | 'announcement' | 'todo';
 // 游客默认公告 Tab；登录用户默认通知 Tab；支持 ?tab= 深链
-const initialTab: TabKey = (route.query.tab as TabKey)
-    || (isAuthenticated.value ? 'notification' : 'announcement');
+// 清单 P2：原先直接把 route.query.tab 断言成 TabKey —— 非法取值（如 ?tab=xxx）
+// 不匹配模板里任何一个 v-if/v-else-if 分支，页面会渲染成"空白内容区"（Tab 高亮也没有）。
+// 这里收敛到合法集合，非法值落回默认 Tab。
+const VALID_TABS: TabKey[] = ['notification', 'pay', 'message', 'announcement', 'todo'];
+const DEFAULT_TAB: TabKey = isAuthenticated.value ? 'notification' : 'announcement';
+const initialTab: TabKey = VALID_TABS.includes(route.query.tab as TabKey)
+    ? (route.query.tab as TabKey)
+    : DEFAULT_TAB;
 const activeTab = ref<TabKey>(initialTab);
 
 // ============ 通知相关 ============
 const notifications = ref<Notification[]>([]);
 const notifLoading = ref(false);
-const notifFilter = ref<string>(''); // 全部为空
+// 分页（清单 P2）：原先固定 pageNum=1 / pageSize=50，第 50 条之后的通知**永远看不到**
+const notifPage = ref(1);
+const notifTotal = ref(0);
+const notifHasMore = computed(() => notifications.value.length < notifTotal.value);
+const notifFilter = ref<NotificationType | ''>(''); // 全部为空（'' 表示不筛选）
 // 通知未读数从消息 store 取，与 Navbar 跨组件同步
 const notifUnreadCount = computed(() => messageStore.notifUnreadCount);
 
-const notifFilterOptions = [
+// 显式标注 value 类型：否则数组字面量会把 value 推断为 string，
+// 与 notifFilter 的 NotificationType | '' 不兼容（筛选值为 '' 表示"全部"）
+const notifFilterOptions: { label: string; value: NotificationType | '' }[] = [
     { label: '全部', value: '' },
     { label: '评论', value: 'comment' },
     { label: '点赞', value: 'like' },
@@ -64,10 +77,17 @@ const notifFilterOptions = [
     { label: '系统', value: 'system' },
 ];
 
-const filteredNotifications = computed(() => {
-    if (!notifFilter.value) return notifications.value;
-    return notifications.value.filter((n) => n.type === notifFilter.value);
-});
+// 说明（清单 P2）：筛选原先只是对"已加载的 50 条"做前端过滤 —— 既漏掉未加载的数据，
+// 也无法与分页共存。现改为**服务端筛选**（getNotificationList 支持 type），
+// 切换筛选时回到第 1 页重新加载；列表直接渲染 notifications（不再二次过滤）。
+const filteredNotifications = computed(() => notifications.value);
+
+/** 切换通知类型筛选：重置分页并从服务端按类型重取 */
+function changeNotifFilter(value: NotificationType | '') {
+    notifFilter.value = value;
+    notifPage.value = 1;
+    loadNotifications(1);
+}
 
 function getNotifIcon(type?: string) {
     switch (type) {
@@ -112,12 +132,20 @@ function formatRelativeTime(time?: string): string {
     return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-async function loadNotifications() {
+async function loadNotifications(page = 1) {
     notifLoading.value = true;
     try {
-        const resp = await notificationApi.getNotificationList({ pageNum: 1, pageSize: 50 });
+        // 类型筛选交给服务端（原先只对"已加载的 50 条"做前端过滤 ⇒ 筛选结果不完整）
+        const resp = await notificationApi.getNotificationList({
+            pageNum: page,
+            pageSize: 50,
+            ...(notifFilter.value ? { type: notifFilter.value } : {}),
+        });
         if (resp.code === 200 && resp.data) {
-            notifications.value = resp.data.list || [];
+            const list = resp.data.list || [];
+            notifications.value = page === 1 ? list : [...notifications.value, ...list];
+            notifTotal.value = Number(resp.data.total ?? 0);
+            notifPage.value = page;
         }
     } catch (error) {
         console.error('加载通知失败:', error);
@@ -164,7 +192,7 @@ async function markAllNotifRead() {
     }
 }
 
-// ============ 支付通知相关（V11.3：整合进消息中心） ============
+// ============ 支付通知相关 ============
 const payNotifs = ref<PayNotification[]>([]);
 const payLoading = ref(false);
 const payCurrent = ref(1);
@@ -221,6 +249,25 @@ async function loadPayUnread() {
     await messageStore.loadPayUnread();
 }
 
+// ============ 支付通知详情弹窗 ============
+//
+// 清单 P2：通知与公告点击后都有详情弹窗，**支付通知点击却只 markPayRead**、没有任何详情
+//（卡片内容还被 line-clamp-2 截断）⇒ 关键的金额/时间/关联订单信息看不到。
+const showPayModal = ref(false);
+const selectedPayNotif = ref<PayNotification | null>(null);
+
+/** 打开支付通知详情：同时标记已读（与通知/公告一致的行为） */
+async function openPayDetail(n: PayNotification) {
+    selectedPayNotif.value = n;
+    showPayModal.value = true;
+    await markPayRead(n);
+}
+
+function closePayDetail() {
+    showPayModal.value = false;
+    selectedPayNotif.value = null;
+}
+
 async function markPayRead(n: PayNotification) {
     if (n.readFlag === 1) return;
     try {
@@ -235,19 +282,19 @@ async function markPayRead(n: PayNotification) {
 }
 
 async function markAllPayRead() {
-    const unread = payNotifs.value.filter((n) => n.readFlag !== 1);
-    if (unread.length === 0) {
-        toast.info('没有未读支付通知');
-        return;
-    }
     try {
-        await Promise.all(
-            unread.map((n) => payApi.markNotificationRead(n.id).catch(() => null))
-        );
-        unread.forEach((n) => (n.readFlag = 1));
-        // 清空支付通知未读数（store 同步给 Navbar 头部铃铛）
+        // 走**服务端批量**接口：原先只对"已加载的那一页"逐条 markRead，
+        // 未加载的仍是未读，角标清完又回来（且客户端直接清零角标 = 对用户撒谎）。
+        const res = await payApi.markAllNotificationsRead();
+        if (res.code !== 200) {
+            toast.error(res.message || '操作失败');
+            return;
+        }
+        // 本地同步：把已加载的也置为已读，与服务端保持一致
+        payNotifs.value.forEach((n) => (n.readFlag = 1));
         messageStore.clearPayUnread();
-        toast.success('已全部标记为已读');
+        const affected = typeof res.data === 'number' ? res.data : 0;
+        toast.success(affected > 0 ? `已全部标记为已读（${affected} 条）` : '没有未读支付通知');
     } catch (error) {
         console.error('全部已读失败:', error);
         toast.error((error as Error)?.message || '操作失败');
@@ -257,14 +304,21 @@ async function markAllPayRead() {
 // ============ 待办通知相关 ============
 const todos = ref<Notification[]>([]);
 const todoLoading = ref(false);
+// 分页（清单 P2）：同上，避免第 50 条之后的待办不可见
+const todoPage = ref(1);
+const todoTotal = ref(0);
+const todoHasMore = computed(() => todos.value.length < todoTotal.value);
 const todoUnreadCount = computed(() => todos.value.filter((n) => !n.isRead).length);
 
-async function loadTodos() {
+async function loadTodos(page = 1) {
     todoLoading.value = true;
     try {
-        const resp = await notificationApi.getNotificationList({ pageNum: 1, pageSize: 50, type: 'todo' as any });
+        const resp = await notificationApi.getNotificationList({ pageNum: page, pageSize: 50, type: 'todo' as any });
         if (resp.code === 200 && resp.data) {
-            todos.value = resp.data.list || [];
+            const list = resp.data.list || [];
+            todos.value = page === 1 ? list : [...todos.value, ...list];
+            todoTotal.value = Number(resp.data.total ?? 0);
+            todoPage.value = page;
         }
     } catch (error) {
         console.error('加载待办失败:', error);
@@ -313,6 +367,10 @@ function getTodoIcon() {
 
 // ============ 公告相关（公开广播，游客可看） ============
 const announcements = ref<Notification[]>([]);
+// 分页（清单 P2）
+const annPage = ref(1);
+const annTotal = ref(0);
+const annHasMore = computed(() => announcements.value.length < annTotal.value);
 const announcementLoading = ref(false);
 const announcementFilter = ref<string>(''); // 全部为空
 // 公告详情弹窗
@@ -323,16 +381,54 @@ const selectedAnnouncement = ref<Notification | null>(null);
 const showNotificationModal = ref(false);
 const selectedNotification = ref<Notification | null>(null);
 // 解析通知 data 字段（如 {"bizType":"article","id":2}）为可读描述
+/** 通知 bizType → 可读业务名（清单 P2：原先直接显示英文 bizType） */
+const BIZ_TYPE_LABEL: Record<string, string> = {
+  article: '文章',
+  experience: '面经',
+  question: '题目',
+  comment: '评论',
+  follow: '关注',
+  topic: '话题',
+  column: '专栏',
+  book: '书籍',
+  pay: '支付订单',
+  report: '举报反馈',
+};
+
+/** 解析通知关联的业务目标（用于"查看详情"跳转；清单 P2：原先完全不跳转） */
+const bizTarget = computed<{ type: string; id: string; path: string } | null>(() => {
+  const n = selectedNotification.value;
+  if (!n || !n.data) return null;
+  try {
+    const obj = typeof n.data === 'string' ? JSON.parse(n.data) : n.data;
+    const type = obj?.bizType;
+    const id = obj?.id;
+    if (!type || id == null) return null;
+    const paths: Record<string, string> = {
+      article: `/article/${id}`,
+      experience: `/interview/experience/${id}`,
+      question: `/interview/question/${id}`,
+      topic: `/topic/${id}`,
+      column: `/column/${id}`,
+      book: `/reading/book/${id}`,
+    };
+    const path = paths[type as string];
+    return path ? { type: String(type), id: String(id), path } : null;
+  } catch {
+    return null;
+  }
+});
+
 const notificationDataText = computed(() => {
     const n = selectedNotification.value;
     if (!n || !n.data) return '';
     try {
         const obj = typeof n.data === 'string' ? JSON.parse(n.data) : n.data;
         if (obj && typeof obj === 'object') {
-            const parts: string[] = [];
-            if (obj.bizType) parts.push('业务类型：' + obj.bizType);
-            if (obj.id) parts.push('业务ID：' + obj.id);
-            return parts.join('，');
+            // 清单 P2：原先直接把 `业务类型：article，业务ID：2` 这类**调试式文本**展示给用户，
+            // 且不做任何跳转。这里改成可读业务名（并通过 bizTarget 提供"查看详情"入口）。
+            if (obj.bizType) return BIZ_TYPE_LABEL[obj.bizType as string] || '相关内容';
+            return '相关内容';
         }
     } catch (e) {
         // data 不是 JSON，返回原值
@@ -340,6 +436,14 @@ const notificationDataText = computed(() => {
     }
     return '';
 });
+
+/** 跳转到通知关联的业务页面（清单 P2：原页面只展示调试式文本，不做任何跳转） */
+function goBizTarget() {
+  const target = bizTarget.value;
+  if (!target) return;
+  showNotificationModal.value = false;
+  router.push(target.path);
+}
 
 async function openNotificationDetail(n: Notification) {
     selectedNotification.value = n;
@@ -371,6 +475,10 @@ const announcementFilterOptions = [
     { label: '系统', value: 'system' },
 ];
 
+// 说明（清单 P2）：与通知同理 —— 原先只对"已加载的 50 条"做前端过滤。
+// 但公告接口（getBroadcastList）**不支持 type 参数**（其入参类型就是 GetNotificationListParams 的子集，
+// 服务端未按 type 过滤），故保留前端过滤，同时新增分页"加载更多"让数据能全部取到 ——
+// 这样筛选也能覆盖到后续页的数据。
 const filteredAnnouncements = computed(() => {
     if (!announcementFilter.value) return announcements.value;
     return announcements.value.filter((n) => n.type === announcementFilter.value);
@@ -404,12 +512,15 @@ function getAnnouncementIconColor(type?: string): string {
     }
 }
 
-async function loadAnnouncements() {
+async function loadAnnouncements(page = 1) {
     announcementLoading.value = true;
     try {
-        const resp = await notificationApi.getBroadcastList({ pageNum: 1, pageSize: 50 });
+        const resp = await notificationApi.getBroadcastList({ pageNum: page, pageSize: 50 });
         if (resp.code === 200 && resp.data) {
-            announcements.value = resp.data.list || [];
+            const list = resp.data.list || [];
+            announcements.value = page === 1 ? list : [...announcements.value, ...list];
+            annTotal.value = Number(resp.data.total ?? 0);
+            annPage.value = page;
         }
     } catch (error) {
         console.error('加载公告失败:', error);
@@ -440,6 +551,10 @@ function closeAnnouncementDetail() {
 
 // ============ 私信会话相关 ============
 const sessions = ref<MessageSessionVO[]>([]);
+// 分页（清单 P2）
+const sessPage = ref(1);
+const sessTotal = ref(0);
+const sessHasMore = computed(() => sessions.value.length < sessTotal.value);
 const sessionLoading = ref(false);
 // 私信未读数从消息 store 取，与 Navbar 跨组件同步
 const msgUnreadCount = computed(() => messageStore.msgUnreadCount);
@@ -447,12 +562,15 @@ const activeSession = ref<MessageSessionVO | null>(null);
 
 const totalUnread = computed(() => messageStore.totalUnread);
 
-async function loadSessions() {
+async function loadSessions(page = 1) {
     sessionLoading.value = true;
     try {
-        const resp = await messageApi.getSessionList({ pageNum: 1, pageSize: 50 });
+        const resp = await messageApi.getSessionList({ pageNum: page, pageSize: 50 });
         if (resp.code === 200 && resp.data) {
-            sessions.value = resp.data.list || [];
+            const list = resp.data.list || [];
+            sessions.value = page === 1 ? list : [...sessions.value, ...list];
+            sessTotal.value = Number(resp.data.total ?? 0);
+            sessPage.value = page;
         }
     } catch (error) {
         console.error('加载会话列表失败:', error);
@@ -482,7 +600,7 @@ function sessionPeer(session: MessageSessionVO): PeerUser {
 }
 
 function sessionLastPreview(session: MessageSessionVO): string {
-    return session.lastMessage || session.lastContent || '暂无消息';
+    return session.lastMessageContent || '暂无消息';
 }
 
 function sessionTime(session: MessageSessionVO): string {
@@ -549,7 +667,7 @@ onMounted(async () => {
     // 通知/私信相关仅登录用户加载
     if (isAuthenticated.value) {
         tasks.push(loadNotifications(), loadNotifUnread(), loadSessions(), loadMsgUnread());
-        // 支付通知（V11.3 整合进消息中心）
+        // 支付通知
         tasks.push(loadPayNotifs(1), loadPayUnread());
         // 绑定系统用户的前台用户加载待办通知
         if (isBoundSysUser.value) {
@@ -693,7 +811,7 @@ watch(isChatMode, (isChat) => {
                 <button
                   v-for="opt in notifFilterOptions"
                   :key="opt.value"
-                  @click="notifFilter = opt.value"
+                  @click="changeNotifFilter(opt.value)"
                   class="px-3 py-1.5 rounded-full text-xs sm:text-sm transition-colors"
                   :style="notifFilter === opt.value
                     ? { backgroundColor: 'var(--theme-primary)', color: 'white' }
@@ -744,10 +862,22 @@ watch(isChatMode, (isChat) => {
                   <p class="text-xs mt-1.5" style="color: var(--theme-text-secondary);">{{ formatRelativeTime(n.createTime) }}</p>
                 </div>
               </button>
+              <!-- 加载更多（清单 P2：原先固定 pageSize=50 且无翻页，第 50 条之后不可见） -->
+              <div v-if="notifHasMore" class="text-center pt-2">
+                <button
+                  @click="loadNotifications(notifPage + 1)"
+                  class="px-5 py-2 rounded-lg text-sm border transition-colors inline-flex items-center gap-1.5"
+                  style="color: var(--theme-text); border-color: var(--theme-border);"
+                  :disabled="notifLoading"
+                >
+                  <Loader2 v-if="notifLoading" class="w-3.5 h-3.5 animate-spin" />
+                  {{ notifLoading ? '加载中…' : '加载更多通知' }}
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- 支付通知 Tab（V11.3 整合进消息中心） -->
+          <!-- 支付通知 Tab -->
           <div v-else-if="activeTab === 'pay'">
             <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
               <p class="text-sm" style="color: var(--theme-text-secondary);">打赏到账、支付结果与提现进度通知</p>
@@ -773,7 +903,7 @@ watch(isChatMode, (isChat) => {
               <button
                 v-for="n in payNotifs"
                 :key="'pay-' + String(n.id)"
-                @click="markPayRead(n)"
+                @click="openPayDetail(n)"
                 class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors hover:opacity-90"
                 :style="{
                   backgroundColor: 'var(--theme-surface)',
@@ -856,6 +986,18 @@ watch(isChatMode, (isChat) => {
                   <p class="text-xs mt-1.5" style="color: var(--theme-text-secondary);">{{ formatRelativeTime(n.createTime) }}</p>
                 </div>
               </button>
+              <!-- 加载更多（清单 P2：原先固定 pageSize=50 且无翻页，第 50 条之后不可见） -->
+              <div v-if="todoHasMore" class="text-center pt-2">
+                <button
+                  @click="loadTodos(todoPage + 1)"
+                  class="px-5 py-2 rounded-lg text-sm border transition-colors inline-flex items-center gap-1.5"
+                  style="color: var(--theme-text); border-color: var(--theme-border);"
+                  :disabled="todoLoading"
+                >
+                  <Loader2 v-if="todoLoading" class="w-3.5 h-3.5 animate-spin" />
+                  {{ todoLoading ? '加载中…' : '加载更多待办' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -897,6 +1039,18 @@ watch(isChatMode, (isChat) => {
                   {{ s.unreadCount > 99 ? '99+' : s.unreadCount }}
                 </span>
               </button>
+              <!-- 加载更多（清单 P2：原先固定 pageSize=50 且无翻页，第 50 条之后不可见） -->
+              <div v-if="sessHasMore" class="text-center pt-2">
+                <button
+                  @click="loadSessions(sessPage + 1)"
+                  class="px-5 py-2 rounded-lg text-sm border transition-colors inline-flex items-center gap-1.5"
+                  style="color: var(--theme-text); border-color: var(--theme-border);"
+                  :disabled="sessionLoading"
+                >
+                  <Loader2 v-if="sessionLoading" class="w-3.5 h-3.5 animate-spin" />
+                  {{ sessionLoading ? '加载中…' : '加载更多会话' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -952,6 +1106,18 @@ watch(isChatMode, (isChat) => {
                   </p>
                 </div>
               </button>
+              <!-- 加载更多（清单 P2：原先固定 pageSize=50 且无翻页，第 50 条之后不可见） -->
+              <div v-if="annHasMore" class="text-center pt-2">
+                <button
+                  @click="loadAnnouncements(annPage + 1)"
+                  class="px-5 py-2 rounded-lg text-sm border transition-colors inline-flex items-center gap-1.5"
+                  style="color: var(--theme-text); border-color: var(--theme-border);"
+                  :disabled="announcementLoading"
+                >
+                  <Loader2 v-if="announcementLoading" class="w-3.5 h-3.5 animate-spin" />
+                  {{ announcementLoading ? '加载中…' : '加载更多公告' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -989,6 +1155,56 @@ watch(isChatMode, (isChat) => {
           <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
             <Calendar class="w-3 h-3" />
             {{ formatRelativeTime(selectedAnnouncement?.createTime) }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 支付通知详情弹窗（清单 P2：此前点击无详情，关键金额信息看不到） -->
+    <div
+      v-if="showPayModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pay-modal-title"
+      @keydown.esc.prevent="closePayDetail"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div class="absolute inset-0 bg-black/50" @click="closePayDetail"></div>
+      <div class="relative rounded-lg shadow-xl w-full max-w-lg sm:max-w-2xl max-h-[85vh] overflow-y-auto" style="background-color: var(--theme-surface);">
+        <div class="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+          <div class="flex items-center gap-2 min-w-0">
+            <Wallet class="w-5 h-5 flex-shrink-0" style="color: var(--theme-primary);" />
+            <h3 id="pay-modal-title" class="font-bold text-lg sm:text-xl truncate" style="color: var(--theme-text);">
+              {{ selectedPayNotif?.title || '支付通知' }}
+            </h3>
+          </div>
+          <button
+            type="button"
+            @click="closePayDetail"
+            aria-label="关闭"
+            class="p-2 rounded-full transition-colors flex-shrink-0"
+            style="color: var(--theme-text-secondary);"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="p-4 sm:p-6">
+          <p class="text-sm sm:text-base leading-relaxed whitespace-pre-wrap" style="color: var(--theme-text-secondary);">
+            {{ selectedPayNotif?.content }}
+          </p>
+          <dl class="mt-5 space-y-2 text-sm">
+            <div v-if="selectedPayNotif?.refNo" class="flex items-center gap-2">
+              <dt style="color: var(--theme-text-secondary);">关联单号</dt>
+              <dd class="font-mono" style="color: var(--theme-text);">{{ selectedPayNotif.refNo }}</dd>
+            </div>
+            <div v-if="selectedPayNotif?.notifyType" class="flex items-center gap-2">
+              <dt style="color: var(--theme-text-secondary);">类型</dt>
+              <dd style="color: var(--theme-text);">{{ selectedPayNotif.notifyType }}</dd>
+            </div>
+          </dl>
+          <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
+            <Calendar class="w-3 h-3" />
+            {{ formatRelativeTime(selectedPayNotif?.createTime) }}
           </p>
         </div>
       </div>
@@ -1033,8 +1249,16 @@ watch(isChatMode, (isChat) => {
         </div>
         <div class="p-4 sm:p-6">
           <p class="text-sm sm:text-base leading-relaxed whitespace-pre-wrap" style="color: var(--theme-text-secondary);">{{ selectedNotification?.content }}</p>
-          <div v-if="notificationDataText" class="mt-4 p-3 rounded-lg text-xs" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">
-            {{ notificationDataText }}
+          <div v-if="notificationDataText" class="mt-4 p-3 rounded-lg text-xs flex items-center justify-between gap-3" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">
+            <span>关联内容：{{ notificationDataText }}</span>
+            <!-- 清单 P2：原先通知里只显示"业务类型：article，业务ID：2"这类调试文本、且不跳转；
+                 这里按 bizType 给出"查看详情"入口 -->
+            <button
+              v-if="bizTarget"
+              class="font-medium underline flex-shrink-0"
+              style="color: var(--theme-primary);"
+              @click="goBizTarget()"
+            >查看详情</button>
           </div>
           <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
             <Calendar class="w-3 h-3" />

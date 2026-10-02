@@ -210,4 +210,89 @@ class IncrementSqlIdempotencyGuardTest {
         }
         return sb.toString();
     }
+    // ========================================================================
+    // 守卫 2：菜单增量脚本不得写死现网 menu_id / parent_id（清单 #13「菜单双轨」）
+    // ========================================================================
+
+    /**
+     * 规则确立前编写、且内容**已同步进** {@code init-sql/moyun-menu-redo.sql} 的历史脚本：
+     * 允许保留现网 id（改写已执行过的迁移脚本风险更高）。
+     *
+     * <p>v13.88 已逐条核对：这些脚本涉及的菜单在全新库 redo 脚本中**均有等价行**
+     * （竞赛/反馈中心/帮助中心/服务监控/审核中心/简历解析配置 397-401）。</p>
+     */
+    private static final java.util.Set<String> LEGACY_MENU_ID_SCRIPTS = java.util.Set.of(
+            "20260928-03-补齐无菜单入口（竞赛广告提示词导入模板）.sql",
+            "20260928-04-菜单图标归位失效图标修正.sql",
+            "20260928-05-审核中心菜单归并为一条.sql",
+            "20260928-06-恢复被误删的分组页菜单.sql",
+            "20260928-07-系统监控菜单归并去重.sql",
+            "20260929-03-简历解析配置菜单.sql");
+
+    /**
+     * 写死菜单 id 的形态：{@code parent_id = 5068} / {@code menu_id = 5152} / {@code menu_id IN (111,...)}。
+     * 这类写法在**全新库**上必然挂错菜单或悬空（redo 脚本重编号为 1..406）。
+     */
+    private static final Pattern HARDCODED_MENU_ID = Pattern.compile(
+            "(?i)("
+                    // ① 赋值式：parent_id = 5068 / menu_id = 5152
+                    + "parent_id\\s*=\\s*\\d+"
+                    + "|menu_id\\s*=\\s*\\d+"
+                    // ② 集合式：menu_id IN (111, 112)
+                    + "|menu_id\\s+IN\\s*\\(\\s*\\d+"
+                    // ③ 显式指定主键列的 INSERT（menu_id 由脚本自己分配 ⇒ 与 redo 的编号必然冲突）
+                    + "|INSERT\\s+INTO\\s+`?sys_menu`?\\s*\\([^)]*`?menu_id`?\\s*[,)]"
+                    // ④ INSERT ... SELECT 的首列写字面 id（历史脚本的真实形态：SELECT 397,'简历解析配置',26,...）
+                    + "|SELECT\\s+\\d+\\s*,\\s*'"
+                    + ")"
+                    // ⑤ 兜底：向 sys_menu 做 INSERT ... SELECT 时出现**裸数字 id 字面量**
+                    //    （按列位置写死的 parent_id/menu_id，如 "... SELECT '名称', 5068, 99, 'C'"）。
+                    //    用前后否定环视排除"带引号的日期/数字串"与负数，避免把 '2026-10-01' 误判。
+                    + "|(?is)INSERT\\s+INTO\\s+`?sys_menu`?[^;]{0,120}?SELECT[^;]*?(?<![\\w'\"\\d-])\\d{3,}(?![\\w'\"\\d-])");
+
+    @Test
+    @DisplayName("菜单增量脚本：新增脚本不得写死 menu_id/parent_id（须按 perms/path 反查，兼容全新库）")
+    void newMenuScriptsMustNotHardcodeMenuIds() throws IOException {
+        List<String> violations = new ArrayList<>();
+        int scanned = 0;
+        try (Stream<Path> walk = Files.list(SQL_DIR)) {
+            for (Path file : walk.filter(p -> p.toString().endsWith(".sql")).toList()) {
+                String name = file.getFileName().toString();
+                if (LEGACY_MENU_ID_SCRIPTS.contains(name)) {
+                    continue;
+                }
+                String sql = stripSqlComments(Files.readString(file, StandardCharsets.UTF_8));
+                // 只约束"动菜单表"的脚本
+                if (!sql.toUpperCase().contains("SYS_MENU")) {
+                    continue;
+                }
+                scanned++;
+                if (HARDCODED_MENU_ID.matcher(sql).find()) {
+                    violations.add(name);
+                }
+            }
+        }
+        assertTrue(violations.isEmpty(),
+                "以下菜单增量脚本写死了现网 menu_id/parent_id，在全新库上会挂错菜单或悬空：\n  "
+                        + String.join("\n  ", violations)
+                        + "\n  正确写法：父菜单按 perms/path 反查（见 20261001-01-银行卡人工核实权限（v13.83）.sql）");
+        assertTrue(scanned > 0, "未扫描到任何菜单增量脚本 —— 目录/判定口径可能已漂移");
+    }
+
+    @Test
+    @DisplayName("白名单自检：历史菜单脚本登记必须仍存在（防豁免腐烂）")
+    void legacyMenuScriptAllowlistStillExists() throws IOException {
+        java.util.Set<String> present;
+        try (Stream<Path> walk = Files.list(SQL_DIR)) {
+            present = walk.map(p -> p.getFileName().toString())
+                    .filter(n -> n.endsWith(".sql"))
+                    .collect(java.util.stream.Collectors.toSet());
+        }
+        List<String> missing = LEGACY_MENU_ID_SCRIPTS.stream()
+                .filter(n -> !present.contains(n))
+                .sorted()
+                .toList();
+        assertTrue(missing.isEmpty(),
+                "豁免清单中的脚本已不存在（应同步删除登记，避免豁免腐烂）：\n  " + String.join("\n  ", missing));
+    }
 }

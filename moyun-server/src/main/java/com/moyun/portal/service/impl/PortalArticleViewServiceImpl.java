@@ -8,12 +8,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.portal.domain.entity.PortalArticle;
-import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleViewMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalArticleViewService;
-import com.moyun.util.bean.PageUtils;
 
 /**
  * 文章浏览数据同步服务实现

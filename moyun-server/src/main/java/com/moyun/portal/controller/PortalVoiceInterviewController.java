@@ -174,7 +174,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * v13.50 批次 3：生成「发展方向」分析（懒生成 —— 用户首次打开 tab 才调用）。
+     * 生成「发展方向」分析（懒生成 —— 用户首次打开 tab 才调用）。
      *
      * <p>懒生成设计使**不开不花**：发展方向是备战区内容，多数用户可能从不查看，
      * 若并入报告主链路则每场面试都要多一次 LLM 调用（V1.2 §1 原则 3）。</p>

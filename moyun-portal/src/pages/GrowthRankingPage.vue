@@ -22,7 +22,7 @@ const limit = ref(50);
 useHead(
   generateSeo({
     title: '成长排行榜',
-    description: '旭林知行用户成长值排行榜，看看本季最活跃的创作者。',
+    description: '旭林知行用户成长值排行榜，看看成长值最高的创作者。',
     keywords: ['排行榜', '成长', '等级', '创作者'],
     type: 'website'
   })
@@ -62,15 +62,27 @@ function getRankStyle(rank: number) {
   }
 }
 
+/**
+ * 榜单加载失败提示（清单 P2）。
+ *
+ * <p>原先 catch 只 console.error ⇒ isLoading 归 false 后进入 ranking.length === 0 分支，
+ * 接口失败与"真的无人上榜"共用同一段空态文案，且页面没有任何重试入口。</p>
+ */
+const loadError = ref<string | null>(null);
+
 async function loadRanking() {
   isLoading.value = true;
+  loadError.value = null;
   try {
     const response = await getGrowthRanking(limit.value);
     if (response.code === 200 && response.data) {
       ranking.value = response.data as GrowthRankingItem[];
+    } else {
+      loadError.value = response.message || '加载排行榜失败';
     }
   } catch (error) {
     console.error('加载排行榜失败:', error);
+    loadError.value = (error as { message?: string })?.message || '加载排行榜失败，请稍后重试';
   } finally {
     isLoading.value = false;
   }
@@ -121,7 +133,9 @@ onMounted(() => {
           <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">成长排行榜</h1>
         </div>
         <p class="text-sm sm:text-base" style="color: var(--theme-text-secondary);">
-          本季成长值排名前 {{ limit }} 的创作者，持续创作即可上榜
+          <!-- 清单 P2：后端 season_value 与 growth_value 始终同步（Mapper 注释："保持赛季值与成长值一致"），
+         全仓库无赛季重置逻辑 ⇒ 实际是**累计**榜，文案不应写"本季"。 -->
+    成长值排名前 {{ limit }} 的创作者，持续创作即可上榜
         </p>
       </div>
 
@@ -131,13 +145,13 @@ onMounted(() => {
           <div class="flex items-center gap-3">
             <Sparkles class="w-6 h-6 text-white" />
             <div>
-              <p class="text-white/80 text-xs sm:text-sm">我的本季排名</p>
+              <p class="text-white/80 text-xs sm:text-sm">我的排名</p>
               <p class="text-white text-xl sm:text-2xl font-bold">第 {{ myGrowth.seasonRank || '—' }} 名</p>
             </div>
           </div>
           <div class="flex items-center gap-6 sm:gap-8">
             <div class="text-center">
-              <p class="text-white/80 text-xs">本季成长</p>
+              <p class="text-white/80 text-xs">累计成长</p>
               <p class="text-white text-lg sm:text-xl font-bold">{{ myGrowth.seasonValue || 0 }}</p>
             </div>
             <div class="text-center">
@@ -252,8 +266,18 @@ onMounted(() => {
           </div>
         </div>
 
+        <!-- 失败态（清单 P2）：必须排在空态之前 -->
+        <div v-if="!isLoading && loadError" class="p-8 sm:p-12 rounded-2xl text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+          <p class="mb-4" style="color: var(--theme-text);">{{ loadError }}</p>
+          <button
+            class="px-5 py-2.5 rounded-xl text-sm font-medium"
+            style="background-color: var(--theme-primary); color: white;"
+            @click="loadRanking()"
+          >重试</button>
+        </div>
+
         <!-- 空状态 -->
-        <div v-if="!isLoading && ranking.length === 0" class="p-8 sm:p-12 rounded-2xl text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+        <div v-else-if="!isLoading && ranking.length === 0" class="p-8 sm:p-12 rounded-2xl text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
           <Trophy class="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" style="color: var(--theme-text-secondary);" />
           <h3 class="text-lg font-medium mb-2" style="color: var(--theme-text);">暂无排行数据</h3>
           <p style="color: var(--theme-text-secondary);">成为第一个上榜的创作者吧</p>

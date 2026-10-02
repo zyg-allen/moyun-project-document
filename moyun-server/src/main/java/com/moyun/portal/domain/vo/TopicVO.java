@@ -46,6 +46,9 @@ public class TopicVO implements Serializable {
     @Schema(description = "发起人头像")
     private String creatorAvatar;
 
+    @Schema(description = "发起人是否为认证创作者（门户「认证」徽章用；null/false=未认证）")
+    private Boolean creatorCertified;
+
     @Schema(description = "状态：pending 待审核/active 活跃/archived 归档/deleted 删除/rejected 审核驳回")
     private String status;
 

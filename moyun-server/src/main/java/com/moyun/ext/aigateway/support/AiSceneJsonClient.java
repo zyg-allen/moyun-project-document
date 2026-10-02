@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * 场景结构化 JSON 调用客户端（业务收口配套）
  *
- * <p><b>职责边界（v12.2 统一入口原则）</b>：本类是<b>业务方外部入口</b>——业务 Service
+ * <p><b>职责边界（统一入口原则）</b>：本类是<b>业务方外部入口</b>——业务 Service
  * 构造 input Map 后调用 {@code executeForJson(sceneCode, input, userId)}，经
  * {@link com.moyun.ext.aigateway.service.AiGatewayService} 统一网关（治理：限流/熔断/缓存/日志/降级）
  * 路由到对应 {@link com.moyun.ext.aigateway.handler.AiSceneHandler}。Handler 内部如需调底层 LLM

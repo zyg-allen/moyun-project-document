@@ -131,29 +131,29 @@ export const getCategoryTree = async (params?: CategoryListParams): Promise<Back
   // 如果正在加载，返回同一个Promise
   if (categoryTreeLoading) {
     const data = await categoryTreeLoading;
-    return { code: 200, msg: '操作成功', data };
+    return { code: 200, msg: '操作成功', data: data ?? undefined };
   }
 
-  // 开始加载
-  categoryTreeLoading = new Promise(async (resolve) => {
+  // 开始加载。用 async IIFE 而非 `new Promise(async …)`：后者会把异步抛出的异常
+  // 变成"永不 settle"的悬挂 Promise（Promise 构造器忽略 executor 返回的 promise）。
+  categoryTreeLoading = (async () => {
     try {
       const response = await httpGet<Category[]>('/portal/category/public/tree', params);
       if (response.code === 200) {
         categoryTreeCache = response.data || [];
-        resolve(categoryTreeCache);
-      } else {
-        resolve(null);
+        return categoryTreeCache;
       }
+      return null;
     } catch (error) {
       console.error('加载分类树失败:', error);
-      resolve(null);
+      return null;
     } finally {
       categoryTreeLoading = null;
     }
-  });
+  })();
 
   const data = await categoryTreeLoading;
-  return { code: 200, msg: '操作成功', data };
+  return { code: 200, msg: '操作成功', data: data ?? undefined };
 };
 
 // 清除缓存（用于刷新场景）
@@ -178,26 +178,26 @@ export const getNavTree = async (): Promise<BackendResponse<Category[]>> => {
   }
   if (navTreeLoading) {
     const data = await navTreeLoading;
-    return { code: 200, msg: '操作成功', data };
+    return { code: 200, msg: '操作成功', data: data ?? undefined };
   }
-  navTreeLoading = new Promise(async (resolve) => {
+  // 同 getCategoryTree：用 async IIFE，避免 `new Promise(async …)` 的悬挂风险
+  navTreeLoading = (async () => {
     try {
       const response = await httpGet<Category[]>('/portal/category/nav/tree');
       if (response.code === 200) {
         navTreeCache = response.data || [];
-        resolve(navTreeCache);
-      } else {
-        resolve(null);
+        return navTreeCache;
       }
+      return null;
     } catch (error) {
       console.error('加载导航栏目树失败:', error);
-      resolve(null);
+      return null;
     } finally {
       navTreeLoading = null;
     }
-  });
+  })();
   const data = await navTreeLoading;
-  return { code: 200, msg: '操作成功', data };
+  return { code: 200, msg: '操作成功', data: data ?? undefined };
 };
 
 /**

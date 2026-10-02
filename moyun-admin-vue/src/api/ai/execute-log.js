@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 
-// AI 执行日志管理（v11.60 P1-1：统一网关 ai_execute_log 可观测性查询页）
+// AI 执行日志管理（统一网关 ai_execute_log 可观测性查询页）
 
 // 分页查询日志列表
 export function listExecuteLog(query) {

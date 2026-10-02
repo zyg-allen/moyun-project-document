@@ -142,7 +142,6 @@ const props = defineProps({
     }
 })
 const tabTitles = ref(["秒", "分钟", "小时", "日", "月", "周", "年"])
-const tabActive = ref(0)
 const hideComponent = ref([])
 const expression = ref('')
 const crontabValueObj = ref({
@@ -196,10 +195,6 @@ function resolveExp() {
         // 没有传入的表达式 则还原
         clearCron()
     }
-}
-// tab切换值
-function tabCheck(index) {
-    tabActive.value = index
 }
 // 由子组件触发，更改表达式组成的字段值
 function updateCrontabValue(name, value, from) {

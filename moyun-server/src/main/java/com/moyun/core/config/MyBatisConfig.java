@@ -152,7 +152,11 @@ public class MyBatisConfig {
         // 1) BlockAttackInnerInterceptor：阻断无 WHERE 条件的全表 UPDATE/DELETE，防止误操作（含 MyBatis-Plus Wrapper 与原生 SQL）
         interceptor.addInnerInterceptor(new BlockAttackInnerInterceptor());
         // 2) PaginationInnerInterceptor：分页
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        // 清单 P2：原先未设置 setMaxLimit ⇒ 只有走 PageUtils 的调用点有 100 上限，
+        // 直接 new Page<>(1, 100000) 的调用仍可一次性拉全表。这里统一兜底为 100。
+        PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.MYSQL);
+        pagination.setMaxLimit(100L);
+        interceptor.addInnerInterceptor(pagination);
         return interceptor;
     }
 }

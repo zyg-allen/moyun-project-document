@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 门户端统一会员 Controller（替代旧 interviewVip / resumeOptimizeVip 两套订阅体系）
+ * 门户端统一会员 Controller
  *
  * <p>链路：GET /tiers 等级+权益清单（售卖页）→ GET /status 我的会员详情 →
  * POST /subscribe 下单（bizType='vip'，bizNo='portal:{tier}:{uuid}'，网关幂等复用）
@@ -104,6 +104,12 @@ public class PortalVipController extends BaseController {
         }
         if (tier.getPrice() == null || tier.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ServiceException("该等级无需购买");
+        }
+        // 有效天数必须已配置：发卡侧 VipServiceImpl#grantCard 对 durationDays=null 会抛异常，
+        // 而它运行在**支付回调事务内** ⇒ 结果是"钱收了、卡没发"（渠道重试仍失败，需人工补配置）。
+        // 故在下单阶段就拦掉，不让用户为不可售的等级付钱（与发卡侧同一判据）。
+        if (tier.getDurationDays() == null) {
+            throw new ServiceException("该会员等级暂未配置有效期，暂不可购买（请配置后再试）");
         }
 
         // 2. 网关统一下单（bizNo=platform:tier:uuid，同 clientUuid 复用未支付单）

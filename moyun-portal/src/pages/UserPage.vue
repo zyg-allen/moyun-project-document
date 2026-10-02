@@ -33,7 +33,7 @@ import {
   Loader2,
   PenSquare,
   RefreshCw,
-  // v1.1 读者画像扩展图标
+  // 读者画像扩展图标
   Venus,           // 性别-女
   Mars,            // 性别-男
   UserCircle,      // 性别-其他/未知
@@ -45,8 +45,10 @@ import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import Pagination from '@/components/Pagination.vue';
 import * as userApi from '@/api/user';
 import * as growthApi from '@/api/growth';
+import { isToday } from '@/utils/date';
 import * as followApi from '@/api/follow';
 import { getMyArticles, getMyBookmarks } from '@/api/article';
 import {
@@ -96,7 +98,7 @@ const isCertifiedCreator = computed(() => {
   return v === 1 || v === true;
 });
 
-// ============ 实名认证状态（v10.8 实名合规） ============
+// ============ 实名认证状态 ============
 const myCertification = ref<CreatorCertification | null>(null);
 // 已实名：身份认证类型且审核通过（证件号后端已脱敏，前端仅展示脱敏姓名）
 const isRealNameVerified = computed(() =>
@@ -133,7 +135,6 @@ const initialTab = ((): string => {
   return 'dashboard';
 })();
 const activeTab = ref(initialTab);
-const isLoading = ref(false);
 const pendingCount = ref(0);
 
 // ============ 数据看板 Tab（创作者数据） ============
@@ -237,37 +238,34 @@ function tabCount(tab: TabConfig): number | null {
   return (dashboard.value[tab.countKey] as number) ?? 0;
 }
 
-const totalPages = computed(() => Math.ceil(userArticles.value.length / itemsPerPage.value));
-const paginatedArticles = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value;
-  const end = start + itemsPerPage.value;
-  return userArticles.value.slice(start, end);
-});
+/**
+ * 文章列表：改为**服务端分页**（清单 P2）。
+ *
+ * <p>原实现只请求一次 pageNum=1/pageSize=10，再用 slice 在前端"分页" ——
+ * 数据只有第一页 10 条，且从未渲染任何翻页控件 ⇒ **第 11 篇之后的文章永远看不到**。
+ * 现在按 currentPage/itemsPerPage 请求后端，并记录 total 以渲染真实页数。</p>
+ */
+const userArticlesTotal = ref(0);
+const articlesTotalPages = computed(() => Math.max(1, Math.ceil(userArticlesTotal.value / itemsPerPage.value)));
+const paginatedArticles = computed(() => userArticles.value);
 
-// 成长等级进度（粗略估算：每级 100 成长值）
+// 成长等级进度：**以后端阈值口径为准**（清单 #2）
+//
+// 原实现按"每级 100 成长值"估算，而后端阈值是非线性的
+// （0/100/300/700/1500/3000/6000/10000/20000）⇒ 进度条与"还差多少"都是错的。
+// 现在直接使用后端下发的 levelProgress / levelBaseGrowth / nextLevelGrowth（增量为"还差"）。
 const levelProgress = computed(() => {
   const growth = myGrowth.value;
   if (!growth) {
-    // 退化为 dashboard 数据
-    if (dashboard.value) {
-      const value = dashboard.value.growthValue || 0;
-      const level = dashboard.value.growthLevel || 1;
-      const base = (level - 1) * 100;
-      return {
-        percent: Math.min(100, Math.round(((value - base) / 100) * 100)),
-        current: value - base,
-        required: 100
-      };
-    }
-    return { percent: 0, current: 0, required: 100 };
+    // 后端成长数据尚未返回：不猜数（宁可显示 0 也不显示错数）
+    return { percent: 0, current: 0, required: 0 };
   }
-  const value = growth.growthValue || 0;
-  const level = growth.level || 1;
-  const base = (level - 1) * 100;
-  const current = value - base;
-  const required = 100;
+  const base = growth.levelBaseGrowth ?? 0;
+  const current = (growth.growthValue || 0) - base;
+  // nextLevelGrowth 是"还差多少"（增量）⇒ 本级区间长度 = 当前值 - 起点 + 还差
+  const required = growth.nextLevelGrowth != null ? current + growth.nextLevelGrowth : current;
   return {
-    percent: Math.min(100, Math.round((current / required) * 100)),
+    percent: growth.levelProgress ?? 0,
     current,
     required
   };
@@ -285,11 +283,27 @@ async function loadDashboard() {
   }
 }
 
+/**
+ * 加载失败状态（清单 P2）。
+ *
+ * <p>原先模板只有 `v-if="!currentUser"` 的"加载中"一种状态：未登录时 `loadUserData`
+ * 直接 return，而 `fetchCurrentUser` 失败会把 store user 置 null 且不抛错 ⇒
+ * `currentUser` 永远为空，页面**永久停在"加载中..."**，无错误提示也无重试。</p>
+ */
+const loadError = ref(false);
+
 async function loadUserData() {
+  loadError.value = false;
   if (!userStore.isAuthenticated) {
+    // 未登录：交给路由守卫/登录引导，这里标记失败态避免无限加载
+    loadError.value = true;
     return;
   }
   currentUser.value = userStore.user;
+  if (!currentUser.value) {
+    // store 里没有用户（例如 fetch 失败被置 null）：显示失败态 + 重试
+    loadError.value = true;
+  }
 
   // 旧版用户统计（兼容，部分头部展示仍可能用到）
   try {
@@ -316,11 +330,16 @@ async function loadUserData() {
     }
     if (statsResp.code === 200 && statsResp.data) {
       myStats.value = statsResp.data;
-      // 根据后端返回的最后签到日期恢复"今日已签到"状态（刷新后不丢失）
-      const lastDate = statsResp.data.lastCheckinDate;
-      if (lastDate) {
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        hasCheckedInToday.value = lastDate === today;
+      // 根据后端返回的状态恢复"今日已签到"（刷新后不丢失）。
+      //
+      // 口径修正（P2）：原先用 new Date().toISOString().slice(0,10) —— 这是 **UTC** 日期，
+      // 而后端 lastCheckinDate 是**服务器本地日期**：东八区本地 00:00–08:00 之间 UTC 仍属"昨天"，
+      // 会造成"今天已签到却显示未签到"。现在优先采用服务端判定的 checkedInToday；
+      // 仅在旧版后端未返回该字段时才本地兜底，且兜底也用 dayjs 本地时区（isToday），不再用 UTC。
+      if (typeof statsResp.data.checkedInToday === 'boolean') {
+        hasCheckedInToday.value = statsResp.data.checkedInToday;
+      } else if (statsResp.data.lastCheckinDate) {
+        hasCheckedInToday.value = isToday(statsResp.data.lastCheckinDate);
       }
     }
     if (badgesResp.code === 200 && badgesResp.data) {
@@ -335,12 +354,22 @@ async function loadUserData() {
 }
 
 // 各 Tab 懒加载入口
+/** 当前 Tab 数据加载失败提示（清单 P2：失败不再冒充"暂无数据"） */
+const tabError = ref<string | null>(null);
+
+/** 重试当前 Tab（清单 P2：原失败后没有任何重试入口） */
+function retryCurrentTab() {
+  tabLoaded[activeTab.value] = false;
+  void loadTabData(activeTab.value);
+}
+
 async function loadTabData(tabId: string) {
   // 收藏 Tab 数据轻量且时效性强（收藏/取消后需立即反映），每次激活都重新加载
   if (tabId !== 'saved') {
     if (tabLoaded[tabId]) return;
     tabLoaded[tabId] = true;
   }
+  if (tabId === activeTab.value) tabError.value = null;
   try {
     switch (tabId) {
       case 'dashboard':
@@ -374,6 +403,9 @@ async function loadTabData(tabId: string) {
   } catch (error) {
     // 失败则允许下次重试
     tabLoaded[tabId] = false;
+    // 清单 P2：原先仅 console.warn，各列表置空后模板只区分"有数据/无数据" ⇒ 失败被当成"你还没有内容"。
+    // 这里记录失败态，模板顶部给出提示与重试。
+    tabError.value = (error as Error)?.message || '数据加载失败，请稍后重试';
     console.warn(`加载 Tab [${tabId}] 数据失败:`, error);
   }
 }
@@ -390,17 +422,25 @@ function extractArticlePage(data: any): { list: Article[]; total: number } {
   return { list, total };
 }
 
+/** 文章 Tab 翻页：改页码后重新向服务端取该页数据 */
+async function handleArticlesPageChange(p: number) {
+  currentPage.value = p;
+  await loadArticlesTab();
+}
+
 async function loadArticlesTab() {
   // 已发布文章
   try {
     const articlesResp = await getMyArticles({
-      pageNum: 1,
-      pageSize: 10,
+      pageNum: currentPage.value,
+      pageSize: itemsPerPage.value,
       status: 'published'
     });
     if (articlesResp.code === 200 && articlesResp.data) {
-      const { list } = extractArticlePage(articlesResp.data);
-      userArticles.value = list;
+      const page = extractArticlePage(articlesResp.data);
+      userArticles.value = page.list;
+      // 记录总数供分页控件计算页数（原先完全忽略后端 total，导致永远只有一页）
+      userArticlesTotal.value = Number((articlesResp.data as { total?: number }).total ?? page.list.length);
     }
   } catch (error) {
     console.warn('获取用户文章失败:', error);
@@ -767,19 +807,19 @@ const maxHourValue = computed(() => {
   return Math.max(1, ...hours.map((h) => h.value));
 });
 
-// v1.1 性别分布：合计人数（用于百分比兜底展示）
+// 性别分布：合计人数（用于百分比兜底展示）
 const totalGenderCount = computed(() => {
   const genders = readerProfile.value?.genders || [];
   return genders.reduce((sum, g) => sum + (g.value || 0), 0);
 });
 
-// v1.1 性别分布：最大单项值（用于柱状条比例）
+// 性别分布：最大单项值（用于柱状条比例）
 const maxGenderValue = computed(() => {
   const genders = readerProfile.value?.genders || [];
   return Math.max(1, ...genders.map((g) => g.value));
 });
 
-// v1.1 性别标签映射：male→男 / female→女 / other→其他 / unknown→未知
+// 性别标签映射：male→男 / female→女 / other→其他 / unknown→未知
 const genderLabelMap: Record<string, string> = {
   male: '男',
   female: '女',
@@ -787,7 +827,7 @@ const genderLabelMap: Record<string, string> = {
   unknown: '未知',
 };
 
-// v1.1 性别图标映射：用于在每行前展示对应图标
+// 性别图标映射：用于在每行前展示对应图标
 function getGenderIcon(gender: string) {
   switch (gender) {
     case 'male': return Mars;
@@ -797,7 +837,7 @@ function getGenderIcon(gender: string) {
   }
 }
 
-// v1.1 性别图标颜色映射：男=蓝、女=粉、其他=灰、未知=灰
+// 性别图标颜色映射：男=蓝、女=粉、其他=灰、未知=灰
 function getGenderColor(gender: string): string {
   switch (gender) {
     case 'male': return '#3B82F6';     // 蓝
@@ -807,19 +847,19 @@ function getGenderColor(gender: string): string {
   }
 }
 
-// v1.1 年龄段：合计人数
+// 年龄段：合计人数
 const totalAgeRangeCount = computed(() => {
   const ages = readerProfile.value?.ageRanges || [];
   return ages.reduce((sum, a) => sum + (a.value || 0), 0);
 });
 
-// v1.1 年龄段：最大单项值
+// 年龄段：最大单项值
 const maxAgeRangeValue = computed(() => {
   const ages = readerProfile.value?.ageRanges || [];
   return Math.max(1, ...ages.map((a) => a.value));
 });
 
-// v1.1 年龄段标签映射
+// 年龄段标签映射
 const ageRangeLabelMap: Record<string, string> = {
   under_18: '18 岁以下',
   '18_24': '18-24 岁',
@@ -830,7 +870,7 @@ const ageRangeLabelMap: Record<string, string> = {
   unknown: '未知',
 };
 
-// v1.1 年龄段：按固定顺序排序后的展示列表
+// 年龄段：按固定顺序排序后的展示列表
 const orderedAgeRanges = computed(() => {
   const ages = readerProfile.value?.ageRanges || [];
   const order = ['under_18', '18_24', '25_30', '31_35', '36_45', 'over_45', 'unknown'];
@@ -839,7 +879,7 @@ const orderedAgeRanges = computed(() => {
     .filter((x): x is NonNullable<typeof x> => !!x);
 });
 
-// v1.1 时段分布：高峰时段（占比最高的前 3 个小时）
+// 时段分布：高峰时段（占比最高的前 3 个小时）
 const peakHours = computed(() => {
   const hours = readerProfile.value?.hours || [];
   if (!hours.length) return [];
@@ -849,7 +889,7 @@ const peakHours = computed(() => {
     .map((h) => h.hour);
 });
 
-// v1.1.2 新增：时段分布总读者数（用于空值保护，避免 hours 长度 > 0 但 value 全 0 时仍渲染空柱图）
+// 时段分布总读者数（用于空值保护，避免 hours 长度 > 0 但 value 全 0 时仍渲染空柱图）
 const totalHourCount = computed(() => {
   const hours = readerProfile.value?.hours || [];
   return hours.reduce((sum, h) => sum + (h.value || 0), 0);
@@ -859,7 +899,7 @@ function isPeakHour(hour: number): boolean {
   return peakHours.value.includes(hour);
 }
 
-// v1.1.2 读者画像：省份热力网格（地图组件的简化版，不引入 echarts）
+// 读者画像：省份热力网格（地图组件的简化版，不引入 echarts）
 // 按地理分区（华北/东北/华东/华中/华南/西南/西北/港澳台）组织 34 省份
 // 后端返回的 region 是中文省份名（如"北京市"/"广东省"），需要去掉"省/市/自治区"后做归一化匹配
 const chinaRegionGroups: { label: string; provinces: { name: string; aliases: string[] }[] }[] = [
@@ -937,7 +977,7 @@ const chinaRegionGroups: { label: string; provinces: { name: string; aliases: st
 // 省份名归一化：去掉"省/市/自治区/特别行政区"等后缀，返回简称
 function normalizeProvinceName(raw: string): string {
   if (!raw) return '';
-  // v1.1.2 修复：JS 正则 | 选择是"先匹配优先"而非"最长匹配优先"，必须把长后缀放前面
+  // JS 正则 | 选择是"先匹配优先"而非"最长匹配优先"，必须把长后缀放前面
   // 否则 "新疆维吾尔自治区" 会先匹配 "自治区" 剥成 "新疆维吾尔" 而非 "新疆"
   return raw
     .replace(/(维吾尔自治区|壮族自治区|回族自治区|特别行政区|自治区|省|市)$/, '')
@@ -1137,8 +1177,19 @@ const dashboardCards = computed(() => {
     <!-- 主内容区域 -->
     <div class="py-8 flex-1 pb-24 md:pb-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 加载失败（清单 P2）：避免未登录/加载失败时永久停在"加载中..." -->
+        <div v-if="loadError && !currentUser" class="text-center py-12" :style="{ backgroundColor: 'var(--theme-surface)' }">
+          <AlertCircle class="w-12 h-12 mx-auto mb-4" style="color: #f59e0b;" />
+          <p class="mb-4" style="color: var(--theme-text);">用户信息加载失败</p>
+          <button
+            class="px-4 py-2 rounded-lg text-white text-sm"
+            style="background-color: var(--theme-primary);"
+            @click="loadUserData()"
+          >重试</button>
+        </div>
+
         <!-- 加载状态 -->
-        <div v-if="!currentUser" class="text-center py-12">
+        <div v-else-if="!currentUser" class="text-center py-12">
           <div class="inline-block w-12 h-12 border-4 border-t-4 border-gray-300 rounded-full animate-spin" style="border-top-color: var(--theme-primary);"></div>
           <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
@@ -1154,7 +1205,7 @@ const dashboardCards = computed(() => {
                     :src="getSafeAvatar(currentUser.avatar, currentUser.id)"
                     :alt="currentUser.nickname || currentUser.username"
                     class="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl object-cover"
-                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser.id)"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(currentUser?.id ?? ''))"
                   />
                 </div>
 
@@ -1175,7 +1226,7 @@ const dashboardCards = computed(() => {
                           <ShieldCheck class="w-3 h-3 sm:w-4 sm:h-4" />
                           已认证创作者
                         </span>
-                        <!-- 实名认证徽章（v10.8：身份认证通过，仅展示脱敏姓名） -->
+                        <!-- 实名认证徽章（身份认证通过，仅展示脱敏姓名） -->
                         <span
                           v-if="isRealNameVerified"
                           class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium"
@@ -1531,7 +1582,7 @@ const dashboardCards = computed(() => {
                       </div>
                     </section>
 
-                    <!-- ==================== 底部：读者画像（v1.1 扩展为 4 维度）==================== -->
+                    <!-- ==================== 底部：读者画像（4 维度）==================== -->
                     <section class="rounded-2xl p-4 sm:p-6"
                       style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                     >
@@ -1627,7 +1678,7 @@ const dashboardCards = computed(() => {
                           </div>
                         </div>
 
-                        <!-- 2. 性别分布（v1.1 新增） -->
+                        <!-- 2. 性别分布 -->
                         <div>
                           <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
                             <Users class="w-4 h-4" />
@@ -1657,7 +1708,7 @@ const dashboardCards = computed(() => {
                           </div>
                         </div>
 
-                        <!-- 3. 年龄段分布（v1.1 新增） -->
+                        <!-- 3. 年龄段分布 -->
                         <div>
                           <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
                             <Cake class="w-4 h-4" />
@@ -1686,14 +1737,14 @@ const dashboardCards = computed(() => {
                           </div>
                         </div>
 
-                        <!-- 4. 时段分布（0-23 时，含高峰时段高亮）v1.1.2：加 lg:col-span-2 占满整行，柱子才不会太挤 -->
+                        <!-- 4. 时段分布（0-23 时，含高峰时段高亮，占满整行 lg:col-span-2 避免柱图过挤） -->
                         <div class="lg:col-span-2">
                           <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
                             <Clock class="w-4 h-4" />
                             时段分布（0-23 时）
                             <span v-if="peakHours.length" class="text-[10px] opacity-70">高峰：{{ peakHours.map(h => h + '时').join('、') }}</span>
                           </h4>
-                          <!-- v1.1.2：增加 totalHourCount > 0 空值保护，避免 hours.length>0 但 value 全 0 时仍渲染空柱图 -->
+                          <!-- totalHourCount > 0 空值保护：避免 hours 有长度但 value 全 0 时仍渲染空柱图 -->
                           <div v-if="(readerProfile?.hours || []).length && totalHourCount > 0" class="flex items-end gap-1 h-40">
                             <div
                               v-for="h in readerProfile?.hours" :key="`hour-${h.hour}`"
@@ -1731,7 +1782,7 @@ const dashboardCards = computed(() => {
                         </div>
                       </div>
 
-                      <!-- v1.1 数据局限说明（由后端返回，告知用户数据可能不真实的原因） -->
+                      <!-- 数据局限说明（由后端返回，告知用户数据可能不真实的原因） -->
                       <div
                         v-if="readerProfile?.dataNote"
                         class="mt-4 p-3 rounded-lg flex items-start gap-2 text-xs"
@@ -1746,6 +1797,19 @@ const dashboardCards = computed(() => {
                       </div>
                     </section>
                   </template>
+                </div>
+
+                <!--
+                  清单 P2：各 Tab 加载失败原先只 console.warn、列表置空 ⇒ 与"暂无内容"同貌且无重试。
+                  这里在内容区顶部统一给出失败提示与重试入口。
+                -->
+                <div
+                  v-if="tabError"
+                  class="mb-5 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
+                >
+                  <span>{{ tabError }}</span>
+                  <button class="font-medium underline flex-shrink-0" style="color: var(--theme-primary);" @click="retryCurrentTab()">重试</button>
                 </div>
 
                 <!-- ============ 文章 ============ -->
@@ -1778,6 +1842,15 @@ const dashboardCards = computed(() => {
                   <div v-if="userArticles.length > 0" class="space-y-4 sm:space-y-6">
                     <ArticleCard v-for="article in paginatedArticles" :key="article.id" :article="article" />
                   </div>
+                  <!-- 分页（清单 P2）：原先无任何翻页控件，第 11 篇之后无法查看 -->
+                  <Pagination
+                    v-if="userArticles.length > 0 && articlesTotalPages > 1"
+                    :current-page="currentPage"
+                    :total-pages="articlesTotalPages"
+                    :total-items="userArticlesTotal"
+                    :items-per-page="itemsPerPage"
+                    @page-change="handleArticlesPageChange"
+                  />
                   <div v-else class="p-8 sm:p-12 rounded-2xl text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
                     <BookOpen class="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" style="color: var(--theme-text-secondary);" />
                     <h3 class="text-lg font-medium mb-2" style="color: var(--theme-text);">还没有文章</h3>
@@ -1835,7 +1908,9 @@ const dashboardCards = computed(() => {
                             <h4 class="font-medium mb-1 truncate" style="color: var(--theme-text);">{{ q.title }}</h4>
                             <div class="flex items-center gap-2 flex-wrap text-xs" style="color: var(--theme-text-secondary);">
                               <span v-if="q.categoryName" class="px-2 py-0.5 rounded-full" style="background-color: var(--theme-accent);">{{ q.categoryName }}</span>
-                              <span>通过率 {{ Math.round((q.acceptanceRate || 0) * 100) }}%</span>
+                              <!-- 清单 P2：后端 acceptance_rate 存的就是 0-100（success*100/total），
+                                   原处再乘 100 会显示成 4500% 这类错值；此处按原值展示并夹取到 0-100。 -->
+                              <span>通过率 {{ Math.min(100, Math.max(0, Math.round(q.acceptanceRate || 0))) }}%</span>
                               <span>· {{ q.submissionCount || 0 }} 次提交</span>
                             </div>
                           </div>
@@ -2131,15 +2206,15 @@ const dashboardCards = computed(() => {
                       <Link
                         v-for="u in followingList"
                         :key="u.id"
-                        :to="`/author/${u.id}`"
+                        :to="`/author/${u.userId}`"
                         class="flex items-center gap-3 p-4 rounded-xl transition-colors hover:opacity-80"
                         style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                       >
                         <img
-                          :src="getSafeAvatar(u.avatar, String(u.id))"
+                          :src="getSafeAvatar(u.avatar, String(u.userId))"
                           :alt="u.nickname || u.username || ''"
                           class="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                          @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(u.id))"
+                          @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(u.userId))"
                         />
                         <div class="min-w-0 flex-1">
                           <p class="font-medium mb-0.5 truncate" style="color: var(--theme-text);">{{ u.nickname || u.username || '匿名用户' }}</p>
@@ -2164,15 +2239,15 @@ const dashboardCards = computed(() => {
                       <Link
                         v-for="u in followersList"
                         :key="u.id"
-                        :to="`/author/${u.id}`"
+                        :to="`/author/${u.userId}`"
                         class="flex items-center gap-3 p-4 rounded-xl transition-colors hover:opacity-80"
                         style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                       >
                         <img
-                          :src="getSafeAvatar(u.avatar, String(u.id))"
+                          :src="getSafeAvatar(u.avatar, String(u.userId))"
                           :alt="u.nickname || u.username || ''"
                           class="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                          @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(u.id))"
+                          @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(u.userId))"
                         />
                         <div class="min-w-0 flex-1">
                           <p class="font-medium mb-0.5 truncate" style="color: var(--theme-text);">{{ u.nickname || u.username || '匿名用户' }}</p>

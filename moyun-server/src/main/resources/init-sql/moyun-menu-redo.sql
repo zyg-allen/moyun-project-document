@@ -370,6 +370,7 @@ INSERT INTO sys_menu (menu_name,parent_id,order_num,`path`,component,query,route
   ('支付订单查询',114,1,'',NULL,NULL,'',1,0,'F','0','0','cms:payOrder:query','#','admin','2026-08-28 09:24:22','',NULL,'','0'),
   ('支付订单关单',114,2,'',NULL,NULL,'',1,0,'F','0','0','cms:payOrder:close','#','admin','2026-08-28 09:24:22','',NULL,'','0'),
   ('银行卡详情',115,1,'',NULL,NULL,'',1,0,'F','0','0','cms:payBankCard:query','#','admin','2026-08-28 09:24:23','',NULL,'','0'),
+  ('银行卡人工核实',115,2,'',NULL,NULL,'',1,0,'F','0','0','cms:payBankCard:verify','#','admin','2026-10-01 00:00:00','',NULL,'四要素通道无法自动判定时的人工核实入口（v13.83）','0'),
   ('费率调整',116,1,'',NULL,NULL,'',1,0,'F','0','0','cms:payConfig:edit','#','admin','2026-08-28 09:24:23','',NULL,'','0'),
   ('收入总览查询',110,1,'',NULL,NULL,'',1,0,'F','0','0','cms:payRevenue:view','#','admin','2026-09-14 14:04:32','',NULL,'','0'),
   ('收入订单查询',111,1,'',NULL,NULL,'',1,0,'F','0','0','cms:payIncomeOrder:list','#','admin','2026-09-14 17:26:30','',NULL,'','0'),

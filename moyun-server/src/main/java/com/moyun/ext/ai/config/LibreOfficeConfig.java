@@ -3,7 +3,6 @@ package com.moyun.ext.ai.config;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jodconverter.core.office.OfficeManager;
-import org.jodconverter.local.LocalConverter;
 import org.jodconverter.local.office.LocalOfficeManager;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;

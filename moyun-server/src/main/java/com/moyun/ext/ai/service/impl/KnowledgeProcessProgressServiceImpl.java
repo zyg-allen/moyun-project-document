@@ -89,8 +89,7 @@ public class KnowledgeProcessProgressServiceImpl implements KnowledgeProcessProg
     public void releaseLock(Long knowledgeId) {
         DistributedLockUtil.Lock lock = heldLocks.get().remove(knowledgeId);
         if (lock == null) {
-            // 非本线程持有的锁：不得删除（历史实现无条件 delete，会误删已过期后
-            // 被其他实例重新获取的锁，导致互斥失效）
+            // 非本线程持有的锁：不得删除
             log.warn("释放处理锁跳过：当前线程未持有该锁 - ID={}, 线程={}",
                     knowledgeId, Thread.currentThread().getName());
             return;

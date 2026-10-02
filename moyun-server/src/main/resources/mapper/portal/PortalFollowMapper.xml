@@ -111,11 +111,34 @@
     </select>
 
     <select id="selectFollowerUserPage" resultType="com.moyun.portal.domain.vo.FollowUserVO">
-        SELECT f.id, f.follower_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at FROM portal_follow f LEFT JOIN portal_user u ON u.id = f.follower_id WHERE f.following_id = #{followingId} ORDER BY f.create_time DESC
+        <!--
+          观察者视角字段（清单 P1）：
+            目标用户 = f.follower_id（粉丝）
+            isMe         ：目标是否就是观察者本人
+            following    ：观察者是否已关注目标（粉丝列表里即"我是否回关"）
+            mutual_follow：双方互相关注
+          观察者为游客（viewerId 为 null）时三个字段一律 NULL —— 与"未关注(false)"区分。
+        -->
+        SELECT f.id, f.follower_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at,
+               CASE WHEN #{viewerId} IS NULL THEN NULL WHEN f.follower_id = #{viewerId} THEN 1 ELSE 0 END AS is_me,
+               CASE WHEN #{viewerId} IS NULL THEN NULL
+                    ELSE EXISTS(SELECT 1 FROM portal_follow x WHERE x.follower_id = #{viewerId} AND x.following_id = f.follower_id) END AS following,
+               CASE WHEN #{viewerId} IS NULL THEN NULL
+                    ELSE (EXISTS(SELECT 1 FROM portal_follow x WHERE x.follower_id = #{viewerId} AND x.following_id = f.follower_id)
+                          AND EXISTS(SELECT 1 FROM portal_follow y WHERE y.follower_id = f.follower_id AND y.following_id = #{viewerId})) END AS mutual_follow
+        FROM portal_follow f LEFT JOIN portal_user u ON u.id = f.follower_id WHERE f.following_id = #{followingId} ORDER BY f.create_time DESC
     </select>
 
     <select id="selectFollowingUserPage" resultType="com.moyun.portal.domain.vo.FollowUserVO">
-        SELECT f.id, f.following_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at FROM portal_follow f LEFT JOIN portal_user u ON u.id = f.following_id WHERE f.follower_id = #{followerId} ORDER BY f.create_time DESC
+        <!-- 同 selectFollowerUserPage：目标用户 = f.following_id（被关注者） -->
+        SELECT f.id, f.following_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at,
+               CASE WHEN #{viewerId} IS NULL THEN NULL WHEN f.following_id = #{viewerId} THEN 1 ELSE 0 END AS is_me,
+               CASE WHEN #{viewerId} IS NULL THEN NULL
+                    ELSE EXISTS(SELECT 1 FROM portal_follow x WHERE x.follower_id = #{viewerId} AND x.following_id = f.following_id) END AS following,
+               CASE WHEN #{viewerId} IS NULL THEN NULL
+                    ELSE (EXISTS(SELECT 1 FROM portal_follow x WHERE x.follower_id = #{viewerId} AND x.following_id = f.following_id)
+                          AND EXISTS(SELECT 1 FROM portal_follow y WHERE y.follower_id = f.following_id AND y.following_id = #{viewerId})) END AS mutual_follow
+        FROM portal_follow f LEFT JOIN portal_user u ON u.id = f.following_id WHERE f.follower_id = #{followerId} ORDER BY f.create_time DESC
     </select>
 
 </mapper>

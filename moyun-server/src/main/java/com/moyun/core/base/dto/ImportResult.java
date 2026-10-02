@@ -15,7 +15,7 @@ import java.util.List;
  * 成功/失败统计与失败明细表格，并支持"下载失败行 Excel"二次修正后重导。
  * <p>
  * 设计要点：
- * 1. 结构化错误明细（FailRow 列表），不再依赖拼接字符串（旧 RuoYi importXxx 返回 String 模式）
+ * 1. 结构化错误明细（FailRow 列表）
  * 2. 支持失败行原始数据回传（rowData），前端可下载修正后重导
  * 3. msg 提供摘要文本，便于无明细场景的简化提示
  *

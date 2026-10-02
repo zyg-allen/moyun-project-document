@@ -11,7 +11,7 @@ import { hasPendingAiRequests } from './api/client'
 // 初始化主题系统
 initTheme()
 
-// v10.23：AI 慢请求进行中，关闭/刷新页面前提醒（浏览器原生确认框）
+// AI 慢请求进行中，关闭/刷新页面前提醒（浏览器原生确认框）
 window.addEventListener('beforeunload', (e) => {
   if (hasPendingAiRequests()) {
     e.preventDefault()

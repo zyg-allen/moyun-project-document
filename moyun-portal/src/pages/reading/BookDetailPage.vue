@@ -9,10 +9,11 @@ import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BookshelfButton from '@/components/reading/BookshelfButton.vue';
 import { generateSeo } from '@/utils/seo';
+import { useDictData } from '@/composables/useDictData';
 import { getBookDetail, getBookChapterList, getReadingProgress, toggleQuoteLike, checkQuoteLike } from '@/api/reading';
 import { useAuth } from '@/composables/useAuth';
 import { useToast } from '@/composables/useToast';
-import { formatShortDate } from '@/utils/date';
+import { formatDate, formatShortDate } from '@/utils/date';
 import type { Book, BookChapter, BookQuote, ReadingProgress } from '@/types/api';
 
 const route = useRoute();
@@ -35,6 +36,10 @@ async function handleQuoteLike(quote: BookQuote & { liked?: boolean }) {
     if (resp.code === 200 && resp.data) {
       quote.liked = resp.data.liked;
       quote.likeCount = resp.data.likeCount;
+    } else {
+      // 清单 P2：业务失败（code!==200 / data 为空）原先**静默** —— 只有抛异常才提示，
+      // 用户点了没反应，以为点赞成功。这里与异常分支一致地给出提示。
+      toast.error(resp.message || '点赞失败，请稍后重试');
     }
   } catch (e) {
     toast.error((e as Error)?.message || '点赞失败，请稍后重试');
@@ -66,10 +71,13 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const book = ref<Book | null>(null);
 const quotes = ref<BookQuote[]>([]);
-// v1.0 新增：章节目录（仅 novel/longform 类型加载）
+// 章节目录（仅 novel/longform 类型加载）
 const chapters = ref<BookChapter[]>([]);
 const chaptersLoading = ref(false);
-// v1.0 第二阶段：阅读进度（用于"继续阅读"入口）
+
+/** 章节目录是否展开全部（清单 P2：默认只展示前 12 章） */
+const showAllChapters = ref(false);
+// 阅读进度（用于"继续阅读"入口）
 const readingProgress = ref<ReadingProgress | null>(null);
 
 // 书籍标签数组（Book.tags 是字符串，需要拆分）
@@ -95,18 +103,26 @@ async function loadBookDetail() {
     return;
   }
 
+  // 清单 P2：切换书籍时组件复用，原实现不清空旧数据，新数据回来前会短暂显示**上一本书**的
+  // 简介/金句/章节；且 loadChapters / loadQuoteLikeStates 是 fire-and-forget，
+  // 慢响应可能覆盖新书数据。这里先清空，并在响应处校验书籍 id 未变。
+  book.value = null;
+  quotes.value = [];
+  chapters.value = [];
+
   loading.value = true;
   error.value = null;
   try {
     const response = await getBookDetail(bookId);
+    if (route.params.id !== bookId) return;   // 已切到别的书：丢弃过期响应
     if (response.code === 200 && response.data) {
       book.value = response.data.book;
       quotes.value = response.data.quotes || [];
       // 已登录时，加载金句点赞状态
       loadQuoteLikeStates(quotes.value.map((q) => q.id));
-      // v1.0：网络小说/长文文章类型，加载章节目录
+      // 网络小说/长文文章类型，加载章节目录
       loadChapters(bookId);
-      // v1.0 第二阶段：登录用户加载阅读进度（用于"继续阅读"）
+      // 登录用户加载阅读进度（用于"继续阅读"）
       loadReadingProgress(bookId);
     } else {
       error.value = response.message || '加载书籍详情失败';
@@ -125,25 +141,29 @@ async function loadBookDetail() {
   }
 }
 
-// v1.0 新增：加载章节目录
+// 加载章节目录
 async function loadChapters(bookId: string | number) {
   chaptersLoading.value = true;
   try {
+    // 清单 P2：切书后旧请求的章节列表不得覆盖新书
+    const requestedId = String(bookId);
     const resp = await getBookChapterList(bookId);
+    if (String(route.params.id) !== requestedId) return;   // 已切书：丢弃过期响应
     if (resp.code === 200 && resp.data) {
       chapters.value = Array.isArray(resp.data) ? resp.data : [];
     } else {
       chapters.value = [];
     }
   } catch (err) {
+    if (String(route.params.id) !== String(bookId)) return;
     console.warn('加载章节目录失败:', err);
     chapters.value = [];
   } finally {
-    chaptersLoading.value = false;
+    if (String(route.params.id) === String(bookId)) chaptersLoading.value = false;
   }
 }
 
-// v1.0 第二阶段：加载阅读进度（登录用户）
+// 加载阅读进度（登录用户）
 async function loadReadingProgress(bookId: string | number) {
   readingProgress.value = null;
   if (!isAuthenticated()) return;
@@ -182,23 +202,30 @@ const latestChapter = computed(() => {
   return chapters.value[chapters.value.length - 1];
 });
 
-// 书籍类型显示文本
-const bookTypeText = computed(() => {
-  const t = book.value?.type;
-  if (t === 'novel') return '网络小说';
-  if (t === 'longform') return '长文文章';
-  if (t === 'published') return '出版书籍';
-  return '';
-});
+// 书籍类型 / 连载状态显示文本：字典驱动 + 本地兜底（v13.92）
+//
+// 原先写死在组件内，与库里的字典口径各写一份；两个字典此前"有类型无数据"，已同期补齐。
+const bookDict = useDictData(['portal_book_type', 'portal_book_serial_status']);
+const BOOK_TYPE_FALLBACK: Record<string, string> = {
+  novel: '网络小说',
+  longform: '长文文章',
+  published: '出版书籍',
+};
+const SERIAL_STATUS_FALLBACK: Record<string, string> = {
+  ongoing: '连载中',
+  completed: '已完结',
+  hiatus: '暂停更新',
+};
 
-// 连载状态显示文本
-const serialStatusText = computed(() => {
-  const s = book.value?.serialStatus;
-  if (s === 'ongoing') return '连载中';
-  if (s === 'completed') return '已完结';
-  if (s === 'hiatus') return '暂停更新';
-  return '';
-});
+/** 优先取字典 label，字典缺失时退回本地兜底；两者都没有则返回空串（模板据此隐藏标签） */
+function dictLabelOf(dictType: string, code?: string, fallback?: Record<string, string>): string {
+  if (!code) return '';
+  const fromDict = (bookDict[dictType] || []).find(i => i.dictValue === code)?.dictLabel;
+  return fromDict || fallback?.[code] || '';
+}
+
+const bookTypeText = computed(() => dictLabelOf('portal_book_type', book.value?.type, BOOK_TYPE_FALLBACK));
+const serialStatusText = computed(() => dictLabelOf('portal_book_serial_status', book.value?.serialStatus, SERIAL_STATUS_FALLBACK));
 
 // 跳转到章节阅读
 function goReadChapter(chapterId: string | number) {
@@ -368,7 +395,7 @@ watch(
                 </div>
                 <div v-if="book.publishDate" class="flex items-center gap-2" style="color: rgba(255, 255, 255, 0.9);">
                   <Calendar class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                  <span class="text-sm">{{ formatShortDate(book.publishDate) }}</span>
+                  <span class="text-sm">{{ formatDate(book.publishDate, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD') }}</span>
                 </div>
                 <div v-if="book.pageCount" class="flex items-center gap-2" style="color: rgba(255, 255, 255, 0.9);">
                   <FileText class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
@@ -445,7 +472,7 @@ watch(
                 </span>
               </div>
 
-              <!-- v1.0 新增：开始阅读/继续阅读 + 加入书架 + 最新章节 -->
+              <!-- 开始阅读/继续阅读 + 加入书架 + 最新章节 -->
               <div v-if="hasChapters" class="flex flex-wrap items-center gap-3">
                 <!-- 继续阅读（有阅读进度时优先显示） -->
                 <button
@@ -513,7 +540,7 @@ watch(
             </p>
           </section>
 
-          <!-- v1.0 新增：章节目录 -->
+          <!-- 章节目录 -->
           <section
             v-if="hasChapters"
             class="rounded-xl p-6 sm:p-8 shadow-sm hover:shadow-md transition"
@@ -544,7 +571,7 @@ watch(
             </div>
             <ul v-else class="grid grid-cols-1 sm:grid-cols-2 gap-1">
               <li
-                v-for="chapter in chapters.slice(0, 12)"
+                v-for="chapter in (showAllChapters ? chapters : chapters.slice(0, 12))"
                 :key="chapter.id"
               >
                 <button
@@ -572,6 +599,18 @@ watch(
                 </button>
               </li>
             </ul>
+
+            <!-- 清单 P2：原固定 slice(0,12)，第 13 章及以后在详情页无法选择 -->
+            <div v-if="chapters.length > 12" class="mt-3 text-center">
+              <button
+                type="button"
+                class="text-sm font-medium transition-colors hover:opacity-80"
+                style="color: var(--theme-primary);"
+                @click="showAllChapters = !showAllChapters"
+              >
+                {{ showAllChapters ? '收起章节' : `展开全部 ${chapters.length} 章` }}
+              </button>
+            </div>
             <div v-if="chapters.length > 12" class="mt-4 text-center">
               <button
                 v-if="firstChapter"

@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 /**
  * SQL 模板变量（{@code ${}}）最后一道闸：{@code params[dataScope]} 必须来自数据权限切面
  *
- * <h3>为什么需要它（v13.8）</h3>
+ * <h3>为什么需要它</h3>
  * <p>MyBatis 的 {@code ${}} 是**文本替换**，没有参数绑定保护，安全与否完全取决于"内容是谁写的"。
  * 项目里两类 {@code ${}} 的信任来源不同：</p>
  *

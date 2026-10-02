@@ -54,7 +54,7 @@ public class PortalPayController {
         if (userId == null) {
             return AjaxResult.error(401, "登录已过期，请重新登录");
         }
-        // v13.17：越权防护——payNo 可被枚举/猜测，原实现仅校验"已登录"，
+        // 越权防护——payNo 可被枚举/猜测，仅校验"已登录"时，
         // 任意登录用户都能读到**他人订单**的金额/支付链接/过期时间（IDOR）
         PayOrder order = ownOrderOrNull(payNo, userId);
         if (order == null) {
@@ -79,7 +79,7 @@ public class PortalPayController {
         if (userId == null) {
             return AjaxResult.error(401, "登录已过期，请重新登录");
         }
-        // v13.17：越权防护（必须早于 mockPaySuccess）——原实现只校验"已登录 + mock 已开启"，
+        // 越权防护（必须早于 mockPaySuccess）——若只校验"已登录 + mock 已开启"，
         // 任意登录用户可把**他人订单**置为支付成功，进而触发真实后续链路（发卡/记账/打赏到账）
         if (ownOrderOrNull(payNo, userId) == null) {
             return AjaxResult.error(403, "订单不存在或无权操作");
@@ -92,7 +92,7 @@ public class PortalPayController {
     }
 
     /**
-     * 取"当前用户名下"的订单（v13.17 越权防护收口）
+     * 取"当前用户名下"的订单（越权防护收口）
      *
      * <p>订单归属校验只此一处：{@code /status} 与 {@code /mock} 都走它，避免各端点各写一份、
      * 新增端点时漏掉归属判断。查不到订单与订单不属于自己返回同一个 {@code null}（不泄露订单是否存在）。</p>

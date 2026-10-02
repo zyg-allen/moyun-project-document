@@ -1,7 +1,9 @@
 package com.moyun.portal.controller;
 
 import com.moyun.common.annotation.Anonymous;
+import com.moyun.common.annotation.Log;
 import com.moyun.common.constant.HttpStatus;
+import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.page.PageDomain;
@@ -68,14 +70,32 @@ public class PortalColumnController extends BaseController {
         return AjaxResult.success(columnService.saveColumn(vo, userId));
     }
 
-    @Operation(summary = "完结/恢复连载", description = "切换 is_finished 状态，仅作者本人")
+    @Operation(summary = "提交专栏审核",
+            description = "作者主动送审：draft/rejected → pending，并创建统一审核任务；仅作者本人可调用")
+    @Log(title = "门户专栏", businessType = BusinessType.UPDATE)
+    @PutMapping("/{id:[0-9]+}/submit")
+    public AjaxResult submitForAudit(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            return AjaxResult.success(columnService.submitForAudit(id, userId));
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "提交审核失败");
+        }
+    }
+
+    @Operation(summary = "完结/恢复连载", description = "切换 is_finished 状态，仅作者本人；返回切换后的专栏详情")
     @PutMapping("/{id:[0-9]+}/finish")
     public AjaxResult toggleFinish(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        return AjaxResult.success(columnService.toggleFinish(id, userId));
+        columnService.toggleFinish(id, userId);
+        // 返回切换后的最新详情：前端需要整份 VO 回填（原返回 int 会让前端把 column 覆盖成数字）
+        return AjaxResult.success(columnService.getColumnDetail(id, userId));
     }
 
     @Operation(summary = "删除专栏", description = "仅作者本人，级联删除关联与订阅")
@@ -88,14 +108,16 @@ public class PortalColumnController extends BaseController {
         return AjaxResult.success(columnService.deleteColumn(id, userId));
     }
 
-    @Operation(summary = "切换订阅", description = "订阅/取消订阅（toggle），返回操作后的订阅状态")
+    @Operation(summary = "切换订阅", description = "订阅/取消订阅（toggle）；返回切换后的专栏详情（含 isSubscribed 与权威 subscribeCount）")
     @PostMapping("/{id:[0-9]+}/subscribe")
     public AjaxResult toggleSubscribe(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        return AjaxResult.success(columnService.toggleSubscribe(id, userId));
+        columnService.toggleSubscribe(id, userId);
+        // 返回切换后的最新详情：订阅状态与订阅数必须由后端给出权威值（原返回 boolean 会让前端读到 undefined）
+        return AjaxResult.success(columnService.getColumnDetail(id, userId));
     }
 
     // ==================== 我的专栏（需登录） ====================

@@ -25,8 +25,10 @@ useHead(computed(() => generateSeo({
 const loading = ref(true);
 const error = ref<string | null>(null);
 const graph = ref<KnowledgeGraph | null>(null);
-// v5.9 阶段3：画像薄弱点（与图谱数据源一致，用于高亮与跳转）
+// 画像薄弱点（与图谱数据源一致，用于高亮与跳转）
 const profile = ref<UserProfileSnapshotVO | null>(null);
+/** 画像加载失败降级标记（清单 P2）：失败时图谱退化为"全局标签云"，需在界面说明 */
+const profileDegraded = ref(false);
 const weakTagNames = computed<Set<string>>(() => {
   const set = new Set<string>();
   if (profile.value?.weakTags) {
@@ -63,9 +65,17 @@ async function loadGraph() {
   error.value = null;
   try {
     // 不传 userId：后端在已登录时回退到当前用户，未登录时返回全局标签云
+    // 清单 P2：画像（个性化标签/岗位必备技能）原先用 .catch(() => null) 静默降级 ——
+    // 用户只看到"标签云没有个性化标记"，不知道是自己的画像没取到。这里记录降级标记供界面说明。
+    profileDegraded.value = false;
     const [graphRes, profileRes] = await Promise.all([
       getKnowledgeGraph(),
-      isAuthenticated() ? getMyProfile({}).catch(() => null) : Promise.resolve(null),
+      isAuthenticated()
+        ? getMyProfile({}).catch(() => {
+            profileDegraded.value = true;
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
     if (graphRes.code === 200) {
       graph.value = graphRes.data;
@@ -248,7 +258,17 @@ const stats = computed(() => {
             </div>
           </section>
 
-          <!-- v5.9 阶段3：我的薄弱点侧栏（画像驱动） -->
+          <!-- 画像降级提示（清单 P2）：画像取不到时图谱退化为全局标签云，需要说明 -->
+          <div
+            v-if="profileDegraded && !profile"
+            class="px-4 py-3 rounded-lg text-sm flex items-center justify-between gap-3"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
+          >
+            <span>个性化画像加载失败，当前展示为全局标签云</span>
+            <button style="color: var(--theme-primary);" @click="loadGraph()">重试</button>
+          </div>
+
+          <!-- 我的薄弱点侧栏（画像驱动） -->
           <section
             v-if="profile && profile.personalized"
             class="rounded-lg p-4 sm:p-6"

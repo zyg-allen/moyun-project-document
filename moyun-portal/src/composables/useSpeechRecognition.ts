@@ -120,7 +120,7 @@ function buildStreamWsUrl(): string {
 }
 
 /**
- * 语音识别（ASR）Composable —— V10.1 语音面试官
+ * 语音识别（ASR）Composable
  *
  * <p>三引擎设计（按优先级）：
  * <ul>
@@ -378,7 +378,7 @@ export function useSpeechRecognition(options: SpeechRecognitionOptions = {}) {
 
     let ws: WebSocket;
     try {
-      // v13.21：用一次性票据建连（浏览器 WS 无法自定义请求头，而 ?token= 会让门户 JWT
+      // 用一次性票据建连（浏览器 WS 无法自定义请求头，而 ?token= 会让门户 JWT
       // 进 Nginx access log / 浏览器历史，且 JWT 有效期内可重放）
       const ticket = await requestWsTicket();
       ws = new WebSocket(`${buildStreamWsUrl()}?ticket=${encodeURIComponent(ticket)}`);

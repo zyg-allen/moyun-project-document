@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalArticleVersion;
-import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleVersionMapper;
 import com.moyun.portal.mapper.PortalUserMapper;

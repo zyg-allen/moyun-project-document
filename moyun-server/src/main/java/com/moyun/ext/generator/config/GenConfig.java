@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component;
 /**
  * 读取代码生成相关配置（来源 {@code classpath:generator.yml}）
  *
- * <p><b>历史缺陷与修复</b>（三重错误叠加，此前"能跑纯属巧合"）：</p>
+ * <p><b>实现要点与易错点</b>：</p>
  * <ol>
  *   <li>原类上标了 {@code @ConfigurationProperties(prefix = "gen")}，但字段全是
  *       {@code static} —— Spring 的 {@code @ConfigurationProperties} <b>不绑定静态字段</b>，
- *       该注解实际是空操作。<b>已移除</b>（保留会产生"配置类已绑定"的误导）。</li>
+ *       该注解实际是空操作（本类不使用它，以免产生"配置类已绑定"的误导）。</li>
  *   <li>原 {@code @Value("${author}")} 取的是<b>顶层键</b>，而配置源里只有
  *       {@code gen.author}。能读到值的唯一原因是第 3 点。<b>已改为 {@code ${gen.xxx}}</b>。</li>
  *   <li>原 {@code @PropertySource("classpath:generator.yml")} 用默认工厂，以

@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
-import {
-  Search, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye,
-  ChevronDown, ChevronRight, Settings, UserCircle, BookMarked,
-  HelpCircle, Lock, Bell, Flag, MessageSquare, Mic, FileText, Wallet
-} from 'lucide-vue-next';
+import { Search, LogOut, Menu, X, Palette, Sun, Moon, Eye, ChevronDown, ChevronRight, Settings, UserCircle, BookMarked, HelpCircle, Lock, Bell, Flag, MessageSquare, FileText, Wallet } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
 import { useMessageStore } from '@/stores/message';
@@ -22,7 +18,6 @@ const messageStore = useMessageStore();
 const { requireAuth } = useAuth();
 
 const isMenuOpen = ref(false);
-const searchQuery = ref('');
 const currentTheme = ref<Theme>(getCurrentTheme());
 const isThemeMenuOpen = ref(false);
 const activeNavItem = ref<string | null>(null);
@@ -175,7 +170,7 @@ const navItems = computed<NavItem[]>(() => {
       return true;
     });
 
-  // V10.4：AI 语音面试官入口已由 portal_category(interview-voice) 数据驱动，不再硬编码注入
+  // AI 语音面试官入口已由 portal_category(interview-voice) 数据驱动，不再硬编码注入
 
   return items;
 });
@@ -310,19 +305,8 @@ function handleGoToMyFeedback() {
   router.push('/my/feedback');
 }
 
-function handlePublish() {
-  // 检查是否登录，未登录则跳转到登录页
-  if (!requireAuth('/publish')) {
-    return;
-  }
-  router.push('/publish');
-}
 
 /** 语音面试官：固定功能入口（需登录，直接由路由 requiresAuth 兜底） */
-function handleGoVoiceInterview() {
-  if (!requireAuth('/interview/voice')) return;
-  router.push('/interview/voice');
-}
 
 function closeAllMenus() {
   isThemeMenuOpen.value = false;
@@ -384,7 +368,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <!-- 首页直接跳转 -->
             <template v-if="item.key === 'home'">
               <Link
-                  :to="item.path"
+                  :to="item.path || '/'"
                   class="px-3 xl:px-4 py-2 text-sm font-medium rounded-theme-lg text-theme-text hover:text-theme-primary hover:bg-theme-primary-soft transition-theme-fast"
               >
                 {{ item.name }}
@@ -393,7 +377,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <!-- 有 path 但无子菜单：直接跳转（动态分类等） -->
             <template v-else-if="item.path && item.children.length === 0">
               <Link
-                  :to="item.path"
+                  :to="item.path || '/'"
                   class="px-3 xl:px-4 py-2 text-sm font-medium rounded-theme-lg text-theme-text hover:text-theme-primary hover:bg-theme-primary-soft transition-theme-fast"
               >
                 {{ item.name }}
@@ -402,7 +386,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <!-- 外部链接项（isExternal=true） -->
             <template v-else-if="item.isExternal">
               <a
-                  :href="item.externalUrl"
+                  :href="item.externalUrl ?? '#'"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="px-3 xl:px-4 py-2 text-sm font-medium rounded-theme-lg text-theme-text hover:text-theme-primary hover:bg-theme-primary-soft transition-theme-fast"
@@ -467,7 +451,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                             </a>
                             <Link
                                 v-else
-                                :to="grandchild.path"
+                                :to="grandchild.path || '/'"
                                 @click="activeNavItem = null"
                                 class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-theme-md text-xs font-medium text-theme-text hover:bg-theme-surface-highlight transition-theme-fast group"
                             >
@@ -498,7 +482,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                         </a>
                         <Link
                             v-else
-                            :to="child.path"
+                            :to="child.path || '/'"
                             @click="activeNavItem = null"
                             class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded-theme-md text-sm font-semibold text-theme-text hover:bg-theme-surface-highlight transition-theme-fast group"
                         >
@@ -604,7 +588,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     :alt="currentUser.username"
                     class="w-7 h-7 rounded-theme-full"
                     loading="lazy"
-                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser.id)"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(currentUser?.id ?? ''))"
                 />
               </button>
 
@@ -741,7 +725,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           <!-- 首页直接跳转 -->
           <Link
               v-if="item.key === 'home'"
-              :to="item.path"
+              :to="item.path || '/'"
               @click="isMenuOpen = false"
               class="flex items-center gap-2 border border-theme-border rounded-theme-lg px-4 py-2.5 text-theme-text bg-theme-surface"
           >
@@ -751,7 +735,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           <!-- 外部链接项 -->
           <a
               v-else-if="item.isExternal"
-              :href="item.externalUrl"
+              :href="item.externalUrl ?? '#'"
               target="_blank"
               rel="noopener noreferrer"
               @click="isMenuOpen = false"
@@ -828,7 +812,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                       </a>
                       <Link
                           v-else
-                          :to="grandchild.path"
+                          :to="grandchild.path || '/'"
                           @click="isMenuOpen = false"
                           class="flex items-center gap-2 px-7 py-2 text-xs text-theme-text group"
                           :class="gidx > 0 ? 'border-t border-theme-border' : ''"
@@ -867,7 +851,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                 <!-- 二级无三级子项：内部路由 -->
                 <Link
                     v-else
-                    :to="child.path"
+                    :to="child.path || '/'"
                     @click="isMenuOpen = false"
                     class="flex items-center gap-2 px-5 py-2 text-xs text-theme-text group"
                     :class="idx > 0 ? 'border-t border-theme-border' : ''"

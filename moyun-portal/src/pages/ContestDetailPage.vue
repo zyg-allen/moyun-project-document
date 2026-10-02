@@ -7,6 +7,7 @@ import {
   Trophy, Calendar, Gift, Heart, FileText, Loader2, Send,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import { useDictData } from '@/composables/useDictData';
 import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
@@ -63,8 +64,20 @@ watch(contestId, (newId, oldId) => {
   }
 });
 
-async function loadDetail() {
-  loading.value = true;
+/**
+ * 加载活动详情。
+ *
+ * @param silent 静默刷新（清单 P2）：投稿成功后的刷新不应把整页替换成加载圈
+ *               （模板 `v-if="loading"` / `v-else-if="contest"` 互斥，会闪一下）。
+ */
+async function loadDetail(silent = false) {
+  // 清单 P2：contestId 未校验格式，非数字 id 会拼进后端路径变量触发类型转换异常
+  if (!/^\d+$/.test(contestId.value)) {
+    loading.value = false;
+    error.value = '活动不存在或已结束';
+    return;
+  }
+  if (!silent) loading.value = true;
   error.value = null;
   try {
     const res = await getContestDetail(contestId.value);
@@ -92,6 +105,12 @@ async function handleSubmit() {
     toast.error('请输入文章ID');
     return;
   }
+  // 清单 P2：原先"文章ID"是纯文本框，无格式校验，非数字会被拼进后端 Long 参数触发转换异常。
+  // 这里先做格式校验（可在「我的文章」里复制文章 ID）。
+  if (!/^\d+$/.test(aid)) {
+    toast.error('文章ID 必须是数字，可在「我的文章」中查看');
+    return;
+  }
   submitting.value = true;
   try {
     const res = await submitContest(contest.value.id, aid);
@@ -99,7 +118,7 @@ async function handleSubmit() {
       articleIdInput.value = '';
       hasSubmitted.value = true;
       toast.success('投稿成功');
-      await loadDetail();
+      await loadDetail(true);   // 静默刷新：不闪加载态
     } else {
       toast.error(res.message || '投稿失败');
     }
@@ -111,9 +130,59 @@ async function handleSubmit() {
   }
 }
 
+/**
+ * 当前是否可投票：与后端 toggleVote 的门禁同一口径
+ * （活动 status 必须为 voting，且未过 voteEndTime）。
+ * 页面此前已在展示"投票截止"，但按钮不做任何判断 ⇒ 未开始/已结束的活动也能点、后端也放行。
+ */
+const canVote = computed(() => {
+  const c = contest.value;
+  if (!c || c.status !== 'voting') return false;
+  if (c.voteEndTime) {
+    const end = new Date(String(c.voteEndTime).replace(/-/g, '/')).getTime();
+    if (!Number.isNaN(end) && Date.now() > end) return false;
+  }
+  return true;
+});
+
+const voteClosedHint = computed(() => {
+  const c = contest.value;
+  if (!c) return '';
+  if (c.status === 'ended') return '活动已结束，投票已关闭';
+  if (c.status === 'collecting') return '征集阶段暂未开放投票';
+  if (c.status === 'draft') return '活动尚未开始';
+  if (!canVote.value) return '投票已截止';
+  return '';
+});
+
+/** 投票在途锁（清单 P2）：原投票按钮只绑 canVote，连点/双击会发出两次 toggle 请求 */
+const votingId = ref<string | number | null>(null);
+
+/**
+ * 是否为当前用户自己的投稿（清单 P2）。
+ *
+ * <p>后端 `toggleVote` 只按 submissionId 查重投票记录，**没有任何"不能给自己投票"的限制**，
+ * 前端原先也未处理。这里先行拦截（后端补门禁另见对账记录），避免自投把票数刷高。</p>
+ */
+function isOwnSubmission(sub: ContestSubmissionVO): boolean {
+  const uid = userStore.user?.id;
+  return uid != null && sub.userId != null && String(sub.userId) === String(uid);
+}
+
 async function handleVote(sub: ContestSubmissionVO) {
   if (!requireAuth(router.currentRoute.value.fullPath)) return;
   if (!sub.id) return;
+  if (votingId.value === sub.id) return;   // 该条正在投票：忽略连点
+  if (isOwnSubmission(sub)) {
+    toast.warning('不能给自己的投稿投票');
+    return;
+  }
+  votingId.value = sub.id;
+  // 前端先行拦截（后端同样有门禁，此处避免无谓请求与困惑）
+  if (!canVote.value) {
+    toast.warning(voteClosedHint.value || '当前不可投票');
+    return;
+  }
   try {
     const res = await voteSubmission(sub.id);
     if (res.code === 200 && res.data) {
@@ -130,6 +199,8 @@ async function handleVote(sub: ContestSubmissionVO) {
   } catch (err) {
     const e = err as { message?: string };
     toast.error(e?.message || '投票失败，请稍后重试');
+  } finally {
+    votingId.value = null;
   }
 }
 
@@ -141,14 +212,35 @@ function isVoted(sub: ContestSubmissionVO) {
   return sub.id != null && votedIds.value.has(sub.id);
 }
 
-function statusMeta(status?: string) {
-  switch (status) {
-    case 'collecting': return { label: '征稿中', color: '#16a34a' };
-    case 'voting': return { label: '投票中', color: '#d97706' };
-    case 'ended': return { label: '已结束', color: '#6b7280' };
-    case 'draft': return { label: '草稿', color: '#9ca3af' };
-    default: return { label: '进行中', color: 'var(--theme-primary)' };
+// 活动状态文案：字典 cms_contest_status 驱动（v13.92；该字典此前"有类型无数据"，已同期补齐）
+// 颜色保留本地色板：色值属展示样式，字典 list_class 映射的是徽章类名，两者口径不同，不强行合并。
+const CONTEST_STATUS_COLORS: Record<string, string> = {
+  collecting: '#16a34a',
+  voting: '#d97706',
+  ended: '#6b7280',
+  draft: '#9ca3af',
+};
+const CONTEST_STATUS_LABELS: Record<string, string> = {
+  collecting: '征稿中',
+  voting: '投票中',
+  ended: '已结束',
+  draft: '草稿',
+};
+const contestDict = useDictData(['cms_contest_status']);
+const contestStatusLabels = computed<Record<string, string>>(() => {
+  const m: Record<string, string> = { ...CONTEST_STATUS_LABELS };
+  for (const i of contestDict['cms_contest_status'] || []) {
+    m[i.dictValue] = i.dictLabel;
   }
+  return m;
+});
+
+function statusMeta(status?: string) {
+  const key = status || '';
+  return {
+    label: contestStatusLabels.value[key] || '进行中',
+    color: CONTEST_STATUS_COLORS[key] || 'var(--theme-primary)'
+  };
 }
 
 function submissionStatusMeta(status?: string) {
@@ -193,7 +285,7 @@ const canSubmit = computed(() => {
     >
       <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ error }}</p>
       <button
-        @click="loadDetail"
+        @click="loadDetail()"
         class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
         style="background-color: var(--theme-primary);"
       >
@@ -386,17 +478,21 @@ const canSubmit = computed(() => {
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <button
                     @click="handleVote(sub)"
-                    class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-80"
+                    :disabled="!canVote || votingId === sub.id || isOwnSubmission(sub)"
+                    class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
                     :style="{
                       backgroundColor: isVoted(sub) ? '#ef4444' : 'var(--theme-bg)',
                       color: isVoted(sub) ? '#fff' : 'var(--theme-text-secondary)',
                       border: '1px solid var(--theme-border)',
                     }"
-                    :title="isVoted(sub) ? '取消投票' : '投一票'"
+                    :title="isOwnSubmission(sub) ? '不能给自己的投稿投票' : (!canVote ? (voteClosedHint || '当前不可投票') : (isVoted(sub) ? '取消投票' : '投一票'))"
                   >
                     <Heart class="w-3.5 h-3.5 mr-1" :fill="isVoted(sub) ? 'currentColor' : 'none'" />
                     {{ sub.voteCount || 0 }}
                   </button>
+                  <span v-if="!canVote" class="text-[11px]" style="color: var(--theme-text-secondary);">
+                    {{ voteClosedHint }}
+                  </span>
                   <button
                     @click="gotoArticle(sub.articleId)"
                     class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-80"

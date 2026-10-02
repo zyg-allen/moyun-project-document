@@ -25,7 +25,7 @@ class LocalExcerptStrategy implements ExcerptStrategy {
     
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
-    let text = tempDiv.textContent || tempDiv.innerText || '';
+    const text = tempDiv.textContent || tempDiv.innerText || '';
     
     return text
       .replace(/\s+/g, ' ')

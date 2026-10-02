@@ -451,7 +451,6 @@ const totalPages = ref(0)
 
 // 配置 marked
 const renderer = new marked.Renderer()
-const originalCodeRenderer = renderer.code.bind(renderer)
 
 renderer.code = function(code, language) {
   const validLanguage = language && hljs.getLanguage(language) ? language : 'plaintext'
@@ -684,7 +683,7 @@ const loadConversations = async (options = {}) => {
   } catch (error) {
     console.error('加载会话列表失败:', error)
   } finally {
-    // 无论走哪个分支都复位加载状态（此前自动选中分支外的路径会泄漏为 true）
+    // 无论走哪个分支都复位加载状态
     if (!silent) {
       isLoadingMessages.value = false
     }
@@ -1318,18 +1317,8 @@ const onFileError = (error) => {
   ElMessage.error('文件预览失败，请尝试下载后查看')
 }
 
-// PDF工具栏控制（暂时隐藏缩放功能，使用自适应宽度）
-const zoomIn = () => {
-  // 自适应宽度模式下不需要缩放
-}
 
-const zoomOut = () => {
-  // 自适应宽度模式下不需要缩放
-}
 
-const resetZoom = () => {
-  // 自适应宽度模式下不需要缩放
-}
 
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
@@ -1763,19 +1752,6 @@ const uuidToNumber = (uuid) => {
   return number % 1000000
 }
 
-// 转换特殊字符 - 先转义HTML特殊字符，再处理换行和空格
-const convertStreamOutput = (output) => {
-  if (!output) return ''
-  return output
-    .replace(/&/g, '&amp;')   // 先转义 &
-    .replace(/</g, '&lt;')    // 转义 <
-    .replace(/>/g, '&gt;')    // 转义 >
-    .replace(/"/g, '&quot;')  // 转义 "
-    .replace(/'/g, '&#39;')   // 转义 '
-    .replace(/\n/g, '<br>')   // 换行符转为 <br>
-    .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')  // Tab转为空格
-    .replace(/  /g, '&nbsp;&nbsp;')  // 连续空格转为 &nbsp;
-}
 
 const newChat = () => {
   createNewConversation()

@@ -152,11 +152,6 @@ function setLayout() {
     height: 100%;
   }
 
-  .errLog-container {
-    display: inline-block;
-    vertical-align: top;
-  }
-
   .right-menu {
     float: right;
     height: 100%;

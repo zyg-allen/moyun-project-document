@@ -257,7 +257,7 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
 
     /**
      * 将库级配置合并到 effective（仅填充 effective 中仍为 null 或默认值的字段）。
-     * 库级配置的 13 个冗余字段全部复制（含旧版有损转换遗漏的 embeddingModel / rerankModel）。
+     * 库级配置的 13 个冗余字段全部复制（含 embeddingModel / rerankModel）。
      */
     private void mergeLibraryConfig(KnowledgeConfig effective, KnowledgeLibraryConfig lib) {
         // 分段配置

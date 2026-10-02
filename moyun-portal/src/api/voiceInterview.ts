@@ -2,11 +2,11 @@ import { httpGet, httpPost } from './client';
 import { getToken, trackAiSlowRequest, untrackAiSlowRequest } from './client';
 
 /**
- * 语音面试官 API（V10.0 + V10.1）
+ * 语音面试官 API
  * 后端：PortalVoiceInterviewController，路径 /portal/interview/voice
  */
 
-// ==================== V10.0 HintEngine（保留） ====================
+// ==================== HintEngine ====================
 
 /** 提示级别 1~3 */
 export type HintLevel = 1 | 2 | 3;
@@ -29,7 +29,7 @@ export const getInterviewKeywords = (questionId: number | string) => {
   return httpGet<string[]>('/portal/interview/voice/keywords', { questionId });
 };
 
-// ==================== V10.1 语音面试官 MVP ====================
+// ==================== 语音面试官 MVP ====================
 
 /** 难度 */
 export type VoiceDifficulty = 'easy' | 'medium' | 'hard';
@@ -37,7 +37,7 @@ export type VoiceDifficulty = 'easy' | 'medium' | 'hard';
 /** 开始面试请求配置（V3 纯 agent 自由面试：5 个配置字段） */
 export interface VoiceStartConfig {
   position?: string;
-  /** v11.90 V2：岗位要求 JD（面试官提问方向与深度贴合岗位要求，上限 2000 字） */
+  /** 岗位要求 JD（面试官提问方向与深度贴合岗位要求，上限 2000 字） */
   jobRequirements?: string;
   resumeId?: number;
   difficulty?: VoiceDifficulty;
@@ -49,7 +49,7 @@ export interface VoiceInterviewQaVO {
   id: number;
   interviewId: number;
   questionId?: number;
-  /** V11.0：问题来源 bank=题库/resume_project=简历锚定/llm=智能体生成 */
+  /** 问题来源 bank=题库/resume_project=简历锚定/llm=智能体生成 */
   questionSource?: string;
   questionIdx: number;
   parentQaId?: number;
@@ -72,7 +72,7 @@ export interface VoiceInterviewVO {
   userId: number;
   position?: string;
   resumeId?: number;
-  /** V11.0：面试官智能体绑定 */
+  /** 面试官智能体绑定 */
   agentId?: number;
   agentName?: string;
   status: string;
@@ -83,11 +83,11 @@ export interface VoiceInterviewVO {
   summary?: string;
   configJson?: string;
   createTime?: string;
-  /** v11.96 时长制：本场面试时长（分钟，缺省 20） */
+  /** 本场面试时长（分钟，缺省 20） */
   durationMinutes?: number;
-  /** v11.96：报告分析状态（0未分析/1分析中/2已完成） */
+  /** 报告分析状态（0未分析/1分析中/2已完成） */
   analysisStatus?: number;
-  /** v11.96：报告分析进度（0-100） */
+  /** 报告分析进度（0-100） */
   analysisProgress?: number;
   qaList?: VoiceInterviewQaVO[];
   currentQa?: VoiceInterviewQaVO;
@@ -130,50 +130,50 @@ export interface VoiceInterviewReportVO {
   questionReviews?: QuestionReview[];
   summary?: string;
   suggestion?: string;
-  /** 相关知识点归纳（V10.2 LLM 版启用，MVP 可空） */
+  /** 相关知识点归纳（LLM 版启用，MVP 可空） */
   knowledgePoints?: KnowledgePointItem[];
-  /** V11.0：心态趋势（逐轮 nervous/confident/hesitant/calm） */
+  /** 心态趋势（逐轮 nervous/confident/hesitant/calm） */
   sentimentTrend?: string[];
-  /** V11.0：全场可疑信号汇总 */
+  /** 全场可疑信号汇总 */
   redFlags?: string[];
-  /** V11.0：表达流畅度均分（0-100） */
+  /** 表达流畅度均分（0-100） */
   fluencyAvg?: number;
   /** v11.x：自我介绍独立评分（4维度+总分+评语，旧会话无此字段时隐藏） */
   introScore?: IntroScoreView;
   /** v11.x：针对性改进建议（薄弱点/自我介绍不足/错题） */
   improvementSuggestions?: string[];
-  /** v11.90 V2：面试者简介（第一栏：简历提取 + 口头自我介绍） */
+  /** 面试者简介（第一栏：简历提取 + 口头自我介绍） */
   candidate?: VoiceCandidateInfo;
-  /** v11.90 V2：岗位信息（第二栏：岗位 + JD + 匹配度） */
+  /** 岗位信息（第二栏：岗位 + JD + 匹配度） */
   jobInfo?: VoiceJobInfo;
-  /** v11.97：整场 LLM 复盘总评（3-5 句；旧报告缺失时回退 summary） */
+  /** 整场 LLM 复盘总评（3-5 句；旧报告缺失时回退 summary） */
   overallComment?: string;
-  /** v11.97：LLM 岗位匹配度评估（旧报告缺失时回退 jobInfo.matchRate） */
+  /** LLM 岗位匹配度评估（旧报告缺失时回退 jobInfo.matchRate） */
   jobMatch?: { rate?: number; reason?: string };
-  /** v11.97：结构化亮点（旧报告缺失时回退 highlights） */
+  /** 结构化亮点（旧报告缺失时回退 highlights） */
   highlightViews?: { title?: string; detail?: string }[];
-  /** v11.97：结构化薄弱点（旧报告缺失时回退 weakPoints） */
+  /** 结构化薄弱点（旧报告缺失时回退 weakPoints） */
   weakPointViews?: { title?: string; detail?: string }[];
   /**
-   * v13.47 批次 2：水平定级（junior/mid/senior）。
+   * 水平定级（junior/mid/senior）。
    * 用于概要 tab 定级徽章、发展方向 tab 个人化锚点；旧报告为 undefined。
    */
   levelEstimate?: 'junior' | 'mid' | 'senior' | string;
   /**
-   * v13.47 批次 2：追问预测（上限 6 条，已问+未问合计）。
+   * 追问预测（上限 6 条，已问+未问合计）。
    *
    * **未产出/解析失败时为 undefined → 前端整 tab 隐藏**
    * （对齐「字段为空按缺失隐藏」惯例，报告其余部分照常）。
    */
   predictedQuestions?: PredictedQuestionView[];
   /**
-   * v13.50 批次 3：发展方向分析（懒生成 —— 用户首次打开 tab 才生成；未生成为 undefined）。
+   * 发展方向分析（懒生成 —— 用户首次打开 tab 才生成；未生成为 undefined）。
    * 口径诚实：LLM 无实时行业数据，输出为方向性判断，不含时效性数字。
    */
   industryInsight?: IndustryInsightView;
 }
 
-/** v13.50 批次 3：发展方向分析 */
+/** 发展方向分析 */
 export interface IndustryInsightView {
   /** 生成时间（毫秒时间戳） */
   generatedAt?: number;
@@ -209,7 +209,7 @@ export interface ActionView {
 }
 
 /**
- * v13.47 批次 2：单条追问预测。
+ * 单条追问预测。
  *
  * 分组规则：`askedThisRound === true` → 分组 A「本次已问」（复盘视角）；
  * 否则 → 分组 B「未被问到」（预警视角，核心价值）。
@@ -229,7 +229,7 @@ export interface PredictedQuestionView {
   askedScore?: number;
 }
 
-/** v11.90 V2：面试者简介（对齐后端 buildCandidateProfile） */
+/** 面试者简介（对齐后端 buildCandidateProfile） */
 export interface VoiceCandidateInfo {
   name?: string;
   skills?: string;
@@ -238,7 +238,7 @@ export interface VoiceCandidateInfo {
   aiScore?: string;
 }
 
-/** v11.90 V2：岗位信息（对齐后端 buildJobInfo） */
+/** 岗位信息（对齐后端 buildJobInfo） */
 export interface VoiceJobInfo {
   position?: string;
   jobRequirements?: string;
@@ -305,7 +305,7 @@ export const submitVoiceAnswer = async (
   const url = `${baseURL}/portal/interview/voice/${interviewId}/answer`;
   const token = getToken();
 
-  // v10.23：SSE 直连 fetch 不经 client.request()，手动登记 AI 慢请求（离开页面提醒）
+  // SSE 直连 fetch 不经 client.request()，手动登记 AI 慢请求（离开页面提醒）
   const aiTrackKey = trackAiSlowRequest(`/portal/interview/voice/${interviewId}/answer`);
   try {
     const resp = await fetch(url, {
@@ -418,7 +418,7 @@ export const requestVoiceHint = (interviewId: number | string, qaId: number | st
 /**
  * 5. 结束面试
  * POST /portal/interview/voice/{id}/finish
- * v11.88 V2：仅收口会话并触发异步批量分析，返回报告骨架；
+ * 仅收口会话并触发异步批量分析，返回报告骨架；
  * 进度轮询走 5.1 analysis 接口，analysisStatus=2 后拉取完整报告。
  */
 export const finishVoiceInterview = (interviewId: number | string) => {
@@ -426,7 +426,7 @@ export const finishVoiceInterview = (interviewId: number | string) => {
 };
 
 /**
- * 5.1 报告分析状态（v11.88 V2：前端进度条轮询）
+ * 5.1 报告分析状态（前端进度条轮询）
  * GET /portal/interview/voice/{id}/analysis
  */
 export interface VoiceAnalysisStatusVO {
@@ -439,7 +439,7 @@ export const getVoiceAnalysisStatus = (interviewId: number | string) => {
 };
 
 /**
- * 5.2 重新生成报告（v11.97）
+ * 5.2 重新生成报告
  * POST /portal/interview/voice/{id}/regenerate-report
  * 重置分析状态后重跑异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）；
  * 轮询 5.1 analysis 接口直至 analysisStatus=2 后拉取完整报告。
@@ -449,7 +449,7 @@ export const regenerateVoiceReport = (interviewId: number | string) => {
 };
 
 /**
- * v13.50 批次 3：生成「发展方向」分析（懒生成）
+ * 生成「发展方向」分析（懒生成）
  *
  * `POST /portal/interview/voice/{id}/insight?refresh=true|false`
  *
@@ -487,7 +487,7 @@ export const getVoiceInterviewDetail = (interviewId: number | string) => {
 };
 
 /**
- * 7.1 查询进行中会话（v11.91 断点续接）
+ * 7.1 查询进行中会话（断点续接）
  * GET /portal/interview/voice/active
  * <p>意外关闭后再次进入，返回最近一个未结束的面试；空对象表示无。
  */
@@ -505,7 +505,7 @@ export const getActiveVoiceInterview = () => {
 };
 
 /**
- * 7.2 恢复进行中会话（v11.91 断点续接）
+ * 7.2 恢复进行中会话（断点续接）
  * GET /portal/interview/voice/{id}/resume
  * <p>返回恢复快照（qaList 历史问答 + currentQa 待答题），前端据此重建面试页。
  */
@@ -521,13 +521,13 @@ export const addQaToWrongBook = (qaId: number | string) => {
   return httpPost<number>(`/portal/interview/voice/qa/${qaId}/toWrongBook`);
 };
 
-/** v11.30.5：生成报告分享令牌（有效期 1-30 天，默认 7 天） */
+/** 生成报告分享令牌（有效期 1-30 天，默认 7 天） */
 export const createReportShareToken = (interviewId: number | string, expireDays?: number) => {
   const url = '/portal/interview/voice/' + interviewId + '/share' + (expireDays ? '?expireDays=' + expireDays : '');
   return httpPost<string>(url);
 };
 
-/** v11.30.5：通过分享令牌查看报告（免登录公开） */
+/** 通过分享令牌查看报告（免登录公开） */
 export const getSharedReport = (shareToken: string) => {
   return httpGet<VoiceInterviewReportVO>('/portal/interview/voice/share/' + shareToken);
 };

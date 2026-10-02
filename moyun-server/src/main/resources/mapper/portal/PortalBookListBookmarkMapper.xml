@@ -18,6 +18,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         limit 1
     </select>
 
+    <!--
+      批量查询"当前用户已收藏的书单 id"（清单 P2：阅读首页原先对每个书单各发一次 check 请求，
+      6 个书单 = 6 次请求 + 6 次查库）。仅用 #{} 占位，符合 SQL 双轨铁律。
+    -->
+    <select id="selectBookmarkedIds" resultType="java.lang.Long">
+        select booklist_id from portal_book_list_bookmark
+        where user_id = #{userId}
+          and booklist_id in
+        <foreach item="id" collection="booklistIds" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
     <select id="countByBooklist" resultType="long">
         select count(1) from portal_book_list_bookmark where booklist_id = #{booklistId}
     </select>

@@ -25,7 +25,7 @@
             ⚠️ 未识别到明确的章节标题（如「教育背景」「工作经历」），内容可能整块归入基本信息区。
             请在右侧原文中确认，必要时在下一步的编辑页手动整理。
           </div>
-          <div v-else-if="data.sectionCount > 0" class="rpp-ok">
+          <div v-else-if="(data.sectionCount ?? 0) > 0" class="rpp-ok">
             ✅ 已识别 {{ data.sectionCount }} 个内容大类，请对照左侧原文校对
           </div>
 

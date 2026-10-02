@@ -135,8 +135,7 @@ public class LogAspect {
             
             // 判断是否为前台门户请求
             if (requestUri != null && requestUri.startsWith("/portal/")) {
-                // v13.11：改用 core 侧主体抽象（PrincipalResolver）——
-                // 原实现直接 import 门户的 PortalSecurityUtils/PortalLoginUser，构成 core → portal 反向依赖
+                // 用 core 侧主体抽象（PrincipalResolver）解析门户登录主体
                 try {
                     PrincipalInfo portalPrincipal = PrincipalResolver.resolve();
                     if (portalPrincipal != null && portalPrincipal.portalSide()) {

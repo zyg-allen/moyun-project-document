@@ -4,7 +4,7 @@ import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
 import {
   Image as ImageIcon, Save, Eye, Send, X,
   List, Clock, User, FileText, Settings,
-  Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
+  Sparkles, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code,
   Lightbulb, ChevronRight as ChevronRightIcon,
   History, GitCompare, RotateCcw, RefreshCw
@@ -57,8 +57,6 @@ const { requireAuth } = useAuth();
 const toast = useToast();
 const confirmModal = useConfirmModal();
 
-// 用户信息
-const currentUser = computed(() => userStore.user);
 
 // 文件上传相关
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -115,13 +113,8 @@ const tagSearchResults = ref<Tag[]>([]);
 const isSearchingTags = ref(false);
 const showTagSuggestions = ref(false);
 
-// 评论设置
-const allowComments = ref(true);
-const commentModeration = ref(false);
-
-// 权限设置
-const visibility = ref<'public' | 'private' | 'password'>('public');
-const articlePassword = ref('');
+// v13.89：评论设置 / 权限设置（allowComments、commentModeration、visibility、articlePassword）
+// 已随 UI 一并移除 —— 后端既无字段也无落地逻辑，保留状态只会是死代码（清单 #4）。
 
 // 自定义URL
 const customSlug = ref('');
@@ -185,8 +178,6 @@ function usePrompt(p: WritingPromptVO) {
 // 高级选项显示状态
 const showAdvanced = ref(false);
 const showSeoSettings = ref(false);
-const showCommentSettings = ref(false);
-const showPermissionSettings = ref(false);
 
 // 草稿ID（保存后记录，后续保存为更新）
 const draftId = ref<string | number | null>(null);
@@ -277,8 +268,7 @@ onMounted(async () => {
     await loadArticleForEdit(editId);
   }
 
-  // 注：已移除草稿自动保存。为避免用户中途放弃时产生难以清理的脏数据，
-  // 草稿仅在用户手动点击「保存草稿」或「发布」时才入库。
+  // 注：草稿仅在用户手动点击「保存草稿」或「发布」时才入库。
 });
 
 // 加载已有文章用于编辑
@@ -516,9 +506,11 @@ async function saveDraft(isAuto = false) {
     return;
   }
 
-  if (isAuto) {
-    isSaving.value = true;
-  }
+  // 清单 P2：原先只有自动保存才置 isSaving —— 手动保存按钮 `:disabled="isSaving"` 因此**始终可点**，
+  // 后端 saveDraft 是"先按 sessionToken 查、没有再 insert"的两步幂等（无 @RepeatSubmit），
+  // 并发两次存在都查不到、各插一条的窗口。现在手动保存也进入保存态并被按钮禁用。
+  if (isSaving.value) return;
+  isSaving.value = true;
 
   try {
     const response = await saveDraftApi({
@@ -532,6 +524,10 @@ async function saveDraft(isAuto = false) {
       cover: coverImage.value || '',
       categoryId: resolveCategoryId(),
       tagNames: tags.value,
+      // SEO 三字段（v13.89：后端已补列，草稿也要落库，否则发布时丢失）
+      seoTitle: seoTitle.value || undefined,
+      seoDescription: seoDescription.value || undefined,
+      seoKeywords: seoKeywords.value || undefined,
     });
 
     if (response.code === 200 && response.data) {
@@ -605,7 +601,7 @@ async function handlePublish() {
     return;
   }
 
-  // v10.10 实名策略：发布不再强制创作者认证，未实名弹窗提示（可跳过直接发布）
+  // 实名策略：发布不再强制创作者认证，未实名弹窗提示（可跳过直接发布）
   if (!(await promptRealNameOptional())) return;
 
   isPublishing.value = true;
@@ -615,22 +611,35 @@ async function handlePublish() {
         ? markdownPreview.value
         : content.value;
 
+    // 摘要兜底：优先用用户填写的，否则按**编辑器模式**自动提取。
+    //
+    // 原先写的是 content.substring(0, 200) + '...'：富文本模式下 content 是 HTML，
+    // 直接按字符截断会把标签切成两半，并把标签源码当摘要展示（清单 P2）。
+    // 项目早已有按模式剥离的 extractExcerpt（本文件"自动生成摘要"也在用它），此处复用。
+    const finalExcerpt = excerpt.value || await extractExcerpt(content.value, editorMode.value);
+
     const response = await publishArticle({
       id: draftId.value != null ? String(draftId.value) : undefined,
       sessionToken: sessionToken.value,
       title: title.value,
       content: finalContent,
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
-      excerpt: excerpt.value || content.value.substring(0, 200) + '...',
+      excerpt: finalExcerpt,
       cover: coverImage.value || '',
       categoryId: resolveCategoryId(),
       tagNames: tags.value,
-      status: 'published', // 前端标记意图为发布，后端会转为 pending 待审核
+      // SEO 三字段（v13.89：此前采集但不提交，清单 #4）
+      seoTitle: seoTitle.value || undefined,
+      seoDescription: seoDescription.value || undefined,
+      seoKeywords: seoKeywords.value || undefined,
+      // 清单 P2：原先在这里硬塞 status: 'published'（并靠 as any 绕过类型），
+      // 但后端 ArticlePublishDTO **没有 status 字段** ⇒ Jackson 静默丢弃，真实状态由服务端
+      // 审核流程决定（提交后为 pending）。既然传了也没用，就不要再传，避免读者误以为前端能定状态。
       // 同步编辑器模式，详情页据此渲染内容
       editorMode: editorMode.value,
       // 用户自定义 SEO 别名（为空时后端按标题自动生成，确保非空）
       slug: customSlug.value.trim() || undefined,
-    } as any);
+    });
 
     if (response.code === 200) {
       articleStatus.value = 'pending';
@@ -975,7 +984,24 @@ const breadcrumbs = computed(() => [
   { label: isReadOnly.value ? '查看文章' : '写文章' },
 ]);
 
-// 离开页面保护：未保存内容时弹确认（覆盖面包屑跳转、浏览器后退等所有离开路径，替代原顶部返回按钮逻辑）
+// 离开页面保护（清单 P2）
+//   · onBeforeRouteLeave：覆盖**站内路由跳转**（面包屑、后退到站内页等）
+//   · beforeunload：覆盖**浏览器级离开**（关闭标签、刷新、直接改地址）—— 原先缺失，
+//     而注释却声称"覆盖所有离开路径"。浏览器只允许同步判断，故这里只判断是否有内容。
+function beforeUnloadHandler(e: BeforeUnloadEvent) {
+  if (isReadOnly.value) return;
+  if (!title.value.trim() && !content.value.trim()) return;
+  e.preventDefault();
+  e.returnValue = '';
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+});
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler);
+});
+
 onBeforeRouteLeave(async () => {
   if (isReadOnly.value) return true;
   if (title.value.trim() || content.value.trim()) {
@@ -999,16 +1025,23 @@ onBeforeRouteLeave(async () => {
         <div class="flex items-center gap-3 min-w-0">
           <Breadcrumb :items="breadcrumbs" />
           <!-- 状态标签 -->
+          <!--
+            清单 P2：原先三元表达式只识别 draft/pending，其余一律渲染成「已发布」+ 绿色。
+            而编辑模式下 articleStatus 直接取自 article.status ⇒ rejected（已驳回）/archived（已归档）
+            都会被显示成"已发布"，作者会误以为文章已上线。这里补齐四个状态。
+          -->
           <span
               class="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0"
               :style="{
               backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' :
-                               articleStatus === 'pending' ? '#fef3c7' : '#d1fae5',
+                               articleStatus === 'pending' ? '#fef3c7' :
+                               articleStatus === 'published' ? '#d1fae5' : '#fee2e2',
               color: articleStatus === 'draft' ? 'var(--theme-primary)' :
-                     articleStatus === 'pending' ? '#92400e' : '#065f46'
+                     articleStatus === 'pending' ? '#92400e' :
+                     articleStatus === 'published' ? '#065f46' : '#b91c1c'
             }"
           >
-            {{ articleStatus === 'draft' ? '草稿' : articleStatus === 'pending' ? '审核中' : '已发布' }}
+            {{ { draft: '草稿', pending: '审核中', published: '已发布', rejected: '已驳回', archived: '已归档' }[articleStatus] || articleStatus }}
           </span>
         </div>
       </div>
@@ -1556,63 +1589,29 @@ onBeforeRouteLeave(async () => {
                   </div>
                 </div>
 
-                <!-- 评论设置 -->
+                <!--
+                  评论设置：v13.89 移除（清单 #4）。
+                  后端 portal_article 并无 allow_comment / comment_moderation 列，也没有任何评论侧读取点，
+                  两个开关写了也不生效 —— 属"假开关"。待评论模块支持按文章开关与审核策略后再放出。
+                -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button
-                      @click="showCommentSettings = !showCommentSettings"
-                      class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">评论设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showCommentSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
-                  <div v-if="showCommentSettings" class="space-y-2 pl-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" v-model="allowComments" class="w-4 h-4 rounded" />
-                      <span class="text-sm" style="color: var(--theme-text);">允许评论</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" v-model="commentModeration" class="w-4 h-4 rounded" />
-                      <span class="text-sm" style="color: var(--theme-text);">评论需要审核</span>
-                    </label>
-                  </div>
+                  <span class="font-medium text-sm" style="color: var(--theme-text);">评论设置</span>
+                  <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">
+                    所有文章当前均开放评论（按站点统一的审核策略处理）。“按文章关闭评论 / 单独设置审核”即将开放。
+                  </p>
                 </div>
 
-                <!-- 权限设置 -->
+                <!--
+                  权限设置：v13.89 移除（清单 #4）。
+                  后端 portal_article 没有 visibility / access_password 列，详情、列表、检索、Feed
+                  也都没有任何按可见性过滤的逻辑 —— 选"仅自己/密码保护"实际仍是**完全公开**。
+                  "假隐私开关"比缺功能更危险（用户以为内容已私密），故先移除，待全链路鉴权落地后再放出。
+                -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button
-                      @click="showPermissionSettings = !showPermissionSettings"
-                      class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">权限设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showPermissionSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
-                  <div v-if="showPermissionSettings" class="space-y-2 pl-2">
-                    <div class="flex gap-2 flex-wrap">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" v-model="visibility" value="public" class="w-4 h-4" />
-                        <Globe class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                        <span class="text-sm" style="color: var(--theme-text);">公开</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" v-model="visibility" value="private" class="w-4 h-4" />
-                        <Lock class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                        <span class="text-sm" style="color: var(--theme-text);">仅自己</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" v-model="visibility" value="password" class="w-4 h-4" />
-                        <span class="text-sm" style="color: var(--theme-text);">密码保护</span>
-                      </label>
-                    </div>
-                    <div v-if="visibility === 'password'">
-                      <input
-                          v-model="articlePassword"
-                          type="password"
-                          placeholder="请输入访问密码"
-                          class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                          style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                      />
-                    </div>
-                  </div>
+                  <span class="font-medium text-sm" style="color: var(--theme-text);">可见性</span>
+                  <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">
+                    当前所有已发布文章均为公开可见（草稿仅自己可见）。“仅自己可见 / 密码保护”即将开放。
+                  </p>
                 </div>
 
                 <!-- 自定义URL -->

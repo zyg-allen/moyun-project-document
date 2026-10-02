@@ -26,6 +26,9 @@ public class PortalCodeRunController extends BaseController {
     @Autowired
     private ICodeRunService codeRunService;
 
+    @Autowired
+    private com.moyun.portal.config.CodeRunProperties codeRunProperties;
+
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -35,9 +38,26 @@ public class PortalCodeRunController extends BaseController {
     public AjaxResult run(@RequestBody CodeRunRequest body) {
         // 安全风险：当前 CodeExecutorService 基于 ProcessBuilder 直接执行用户代码，
         // 未引入 Docker / cgroups 等强隔离沙箱，存在 RCE（任意命令执行）风险。
-        // 在独立安全沙箱就绪之前，临时禁用此入口，仅保留 Controller 与路由占位，
+        // 在独立安全沙箱就绪之前禁用此入口，仅保留 Controller 与路由占位，
         // Service / Mapper / 历史查询接口保持不动，待沙箱方案落地后重新启用。
-        return AjaxResult.error(503, "代码执行功能正在升级安全沙箱，暂时不可用");
+        //
+        // v13.87：改为**配置驱动**（moyun.code-run.enabled，默认 false ⇒ 行为与原先一致），
+        // 并把开关下发给前端（见 /config），避免"前端以为是功能故障、后端其实是安全策略"的割裂。
+        if (!codeRunProperties.isEnabled()) {
+            return AjaxResult.error(503, "代码执行功能正在升级安全沙箱，暂时不可用");
+        }
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(codeRunService.runCode(userId,
+                body.getLanguage(), body.getCode(), body.getStdin()));
+    }
+
+    @Operation(summary = "在线代码运行配置", description = "返回功能是否可用（供前端置灰按钮与展示维护说明）")
+    @GetMapping("/config")
+    public AjaxResult config() {
+        return AjaxResult.success(java.util.Map.of("enabled", codeRunProperties.isEnabled()));
     }
 
     @Operation(summary = "我的运行历史", description = "分页查询当前用户的代码运行历史，按时间倒序")

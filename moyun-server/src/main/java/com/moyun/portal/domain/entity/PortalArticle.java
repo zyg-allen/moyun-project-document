@@ -1,7 +1,6 @@
 package com.moyun.portal.domain.entity;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -123,6 +122,19 @@ public class PortalArticle extends BaseEntity
 
     /** 试读字数（未购买可预览的字数） */
     private Integer previewLength;
+
+    /**
+     * SEO 自定义标题（留空则回退文章标题）。
+     * <p>v13.89：门户发布页的「高级选项」一直在采集 SEO 标题/描述/关键词，但**后端根本没有这些列**
+     * ⇒ 用户填了等于没填（清单 #4）。现补齐列并贯通落库与详情回显。</p>
+     */
+    private String seoTitle;
+
+    /** SEO 自定义描述（留空则回退摘要） */
+    private String seoDescription;
+
+    /** SEO 关键词（逗号分隔，供 meta keywords 使用） */
+    private String seoKeywords;
 
     /** 付费价格，0=免费 */
     private BigDecimal price;

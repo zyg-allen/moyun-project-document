@@ -252,6 +252,19 @@ public class PayGatewayImpl implements IPayGateway {
                     message.getPayNo(), message.getTradeState());
             return;
         }
+        // 金额比对（fail-closed）：渠道回传的实付金额必须与本地订单金额一致。
+        // 渠道未回传金额时不阻断（真实通道尚未接入、部分报文可能不含），但**必须告警留痕**，
+        // 避免"没校验"被当成"校验通过"。金额口径统一为元（微信 amount.total 分→元由渠道实现归一）。
+        if (order.getAmount() != null && message.getAmount() != null) {
+            if (order.getAmount().compareTo(message.getAmount()) != 0) {
+                log.error("[pay-gateway] 回调金额与订单金额不一致，拒绝处理 payNo={} 订单金额={} 回调金额={} channel={}",
+                        order.getPayNo(), order.getAmount(), message.getAmount(), channelCode);
+                throw new IllegalStateException("回调金额与订单金额不一致：" + order.getPayNo());
+            }
+        } else if (message.getAmount() == null) {
+            log.warn("[pay-gateway] 回调未携带金额，本次未做金额比对 payNo={} channel={}",
+                    message.getPayNo(), channelCode);
+        }
         if (!PayOrder.STATUS_CREATED.equals(order.getStatus())) {
             // 已关单后仍收到成功回调（关单与用户支付并发，渠道侧已真实收款）：
             // 资金未入账不可自动补账（业务单可能已取消），记录 error 供人工对账（查单核实后退款/补入账），

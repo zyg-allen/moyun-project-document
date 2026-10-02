@@ -7,9 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalBookmark;
-import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.BookmarkQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalBookmarkMapper;

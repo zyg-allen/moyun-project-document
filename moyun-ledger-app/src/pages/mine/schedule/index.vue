@@ -76,7 +76,6 @@ import { useUserStore } from '@/stores/user';
 import { listScheduleTasks, listScheduleLogs, toggleScheduleTask, runScheduleTask, retryScheduleLog, deleteScheduleTask } from '@/api/ledger';
 import { toFixedYuan } from '@/utils/money';
 
-const CYCLE_LABELS = { daily: '每天', weekly: '每周', monthly: '每月', interval: '每N天' };
 const WEEK_LABELS = ['', '一', '二', '三', '四', '五', '六', '日'];
 
 export default {

@@ -80,7 +80,7 @@ public enum AiSceneEnum {
     /**
      * 智能体对话（AI 对话主链）。
      *
-     * <p><b>v13.43 补登记（报告七 P0-3）</b>：该场景由 {@code ChatController}
+     * <p>该场景由 {@code ChatController}
      * （裸字面量 {@code "default_chat"}）在运行时**必需** —— 经
      * {@code AiSceneRegistry.getConfig("default_chat")} 读取限流/治理参数，
      * 库中亦有配置行（{@code ai_scene_config.default_chat}）。但枚举一直漏登记，

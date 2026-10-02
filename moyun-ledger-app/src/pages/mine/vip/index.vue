@@ -13,7 +13,7 @@
       </view>
     </view>
 
-    <!-- 权益清单（骨架：v11.78 收入规划功能项） -->
+    <!-- 权益清单（骨架：收入规划功能项） -->
     <view class="benefit-card">
       <view class="benefit-title">VIP 权益</view>
       <view class="benefit-row" v-for="b in benefits" :key="b">
@@ -40,7 +40,7 @@
 
     <view class="pay-btn" @tap="doSubscribe">立即订阅（微信支付）</view>
 
-    <!-- 收银台弹层（V11.81 公共支付通道） -->
+    <!-- 收银台弹层（公共支付通道） -->
     <view v-if="cashier.visible" class="cashier-mask" @tap="closeCashier(false)">
       <view class="cashier-panel" @tap.stop>
         <view class="cashier-title">微信支付</view>
@@ -81,7 +81,7 @@ export default {
       selectedId: null,
       loading: false,
       vip: { isVip: false, vipExpire: null },
-      // 收银台（V11.81 公共通道）
+      // 收银台（公共通道）
       cashier: {
         visible: false,
         vipOrderId: null,
@@ -150,7 +150,7 @@ export default {
           if (!r.confirm) return;
           this.submitting = true;
           try {
-            // V11.81 公共通道：下单拿收银台参数（pending 单 + 网关 codeUrl）
+            // 公共通道：下单拿收银台参数（pending 单 + 网关 codeUrl）
             const cashier = await subscribeVip({
               packageId: this.selectedId,
               clientUuid: this.genClientUuid()
@@ -178,9 +178,7 @@ export default {
     },
     async renderQr(codeUrl) {
       if (!codeUrl) return;
-      // H5 与小程序同一套绘制（uni canvas + qrcode 纯计算模块）：
-      // 旧实现用 document.querySelector + QRCode.toCanvas，且被 #ifdef H5 包住
-      // —— 小程序端从来不渲染二维码（异常被吞，只剩空框）
+      // H5 与小程序同一套绘制（uni canvas + qrcode 纯计算模块）
       await drawQrCode({
         canvasId: 'vipQr' + this.cashier.vipOrderId,
         text: codeUrl,

@@ -40,6 +40,10 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
     @Autowired
     private IPortalGrowthService portalGrowthService;
 
+    /** 读取被关注者的隐私开关（privacy_follow = 是否允许被关注） */
+    @Autowired
+    private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+
     /**
      * 根据条件分页查询关注列表
      *
@@ -143,6 +147,18 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
             return result;
         }
 
+        // ── 被关注者隐私开关（清单 P2）──
+        // portal_user.privacy_follow 的语义是「**是否允许被关注**」（DDL 注释），默认 1。
+        // 此前该开关只被写入、全后端**没有任何读取点** ⇒ 用户关掉它照样能被关注（"隐私开关形同虚设"）。
+        // toggleFollow 与 follow 是门户关注的两个入口，这里统一收口。
+        // 注意：仅在**建立关注**时拦截；取消关注与"是否已关注"查询不受影响（否则用户无法解除关注）。
+        String blockedReason = followBlockedReason(followingId);
+        if (blockedReason != null) {
+            result.put("followed", false);
+            result.put("message", blockedReason);
+            return result;
+        }
+
         // 确保双方统计记录存在
         userStatsMapper.insertIfNotExists(followerId);
         userStatsMapper.insertIfNotExists(followingId);
@@ -197,6 +213,20 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
      * @param followingId 被关注者ID
      * @return true=已关注
      */
+    /**
+     * 被关注者是否允许被关注（{@code portal_user.privacy_follow}）。
+     *
+     * @param followingId 被关注者ID
+     * @return 不允许时返回提示文案；允许（或用户不存在）返回 {@code null}
+     */
+    private String followBlockedReason(Long followingId) {
+        com.moyun.portal.domain.entity.PortalUser target = portalUserMapper.selectPortalUserById(followingId);
+        if (target != null && Boolean.FALSE.equals(target.getPrivacyFollow())) {
+            return "对方已关闭「允许被关注」，暂时无法关注";
+        }
+        return null;
+    }
+
     @Override
     public boolean isFollowing(Long followerId, Long followingId) {
         if (followerId == null || followingId == null) {
@@ -229,6 +259,18 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
         if (followerId.equals(followingId)) {
             result.put("followed", false);
             result.put("message", "不能关注自己");
+            return result;
+        }
+
+        // ── 被关注者隐私开关（清单 P2）──
+        // portal_user.privacy_follow 的语义是「**是否允许被关注**」（DDL 注释），默认 1。
+        // 此前该开关只被写入、全后端**没有任何读取点** ⇒ 用户关掉它照样能被关注（"隐私开关形同虚设"）。
+        // toggleFollow 与 follow 是门户关注的两个入口，这里统一收口。
+        // 注意：仅在**建立关注**时拦截；取消关注与"是否已关注"查询不受影响（否则用户无法解除关注）。
+        String blockedReason = followBlockedReason(followingId);
+        if (blockedReason != null) {
+            result.put("followed", false);
+            result.put("message", blockedReason);
             return result;
         }
 
@@ -339,23 +381,23 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
      * 查询指定用户的粉丝列表（JOIN portal_user，返回用户信息）
      */
     @Override
-    public Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, Long userId) {
-        return baseMapper.selectFollowerUserPage(page, userId);
+    public Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, Long userId, Long viewerId) {
+        return baseMapper.selectFollowerUserPage(page, userId, viewerId);
     }
 
     /**
      * 查询指定用户的关注列表（JOIN portal_user，返回用户信息）
      */
     @Override
-    public Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, Long userId) {
-        return baseMapper.selectFollowingUserPage(page, userId);
+    public Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, Long userId, Long viewerId) {
+        return baseMapper.selectFollowingUserPage(page, userId, viewerId);
     }
 
     /**
      * 获取指定用户的粉丝数（内部复用）
      */
     /**
-     * 统计计数增量写校验（v13.16）
+     * 统计计数增量写校验
      *
      * <p>{@code addFollowingCount}/{@code addFollowerCount} 是
      * "UPDATE portal_user_stats SET col = col + ? WHERE user_id = ?"，返回 0 说明统计行缺失

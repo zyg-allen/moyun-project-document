@@ -82,7 +82,7 @@ public class VoiceInterviewReportVO {
     private List<PointView> weakPointViews;
 
     /**
-     * 水平定级（v13.47 批次 2：从「拼进 summary 文本」改为结构化字段）。
+     * 水平定级（结构化字段）。
      *
      * <p>取值 {@code junior} / {@code mid} / {@code senior}（来源：预热阶段
      * {@code voice_interview:warmup} 的画像产物 → {@code portal_interview_config.levelEstimate}）。
@@ -91,7 +91,7 @@ public class VoiceInterviewReportVO {
     private String levelEstimate;
 
     /**
-     * 追问预测（v13.47 批次 2 新增「🔮 追问预测」tab 的数据源）。
+     * 追问预测（前端「追问预测」tab 的数据源）。
      *
      * <p>由 {@code voice_interview:report_review} 的 {@code predictedQuestions} 字段产出，
      * 上限 6 条（已问 + 未问合计）。<b>解析失败时该字段为 null</b>，
@@ -103,7 +103,7 @@ public class VoiceInterviewReportVO {
     private List<PredictedQuestionView> predictedQuestions;
 
     /**
-     * v13.50 批次 3：发展方向分析（懒生成；用户不打开 tab 则为 null）。
+     * 发展方向分析（懒生成；用户不打开 tab 则为 null）。
      *
      * <p>写入路径：{@code generateIndustryInsight} 调用场景
      * {@code voice_interview:industry_insight} 后，把结果写入报告 JSON 再整体落库
@@ -197,7 +197,7 @@ public class VoiceInterviewReportVO {
     }
 
     /**
-     * v13.50 批次 3：发展方向分析（懒生成，写入报告 JSON 的 {@code industryInsight} 字段）。
+     * 发展方向分析（懒生成，写入报告 JSON 的 {@code industryInsight} 字段）。
      *
      * <p>懒生成：用户不打开 tab 就不产生调用（V1.2 §1 原则 3「成本按需发生」）。
      * 生成一次后随报告 JSON 持久化，前端按 {@code generatedAt} 提示「生成于 X 日 · 刷新」。</p>

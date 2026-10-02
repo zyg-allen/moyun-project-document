@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import {
-  CheckCircle, XCircle, Clock, Cpu, AlertTriangle,
-  ChevronDown, ChevronUp, Play, FileText,
-} from 'lucide-vue-next';
+import { CheckCircle, XCircle, Clock, Cpu, AlertTriangle, ChevronDown, ChevronUp, FileText } from 'lucide-vue-next';
 import { ref } from 'vue';
-import type { JudgeResultVO, JudgeStatusCode } from '@/types/api';
+import type { JudgeResultVO } from '@/types/api';
 
 const props = defineProps<{
   /** 判题结果，为 null 时不展示 */

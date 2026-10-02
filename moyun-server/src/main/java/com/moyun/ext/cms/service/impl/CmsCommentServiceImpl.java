@@ -128,7 +128,7 @@ public class CmsCommentServiceImpl implements ICmsCommentService
             return 0;
         }
         // 先批量查询待删除评论（删除后逻辑删除字段过滤导致 selectById 拿不到）
-        // 同步扣减文章评论数：仅一级评论（parent_id=0）+ 已发布（status=1）此前计入文章评论数
+        // 同步扣减文章评论数：文章评论数只计入一级评论（parent_id=0）且已发布（status=1）的评论
         List<PortalComment> toDelete = portalCommentMapper.selectList(
                 new LambdaQueryWrapper<PortalComment>().in(PortalComment::getId, Arrays.asList(ids))
         );
@@ -138,7 +138,7 @@ public class CmsCommentServiceImpl implements ICmsCommentService
                 if (comment.getArticleId() == null) continue;
                 // 仅一级评论影响文章评论数
                 if (comment.getParentId() != null && comment.getParentId() != 0) continue;
-                // 仅已发布评论此前计入文章评论数
+                // 仅已发布评论计入文章评论数
                 if (!"1".equals(comment.getStatus())) continue;
                 PortalArticle article = portalArticleMapper.selectById(comment.getArticleId());
                 if (article != null && article.getComments() != null && article.getComments() > 0) {

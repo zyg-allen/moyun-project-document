@@ -1155,7 +1155,7 @@ function handleDelete(row) {
   }).catch(() => {});
 }
 
-// 跳转到章节管理（v1.0 新增）
+// 跳转到章节管理
 function handleManageChapters(row) {
   router.push(`/portal/bookChapter/${row.id}`);
 }

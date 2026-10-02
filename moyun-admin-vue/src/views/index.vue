@@ -379,7 +379,7 @@ const myTasks = ref([])
 const systemActivities = ref([])
 const hotArticles = ref([])
 const configOverview = ref({})
-// v13.25 新增：平台定位 / 分平台统计 / 运营警报
+// 平台定位 / 分平台统计 / 运营警报
 const identity = ref({})
 const platformStats = ref([])
 const alerts = ref([])

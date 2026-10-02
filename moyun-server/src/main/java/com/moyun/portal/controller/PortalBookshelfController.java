@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
+import com.moyun.portal.domain.entity.PortalBook;
 import com.moyun.portal.domain.entity.PortalBookshelf;
 import com.moyun.portal.domain.query.BookshelfQuery;
 import com.moyun.portal.service.IPortalBookshelfService;
@@ -36,6 +37,9 @@ public class PortalBookshelfController extends BaseController {
 
     @Autowired
     private IPortalBookshelfService bookshelfService;
+
+    @Autowired
+    private com.moyun.portal.service.IPortalBookService portalBookService;
 
     @Operation(summary = "加入书架（toggle，已收藏则取消）")
     @PostMapping("/{bookId}")
@@ -83,7 +87,40 @@ public class PortalBookshelfController extends BaseController {
         }
         Page<PortalBookshelf> page = buildPage(query);
         Page<PortalBookshelf> result = bookshelfService.selectBookshelfPage(page, query);
-        return AjaxResult.success(result);
+        // 清单 P2：书架列表原先只返回书架行（无书名/封面/作者），前端只能对当前页每条记录
+        // 再调一次 GET /portal/reading/books/{id} —— 既造成 **N+1**，又会**虚增每本书的阅读量**
+        //（该接口内部会 incrementReadingCount 并落库）。
+        // 这里用一次 listByIds 批量补齐书籍信息，前端不再逐条取详情。
+        java.util.List<Long> bookIds = result.getRecords().stream()
+                .map(PortalBookshelf::getBookId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        final java.util.Map<Long, PortalBook> bookMap = bookIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : portalBookService.listByIds(bookIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(PortalBook::getId, b -> b, (a, b) -> a));
+        java.util.List<java.util.Map<String, Object>> records = result.getRecords().stream().map(shelf -> {
+            java.util.Map<String, Object> row = new HashMap<>();
+            row.put("id", shelf.getId());
+            row.put("userId", shelf.getUserId());
+            row.put("bookId", shelf.getBookId());
+            row.put("lastChapterId", shelf.getLastChapterId());
+            row.put("lastChapterNo", shelf.getLastChapterNo());
+            row.put("sort", shelf.getSort());
+            row.put("createTime", shelf.getCreateTime());
+            PortalBook book = bookMap.get(shelf.getBookId());
+            if (book != null) {
+                row.put("bookTitle", book.getTitle());
+                row.put("bookCover", book.getCover());
+                row.put("bookAuthor", book.getAuthor());
+            }
+            return row;
+        }).collect(java.util.stream.Collectors.toList());
+        Map<String, Object> data = new HashMap<>();
+        data.put("records", records);
+        data.put("total", result.getTotal());
+        return AjaxResult.success(data);
     }
 
     @Operation(summary = "检查是否已收藏")

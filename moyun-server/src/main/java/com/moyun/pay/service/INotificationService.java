@@ -24,4 +24,16 @@ public interface INotificationService {
 
     /** 标记已读（限本人） */
     void markRead(Long userId, Long notificationId);
+
+    /**
+     * 把该用户**全部**未读支付通知标记为已读（服务端一条 UPDATE 完成）。
+     *
+     * <p>为什么需要：门户「全部已读」原先只能对**已加载的那一页**逐条调用 markRead，
+     * 未加载的仍为未读 ⇒ 角标清完又回来（客户端还会直接清零角标，等于对用户撒谎）。
+     * 后端既有的 markAllAsRead 已作为死接口移除，故在此补一个语义明确的服务端批量方法。</p>
+     *
+     * @param userId 接收用户
+     * @return 本次影响（置为已读）的条数
+     */
+    int markAllRead(Long userId);
 }

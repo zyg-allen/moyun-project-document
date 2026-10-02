@@ -23,8 +23,7 @@ public class SqlUtils {
             return "";
         }
         
-        // 移除 markdown 代码块标记（v13.19：统一走 LlmJsonExtractor.stripCodeFence，
-        // 不再自写 ``` 正则——围栏可出现在任意位置，且语言标注不止 sql）
+        // 移除 markdown 代码块标记（统一走 LlmJsonExtractor.stripCodeFence：围栏可出现在任意位置，语言标注不止 sql）
         sql = LlmJsonExtractor.stripCodeFence(sql);
         
         // 移除注释
@@ -143,25 +142,6 @@ public class SqlUtils {
         return SqlSecurityValidator.validate(sql);
     }
     
-    /**
-     * 统计子查询层级
-     */
-    private static int countSubQueries(String sql) {
-        int maxDepth = 0;
-        int currentDepth = 0;
-        
-        for (int i = 0; i < sql.length(); i++) {
-            char c = sql.charAt(i);
-            if (c == '(') {
-                currentDepth++;
-                maxDepth = Math.max(maxDepth, currentDepth);
-            } else if (c == ')') {
-                currentDepth--;
-            }
-        }
-        
-        return maxDepth;
-    }
     
     /**
      * 解析查询类型

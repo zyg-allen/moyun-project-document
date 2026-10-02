@@ -3,7 +3,6 @@ package com.moyun.portal.service.impl;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -16,7 +15,6 @@ import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalArticleVersion;
 import com.moyun.portal.domain.entity.PortalBookmark;
-import com.moyun.portal.domain.entity.PortalCategory;
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.domain.entity.PortalLike;
 import com.moyun.portal.domain.entity.PortalTipOrder;
@@ -282,7 +280,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             }
             if (wordCount > 0) {
                 userStatsMapper.insertIfNotExists(portalArticle.getAuthorId());
-                // v13.16：创作字数增量写校验影响行数（0 行 = 统计行缺失 → 回滚，不让字数统计静默丢失）
+                // 创作字数增量写校验影响行数（0 行 = 统计行缺失 → 回滚，不让字数统计静默丢失）
                 int wordRows = userStatsMapper.addArticleWordSum(portalArticle.getAuthorId(), wordCount);
                 if (wordRows == 0) {
                     throw new ServiceException("创作字数统计失败：用户统计行缺失（userId="

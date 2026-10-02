@@ -94,7 +94,9 @@ public class PortalFollowController extends BaseController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") Integer pageSize) {
         Page<FollowUserVO> page = new Page<>(pageNum, pageSize);
-        Page<FollowUserVO> result = portalFollowService.selectFollowerUserPage(page, userId);
+        // 观察者 = 当前登录用户（游客为 null）⇒ 列表才能给出"我是否关注/是否互关/是否本人"
+        Page<FollowUserVO> result = portalFollowService.selectFollowerUserPage(
+                page, userId, PortalSecurityUtils.getUserId());
         return success(result);
     }
 
@@ -108,7 +110,8 @@ public class PortalFollowController extends BaseController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") Integer pageSize) {
         Page<FollowUserVO> page = new Page<>(pageNum, pageSize);
-        Page<FollowUserVO> result = portalFollowService.selectFollowingUserPage(page, userId);
+        Page<FollowUserVO> result = portalFollowService.selectFollowingUserPage(
+                page, userId, PortalSecurityUtils.getUserId());
         return success(result);
     }
 }

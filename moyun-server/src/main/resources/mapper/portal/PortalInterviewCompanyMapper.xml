@@ -29,6 +29,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         limit #{limit}
     </select>
 
+    <select id="selectQuestionIdsByCompanyId" resultType="java.lang.Long">
+        select qc.question_id
+        from portal_interview_question_company qc
+        where qc.company_id = #{companyId}
+        order by qc.sort asc, qc.question_id asc
+    </select>
+
     <select id="selectCompaniesByQuestionId" resultMap="PortalInterviewCompanyResult">
         select c.id, c.name, c.slug, c.logo, c.description, c.industry, c.question_count, c.sort, c.status
         from portal_interview_company c

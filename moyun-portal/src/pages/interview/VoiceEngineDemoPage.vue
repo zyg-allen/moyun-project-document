@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useHead } from '@vueuse/head';
 import {
   Loader2, Volume2, Play, Pause, Square, Mic, MicOff,
@@ -47,8 +47,37 @@ const {
 
 const {
   currentLevel, currentHint, loading: hintLoading,
-  fetchHint, upgradeHint, downgradeHint, reset: resetHint,
+  fetchHint, upgradeHint, downgradeHint,
 } = useInterviewHint();
+
+/**
+ * ASR 错误码 → 用户可读文案（清单 P2）。
+ *
+ * <p>composable 在 errorMessage 里放的是**内部错误码**（not-allowed / server-asr-failed），
+ * 浏览器 SpeechRecognition 还会给出 network / no-speech / audio-capture / aborted 等；
+ * 原实现把原始码直接渲染给用户，等于没给任何可操作的信息。</p>
+ *
+ * <p>未知码不臆测：给通用文案，并把原始码放进 title 便于排查。</p>
+ */
+const ASR_ERROR_TEXT: Record<string, string> = {
+  'not-allowed': '麦克风权限被拒绝，请在浏览器设置中允许后重试',
+  'service-not-allowed': '浏览器拒绝了语音识别服务，请检查站点权限',
+  'server-asr-failed': '服务端语音识别失败，请稍后重试',
+  'network': '网络异常导致识别中断，请检查网络后重试',
+  'no-speech': '没有检测到语音，请靠近麦克风再试一次',
+  'audio-capture': '未检测到可用的麦克风设备',
+  'aborted': '识别已中止',
+  'language-not-supported': '当前语言不被识别引擎支持',
+};
+
+const asrErrorText = computed(() => {
+  const raw = (errorMessage.value || '').trim();
+  if (!raw) return '';
+  if (ASR_ERROR_TEXT[raw]) return ASR_ERROR_TEXT[raw];
+  // 已是可读中文（如"识别多次中断，请检查麦克风/网络后重试"）→ 原样展示
+  if (/[\u4e00-\u9fa5]/.test(raw)) return raw;
+  return '语音识别失败，请重试';
+});
 
 // ==================== 题目输入 ====================
 const questionId = ref<number>(1);
@@ -81,12 +110,6 @@ function handleToggleAsr() {
   }
 }
 
-const asrFullText = computed(() => {
-  const parts: string[] = [];
-  if (finalText.value) parts.push(finalText.value);
-  if (interimText.value) parts.push(interimText.value);
-  return parts.join('\n');
-});
 
 // ==================== HintEngine 控制 ====================
 async function handleFetchHint(level: HintLevel) {
@@ -120,6 +143,9 @@ function speakHint() {
 }
 
 // ==================== 三引擎联动 ====================
+
+/** 联动流程的延时器（清单 P2：持有 id 以便卸载时清理，避免页面已离开仍启动 ASR） */
+let pipelineTimer: ReturnType<typeof setTimeout> | null = null;
 /** 模拟面试官流程：TTS 播报题目 -> ASR 聆听 -> 获取提示 */
 async function runFullPipeline() {
   // 1. 获取提示
@@ -133,7 +159,12 @@ async function runFullPipeline() {
     handleSpeak(currentHint.value.speakText);
   }
   // 3. 延迟开启 ASR（等 TTS 说完前半句）
-  setTimeout(() => {
+  // 清单 P2：原先裸 setTimeout 且 id 未保存 —— 组件卸载时 composable 只 abort 当前会话，
+  // 1.5s 后定时器仍会执行 resetAsr()+startAsr()（在已卸载页面上重新申请麦克风）。
+  // 这里持有 id，并在卸载时清理。
+  if (pipelineTimer != null) clearTimeout(pipelineTimer);
+  pipelineTimer = setTimeout(() => {
+    pipelineTimer = null;
     if (!listening.value) {
       resetAsr();
       startAsr();
@@ -144,6 +175,14 @@ async function runFullPipeline() {
 
 onMounted(() => {
   // 不自动调用，等用户点击
+});
+
+onUnmounted(() => {
+  // 清单 P2：卸载时清掉联动延时器，避免"页面已离开仍在启动 ASR"
+  if (pipelineTimer != null) {
+    clearTimeout(pipelineTimer);
+    pipelineTimer = null;
+  }
 });
 </script>
 
@@ -237,7 +276,8 @@ onMounted(() => {
             <RefreshCw :size="16" /> 清空
           </button>
         </div>
-        <div v-if="errorMessage" class="output error">{{ errorMessage }}</div>
+        <!-- 清单 P2：展示可读文案；原始错误码保留在 title 中便于排查 -->
+        <div v-if="errorMessage" class="output error" :title="'原始错误码: ' + errorMessage">{{ asrErrorText }}</div>
         <div v-if="interimText" class="output interim">
           <span class="label">实时识别：</span>{{ interimText }}
         </div>

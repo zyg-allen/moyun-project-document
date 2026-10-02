@@ -2614,7 +2614,6 @@ import cache from '@/plugins/cache'
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { VueFlow, useVueFlow, Handle, Position } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
-import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -2626,7 +2625,6 @@ import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { useRoute } from 'vue-router'
 import WorkflowAIGenerator from '../components/WorkflowAIGenerator.vue'
 
-const route = useRoute()
 
 const { addNodes, addEdges, project, removeNodes, fitView: vfFitView, zoomIn: vfZoomIn, zoomOut: vfZoomOut, getViewport, setViewport, onViewportChange } = useVueFlow()
 const workflows = ref([])
@@ -2701,10 +2699,8 @@ const templates = ref([
       { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'analysis' } }
     ], edges: [{ source: 'start_1', target: 'http_1' }, { source: 'http_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] }
 ])
-const templateCategories = computed(() => [...new Set(templates.value.map(t => t.category))])
 // 调试模式
 const debugMode = ref(false)
-const debugPaused = ref(false)
 const debugCurrentNode = ref(null)
 const debugNodeOutputs = ref({})
 // 右键菜单
@@ -3346,24 +3342,6 @@ const toggleQuickConnect = () => {
   }
 }
 
-// 快速连线点击
-const onQuickConnect = (node) => {
-  if (!quickConnectMode.value) return
-  if (!quickConnectSource.value) {
-    quickConnectSource.value = node.id
-    ElMessage.info(`已选择源节点: ${node.data.label}`)
-  } else {
-    if (quickConnectSource.value !== node.id) {
-      edges.value.push({
-        id: `e_${quickConnectSource.value}_${node.id}`,
-        source: quickConnectSource.value,
-        target: node.id
-      })
-      ElMessage.success('已连接')
-    }
-    quickConnectSource.value = null
-  }
-}
 
 // 智能推荐下一节点
 const suggestedNextNodes = computed(() => {
@@ -3887,41 +3865,6 @@ const cancelExecution = () => {
   })
 }
 
-// 模拟节点执行状态更新（实际应从后端WebSocket获取）
-const simulateNodeExecution = async () => {
-  resetNodeStatus()
-
-  // 按拓扑顺序获取节点
-  const startNode = nodes.value.find(n => n.type === 'start')
-  if (!startNode) return
-
-  // 简单的BFS遍历模拟执行顺序
-  const visited = new Set()
-  const queue = [startNode.id]
-  const executionOrder = []
-
-  while (queue.length > 0) {
-    const nodeId = queue.shift()
-    if (visited.has(nodeId)) continue
-    visited.add(nodeId)
-    executionOrder.push(nodeId)
-
-    // 找到从该节点出发的边
-    const outEdges = edges.value.filter(e => e.source === nodeId)
-    outEdges.forEach(e => {
-      if (!visited.has(e.target)) {
-        queue.push(e.target)
-      }
-    })
-  }
-
-  // 模拟逐个节点执行
-  for (const nodeId of executionOrder) {
-    nodeExecutionStatus.value[nodeId] = 'running'
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500))
-    nodeExecutionStatus.value[nodeId] = 'completed'
-  }
-}
 
 const execWorkflow = async () => {
   executing.value = true
@@ -4246,15 +4189,6 @@ const deleteWorkflow = async (wf) => {
   }
 }
 
-// 卡片操作菜单处理
-const handleCardAction = (command, wf) => {
-  switch (command) {
-    case 'edit': editWorkflow(wf); break
-    case 'duplicate': duplicateWorkflow(wf); break
-    case 'history': showHistory(wf); break
-    case 'delete': deleteWorkflow(wf); break
-  }
-}
 
 // 复制工作流
 const duplicateWorkflow = async (wf) => {
@@ -4353,10 +4287,6 @@ const rollbackToVersion = async (version) => {
   }
 }
 
-// 比较版本差异
-const compareVersions = (v1, v2) => {
-  ElMessage.info('版本对比功能开发中')
-}
 
 // 模板库
 const showTemplates = () => {
@@ -4576,12 +4506,6 @@ const getAgentName = (id) => {
   return agent?.name || `智能体 ${id}`
 }
 
-// 获取工具名称
-const getToolName = (id) => {
-  if (!id) return '未选择'
-  const tool = tools.value.find(t => String(t.id) === String(id))
-  return tool?.name || `工具 ${id}`
-}
 
 // 获取模型名称
 const getModelName = (id) => {
@@ -4677,15 +4601,6 @@ const deleteNode = () => {
 }
 const formatTime = (t) => t ? new Date(t).toLocaleString('zh-CN') : '-'
 
-// 复制输出结果
-const copyOutput = () => {
-  const text = typeof execResult.value?.output === 'string'
-      ? execResult.value.output
-      : JSON.stringify(execResult.value?.output, null, 2)
-  navigator.clipboard.writeText(text).then(() => {
-    ElMessage.success('已复制到剪贴板')
-  })
-}
 
 // 执行历史
 const showHistory = async (wf = null) => {

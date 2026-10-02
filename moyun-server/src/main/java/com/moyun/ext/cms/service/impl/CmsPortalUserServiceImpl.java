@@ -83,7 +83,7 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     public Page<CmsPortalUserVO> selectUserPage(Page<CmsPortalUserVO> page, CmsPortalUserQuery query)
     {
         // 走自定义 XML 分页（selectPortalUserPage），绕开 @TableLogic 对 del_flag 的自动过滤：
-        // 后台默认展示全部账号（含已注销 del_flag='2'），并顺带修复原先"全量加载后内存分页"的性能问题。
+        // 后台默认展示全部账号（含已注销 del_flag='2'）。
         UserQuery userQuery = new UserQuery();
         userQuery.setUsername(query.getUsername());
         userQuery.setNickname(query.getNickname());
@@ -350,9 +350,6 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     public int resetUserPwd(PortalUser user)
     {
         // 委托给前台用户服务：复用其防御性 BCrypt 加密逻辑，避免明文入库导致前台登录失败
-        // 修复：原实现直接 updateById 写入 user.getPassword()，未做 BCrypt 加密，
-        // 与前台注册（PortalUserServiceImpl.registerPortalUser）加密方式不一致，
-        // 导致后台改密后前台用户无法登录
         return portalUserService.resetPortalUserPwd(user);
     }
 

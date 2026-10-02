@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Save, Upload, CheckCircle2, Clock, XCircle, Loader2,
@@ -18,6 +18,10 @@ import { useToast } from '@/composables/useToast';
 import { validateIdCard } from '@/utils/idCard';
 
 const router = useRouter();
+// 清单 P2：creatorPermission.ts 跳转认证页时会带 ?redirect=原路径（如被打赏/积分兑换拦截的操作），
+// 但页面原先从未读取该参数、goBack 只用 history.back 或 /user ⇒ 认证完成后用户回不到原操作。
+const route = useRoute();
+const redirectPath = computed(() => (typeof route.query.redirect === 'string' && route.query.redirect) || '/user');
 const toast = useToast();
 
 // 加载 / 状态
@@ -85,8 +89,13 @@ onMounted(() => {
   loadMy();
 });
 
+// 加载失败状态（清单 P2）：原先 catch 只 console.warn，失败时页面渲染**空白申请表**，
+// 用户可能在"其实已提交过"的情况下再次提交。
+const loadError = ref<string | null>(null);
+
 async function loadMy() {
   loading.value = true;
+  loadError.value = null;
   try {
     const res = await getMyCertification();
     if (res.code === 200) {
@@ -94,8 +103,9 @@ async function loadMy() {
     }
   } catch (err) {
     const e = err as { message?: string };
-    // 静默处理：未登录等场景由路由守卫负责
+    // 不再静默：路由守卫只管"未登录"，真正的接口/网络失败要让用户看到并可重试
     console.warn('加载认证状态失败:', e?.message);
+    loadError.value = e?.message || '加载认证状态失败，请稍后重试';
   } finally {
     loading.value = false;
   }
@@ -243,7 +253,10 @@ async function handleIdCardImageChange(event: Event, side: 'front' | 'back') {
   }
 }
 
-// 调用 OCR 接口识别身份证正面信息（当前后端为 STUB，未返回真实数据）
+// 调用 OCR 接口识别身份证正面信息
+// 清单 P2：后端 OcrServiceImpl 的厂商 SDK **尚未接入**（代码里是 todo 注释块），
+// 任何请求都返回 success=false + "OCR 服务未接入，请手动填写"；
+// 而页面仍以「OCR 自动识别」为卖点承诺"上传正面后自动触发"。此处如实标注当前状态。
 // 接入真实 API 后自动回填 name + idNo，并触发 idCardError 实时校验
 async function runOcrRecognition(file: File) {
   if (ocrLoading.value) return;
@@ -310,6 +323,12 @@ function onOcrRetryClick() {
 // 提交申请
 async function handleSubmit() {
   if (submitting.value) return;
+  // 清单 P2：原先只防 submitting，未校验 uploading / ocrLoading ——
+  // 图片上传（含 OCR 识别）进行中仍可点「提交申请」，此时证件号/图片尚未回填，会把半成品提交上去。
+  if (uploading.value || ocrLoading.value) {
+    toast.info('图片上传或识别中，请稍候再提交');
+    return;
+  }
   if (!form.realName.trim()) {
     toast.error('请输入真实姓名');
     return;
@@ -364,10 +383,17 @@ async function handleSubmit() {
 }
 
 function goBack() {
+  // 清单 P2：带上 ?redirect= 时优先回到原被拦截的操作（creatorPermission.ts 跳转认证页时传入），
+  // 否则沿用 history.back / 用户中心。
+  const fromQuery = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+  if (fromQuery) {
+    router.push(fromQuery);
+    return;
+  }
   if (window.history.length > 1) {
     router.back();
   } else {
-    router.push('/user');
+    router.push(redirectPath.value);
   }
 }
 

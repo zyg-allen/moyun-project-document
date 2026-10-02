@@ -21,6 +21,7 @@ import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
+import { getAccountOverview } from '@/api/pay';
 import type { UpdatePasswordParams, UpdateUserProfileParams } from '@/types/api';
 
 const router = useRouter();
@@ -86,7 +87,15 @@ useHead(
 onMounted(async () => {
   // 等待用户状态初始化
   if (!userStore.isUserInitialized) {
-    await userStore.initializeUser();
+    // 清单 P2：store 的 initializeUser 在 localStorage 已有 user 时**直接 return**，
+  // 于是本页各开关取自本地缓存快照，"设置回显"可能是过期的（如在别处改过）。
+  // 这里显式回源拉一次最新用户信息（失败不阻塞页面）。
+  try {
+    await userStore.fetchCurrentUser();
+  } catch (e) {
+    console.warn('刷新用户信息失败（沿用本地缓存）:', e);
+  }
+  await userStore.initializeUser();
   }
 
   // 检查是否登录
@@ -112,7 +121,21 @@ onMounted(async () => {
       privacyProfile: user.privacyProfile !== undefined ? user.privacyProfile : true
     };
   }
+
+  // 注销区需展示"实时余额"：与后端注销门禁同口径（余额/冻结非 0 会被阻断）。
+  // 拉取失败不影响页面其它功能，仅不展示余额提示。
+  try {
+    const overview = await getAccountOverview();
+    if (overview.code === 200 && overview.data) {
+      accountBalance.value = Number(overview.data.balance ?? 0);
+    }
+  } catch {
+    accountBalance.value = null;
+  }
 });
+
+/** 注销区展示的实时可用余额（null=未知/未登录）；>0 时提示先提现 */
+const accountBalance = ref<number | null>(null);
 
 // 菜单项目
 const menuItems = [
@@ -634,7 +657,12 @@ async function confirmDelete() {
                   </div>
                   <div class="flex-1 min-w-0">
                     <h3 class="text-lg font-semibold mb-2 text-red-700">注销账号</h3>
-                    <p class="text-sm mb-4 text-red-600">注销账号是不可逆的操作，你的所有数据（包括文章、评论、收藏等）将被永久删除，请谨慎操作。</p>
+                    <!--
+          清单 P2：原文案称"所有数据（文章、评论、收藏等）将被永久删除"，
+          而后端实际是**软删除**（del_flag=2 / status=1），文章、评论等业务数据一条未删，
+          且重新注册可"复活"。文案必须与真实行为一致。
+        -->
+        <p class="text-sm mb-4 text-red-600">注销后账号将无法登录（不可逆，需重新注册才能恢复使用）。你已发布的内容会同时下线，如需保留请先自行备份。</p>
 
                     <div class="space-y-3">
                       <div class="p-4 rounded-xl border" style="border-color: #fca5a5; background-color: white;">
@@ -644,6 +672,14 @@ async function confirmDelete() {
                           <li>你的账户余额已提现或使用完毕</li>
                           <li>你已解除与第三方账号的绑定</li>
                         </ul>
+                        <!-- 实时余额：后端注销门禁会在余额/冻结金额非 0 时阻断，
+                             这里提前告知并给出提现入口，避免用户填完确认文案才被拒。 -->
+                        <p v-if="accountBalance !== null && accountBalance > 0" class="text-xs text-red-700 mt-3">
+                          当前可用余额 <span class="font-semibold">¥{{ accountBalance.toFixed(2) }}</span>，
+                          注销会被拒绝；请先
+                          <router-link to="/pay/wallet" class="underline hover:no-underline">前往钱包提现</router-link>
+                          并等待到账。
+                        </p>
                       </div>
 
                       <div v-if="!showDeleteConfirm">

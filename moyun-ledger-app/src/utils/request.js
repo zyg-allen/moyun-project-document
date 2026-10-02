@@ -15,9 +15,13 @@ import { useUserStore } from '@/stores/user';
 // 环境地址：**统一读 VITE_API_BASE_URL**（H5 与非 H5 一致）
 // - .env.development → http://localhost:8080（小程序端需在微信开发者工具勾选"不校验合法域名"）
 // - .env.production  → 真实网关域名，**必须 https 且已配置为小程序 request 合法域名**
-// 历史实现：非 H5 分支硬编码 http://localhost:8080，生产包会请求"用户设备自身"（真机必然失败），
-// 导致 .env.production 里的配置形同虚设。
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+// fail-closed：缺失即报错，**绝不回落到 localhost** —— 小程序端回落到 localhost 等于请求
+// "用户设备自身"，真机必然失败且难以定位（历史上正是这个故障模式）。生产构建另有构建期守卫。
+const rawBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+if (!rawBaseUrl) {
+  throw new Error('[ledger] 缺少 VITE_API_BASE_URL：请在 .env.development / .env.production 配置接口地址');
+}
+export const BASE_URL = rawBaseUrl;
 
 const request = (options) => {
   return new Promise((resolve, reject) => {

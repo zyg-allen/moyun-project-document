@@ -31,21 +31,33 @@ const breadcrumbs = computed(() => [
   { label: '刷题日历' },
 ]);
 
+/**
+ * 请求序号（清单 P2）：快速切换年份或连点"刷新"会并发多个请求，
+ * 先发的慢响应后到时会**覆盖**后发请求的结果（出现"选 2026 年却显示 2024 年数据"）。
+ * 只接受最后一次请求的响应。
+ */
+let loadSeq = 0;
+
 async function loadCalendar() {
+  const seq = ++loadSeq;
+  const requestedYear = selectedYear.value;
   loading.value = true;
   error.value = null;
   try {
-    const res = await getLearnCalendar(selectedYear.value);
+    const res = await getLearnCalendar(requestedYear);
+    if (seq !== loadSeq) return;   // 过期响应丢弃
     if (res.code === 200) {
       cells.value = res.data || [];
     } else {
       error.value = res.message || '加载日历数据失败';
     }
   } catch (err) {
+    if (seq !== loadSeq) return;
     const e = err as { message?: string };
     error.value = e?.message || '加载日历数据失败，请稍后重试';
   } finally {
-    loading.value = false;
+    // 仅最后一次请求有权关闭 loading，否则会提前结束新请求的加载态
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -123,7 +135,8 @@ const summary = computed(() => {
             </select>
             <button
               @click="loadCalendar"
-              class="p-1.5 rounded-lg transition-colors hover:bg-gray-100"
+              :disabled="loading"
+              class="p-1.5 rounded-lg transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               style="color: var(--theme-text-secondary);"
               title="刷新"
             >
@@ -153,15 +166,15 @@ const summary = computed(() => {
           <!-- 汇总卡片 -->
           <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="rounded-lg p-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-              <div class="text-xs" style="color: var(--theme-text-secondary);">总提交</div>
+              <div class="text-xs" style="color: var(--theme-text-secondary);">{{ selectedYear }} 年总提交</div>
               <div class="text-2xl font-bold mt-1" style="color: var(--theme-text);">{{ summary.count }}</div>
             </div>
             <div class="rounded-lg p-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-              <div class="text-xs" style="color: var(--theme-text-secondary);">通过次数</div>
+              <div class="text-xs" style="color: var(--theme-text-secondary);">{{ selectedYear }} 年通过次数</div>
               <div class="text-2xl font-bold mt-1" style="color: #10b981;">{{ summary.success }}</div>
             </div>
             <div class="rounded-lg p-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-              <div class="text-xs" style="color: var(--theme-text-secondary);">活跃天数</div>
+              <div class="text-xs" style="color: var(--theme-text-secondary);">{{ selectedYear }} 年活跃天数</div>
               <div class="text-2xl font-bold mt-1" style="color: var(--theme-text);">{{ summary.activeDays }}</div>
             </div>
             <div class="rounded-lg p-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
@@ -173,7 +186,7 @@ const summary = computed(() => {
           <!-- 日历热力图 -->
           <section class="rounded-lg p-4 sm:p-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <h2 class="font-semibold mb-4" style="color: var(--theme-text);">刷题热力图（近 365 天）</h2>
-            <StudyCalendarCard :cells="cells" :loading="false" />
+            <StudyCalendarCard :cells="cells" :year="selectedYear" :loading="false" />
           </section>
 
           <!-- 空状态提示 -->

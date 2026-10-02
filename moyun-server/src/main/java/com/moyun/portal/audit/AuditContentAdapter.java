@@ -35,11 +35,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 审核业务内容端口实现（门户侧适配器，v13.22）
+ * 审核业务内容端口实现（门户侧适配器）
  *
- * <p>{@link AuditContentPort} 的落地实现：把原先散在 8 个 {@code system.*AuditBizHandler}
- * 里的"读门户 Mapper / 调门户与 CMS 服务"的逻辑**集中到这一个类**，
- * 管理端因此不再依赖门户数据层（{@code system -> portal} 边从 24 降到 6）。</p>
+ * <p>{@link AuditContentPort} 的落地实现：门户 Mapper 与门户/CMS 服务的调用集中到这一个类，
+ * 管理端因此不再依赖门户数据层。</p>
  *
  * <p><b>行为保持</b>：各 taskType 的详情字段与状态取值、日志文案均与迁移前逐个 handler 一致
  * （逐条对照搬运，未做语义调整）。</p>

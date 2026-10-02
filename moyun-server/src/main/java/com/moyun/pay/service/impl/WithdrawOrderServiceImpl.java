@@ -86,11 +86,15 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
         if (userId == null) {
             throw new BusinessException("USER_NOT_LOGIN", "请先登录");
         }
-        if (amount == null || amount.compareTo(new BigDecimal("1")) < 0) {
-            throw new BusinessException("WITHDRAW_AMOUNT_INVALID", "提现金额不可低于 1 元");
+        // 清单 P2：额度原为硬编码常量，现由配置驱动（moyun.pay.payout.withdraw-min/max），
+        // 运营可调且与前端提示同源。
+        BigDecimal withdrawMin = payProperties.getPayout().getWithdrawMin();
+        BigDecimal withdrawMax = payProperties.getPayout().getWithdrawMax();
+        if (amount == null || (withdrawMin != null && amount.compareTo(withdrawMin) < 0)) {
+            throw new BusinessException("WITHDRAW_AMOUNT_INVALID", "提现金额不可低于 " + toPlain(withdrawMin) + " 元");
         }
-        if (amount.compareTo(new BigDecimal("50000")) > 0) {
-            throw new BusinessException("WITHDRAW_AMOUNT_INVALID", "单笔提现不可超过 50000 元");
+        if (withdrawMax != null && amount.compareTo(withdrawMax) > 0) {
+            throw new BusinessException("WITHDRAW_AMOUNT_INVALID", "单笔提现不可超过 " + toPlain(withdrawMax) + " 元");
         }
         // 1. 绑卡校验：必须为本人已核实卡
         UserBankCard card = bankCardId == null ? null : bankCardMapper.selectById(bankCardId);
@@ -187,8 +191,8 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
      *   <li>**无可用渠道 Bean → 明确拒绝**，绝不做隐式模拟打款。</li>
      * </ul>
      *
-     * <p><b>与历史实现的区别</b>：历史上"未配置通道即模拟打款成功"是写在业务方法里的**隐式降级**，
-     * 生产漏配也会走到假打款。现改为渠道抽象 + 显式装配（{@code moyun.pay.payout.mock-enabled}）：
+     * <p><b>渠道装配</b>：无可用渠道 Bean 时明确拒绝，绝不隐式模拟打款（生产漏配同样拒绝，不会假成功）。
+     * 渠道抽象 + 显式装配（{@code moyun.pay.payout.mock-enabled}）：
      * 联调环境装配 {@code MockPayoutChannel}（日志显式标注"资金未实际划出"），
      * 生产接入真实实现后替换即可，业务代码零改动。</p>
      */
@@ -239,6 +243,10 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
      * 若有多个（联调 mock + 真实通道并存）则按 {@code moyun.pay.payout.channel} 指定，缺省取第一个。
      *
      * <p>无可用渠道 → 明确拒绝出金（fail-closed），绝不隐式模拟打款。</p>
+     *
+     * <p><b>生产禁止 mock</b>：必须在真正出金前做**运行时断言**。不能用 bean 装配条件
+     * （{@code @ConditionalOnProperty} 读的是配置属性，不受 {@code PayProperties.init()} 的字段改写影响），
+     * 也不能只用字段改写（改不动已装配的渠道 Bean）。</p>
      */
     private PayoutChannel resolvePayoutChannel() {
         if (payoutChannels == null || payoutChannels.isEmpty()) {
@@ -246,17 +254,29 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
             throw new BusinessException("WITHDRAW_PAYOUT_DISABLED",
                     "代付通道未开通，无法出金（请接入真实代付通道，或联调环境开启 moyun.pay.payout.mock-enabled）");
         }
+        PayoutChannel chosen = null;
         String preferred = payProperties.getPayout() != null ? payProperties.getPayout().getChannel() : null;
         if (preferred != null && !preferred.isBlank()) {
             for (PayoutChannel c : payoutChannels) {
                 if (preferred.equalsIgnoreCase(c.channelCode())) {
-                    return c;
+                    chosen = c;
+                    break;
                 }
             }
-            log.warn("[withdraw] 指定代付渠道 {} 未装配，回退到可用渠道 {}",
-                    preferred, payoutChannels.get(0).channelCode());
+            if (chosen == null) {
+                log.warn("[withdraw] 指定代付渠道 {} 未装配，回退到可用渠道 {}",
+                        preferred, payoutChannels.get(0).channelCode());
+            }
         }
-        return payoutChannels.get(0);
+        if (chosen == null) {
+            chosen = payoutChannels.get(0);
+        }
+        if (payProperties.isProductionEnvironment() && "mock".equalsIgnoreCase(chosen.channelCode())) {
+            log.error("[withdraw] 生产环境装配了 mock 代付渠道，已拒绝出金：channel={}", chosen.channelCode());
+            throw new BusinessException("WITHDRAW_PAYOUT_MOCK_FORBIDDEN",
+                    "生产环境禁止使用模拟代付通道，已拒绝出金（请接入真实代付通道）");
+        }
+        return chosen;
     }
 
     @Override
@@ -358,11 +378,27 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
         BigDecimal auditing = (rows == null || rows.isEmpty() || rows.get(0) == null || rows.get(0).get("total") == null)
                 ? BigDecimal.ZERO : new BigDecimal(rows.get(0).get("total").toString());
         Map<String, Object> data = new LinkedHashMap<>();
+        BigDecimal frozen = account.getFrozenAmount() == null ? BigDecimal.ZERO : account.getFrozenAmount();
+        BigDecimal balance = account.getBalance() == null ? BigDecimal.ZERO : account.getBalance();
         data.put("balance", account.getBalance());
+        // 清单 P2：后端校验用的是"可用余额 = balance - frozen_amount"（见 apply()），
+        // 但总览只回了 balance，前端把 balance 标成"可用余额"并用它做提现上限校验
+        // ⇒ 用户看到/能填的金额大于真正可提现金额。这里把同口径的可用余额与冻结额一并下发。
+        data.put("availableBalance", balance.subtract(frozen));
+        data.put("frozenAmount", frozen);
         data.put("totalIncome", account.getTotalIncome());
         data.put("totalWithdraw", account.getTotalWithdraw());
         data.put("auditingAmount", auditing);
+        // 清账 P2：把提现额度一并下发，前端可提示"单笔 X ~ Y 元"并做前置校验，
+        // 避免用户填完才被后端拒绝（额度来源与后端校验同源：PayProperties.payout）。
+        data.put("withdrawMin", payProperties.getPayout().getWithdrawMin());
+        data.put("withdrawMax", payProperties.getPayout().getWithdrawMax());
         return data;
+    }
+
+    /** 金额去尾零展示（1.00 → 1）；null 原样返回 "-" 由调用方处理 */
+    private String toPlain(BigDecimal v) {
+        return v == null ? "-" : v.stripTrailingZeros().toPlainString();
     }
 
     private String generateWithdrawNo() {

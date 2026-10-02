@@ -44,7 +44,7 @@ public class SysConfig extends BaseEntity {
     private String configType;
 
     /**
-     * 归属端（NULL=全局，端级优先全局兜底；VIP统一体系 v12.0）
+     * 归属端（NULL=全局，端级优先全局兜底）
      */
     private String platformCode;
 }

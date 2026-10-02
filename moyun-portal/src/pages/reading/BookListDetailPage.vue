@@ -20,6 +20,15 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const bookList = ref<BookList | null>(null);
 const books = ref<Book[]>([]);
+/**
+ * 访问级别（清单 P2）。
+ *
+ * <p>后端书单有 accessLevel（free/vip/preview），原先前台完全没用 ⇒ 会员书单等同公开。
+ * 现在后端在会员书单且当前用户非会员时**不下发书籍列表**并回置 `accessLevelLocked=true`，
+ * 前端据此渲染开通引导而不是"空书单"。</p>
+ */
+const accessLevel = ref('free');
+const accessLevelLocked = ref(false);
 const bookmarked = ref(false);
 const bookmarkLoading = ref(false);
 // 书单点赞状态
@@ -68,26 +77,37 @@ async function loadDetail() {
     bookList.value = null;
     books.value = [];
     bookmarked.value = false;
+    // 清单 P2：原先漏了 liked ⇒ 同组件切书单（路由参数变化）会残留上一个书单的点赞态
+    liked.value = false;
 
     const response = await getBookListDetail(listId.value);
     if (response.code === 200 && response.data) {
       bookList.value = response.data.bookList || null;
       books.value = response.data.books || [];
+    accessLevel.value = String((response.data as unknown as { accessLevel?: string }).accessLevel || 'free');
+    accessLevelLocked.value = !!(response.data as unknown as { accessLevelLocked?: boolean }).accessLevelLocked;
       // 登录用户检查收藏状态
       if (userStore.isAuthenticated && bookList.value) {
-        checkBookListBookmark(bookList.value.id)
+        // 清单 P2：① 原先 .catch(() => {}) 完全静默，401/网络失败时按钮初始态错误却无从发现；
+        //          ② 未做失效校验 —— 晚到的响应会覆盖"已经切到另一个书单"后的状态。
+        // 这里记录当前书单 id 作为失效校验依据，并对失败给出可诊断日志（初始态查询失败不打断浏览，
+        // 故不弹 toast，但不再静默）。
+        const checkingId = bookList.value.id;
+        checkBookListBookmark(checkingId)
           .then(resp => {
+            if (bookList.value?.id !== checkingId) return;   // 已切换书单：丢弃过期结果
             if (resp.code === 200 && resp.data) {
               bookmarked.value = !!(resp.data as any).bookmarked;
             }
           })
-          .catch(() => { /* ignore */ });
+          .catch((e) => { console.warn('查询书单收藏状态失败（初始态保持未收藏）:', e); });
         // 同时查询点赞状态
-        checkBookListLike(bookList.value.id)
+        checkBookListLike(checkingId)
           .then(resp => {
+            if (bookList.value?.id !== checkingId) return;   // 已切换书单：丢弃过期结果
             if (resp.code === 200 && resp.data) liked.value = !!resp.data.liked;
           })
-          .catch(() => { /* ignore */ });
+          .catch((e) => { console.warn('查询书单点赞状态失败（初始态保持未点赞）:', e); });
       }
     } else {
       error.value = response.message || '加载书单失败';
@@ -112,9 +132,14 @@ async function handleToggleBookmark() {
     const resp = await toggleBookListBookmark(bookList.value.id);
     if (resp.code === 200 && resp.data) {
       bookmarked.value = !!(resp.data as any).bookmarked;
+    } else {
+      // 清单 P2：业务失败原先**静默** —— 用户点"收藏书单"后按钮无变化也无提示，
+      // 以为已收藏成功，实际未写入。
+      toast.error(resp.message || '收藏失败，请稍后重试');
     }
   } catch (err) {
     console.error('书单收藏失败:', err);
+    toast.error((err as { message?: string })?.message || '收藏失败，请稍后重试');
   } finally {
     bookmarkLoading.value = false;
   }
@@ -322,7 +347,27 @@ watch(listId, (newId, oldId) => {
           </div>
 
           <!-- 空数据状态 -->
-          <div v-if="books.length === 0" class="text-center py-16">
+          <!-- 清单 P2：会员书单对非会员不下发书籍列表，这里给开通引导而不是"空书单" -->
+        <div
+          v-if="accessLevelLocked"
+          class="text-center py-16 rounded-2xl"
+          style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border);"
+        >
+          <p class="text-base font-medium mb-1" style="color: var(--theme-text);">该书籍列表为会员专属</p>
+          <p class="text-sm mb-5" style="color: var(--theme-text-secondary);">开通会员后可查看本清单内的全部书籍</p>
+          <Link
+            to="/membership"
+            class="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-medium text-white"
+            style="background-color: var(--theme-primary);"
+          >前往开通会员</Link>
+        </div>
+        <div
+          v-else-if="accessLevel === 'preview'"
+          class="mb-4 px-4 py-2.5 rounded-xl text-xs"
+          style="background-color: var(--theme-accent); color: var(--theme-text-secondary);"
+        >该清单为「可预览」级别</div>
+
+        <div v-if="books.length === 0 && !accessLevelLocked" class="text-center py-16">
             <BookOpen class="w-12 h-12 mx-auto mb-4" style="color: var(--theme-text-secondary); opacity: 0.5;" />
             <p class="text-lg" style="color: var(--theme-text-secondary);">暂无书籍</p>
           </div>

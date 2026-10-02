@@ -21,6 +21,11 @@ export interface CodeRunBody {
  * POST /portal/code/run
  * 同步返回运行结果（output/errorMsg/status/runtimeMs）
  */
+/** 在线代码运行是否可用（后端 moyun.code-run.enabled；关闭时前端应置灰并说明） */
+export const getCodeRunConfig = () => {
+  return httpGet<{ enabled: boolean }>('/portal/code/config');
+};
+
 export const runCode = (data: CodeRunBody) => {
   return httpPost<CodeRunVO>('/portal/code/run', data as unknown as Record<string, unknown>);
 };

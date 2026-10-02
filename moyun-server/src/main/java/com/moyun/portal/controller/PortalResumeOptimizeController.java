@@ -38,7 +38,7 @@ import java.util.Map;
  *   GET/POST/PUT/DELETE  /portal/resume/optimize/job-target    岗位目标 CRUD
  *   POST  /portal/resume/optimize/match/{resumeId}/{jobTargetId}  执行匹配分析
  *   GET   /portal/resume/optimize/match/{resumeId}/latest        最近匹配报告
- *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}   生成深度优化建议（同步，兼容旧版）
+ *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}   生成深度优化建议（同步）
  *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}/async  提交深度优化异步任务（推荐）
  *   GET   /portal/resume/optimize/deep/task/{taskId}              查询深度优化任务状态（前端轮询）
  *   POST  /portal/resume/optimize/deep/apply                      采纳建议并保存新版本

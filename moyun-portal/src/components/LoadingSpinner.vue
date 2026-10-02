@@ -12,7 +12,7 @@ interface Props {
   padding?: 'sm' | 'md' | 'lg'
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   size: 'md',
   text: '加载中...',
   padding: 'md'

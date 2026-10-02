@@ -10,7 +10,7 @@ import lombok.Data;
  *
  * <p>配置项：{@code moyun.security.cert-no-encrypt-key}</p>
  *
- * <p><b>安全策略：不提供默认口令</b>。历史实现默认值为常量
+ * <p><b>安全策略：不提供默认口令</b>。若默认值取常量
  * {@code "moyun-cert-default-key"}，会在漏配时静默用公开口令加密证件号（等于未加密），
  * 且运维无法从任何日志察觉。现改为空默认，由
  * {@code ConfigWiringValidator} 在启动期统一断言（prod 下缺失或仍为开发默认口令即阻断启动）。</p>

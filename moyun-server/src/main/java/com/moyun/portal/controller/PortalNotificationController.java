@@ -50,7 +50,12 @@ public class PortalNotificationController extends BaseController {
                     .selectBroadcastNotifications(page, null, null);
             return success(broadcast);
         }
-        Page<SysNotification> result = sysNotificationService.selectUserNotifications(page, currentUser.getId(), USER_TYPE_PORTAL);
+        // v14.02：把 query.type 真正传到 SQL（此前该参数被忽略，"筛选"实际未生效）；
+        // 「通知」Tab 未指定类型时排除待办 —— 待办有自己的 Tab，且未读数统计早已如此排除。
+        String type = query == null ? null : query.getType();
+        Page<SysNotification> result = sysNotificationService.selectUserNotifications(
+                page, currentUser.getId(), USER_TYPE_PORTAL, type,
+                (type == null || type.isEmpty()) ? Boolean.TRUE : null);
         return success(result);
     }
 

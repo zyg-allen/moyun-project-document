@@ -18,7 +18,7 @@ public class DocumentParserFactory {
 
         return switch (ext) {
             // PDF 文档：使用 PdfBox3DocumentParser（基于 PDFBox 3.x Loader.loadPDF）。
-            // 不再使用 langchain4j 的 ApachePdfBoxDocumentParser——后者编译时依赖
+            // 不用 langchain4j 的 ApachePdfBoxDocumentParser：后者编译时依赖
             // PDFBox 2.0.32，运行时会因 PDDocument.load 方法被移除而抛 NoSuchMethodError。
             case "pdf" -> new PdfBox3DocumentParser();
 

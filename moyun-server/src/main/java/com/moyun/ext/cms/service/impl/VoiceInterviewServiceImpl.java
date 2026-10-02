@@ -37,7 +37,6 @@ import com.moyun.ext.cms.service.interview.InterviewPhase;
 import com.moyun.ext.cms.service.interview.ScoringEngine;
 import com.moyun.ext.cms.service.interview.InterviewAgentClient;
 import com.moyun.ext.cms.service.interview.InterviewTurnResult;
-import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalUserResume;
 import com.moyun.portal.domain.entity.PortalVoiceInterview;
 import com.moyun.portal.domain.entity.PortalVoiceInterviewQA;
@@ -46,7 +45,6 @@ import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.portal.mapper.PortalVoiceInterviewMapper;
 import com.moyun.portal.mapper.PortalVoiceInterviewQAMapper;
 import com.moyun.util.bean.PageUtils;
-import com.moyun.util.json.LlmJsonExtractor;
 import com.moyun.util.string.StringUtils;
 import com.moyun.ext.cms.service.interview.AnswerScoringEngine;
 import com.moyun.ext.cms.service.interview.InterviewChatMemoryService;
@@ -76,7 +74,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.regex.Pattern;
 
 /**
  * 语音面试官 Service 实现（V3：统一 AI 入口 · 纯 agent 自由面试）
@@ -98,7 +95,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     private static final Logger log = LoggerFactory.getLogger(VoiceInterviewServiceImpl.class);
 
-    /** 主问题（考察方向）默认数量：v13.62 由 5 调至 8——时长制下题数是软参考，
+    /** 主问题（考察方向）默认数量：时长制下题数为软参考，
      *  默认值应匹配 20 分钟标准场的考察密度（原 5 方向 ≈ 7-8 轮对话，约 10 分钟即冷场） */
     private static final int QUESTION_COUNT = 8;
 
@@ -278,7 +275,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /**
      * SSE 单轮超时（毫秒）。
      *
-     * <p><b>v13.43 口径统一（批次 0 / T2.2）</b>：原值 {@code 120_000}（2 分钟）**小于**
+     * <p><b>取值口径</b>：若 {@code 120_000}（2 分钟）**小于**
      * {@code ai_model_config.timeout} 的种子值 {@code 180}s ⇒ 模型还在推理，SSE 已超时断开，
      * 用户看到超时而服务端继续烧 token。
      * 现取 <b>210s = 模型 180s + 30s 缓冲</b>，保证「SSE 超时」一定是模型真超时后的兜底，
@@ -288,13 +285,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private static final long SSE_TIMEOUT = 210_000L;
 
-    /** 每题提示上限（与 §原实现一致） */
+    /** 每题提示上限 */
     private static final int MAX_HINT_PER_QUESTION = 3;
 
     /**
-     * 全场提示上限（v13.43 批次 0 / T2.6）。
+     * 全场提示上限。
      *
-     * <p>原实现只有每题上限（3），10 题即 30 次仍可刷；<b>提示免费</b>（D3 裁决），
+     * <p>每题上限（3）不足以约束总量：10 题即 30 次仍可刷；<b>提示免费</b>（D3 裁决），
      * 故必须设全场上限把最坏成本钉死：15 次 × 128 token ≈ 2K token/场。</p>
      */
     private static final int MAX_HINT_PER_INTERVIEW = 15;
@@ -364,13 +361,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private com.moyun.system.service.ISysConfigService sysConfigService;
 
     /**
-     * 分布式锁（v13.43 批次 0）。
+     * 分布式锁。
      *
      * <p>用途有二：</p>
      * <ol>
      *   <li><b>答题幂等（T2.1）</b>：同一 {@code qaId} 重复提交（双标签页 / 网络重试 / 用户连点）
      *       只允许一次进入轮次 —— 否则会「后写覆盖前写」+「双倍 token」+「同一 questionIdx 插两条 QA」；</li>
-     *   <li><b>单场分析互斥（T2.7）</b>：替换原 JVM 内 {@code RUNNING_ANALYSIS} 静态内存集合，
+     *   <li><b>单场分析互斥（T2.7）</b>：以分布式锁为判据， {@code RUNNING_ANALYSIS} 仅作内存镜像，
      *       使多实例部署下同一场面试不被重复分析（重复烧 token + 报告互相覆盖）。</li>
      * </ol>
      */
@@ -381,9 +378,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     /**
-     * 事务模板：把事务边界**收窄到只剩 DB/Redis 写**（v13.14「事务内远程 IO」整改）。
+     * 事务模板：把事务边界**收窄到只剩 DB/Redis 写**。
      *
-     * <p>{@code start()} 原为整方法 {@code @Transactional}，其中包含 RAG 检索与 LLM 预热/开场白生成；
+     * <p>{@code start()} 若整方法 {@code @Transactional}，其中包含 RAG 检索与 LLM 预热/开场白生成；
      * 现按"远程 IO 全前置、事务只包写库"重构（详见方法注释）。{@code requestHint()} 则改为
      * "原子占额度（一条条件 UPDATE）+ 事务外调 LLM"，不再需要事务。</p>
      */
@@ -392,7 +389,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /**
      * SSE 长任务执行器（core 模块统一管理，见 {@code AsyncTaskConfig#sseStreamExecutor}）。
      *
-     * <p>v13.5 前此处是实例字段 {@code Executors.newScheduledThreadPool(2)}：
+     * <p>此处曾用实例字段 {@code Executors.newScheduledThreadPool(2)}：
      * 脱离 Spring 容器（无优雅停机）、线程非守护且无命名、池大小写死 2 ——
      * 第 3 个并发面试回合会**静默排队**，客户端 SSE 一直等不到首字。
      * 现改走与架构图/工作流流式同一长任务池，并显式处理拒绝（回明确错误而非静默等待）。</p>
@@ -405,7 +402,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /**
      * 单场分析「运行中」标记（<b>内存镜像</b>）。
      *
-     * <p><b>v13.43 批次 0 / T2.7</b>：原实现只有这一个 JVM 内静态集合，
+     * <p>仅靠这一个 JVM 内静态集合，
      * <b>在单体单实例下正确，但多实例部署时每个实例各持一份</b> ⇒ 同一场面试会被
      * 两个实例同时分析（重复烧 token + 报告互相覆盖；且 {@code user_id NOT NULL} 之外
      * 没有任何跨实例互斥）。</p>
@@ -426,10 +423,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /**
      * 开始面试（V3/V4）
      *
-     * <p><b>事务边界（v13.14 收窄）</b>：本方法**不再**整体 {@code @Transactional} ——
+     * <p><b>事务边界</b>：本方法**并非**整体 {@code @Transactional} ——
      * 方法体内含两类远程 IO：RAG 检索（{@code retrieveKbSnippets}，向量化+检索）与
      * **LLM 调用**（{@code tryWarmup} 画像/开场白/首题预热，失败还会降级 {@code generateOpening} 再调一次），
-     * 以及 Redis 滑窗初始化。原先这些都在同一个 DB 事务里，等于**一次面试开场的 LLM 往返期间
+     * 以及 Redis 滑窗初始化。这些若都在同一个 DB 事务里，等于**一次面试开场的 LLM 往返期间
      * 一直占着 DB 连接与事务**（慢模型下并发开面会打满连接池）。</p>
      *
      * <p>现在：远程 IO 全部前置到事务外，事务只包「收口遗留会话 + 插面试 + 插首题 + 记事件」；
@@ -473,7 +470,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         String kbSnippets = retrieveKbSnippets(agent, position, resumeDigest);
 
         // 断点续接收口：开始新面试前，遗留的进行中会话自动结束（abandon）并触发异步批量分析（数据不丢）
-        // v13.14：DB 写，随事务块一起下沉（见方法末尾 transactionTemplate）
+        // DB 写随事务块一起下沉（见方法末尾 transactionTemplate）
 
         // V4 预热：一次调用产出"AI 理解"（画像+考察方向计划）+ 开场白 + 首题（失败降级旧 generateOpening 链路）
         JsonNode warmupPlan = tryWarmup(agent, position, difficulty, questionCount,
@@ -522,7 +519,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         interview.setAnalysisStatus(0);
         interview.setAnalysisProgress(0);
         interview.setCreateTime(LocalDateTime.now());
-        // v13.14：insert 下沉到事务块（远程 IO 全部前置完成后再写库，见方法末尾）
+        // insert 下沉到事务块（远程 IO 全部前置完成后再写库，见方法末尾）
 
         // 滑窗初始化：system（agent 人设+本场约束）+ 上下文 user（简历摘要+JD，wrapData 包裹）
         String systemPrompt = buildInterviewerSystemPrompt(interview, agent);
@@ -591,7 +588,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 .append(" 个考察方向。题数口径：1 个考察方向 = 1 个主问题 + 视回答情况 1-2 轮追问；")
                 .append("开场自我介绍是固定环节，不计入考察方向数。目标是把时间用满，考察充分而非赶进度。\n");
         // 段序约束（四阶段：自我介绍 → 简历深挖 → 专业技术考察 → 反问收尾）
-        // v13.62：重写出题结构——明确阶段划分、追问轮换上限、中段必须进入专业考察，
+        // 出题结构：——明确阶段划分、追问轮换上限、中段必须进入专业考察，
         // 修复「全程围绕第一个话题追问、几轮对话就草草收场」的体验问题
         sb.append("\n【段序约束（四阶段，严格遵循）】\n")
                 .append("阶段一（开场）：第 1 问固定为请候选人做自我介绍。\n")
@@ -746,7 +743,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /**
      * V3 同步生成开场白+首题（warmup 失败时的降级链路）。
      *
-     * <p><b>v13.46 批次 1 / T3.5 收编</b>：原实现 {@code agentClient.chat(...)} <b>直连模型</b>
+     * <p><b>必须走网关</b>：{@code agentClient.chat(...)} <b>直连模型</b>
      * 且提示词硬编码在 Java 里，绕过了网关 → 该次调用不进 {@code ai_execute_log}、
      * 不受限流/成本熔断/版本锁治理。现改为走场景配置行
      * {@code voice_interview:opening_fallback}（user_prompt_template 承载任务指令与数据；
@@ -807,9 +804,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         // ====================================================================
-        // v13.43 批次 0 / T2.1：答题幂等 + 状态机守卫
+        // 答题幂等 + 状态机守卫
         // ====================================================================
-        // 原实现的唯一守卫是上面的 status=finished 判断，且「读后不锁」——
+        // 仅靠上面的 status=finished 判断守卫，且「读后不锁」——
         // 双标签页 / 连点 / 网络重试会同时通过校验，后果：
         //   ① 两次都写 userAnswer（后写覆盖前写，一段作答丢失）
         //   ② 两次都提交 sseExecutor（双倍 token）
@@ -860,7 +857,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         // 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
-        // v13.62：服务端同步收口会话并触发报告——原来只发 SSE finished 事件、status 仍
+        // 服务端同步收口会话并触发报告——若只发 SSE finished 事件、status 仍
         // in_progress，若前端未回调 /finish 会话将悬挂且报告永不生成（不可依赖前端行为）
         if (!isSkip && InterviewSessionSupport.matchesVerbalEnd(transcript)) {
             recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
@@ -876,9 +873,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         // ====================================================================
-        // v13.43 批次 0 / T2.3：客户端断连标记（断连后停止消费 LLM 输出）
+        // 客户端断连标记（断连后停止消费 LLM 输出）
         // ====================================================================
-        // 原实现只有 onTimeout/onError，且**只打日志**（不 complete、不清状态），
+        // 只挂 onTimeout/onError 且**只打日志**（不 complete、不清状态），
         // 全仓也没有 onCompletion —— 客户端关页面/断网后，上游 langchain4j 流式订阅
         // 不被取消，onCompleteResponse 照常执行：继续耗 token、继续 tokenCostGuard.consume、
         // 继续写滑窗与执行日志（纯浪费，且报告侧仍会认为该题有效）。
@@ -897,8 +894,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 "[VoiceInterview] SSE 连接异常收尾 interviewId={} qaId={}：{}", interviewId, qaId, t.getMessage()));
 
         // V3：滑窗记忆 + 面试官流式话术（评分/分析统一留到结束批量报告）
-        // v13.5：长任务池满即拒绝（AbortPolicy），此处必须显式回错——
-        // 否则前端会一直等一个永远不会到来的首字（旧实现是静默排队，症状相同）
+        // 长任务池满即拒绝（AbortPolicy），此处必须显式回错——
+        // 否则前端会一直等一个永远不会到来的首字
         try {
             sseExecutor.execute(() -> runAgentTurn(emitter, interview, qa,
                     isSkip ? "" : transcript, isSkip, turnLock, clientGone));
@@ -950,7 +947,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                         if (token == null || token.isEmpty()) {
                             return;
                         }
-                        // v13.43 批次 0 / T2.3：客户端已断开则不再下发（省一次序列化与写失败日志）
+                        // 客户端已断开则不再下发（省一次序列化与写失败日志）
                         if (clientGone.get()) {
                             return;
                         }
@@ -961,7 +958,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     // onComplete：话术已由网关入滑窗 → 落库 → 创建下一题 → end（nextQaId/finished）
                     full -> {
                         String speak = full == null ? "" : full.trim();
-                        // v13.43 批次 0 / T2.3：客户端已断开 → 不再为已离开的用户造下一题
+                        // 客户端已断开 → 不再为已离开的用户造下一题
                         // （本轮话术与 token 由网关照常记账，此处仅避免污染题目序列）
                         if (clientGone.get()) {
                             log.info("[VoiceInterview] 客户端已断开，跳过建下一题 interviewId={} qaId={}",
@@ -972,9 +969,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                         }
                         try {
                             // ============================================================
-                            // v13.43 批次 0 / T2.4：本轮「更新话术 + 预建下一题」原子化
+                            // 本轮「更新话术 + 预建下一题」原子化
                             // ============================================================
-                            // 原实现两条写各自自动提交：若「更新话术」成功而「插下一题」失败，
+                            // 两条写各自自动提交时：若「更新话术」成功而「插下一题」失败，
                             // 会话停在一个已播报但无下一题 QA 的状态（用户无题可答，只能刷新）。
                             // 现收进事务模板（与 start() 同范式：只包 DB 写，不含 LLM/SSE）。
                             //
@@ -1025,7 +1022,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                                         "qaId", qa.getId(), "nextQaId", nextQa.getId()));
                             }
                             // ====================================================
-                            // v13.43 批次 0 / T2.5：自我介绍评分接线
+                            // 自我介绍评分接线
                             // ====================================================
                             // 背景：`ScoringEngine.evaluateSelfIntro` 与 `intro_score_json` 列
                             // 早已存在，但**全仓无调用方** ⇒ 该列恒 NULL ⇒ 报告自介分恒空、
@@ -1039,7 +1036,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                                 maybeScoreSelfIntro(interview.getId(), qa.getUserAnswer());
                             }
 
-                            // v13.62：时间已到（含宽限内）——面试官按指令已做收尾话术，
+                            // 时间已到（含宽限内）——面试官按指令已做收尾话术，
                             // 本轮结束后服务端自动收口并触发报告，不再依赖用户点结束按钮
                             boolean timeUp = InterviewSessionSupport.remainMinutesOf(
                                     interview, durationOf(interview)) <= 0;
@@ -1070,7 +1067,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             sendEvent(emitter, "error", e.getMessage());
             emitter.complete();
         } finally {
-            // v13.43 批次 0 / T2.1：轮次结束（成功或异常）释放幂等锁。
+            // 轮次结束（成功或异常）释放幂等锁。
             // 释放后同 qaId 再提交会被「该题已作答」状态机守卫拦截；
             // 若本轮失败且未落 userAnswer，则允许用户重试（锁已释放，语义正确）。
             if (turnLock != null) {
@@ -1080,7 +1077,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v13.43 批次 0 / T2.5：自我介绍评分（异步 + 幂等 + 降级）。
+     * 自我介绍评分（异步 + 幂等 + 降级）。
      *
      * <p><b>为什么必须接线</b>：{@code ScoringEngine.evaluateSelfIntro} 与
      * {@code portal_voice_interview.intro_score_json} 早已实现，但全仓无调用方 ——
@@ -1240,12 +1237,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /**
      * 请求思考提示
      *
-     * <p><b>事务边界（v13.14 收窄）</b>：原实现整体 {@code @Transactional}，且把
+     * <p><b>事务边界</b>：本方法整体 {@code @Transactional} 时，会把
      * {@code agentClient.chat(...)}（LLM，秒级网络往返）放在事务内 —— 提示期间一直占着 DB 连接。</p>
      *
      * <p>现改为「**先原子占额度，再调 LLM**」：额度由一条原子条件更新占用
      * （{@code hint_used = COALESCE(hint_used,0)+1 WHERE COALESCE(hint_used,0) < 3}），
-     * 并发下也不会超过 3 次（比原实现"读-判断-更新"更强）；拿到额度后再在**事务外**调用 LLM。
+     * 并发下也不会超过 3 次（比"读-判断-更新"更强）；拿到额度后再在**事务外**调用 LLM。
      * LLM 失败仍返回兜底文案、额度照常消耗 —— 与原语义一致。</p>
      */
     @Override
@@ -1257,20 +1254,20 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         // ====================================================================
-        // v13.43 批次 0 / T2.6：提示（hint）额度口径
+        // 提示（hint）额度口径
         // ====================================================================
         // 【计费口径（用户裁决 D3）】提示**免费**，不计 Token 费用：
         //   定位是「引导思考」的辅助功能，单次输出上限 128 token，成本可控；
         //   收费会显著降低使用意愿，与「面试训练」的产品目的相悖。
         // 【限流口径】两级配额，防止被当作免费 LLM 代理刷：
         //   ① 每题 ≤ 3 次（原已实现，原子 SQL，并发安全）；
-        //   ② **全场 ≤ 15 次**（v13.43 新增）—— 原实现只有每题上限，
+        //   ② **全场 ≤ 15 次**—— 只有每题上限时，
         //      10 题×3 = 30 次仍可刷；全场上限把最坏情况钉死。
         //   两级都用「先原子占额、再执行」的顺序，避免并发绕过。
 
         // 2.1 每题配额：**先占**（原子 SQL，并发安全，仅当已用 < 3 才 +1；返回 0 行即"已用完"）
         //     顺序说明：每题配额是「更具体、更早失败」的约束，必须先判——
-        //     否则超额的失败请求会白白吃掉全场配额（原实现顺序反了，已修）。
+        //     否则超额的失败请求会白白吃掉全场配额。
         int reserved = qaMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalVoiceInterviewQA>()
                 .eq(PortalVoiceInterviewQA::getId, qaId)
                 .apply("COALESCE(hint_used, 0) < " + MAX_HINT_PER_QUESTION)
@@ -1294,9 +1291,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         recordEvent(interviewId, "hint", Map.of("qaId", qaId, "seq", hintSeq));
 
         // ====================================================================
-        // v13.46 批次 1 / T3.6 收编：提示改走场景配置行 voice_interview:hint
+        // 提示走场景配置行 voice_interview:hint
         // ====================================================================
-        // 原实现 agentClient.chat(...) 直连模型：① 不进 ai_execute_log（成本不可见）；
+        // 直连模型（agentClient.chat）的问题：① 不进 ai_execute_log（成本不可见）；
         // ② 不受限流/成本熔断/版本锁治理；③ 提示词硬编码在 Java 里。
         // 现走网关配置行：任务指令在 user_prompt_template，人设由 Agent 表经
         // input.agentPersona 注入；失败用配置行 fallback_response 兜底（网关侧），
@@ -1333,7 +1330,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         HintVO hint = HintVO.of(nextUsed, "思考提示");
         hint.setKeywords(new ArrayList<>());
         hint.setSpeakText(text.trim());
-        // v13.14：额度已由上面的原子 SQL 占用，这里不再 updateById（避免把整行写回）
+        // 额度已由上面的原子 SQL 占用，这里不再 updateById（避免把整行写回）
 
         VoiceInterviewVO vo = assembleVO(interview, qa);
         vo.setCurrentQa(InterviewSessionSupport.toQaVO(qa));
@@ -1440,7 +1437,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private void runBatchAnalysis(PortalVoiceInterview interview) {
         Long interviewId = interview.getId();
         // ====================================================================
-        // v13.43 批次 0 / T2.7：单场分析互斥改为分布式锁（多实例安全）
+        // 单场分析互斥走分布式锁（多实例安全）
         // ====================================================================
         // 互斥语义：同一场面试的分析（规则聚合 + 报告 LLM，可达分钟级）全局只跑一次。
         // 抢不到锁有三种可能，需区分：① 本实例已有分析在跑；② 其它实例在跑；③ Redis 不可用降级。
@@ -1520,7 +1517,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 聚合报告（规则分与草稿分融合）+ 错题本 + 场景工作流
         aggregateAndStoreReport(interview);
         } finally {
-            // v13.43 批次 0 / T2.7：释放分布式锁并清理镜像（顺序：先镜像后锁，
+            // 释放分布式锁并清理镜像（顺序：先镜像后锁，
             // 保证查询方法不会看到「锁已释放但仍显示运行中」的窗口）
             RUNNING_ANALYSIS.remove(interviewId);
             if (analysisLock != null) {
@@ -1871,7 +1868,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private static final java.time.Duration INSIGHT_LOCK_TTL = java.time.Duration.ofMinutes(3);
 
     /**
-     * v13.50 批次 3：生成「发展方向」分析（懒生成，不在报告主链路里）。
+     * 生成「发展方向」分析（懒生成，不在报告主链路里）。
      *
      * <p><b>懒生成</b>：用户不打开 tab 就不产生调用（V1.2 §1 原则 3「成本按需发生」）。</p>
      *
@@ -2085,7 +2082,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             interviewMapper.updateById(interview);
         } catch (Exception ignored) {
         }
-        return parseReport(interview);
+        VoiceInterviewReportVO report = parseReport(interview);
+        // 清单 P2：本方法是**免登录公开路径**（/portal/interview/share/{token} 在 PortalSecurityConfig
+        // 的 permitAll 白名单内），控制器 @Operation 也声明"脱敏，不含用户信息"，
+        // 但原先直接把完整报告返回 —— VoiceInterviewReportVO 内含
+        // candidate（姓名/技能/简历自述/AI 评分）与 jobInfo（岗位、JD、匹配度），
+        // 页面虽未渲染，接口本身可被直读。这里在返回前**裁掉这两块**。
+        if (report != null) {
+            report.setCandidate(null);
+            report.setJobInfo(null);
+        }
+        return report;
     }
     /**
      * 整场 LLM 复盘——规则聚合完成后，走 agent 直连通道（与主对话同链路，实测可用）
@@ -2134,13 +2141,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             input.append("请输出整场面试复盘报告 JSON。");
 
             // ================================================================
-            // v13.46 批次 1 / T3.7 收编：整场复盘改走场景配置行
+            // 整场复盘走场景配置行
             // voice_interview:report_review
             // ================================================================
-            // 原实现把系统提示词**硬编码在 Java 字符串**里并经 agentClient.chat 直连模型
+            // 把系统提示词**硬编码在 Java 字符串**里并经 agentClient.chat 直连模型的问题：
             // → 绕过网关（不进 ai_execute_log / 无限流 / 无成本熔断 / 无版本锁）。
             // 现改为配置驱动：字段规范与数据全部进 user_prompt_template（依据
-            // DefaultSceneExecutor 的提示词约定——system_prompt_template 已废弃，
+            // DefaultSceneExecutor 的提示词约定——system_prompt_template 不再作为人设来源，
             // 人设由 Agent 表经 input.agentPersona 注入），
             // JSON 解析失败的降级重试由网关 chatJsonOutcome 统一提供（原代码手写一次重试）。
             Map<String, Object> reportInput = new LinkedHashMap<>();
@@ -2170,8 +2177,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 report.setOverallComment(overallComment);
             }
 
-            // ---------- v13.47 批次 2：水平定级（结构化） ----------
-            // 原实现把 levelEstimate 只拼进 summary 文本；现同时落结构化字段，
+            // ---------- 水平定级（结构化） ----------
+            // levelEstimate 不只拼进 summary 文本，同时落结构化字段，
             // 供前端「概要 tab 定级徽章」与「发展方向 tab 个人化锚点」使用。
             // 取值校验：模型可能输出中文或其它值 —— 仅接受 junior/mid/senior；
             // 不合法时**不覆盖**（保留聚合流程已写入的基础定级），避免脏值进前端。
@@ -2180,7 +2187,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 report.setLevelEstimate(llmLevel);
             }
 
-            // ---------- v13.47 批次 2：追问预测（上限 6 条，解析失败置空 → 前端隐藏 tab） ----------
+            // ---------- 追问预测（上限 6 条，解析失败置空 → 前端隐藏 tab） ----------
             List<VoiceInterviewReportVO.PredictedQuestionView> predictions = InterviewTextUtils.parsePredictedQuestions(node.path("predictedQuestions"));
             if (!predictions.isEmpty()) {
                 report.setPredictedQuestions(predictions);
@@ -2235,11 +2242,11 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
 
             // ---------- 逐题评分回填（覆盖 reviews + QA 表） ----------
-            // v13.47 批次 2：perQuestion **瘦身** —— 模型只回填「需要修正的题」，
+            // perQuestion **瘦身** —— 模型只回填「需要修正的题」，
             // 逐题点评文本复用 answer_analysis 已落库的 aiFeedback，不再由复盘重复产出
             // （V1.2#2：为省输出 token 而重复产出点评，收益低且贴截断风险线）。
             //
-            // ⚠️ 总分口径随之调整：原实现把 perQuestion 的分数全量求和算均分，
+            // ⚠️ 总分口径随之调整：若把 perQuestion 的分数全量求和算均分，
             // 瘦身后只回填部分题 —— 若沿用原口径，均分会被「仅被修正的那几题」代表，
             // 属于统计失真。现改为：**在全部已作答题目的现有分数上应用修正**，再求均分。
             Map<Integer, PortalVoiceInterviewQA> mainQaByIdx = new LinkedHashMap<>();
@@ -2423,6 +2430,15 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     // ========================================================================
     // 列表 / 详情
     // ========================================================================
+    /**
+     * 我的面试记录列表（清单 P2）。
+     *
+     * <p>原实现直接返回 `Page<PortalVoiceInterview>` **实体**，响应里会带上
+     * `report`（整场报告 JSON，单条可达数十 KB）、`contextSnapshot`、`profileSnapshot`、
+     * `questionPaper`、`configJson`、`introScoreJson`、`shareToken` 等重字段，
+     * 而前端只用到 id/position/status/difficulty/totalQa/score/summary/analysisStatus/analysisProgress/createTime。
+     * 这里在返回前**清空这些重字段**（查询结果是游离对象，不影响库内数据），把列表响应体积拉回正常量级。</p>
+     */
     @Override
     public Page<PortalVoiceInterview> listMy(Long userId, PageDomain pageDomain) {
         if (userId == null) {
@@ -2433,7 +2449,31 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 .eq(PortalVoiceInterview::getUserId, userId)
                 .eq(PortalVoiceInterview::getDelFlag, "0")
                 .orderByDesc(PortalVoiceInterview::getCreateTime);
-        return interviewMapper.selectPage(page, qw);
+        Page<PortalVoiceInterview> result = interviewMapper.selectPage(page, qw);
+        stripHeavyFields(result.getRecords());
+        return result;
+    }
+
+    /**
+     * 清空列表场景不需要的重字段（清单 P2）。
+     * 仅作用于本次查询结果对象，不会回写数据库。
+     */
+    private void stripHeavyFields(List<PortalVoiceInterview> records) {
+        if (records == null) {
+            return;
+        }
+        for (PortalVoiceInterview item : records) {
+            if (item == null) {
+                continue;
+            }
+            item.setReport(null);            // 整场报告 JSON（最重）
+            item.setContextSnapshot(null);   // 上下文快照
+            item.setProfileSnapshot(null);   // 画像快照
+            item.setQuestionPaper(null);     // 试卷
+            item.setConfigJson(null);        // 面试配置
+            item.setIntroScoreJson(null);    // 自我介绍评分
+            item.setShareToken(null);        // 分享令牌（列表无需下发，避免泄露可分享入口）
+        }
     }
 
     @Override

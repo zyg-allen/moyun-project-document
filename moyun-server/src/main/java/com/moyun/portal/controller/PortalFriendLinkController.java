@@ -17,7 +17,6 @@ import com.moyun.util.bean.PageUtils;
  * 门户友情链接 Controller
  *
  * 说明：本期清理死接口，仅保留前端在用的 list（首页 HomePage 调用 getFriendLinks）。
- * 已删除以下死方法：export / getInfo / add / edit / remove。
  * 对应的 Service / Mapper / XML 实现保持不变，未做任何修改。
  */
 @Tag(name = "门户友情链接", description = "门户友情链接的增删改查操作接口")

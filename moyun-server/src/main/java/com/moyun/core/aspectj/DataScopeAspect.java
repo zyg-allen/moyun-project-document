@@ -59,10 +59,10 @@ public class DataScopeAspect {
     /**
      * 数据权限过滤关键字（**受信**）：切面产出的片段只写这个键。
      *
-     * <p>v13.8 起把"信任"变成显式契约：{@link com.moyun.core.mybatis.SqlTemplateGuardInterceptor}
+     * <p>信任是显式契约：{@link com.moyun.core.mybatis.SqlTemplateGuardInterceptor}
      * 在语句执行前用本键覆盖 {@code params[dataScope]}；没有本键时一律把
      * {@code params[dataScope]} 清空——客户端通过 {@code ?params[dataScope]=...}
-     * 绑进来的值结构上无法进入 SQL（此前只有在切面被调用时才安全）。</p>
+     * 绑进来的值结构上无法进入 SQL。</p>
      */
     public static final String TRUSTED_DATA_SCOPE = "trustedDataScope";
 
@@ -155,7 +155,7 @@ public class DataScopeAspect {
     /**
      * 定位承载 dataScope 的实体参数：返回方法参数中第一个 {@link BaseEntity}。
      *
-     * <p>历史实现固定取 {@code joinPoint.getArgs()[0]}，对
+     * <p>不能固定取 {@code joinPoint.getArgs()[0]}：对
      * {@code selectUserPage(IPage, SysUser)} 这类「分页对象在前、查询实体在后」的方法会取错对象，
      * 导致 {@code clearDataScope} 未清空用户传入的 {@code params[dataScope]}、
      * {@code dataScopeFilter} 也未写入权限片段 —— 非超管可借

@@ -14,7 +14,6 @@ import com.moyun.core.mvc.handler.BusinessException;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalColumn;
 import com.moyun.portal.domain.entity.PortalTipOrder;
-import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.enums.PaymentChannel;
 import com.moyun.portal.enums.PaymentStatus;
 import com.moyun.portal.mapper.PortalArticleMapper;
@@ -127,7 +126,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
         }
 
         // 6. 给被打赏者加积分（创作鼓励，积分可在商城兑换）
-        // v13.16：入账必须校验影响行数——打赏者积分已在第 5 步原子扣减，若作者积分入账 0 行
+        // 入账必须校验影响行数——打赏者积分已在第 5 步原子扣减，若作者积分入账 0 行
         //（统计/成长行缺失，INSERT IGNORE 静默失败）就是"扣了没入账"，故 fail-closed 回滚整笔打赏
         int credited = growthMapper.addPoints(authorId, points);
         if (credited == 0) {

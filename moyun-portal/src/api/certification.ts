@@ -35,7 +35,7 @@ export interface CreatorCertification {
 
 /**
  * 认证类型下拉选项
- * v10.10 实名策略：发布文章/面经/专栏不再强制创作者认证（前端弹窗提示可跳过）；
+ * 实名策略：发布文章/面经/专栏不再强制创作者认证（前端弹窗提示可跳过）；
  * 打赏、积分兑换等敏感场景强制身份实名认证。
  */
 export const CERT_TYPE_OPTIONS: { value: CreatorCertification['certType']; label: string; desc: string }[] = [

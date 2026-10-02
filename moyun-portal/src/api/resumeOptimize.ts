@@ -5,7 +5,7 @@ import type {
 } from '@/types/api';
 
 /**
- * 简历优化工作台 API（v10.13，对应后端 PortalResumeOptimizeController）
+ * 简历优化工作台 API（对应后端 PortalResumeOptimizeController）
  * 链路：岗位目标 CRUD → 匹配分析 → 深度优化建议 → 采纳保存新版本 → 优化历史
  */
 
@@ -44,7 +44,7 @@ export const generateDeepOptimize = (resumeId: number | string, jobTargetId: num
   return httpPost<ResumeDeepOptimizeVO>(`/portal/resume/optimize/deep/${resumeId}/${jobTargetId}`);
 };
 
-// ===== v10.19：异步任务化（解决大模型调用超时） =====
+// ===== 异步任务化（解决大模型调用超时） =====
 
 /** 深度优化异步任务状态（前端轮询返回结构） */
 export interface ResumeOptimizeTaskVO {
@@ -60,7 +60,7 @@ export interface ResumeOptimizeTaskVO {
 }
 
 /**
- * 提交深度优化异步任务（v10.19 推荐）
+ * 提交深度优化异步任务（推荐）
  * 立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 getDeepOptimizeTaskStatus 轮询。
  */
 export const submitDeepOptimizeTask = (resumeId: number | string, jobTargetId: number | string) => {
@@ -81,19 +81,19 @@ export const applyDeepOptimize = (params: {
   return httpPost<number>('/portal/resume/optimize/deep/apply', params as unknown as Record<string, unknown>);
 };
 
-/** 优化历史列表（v10.15：返回带评分对比的历史记录） */
+/** 优化历史列表（返回带评分对比的历史记录） */
 export const getOptimizeHistory = (resumeId: number | string) => {
   return httpGet<ResumeOptimizeHistory[]>(`/portal/resume/optimize/history/${resumeId}`);
 };
 
-/** AI 实时辅助建议项（v10.14 字段级） */
+/** AI 实时辅助建议项（字段级） */
 export interface FieldAssistSuggestion {
   text: string;
   reason?: string;
 }
 
 /**
- * 字段级 AI 实时辅助（v10.14 设计文档 P0 需求#2）
+ * 字段级 AI 实时辅助（设计文档 P0 需求#2）
  * field: work_description / project_description / self_intro / skills
  * 返回 3 个差异化优化版本，用户采纳后替换字段内容
  */
@@ -106,7 +106,7 @@ export const aiFieldAssist = (params: {
   return httpPost<FieldAssistSuggestion[]>('/portal/resume/optimize/ai-assist', params as unknown as Record<string, unknown>);
 };
 
-// ===== v10.18 阶段五：评分报告存档 =====
+// ===== 评分报告存档 =====
 
 /**
  * 保存评分报告（触发评分 + 入库存档）
@@ -127,7 +127,7 @@ export const getScoreReports = (resumeId: number | string) => {
   return httpGet<ResumeScoreReport[]>(`/portal/resume/optimize/score-report/${resumeId}`);
 };
 
-// ===== v10.18 阶段一：模板套用打通 =====
+// ===== 模板套用 =====
 
 /**
  * 模板套用：拉取模板详情（含 sampleData 结构化示例数据）
@@ -139,9 +139,9 @@ export const getScoreReports = (resumeId: number | string) => {
  */
 export { getResumeTemplateDetail as getTemplateDetail } from './interview';
 
-// ===== v10.22 阶段二：AI 填充空字段草稿 =====
+// ===== AI 填充空字段草稿 =====
 
-/** v10.22：AI 填充空字段（为空的工作/项目/自我介绍生成草稿） */
+/** AI 填充空字段（为空的工作/项目/自我介绍生成草稿） */
 export const aiDraftEmptyFields = (resumeId: number | string, jobTargetId?: number | string) => {
   return httpPost<{
     works?: UserResumeVO['works'];

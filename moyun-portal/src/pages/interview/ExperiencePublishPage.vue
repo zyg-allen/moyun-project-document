@@ -96,15 +96,19 @@ function buildPayload() {
 }
 
 async function submit(status: 'draft' | 'pending') {
+  if (submitting.value) return;   // 连点保护（清单 P2：原实现没有）
   const errMsg = validate();
   if (errMsg) {
     toast.error(errMsg);
     return;
   }
-  // 发布面经提示实名认证（v10.10：创作行为不强制，可跳过；草稿不限）
-  if (status === 'pending' && !(await promptRealNameOptional())) return;
+  // 清单 P2：原先 submitting 在**实名提示之后**才置 true —— 实名弹窗及其网络往返期间按钮仍可点，
+  // 用户连点会重复提交（编辑走 PUT、后端未加防重）。这里把上锁提前，并让实名提示也在 try 内，
+  // 保证任何提前 return 都由 finally 解锁。
+  submitting.value = true;
   try {
-    submitting.value = true;
+    // 发布面经提示实名认证（创作行为不强制，可跳过；草稿不限）
+    if (status === 'pending' && !(await promptRealNameOptional())) return;
     if (isEdit.value && editId.value) {
       // 编辑场景下也透传 status：发布（pending）时由后端走创作者认证校验并更新状态；
       // 保存草稿（draft）时不传 status，保留原状态避免误改。
@@ -154,6 +158,10 @@ async function loadDetail() {
       } else if (Array.isArray(d.tagList)) {
         tags.value = d.tagList.map((t: any) => t.name).filter(Boolean).join(', ');
       }
+    } else if (res.code === 200) {
+      // 清单 P2：详情不存在时后端返回 code=200 + data=null，而 message 是成功文案「操作成功」——
+      // 原实现直接拿它当错误提示，页面会显示"操作成功"这种自相矛盾的错误。
+      pageError.value = '面经不存在或已被删除';
     } else {
       pageError.value = res.message || '加载面经失败';
     }

@@ -408,9 +408,6 @@ const testConnection = async () => {
   }
 }
 
-const useExample = (example) => {
-  queryText.value = example
-}
 
 const executeQuery = async () => {
   if (!selectedDatasource.value) {
@@ -644,9 +641,6 @@ const getSeverityType = (severity) => {
   return map[severity] || 'info'
 }
 
-const generateSessionId = () => {
-  return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-}
 
 // 加载查询历史
 const loadQueryHistory = async (datasourceId) => {

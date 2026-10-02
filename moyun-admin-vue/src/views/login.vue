@@ -101,7 +101,7 @@ watch(route, (newRoute) => {
     redirect.value = newRoute.query && newRoute.query.redirect;
 }, { immediate: true });
 
-// v11.32 用户名变化时重新判定风险验证码（500ms 防抖）：风险账号即使全局开关关闭也提前展示验证码
+// 用户名变化时重新判定风险验证码（500ms 防抖）：风险账号即使全局开关关闭也提前展示验证码
 let usernameWatchTimer = null;
 watch(() => loginForm.value.username, (val) => {
   if (usernameWatchTimer) clearTimeout(usernameWatchTimer);
@@ -135,7 +135,7 @@ function handleLogin() {
         router.push({ path: redirect.value || "/", query: otherQueryParams });
       }).catch(() => {
         loading.value = false;
-        // v11.32 必刷验证码：密码错误可能触发风险验证码（后端强制），不能只看当前开关状态
+        // 必刷验证码：密码错误可能触发风险验证码（后端强制），不能只看当前开关状态
         getCode(loginForm.value.username);
       });
     }
@@ -198,11 +198,6 @@ getCookie();
     width: 14px;
     margin-left: 0px;
   }
-}
-.login-tip {
-  font-size: 13px;
-  text-align: center;
-  color: #bfbfbf;
 }
 .login-code {
   width: 33%;

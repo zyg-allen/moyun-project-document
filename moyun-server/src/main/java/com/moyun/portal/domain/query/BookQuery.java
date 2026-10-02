@@ -64,7 +64,11 @@ public class BookQuery extends PageDomain
     @Schema(description = "结束时间", example = "2024-12-31")
     private String endTime;
 
-    /** 排序方式：hot=按阅读数(默认)/new=按创建时间/word_count=按字数 */
+    /** 连载状态：ongoing=连载中/completed=已完结（清单 P2：原查询无此字段，"连载中"榜无法过滤，已完结长书会混入） */
+    @Schema(description = "连载状态", example = "ongoing")
+    private String serialStatus;
+
+    /** 排序方式：hot=按阅读数(默认)/new=按创建时间/word_count=按字数/update=按最后更新时间 */
     @Schema(description = "排序方式", example = "new")
     private String orderBy;
 }

@@ -51,7 +51,50 @@
       <el-table-column label="绑定时间" align="center" prop="createTime" width="160">
         <template #default="scope">{{ parseTime(scope.row.createTime) }}</template>
       </el-table-column>
+      <el-table-column label="操作" align="center" width="150" fixed="right">
+        <template #default="scope">
+          <!-- 人工核实：仅 PENDING 可操作（终态卡不再重复核实，避免反复改写资金相关状态） -->
+          <el-button
+            v-if="scope.row.verifyStatus === 'PENDING'"
+            link
+            type="primary"
+            icon="EditPen"
+            v-hasPermi="['cms:payBankCard:verify']"
+            @click="openVerify(scope.row)"
+          >人工核实</el-button>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
     </el-table>
+
+    <!-- 人工核实对话框 -->
+    <el-dialog v-model="verifyOpen" title="银行卡人工核实" width="460px" append-to-body>
+      <el-form label-width="90px">
+        <el-form-item label="持卡人">
+          <span>{{ verifyForm.holderName }}</span>
+        </el-form-item>
+        <el-form-item label="卡号">
+          <span>{{ verifyForm.cardNoMasked }}</span>
+        </el-form-item>
+        <el-form-item label="核实结果">
+          <el-radio-group v-model="verifyForm.verifyStatus">
+            <el-radio value="VERIFIED">人工确认通过</el-radio>
+            <el-radio value="REJECTED">人工判定不通过</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="提示">
+          <span style="color:#909399;font-size:12px;line-height:1.5">
+            请先与用户核对姓名、卡号与预留手机号；核实通过后该卡方可用于提现。
+          </span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="verifyOpen = false">取 消</el-button>
+          <el-button type="primary" :loading="verifySubmitting" @click="submitVerify">确 定</el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <pagination
       v-show="total > 0"
@@ -65,7 +108,7 @@
 
 <script setup name="CmsPayBankCard">
 import { getCurrentInstance, ref, reactive, onMounted } from "vue";
-import { listBankCard } from "@/api/cms/pay";
+import { listBankCard, verifyBankCard } from "@/api/cms/pay";
 
 const { proxy } = getCurrentInstance();
 
@@ -90,6 +133,37 @@ function verifyLabel(status) {
 function verifyTagType(status) {
   const map = { PENDING: 'info', VERIFIED: 'success', REJECTED: 'danger' };
   return map[status] || 'info';
+}
+
+// ── 人工核实（清单 #52：此前后台只有只读接口，PENDING 卡永远无法变为终态）──
+const verifyOpen = ref(false);
+const verifySubmitting = ref(false);
+const verifyForm = reactive({
+  id: undefined,
+  holderName: '',
+  cardNoMasked: '',
+  verifyStatus: 'VERIFIED'
+});
+
+function openVerify(row) {
+  verifyForm.id = row.id;
+  verifyForm.holderName = row.holderName;
+  verifyForm.cardNoMasked = row.cardNoMasked;
+  verifyForm.verifyStatus = 'VERIFIED';
+  verifyOpen.value = true;
+}
+
+async function submitVerify() {
+  if (!verifyForm.id || !verifyForm.verifyStatus) return;
+  verifySubmitting.value = true;
+  try {
+    await verifyBankCard(verifyForm.id, verifyForm.verifyStatus);
+    proxy.$modal.msgSuccess('核实结果已保存');
+    verifyOpen.value = false;
+    getList();
+  } finally {
+    verifySubmitting.value = false;
+  }
 }
 
 function getList() {

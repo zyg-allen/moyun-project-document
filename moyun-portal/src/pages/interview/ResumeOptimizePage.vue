@@ -3,11 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { formatDate } from '@/utils/date';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import {
-  Target, FolderOpen, Bot, GitCompare, Eye, Plus, ArrowRight, ArrowLeft,
-  CheckCircle2, X, Sparkles, Save, Star, RefreshCw, FileText, Trash2, Rocket,
-  AlertCircle, PartyPopper, Pencil as PencilIcon, History,
-} from 'lucide-vue-next';
+import { Target, FolderOpen, Bot, GitCompare, Eye, Plus, ArrowRight, ArrowLeft, CheckCircle2, Sparkles, Save, Star, FileText, Trash2, Rocket, AlertCircle, PartyPopper, Pencil as PencilIcon, History } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import JobTargetForm from '@/components/resume/JobTargetForm.vue';
@@ -19,19 +15,15 @@ import FieldRegenerateDialog from '@/components/resume/FieldRegenerateDialog.vue
 import { aiFieldAssist } from '@/api/resumeOptimize';
 import { getVipStatus, benefitLeft } from '@/api/vip';
 import { generateSeo } from '@/utils/seo';
-import { getMyResumeList, scoreResume, getResumeDetail } from '@/api/interview';
+import { getMyResumeList, getResumeDetail } from '@/api/interview';
 import {
-  getJobTargets, createJobTarget, deleteJobTarget,
+  getJobTargets, createJobTarget, updateJobTarget, deleteJobTarget,
   applyDeepOptimize, getOptimizeHistory,
   saveScoreReport, getScoreReports,
   submitDeepOptimizeTask, getDeepOptimizeTaskStatus,
 } from '@/api/resumeOptimize';
 import { submitAiTask, pollAiTask } from '@/api/aiTask';
-import type {
-  UserResumeVO, ResumeJobTarget, ResumeJobMatchReport,
-  ResumeDeepOptimizeVO, ResumeOptimizeItem, ResumeOptimizeHistory,
-  ResumeScoreReport,
-} from '@/types/api';
+import type { UserResumeVO, ResumeJobTarget, ResumeJobMatchReport, ResumeDeepOptimizeVO, ResumeOptimizeHistory, ResumeScoreReport } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirmModal } from '@/composables/useConfirmModal';
 
@@ -68,9 +60,18 @@ const jobTargets = ref<ResumeJobTarget[]>([]);
 const selectedTargetId = ref<number | string | null>(null);
 const jobModalVisible = ref(false);
 const jobSaving = ref(false);
-const jobForm = ref<{ position: string; company: string; city: string; jobType: string; jdText: string }>({
-  position: '', company: '', city: '', jobType: '全职', jdText: '',
+/**
+ * 岗位表单（清单 P2）。
+ *
+ * <p>新增两处：① `isDefault` —— 原表单没有"设为默认"控件，createJobTarget 从不提交该字段，
+ * 后端 `clearDefault` 分支永不触发（ResumeJobTarget 里本就有 isDefault 字段）；
+ * ② `jobEditId` —— 后端 PUT 与前端 updateJobTarget 都已具备，但工作台原先只提供新建与删除。</p>
+ */
+const jobForm = ref<{ position: string; company: string; city: string; jobType: string; jdText: string; isDefault: number }>({
+  position: '', company: '', city: '', jobType: '全职', jdText: '', isDefault: 0,
 });
+/** 正在编辑的岗位 id（null=新建） */
+const jobEditId = ref<number | string | null>(null);
 
 // 简历
 const resumes = ref<UserResumeVO[]>([]);
@@ -82,14 +83,14 @@ const analyzing = ref(false);
 const progressPercent = ref(0);
 const progressStep = ref(1);
 const matchReport = ref<ResumeJobMatchReport | null>(null);
-/** v10.23：岗位匹配异步任务 ID（用于 URL 参数化与刷新恢复轮询） */
+/** 岗位匹配异步任务 ID（用于 URL 同步与刷新恢复轮询） */
 const matchTaskId = ref<number | string | null>(null);
 
 // 深度优化
 const optimizing = ref(false);
 const optimizeResult = ref<ResumeDeepOptimizeVO | null>(null);
 const adoptedSet = ref<Set<number>>(new Set());
-/** v10.21：当前深度优化异步任务ID（用于刷新页面后恢复轮询） */
+/** 当前深度优化异步任务ID（用于刷新页面后恢复轮询） */
 const currentAsyncTaskId = ref<number | string | null>(null);
 
 // 保存
@@ -99,7 +100,7 @@ const rescoredScore = ref<number | null>(null);
 const rematchedScore = ref<number | null>(null);
 const rematching = ref(false);
 
-// ==================== v10.21：页面状态持久化（刷新后恢复原状态） ====================
+// ==================== 页面状态持久化（刷新后恢复原状态） ====================
 // 持久化关键状态到 localStorage，按 resumeId 分 key 避免多简历串扰。
 // 含 step/selectedTargetId/matchReport/optimizeResult/adoptedSet/savedResumeId/currentAsyncTaskId
 // 若异步任务进行中刷新，恢复后自动继续轮询任务状态直到 success/failed。
@@ -115,7 +116,7 @@ interface PersistedState {
   adoptedIndexes: number[];
   savedResumeId: number | string | null;
   asyncTaskId: number | string | null;
-  /** v10.23：岗位匹配异步任务 ID（刷新恢复轮询用；旧快照可能缺失） */
+  /** 岗位匹配异步任务 ID（刷新恢复轮询用；旧快照可能缺失） */
   matchTaskId?: number | string | null;
 }
 
@@ -162,10 +163,6 @@ function loadStateFromStorage(resumeId: number | string | null): PersistedState 
   }
 }
 
-function clearStateFromStorage(resumeId: number | string | null) {
-  const key = stateStorageKey(resumeId);
-  if (key) localStorage.removeItem(key);
-}
 
 /** 将持久化的状态恢复到各 ref */
 function applyRestoredState(state: PersistedState) {
@@ -179,12 +176,11 @@ function applyRestoredState(state: PersistedState) {
   savedResumeId.value = state.savedResumeId;
   currentAsyncTaskId.value = state.asyncTaskId;
   matchTaskId.value = state.matchTaskId ?? null;
-  // v10.23：报告已就绪但停在分析页（任务完成瞬间的快照），直接进步骤4
+  // 报告已就绪但停在分析页（任务完成瞬间的快照），直接进步骤4
   if (matchReport.value && step.value === 3) step.value = 4;
 }
 
 const selectedTarget = computed(() => jobTargets.value.find(t => t.id === selectedTargetId.value) || null);
-const selectedResume = computed(() => resumes.value.find(r => r.id === selectedResumeId.value) || null);
 
 const JOB_TYPE_OPTIONS = ['全职', '兼职', '实习', '校招'];
 
@@ -209,7 +205,7 @@ async function loadOptimizeHistory() {
   }
 }
 
-// ==================== 评分报告存档（v10.18 阶段五） ====================
+// ==================== 评分报告存档 ====================
 const scoreReports = ref<ResumeScoreReport[]>([]);
 const scoreReportVisible = ref(false);
 const scoreReportLoading = ref(false);
@@ -231,10 +227,6 @@ async function loadScoreReports(resumeId?: number | string | null) {
   }
 }
 
-async function openScoreReportDialog() {
-  await Promise.all([loadOptimizeHistory(), loadScoreReports(savedResumeId.value)]);
-  scoreReportVisible.value = true;
-}
 
 async function refreshScoreReports() {
   await Promise.all([loadOptimizeHistory(), loadScoreReports(savedResumeId.value)]);
@@ -256,7 +248,8 @@ function scoreDelta(h: ResumeOptimizeHistory): number {
 }
 
 function goEditFromHistory(h: ResumeOptimizeHistory) {
-  router.push({ name: 'ResumeEdit', query: { id: String(h.resumeId) } });
+  // 路由表中没有名为 ResumeEdit 的路由；编辑页读的是 path param（见本文件 1093 行的写法）
+      router.push(`/interview/resume/edit/${h.resumeId}`);
 }
 
 // ==================== 数据加载 ====================
@@ -269,14 +262,14 @@ onMounted(async () => {
     selectedResumeId.value = q;
   }
 
-  // v10.21：刷新页面后恢复原状态（不重新开始）
+  // 刷新页面后恢复原状态（不重新开始）
   // 必须在 selectedResumeId 设置之后（持久化 key 按 resumeId 分）
   const restored = loadStateFromStorage(selectedResumeId.value);
   if (restored) {
     applyRestoredState(restored);
   }
 
-  // v10.23：URL 参数优先于 localStorage 快照（支持多次刷新/分享恢复）
+  // URL 参数优先于 localStorage 快照（支持多次刷新/分享恢复）
   const qStep = Number(route.query.step);
   if (Number.isInteger(qStep) && qStep >= 1 && qStep <= 5) step.value = qStep;
   const qTargetId = route.query.targetId as string | undefined;
@@ -291,7 +284,7 @@ onMounted(async () => {
       && currentAsyncTaskId.value !== '' && step.value === 4) {
     resumeAsyncPolling(currentAsyncTaskId.value);
   }
-  // v10.23：匹配任务进行中且尚无报告，恢复轮询（含进度动画）
+  // 匹配任务进行中且尚无报告，恢复轮询（含进度动画）
   if (matchTaskId.value !== null && matchTaskId.value !== undefined
       && matchTaskId.value !== '' && !matchReport.value) {
     resumeMatchPolling(matchTaskId.value);
@@ -299,15 +292,17 @@ onMounted(async () => {
 
   loadOptimizeHistory();
 
-  // v10.23：恢复完成后开启 URL 同步并做一次初始同步
+  // 恢复完成后开启 URL 同步并做一次初始同步
   urlSyncReady = true;
   syncStateToUrl();
 });
 
 watch(selectedResumeId, (newId, oldId) => {
   loadOptimizeHistory();
-  // v10.21：切换简历时恢复对应的状态快照（或重置）
+  // 切换简历时恢复对应的状态快照（或重置）
   if (newId === oldId) return;
+  // 就地预览的数据与简历强绑定：切换后必须作废（否则展示上一份简历内容）
+  resetQuickPreview();
   const restored = loadStateFromStorage(newId);
   if (restored) {
     applyRestoredState(restored);
@@ -315,7 +310,7 @@ watch(selectedResumeId, (newId, oldId) => {
         && restored.asyncTaskId !== '' && restored.step === 4) {
       resumeAsyncPolling(restored.asyncTaskId);
     }
-    // v10.23：匹配任务进行中且尚无报告，恢复轮询
+    // 匹配任务进行中且尚无报告，恢复轮询
     if (restored.matchTaskId !== null && restored.matchTaskId !== undefined
         && restored.matchTaskId !== '' && !restored.matchReport) {
       resumeMatchPolling(restored.matchTaskId);
@@ -341,7 +336,7 @@ async function loadJobTargets() {
     const res = await getJobTargets();
     if (res.code === 200 && res.data) {
       jobTargets.value = res.data;
-      // v10.21：仅在未选中时设置默认岗位（避免覆盖已从持久化恢复的 selectedTargetId）
+      // 仅在未选中时设置默认岗位（避免覆盖已从持久化恢复的 selectedTargetId）
       const def = res.data.find(t => t.isDefault === 1) || res.data[0];
       if (def?.id && !selectedTargetId.value) selectedTargetId.value = def.id;
     }
@@ -362,7 +357,23 @@ async function loadResumes() {
 
 // ==================== STEP1：岗位 ====================
 function openJobModal() {
-  jobForm.value = { position: '', company: '', city: '', jobType: '全职', jdText: '' };
+  jobEditId.value = null;
+  jobForm.value = { position: '', company: '', city: '', jobType: '全职', jdText: '', isDefault: 0 };
+  jobModalVisible.value = true;
+}
+
+/** 编辑既有岗位（清单 P2：原工作台只有新建与删除，编辑能力闲置） */
+function openJobModalForEdit(t: ResumeJobTarget) {
+  if (t.id == null) return;
+  jobEditId.value = t.id;
+  jobForm.value = {
+    position: t.position || '',
+    company: t.company || '',
+    city: t.city || '',
+    jobType: t.jobType || '全职',
+    jdText: t.jdText || '',
+    isDefault: t.isDefault ?? 0,
+  };
   jobModalVisible.value = true;
 }
 
@@ -377,9 +388,22 @@ async function saveJobTarget() {
   }
   try {
     jobSaving.value = true;
+    // 清单 P2：编辑态走 updateJobTarget（原只调 createJobTarget，编辑能力闲置）
+    if (jobEditId.value != null) {
+      const res = await updateJobTarget(jobEditId.value, jobForm.value);
+      if (res.code === 200) {
+        toast.success('岗位已更新');
+        jobModalVisible.value = false;
+        jobEditId.value = null;
+        await loadJobTargets();
+      } else {
+        toast.error(res.message || '更新失败');
+      }
+      return;
+    }
     const res = await createJobTarget(jobForm.value);
     if (res.code === 200) {
-      toast.success('岗位已创建');
+      toast.success(jobForm.value.isDefault ? '岗位已创建并设为默认' : '岗位已创建');
       jobModalVisible.value = false;
       await loadJobTargets();
       if (res.data) selectedTargetId.value = res.data;
@@ -409,7 +433,7 @@ function goStep2() {
   step.value = 2;
 }
 
-// ==================== STEP2 → STEP3：分析（v10.23 岗位匹配异步任务化） ====================
+// ==================== STEP2 → STEP3：分析（岗位匹配异步任务化） ====================
 
 // 匹配进度动画定时器（组件卸载/任务结束时清理）
 let matchProgressTimer: ReturnType<typeof setInterval> | null = null;
@@ -434,7 +458,7 @@ function startMatchProgress() {
 }
 
 /**
- * v10.23：岗位匹配通用 AI 异步任务（startAnalyze / rematch 公共方法）
+ * 岗位匹配通用 AI 异步任务（startAnalyze / rematch 公共方法）
  * 提交 job_match 任务 → 轮询到 success 返回匹配报告；失败/超时抛错（含任务 error 信息）
  */
 async function runMatchAsync(resumeId: number | string, jobTargetId: number | string): Promise<ResumeJobMatchReport> {
@@ -455,7 +479,7 @@ async function runMatchAsync(resumeId: number | string, jobTargetId: number | st
 }
 
 /**
- * v10.23：刷新恢复匹配轮询（URL/storage 里的 matchTaskId 仍 pending/running 时）
+ * 刷新恢复匹配轮询（URL/storage 里的 matchTaskId 仍 pending/running 时）
  * 恢复 loading 动画 + 继续轮询；完成写回 matchReport 并清 matchTaskId
  */
 function resumeMatchPolling(taskId: number | string) {
@@ -509,7 +533,7 @@ async function startAnalyze() {
   startMatchProgress();
 
   try {
-    // v10.23：岗位匹配改为通用 AI 异步任务（提交 → 轮询）
+    // 岗位匹配走通用 AI 异步任务（提交 → 轮询）
     const report = await runMatchAsync(selectedResumeId.value, selectedTargetId.value!);
     matchReport.value = report;
     progressPercent.value = 100;
@@ -528,14 +552,17 @@ async function startAnalyze() {
   stopMatchProgress();
 }
 
-// ==================== STEP4：深度优化对比 ====================
-const gradeLabel: Record<string, string> = {
-  excellent: '优秀匹配', good: '良好匹配', medium: '中等匹配', poor: '匹配较弱',
-};
 
-// v10.19：深度优化异步任务轮询定时器（组件卸载时需清理）
+// 深度优化异步任务轮询定时器（组件卸载时需清理）
 let optimizePollingTimer: ReturnType<typeof setInterval> | null = null;
 let optimizeProgressTimer: ReturnType<typeof setInterval> | null = null;
+
+/** 轮询连续失败次数：超过 MAX_OPTIMIZE_POLL_FAILURES 即终止并明确告知用户（避免无限转圈） */
+const MAX_OPTIMIZE_POLL_FAILURES = 5;
+let optimizePollFailures = 0;
+/** 轮询总超时截止时间（毫秒时间戳）：超过即判定"生成超时" */
+let optimizePollDeadline = 0;
+const OPTIMIZE_POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 function stopOptimizePolling() {
   if (optimizeProgressTimer) {
@@ -549,8 +576,16 @@ function stopOptimizePolling() {
 }
 
 async function generateOptimize() {
-  if (!selectedResumeId.value || !selectedTargetId.value) return;
-  // v12.0 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
+  // 原先直接 return：用户点了"生成优化建议"却毫无反应，不知道是缺简历还是缺岗位目标（清单 P2）
+  if (!selectedResumeId.value) {
+    toast.warning('请先选择要优化的简历');
+    return;
+  }
+  if (!selectedTargetId.value) {
+    toast.warning('请先选择目标岗位');
+    return;
+  }
+  // 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
   try {
     const vipRes = await getVipStatus();
     if (!vipRes.data?.isVip) {
@@ -589,7 +624,7 @@ async function generateOptimize() {
       return;
     }
     const taskId = submitRes.data;
-    // v10.21：记录 taskId 到 ref + 持久化，刷新页面后可据此恢复轮询
+    // 记录 taskId 到 ref + 持久化，刷新页面后可据此恢复轮询
     currentAsyncTaskId.value = taskId;
     saveStateToStorage();
 
@@ -602,6 +637,9 @@ async function generateOptimize() {
     }, 800);
 
     // 3. 任务状态轮询（4 秒一次）
+    //    重置失败计数与总超时（每次新任务独立计时，避免上一次的失败累计误伤新任务）
+    optimizePollFailures = 0;
+    optimizePollDeadline = Date.now() + OPTIMIZE_POLL_TIMEOUT_MS;
     optimizePollingTimer = setInterval(() => pollOptimizeTaskStatus(taskId), 4000);
     // 立即触发一次（避免等 4 秒才看到状态变化）
     pollOptimizeTaskStatus(taskId);
@@ -617,7 +655,15 @@ async function generateOptimize() {
 async function pollOptimizeTaskStatus(taskId: number | string) {
   try {
     const res = await getDeepOptimizeTaskStatus(taskId);
-    if (res.code !== 200 || !res.data) return;
+    if (res.code !== 200 || !res.data) {
+      // 原先直接 return：状态接口持续异常时会**无限轮询**且用户毫无感知。
+      // 现按"一次失败"计数，连续失败到上限即终止并提示。
+      optimizePollFailures += 1;
+      if (optimizePollFailures >= MAX_OPTIMIZE_POLL_FAILURES) {
+        abortOptimizePolling(res.message || '无法获取生成进度，已停止等待，请稍后重试');
+      }
+      return;
+    }
 
     const task = res.data;
     // 同步后端进度（取后端返回与前端动画的较大值，避免倒退）
@@ -633,7 +679,7 @@ async function pollOptimizeTaskStatus(taskId: number | string) {
       progressStep.value = 5;
       optimizeResult.value = task.result;
       adoptedSet.value = new Set();
-      // v10.21：任务完成，清除 taskId（不再需要恢复轮询），持久化最新结果
+      // 任务完成，清除 taskId（不再需要恢复轮询），持久化最新结果
       currentAsyncTaskId.value = null;
       saveStateToStorage();
       toast.success(`已生成 ${task.result.items.length} 项优化建议`);
@@ -646,17 +692,45 @@ async function pollOptimizeTaskStatus(taskId: number | string) {
       saveStateToStorage();
       toast.error(task.errorMsg || 'AI 生成失败，请稍后重试');
     }
-    // pending / running 继续轮询
+    // pending / running 继续轮询；状态查询成功即视为"链路正常"，重置连续失败计数
+    optimizePollFailures = 0;
   } catch (e: unknown) {
-    // 网络偶发异常不中断轮询，下次自动重试
-    console.warn('[optimize] 轮询失败，将重试', e);
+    // 网络偶发异常不中断轮询，下次自动重试；但**连续失败到上限必须终止**，
+    // 否则用户会永远停在进度动画上，既没有结果也没有失败提示（清单 P2）。
+    optimizePollFailures += 1;
+    console.warn(`[optimize] 轮询失败（第 ${optimizePollFailures} 次），将重试`, e);
+    if (optimizePollFailures >= MAX_OPTIMIZE_POLL_FAILURES) {
+      abortOptimizePolling('网络异常，已停止等待生成结果，请稍后重试');
+      return;
+    }
+  }
+  // 总超时：任务长时间无终态（服务端卡住/队列积压）也要给用户一个明确结论
+  if (Date.now() > optimizePollDeadline) {
+    abortOptimizePolling('生成超时，请稍后在“优化历史”中查看结果');
   }
 }
 
 /**
- * v10.21：恢复异步轮询（页面刷新后，若 taskId 仍 pending/running 则继续轮询）
+ * 终止优化轮询并给出终态提示。
+ *
+ * <p>同时清掉持久化的 asyncTaskId —— 否则用户刷新页面后又会被"恢复轮询"逻辑接上，
+ * 再次陷入同一个无望的等待。</p>
+ */
+function abortOptimizePolling(message: string) {
+  stopOptimizePolling();
+  optimizePollingActive = false;
+  optimizing.value = false;
+  progressPercent.value = 0;
+  progressStep.value = 0;
+  currentAsyncTaskId.value = null;
+  saveStateToStorage();
+  toast.error(message);
+}
+
+/**
+ * 恢复异步轮询（页面刷新后，若 taskId 仍 pending/running 则继续轮询）
  * 用于 onMounted 中检测到持久化的 asyncTaskId 时重建轮询
- * v10.23：加 active 守卫，避免 onMounted 与切换简历 watch 双触发导致重复轮询
+ * 加 active 守卫，避免 onMounted 与切换简历 watch 双触发导致重复轮询
  */
 let optimizePollingActive = false;
 
@@ -686,16 +760,16 @@ onUnmounted(() => {
   stopMatchProgress();
 });
 
-// v10.21：关键状态变化时自动持久化（刷新页面可恢复）
+// 关键状态变化时自动持久化（刷新页面可恢复）
 // 深度监听对象/集合内部变化，保存最新快照到 localStorage
-// v10.23：新增 matchTaskId（岗位匹配异步任务恢复用）
+// matchTaskId 一并持久化（岗位匹配异步任务恢复用）
 watch(
   [step, selectedTargetId, matchReport, optimizeResult, adoptedSet, savedResumeId, currentAsyncTaskId, matchTaskId],
   () => { saveStateToStorage(); },
   { deep: true },
 );
 
-// ==================== v10.23：URL 参数化（关键状态同步到 query，支持多次刷新恢复） ====================
+// ==================== URL 参数化（关键状态同步到 query，支持多次刷新恢复） ====================
 // watch 监听的是本地 ref，router.replace 只改 query 不会再次触发本 watch，无死循环；
 // onMounted 恢复阶段（urlSyncReady=false）跳过，避免恢复值反向覆盖 URL。
 
@@ -754,22 +828,12 @@ function adoptAll() {
   toast.success('已全选');
 }
 
-const SECTION_LABEL: Record<string, string> = {
-  objective: '求职意向', education: '教育背景', work: '工作经历',
-  project: '项目经历', skills: '专业技能', selfIntro: '自我评价',
-};
 
-function sectionLabel(item: ResumeOptimizeItem): string {
-  const base = SECTION_LABEL[item.section] || item.section;
-  return item.section === 'selfIntro' || item.section === 'objective' || item.section === 'skills'
-    ? base
-    : `${base} #${(item.index ?? 0) + 1}`;
-}
 
 // ==================== STEP5：预览保存（含完整度，参考熊猫简历） ====================
 const previewResume = ref<UserResumeVO | null>(null);
 
-// v10.20：step4 内就地预览面板（不跳转 step5）
+// step4 内就地预览面板（不跳转 step5）
 const quickPreviewVisible = ref(false);
 const quickPreviewBaseResume = ref<UserResumeVO | null>(null);
 const quickPreviewLoading = ref(false);
@@ -779,26 +843,46 @@ const quickPreviewResume = computed<UserResumeVO | null>(() => {
   return applyOptimizes(quickPreviewBaseResume.value);
 });
 
-async function toggleQuickPreview() {
-  quickPreviewVisible.value = !quickPreviewVisible.value;
-  if (quickPreviewVisible.value && !quickPreviewBaseResume.value && selectedResumeId.value) {
-    // 首次展开加载完整简历详情
-    quickPreviewLoading.value = true;
-    try {
-      const res = await getResumeDetail(selectedResumeId.value);
-      if (res.code === 200 && res.data) {
-        quickPreviewBaseResume.value = res.data;
-      }
-    } catch (e) {
-      toast.error((e as Error)?.message || '加载简历失败');
-      quickPreviewVisible.value = false;
-    } finally {
-      quickPreviewLoading.value = false;
+/** 加载就地预览用的完整简历详情 */
+async function loadQuickPreview() {
+  if (!selectedResumeId.value) return;
+  quickPreviewLoading.value = true;
+  try {
+    const res = await getResumeDetail(selectedResumeId.value);
+    if (res.code === 200 && res.data) {
+      quickPreviewBaseResume.value = res.data;
     }
+  } catch (e) {
+    toast.error((e as Error)?.message || '加载简历失败');
+    quickPreviewVisible.value = false;
+  } finally {
+    quickPreviewLoading.value = false;
   }
 }
 
-// v10.20：单字段重新生成候选弹窗状态
+async function toggleQuickPreview() {
+  quickPreviewVisible.value = !quickPreviewVisible.value;
+  if (quickPreviewVisible.value && !quickPreviewBaseResume.value) {
+    // 首次展开（或切换简历后已作废）加载完整简历详情
+    await loadQuickPreview();
+  }
+}
+
+/**
+ * 切换简历时作废就地预览数据。
+ *
+ * <p>原先 quickPreviewBaseResume 只在"首次展开"时加载一次，且 watch(selectedResumeId)
+ * 不清理它 ⇒ 切换到另一份简历后展开预览，看到的仍是**上一份简历的内容**（清单 P2）。</p>
+ */
+function resetQuickPreview() {
+  quickPreviewBaseResume.value = null;
+  if (quickPreviewVisible.value) {
+    // 预览处于展开态：立即按新简历重新加载，避免展开区域空着
+    void loadQuickPreview();
+  }
+}
+
+// 单字段重新生成候选弹窗状态
 const regenDialogVisible = ref(false);
 const regenLoading = ref(false);
 const regenCandidates = ref<string[]>([]);
@@ -848,9 +932,15 @@ async function goPreview() {
   }
 }
 
-// v10.20：单字段重新生成（拉取 3 候选版本弹窗）
+// 单字段重新生成（拉取 3 候选版本弹窗）
 async function regenerateItem(idx: number) {
   if (!optimizeResult.value || idx < 0) return;
+  // 清单 P2：原先没有"正在生成"互斥判断 —— 连续点两张卡的「重新生成」会并发请求，
+  // 后发的请求覆盖 regenTargetIdx / regenCandidates，导致候选版本落到**另一条**字段上。
+  if (regenLoading.value) {
+    toast.info('正在生成中，请稍候');
+    return;
+  }
   const item = optimizeResult.value.items[idx];
   if (!item) return;
 
@@ -882,8 +972,10 @@ async function regenerateItem(idx: number) {
       field: fieldKey as 'work_description' | 'project_description' | 'self_intro' | 'skills',
       originalText: item.original || '',
       position: selectedTarget.value?.position,
-      skillNames: item.section === 'skills' ? extractSkillNames(item.original) : undefined,
+      skillNames: item.section === 'skills' ? extractSkillNames(item.original || '') : undefined,
     });
+    // 过期响应保护：若期间用户已切到别的字段，丢弃本次结果
+    if (regenTargetIdx.value !== idx) return;
     if (res.code === 200 && res.data && res.data.length) {
       regenCandidates.value = res.data.map(s => s.text);
     } else {
@@ -946,7 +1038,7 @@ function applyOptimizes(source: UserResumeVO): UserResumeVO {
     if (!adoptedSet.value.has(i)) return;
     const text = item.optimized.trim();
     const idx = item.index ?? 0;
-    // v10.20：section 归一化（与后端 normalizeSection 保持一致，兼容 LLM 返回 works/projects 等变体）
+    // section 归一化（与后端 normalizeSection 保持一致，兼容 LLM 返回 works/projects 等变体）
     const section = normalizeSection(item.section);
     const field = (item.field ?? '').trim();
     switch (section) {
@@ -970,7 +1062,7 @@ function applyOptimizes(source: UserResumeVO): UserResumeVO {
 }
 
 /**
- * v10.20：section 归一化（与后端 ResumeDeepOptimizeService.normalizeSection 保持一致）
+ * section 归一化（与后端 ResumeDeepOptimizeService.normalizeSection 保持一致）
  * 兼容 LLM 返回 works/projects/experience/self_intro 等变体，避免 case 走不到导致采纳无效
  */
 function normalizeSection(raw?: string | null): string {
@@ -1066,7 +1158,22 @@ async function saveOptimize() {
   }
 }
 
-// 重新评分（以最终结果为准，v10.18 同步入库存档为 source=optimize 报告）
+/**
+ * 打开「历史评分报告」弹窗：先按当前简历加载报告，再显示。
+ *
+ * <p>此前只有 {@code refreshScoreReports} 在重新评分后被调用，{@code scoreReportVisible}
+ * 从未被置 true ⇒ 弹窗与 {@code loadScoreReports} 都成了死代码（清单 #8）。</p>
+ */
+async function openScoreReportDialog() {
+  if (!savedResumeId.value) {
+    toast.info('请先保存优化结果，再查看历史评分报告');
+    return;
+  }
+  await loadScoreReports(savedResumeId.value);
+  scoreReportVisible.value = true;
+}
+
+// 重新评分（以最终结果为准，同步入库存档为 source=optimize 报告）
 async function rescore() {
   if (!savedResumeId.value) {
     toast.error('请先保存优化结果');
@@ -1094,7 +1201,7 @@ async function rescore() {
   }
 }
 
-// 重新匹配分析（对比优化前后匹配度变化；v10.23 改为通用 AI 异步任务）
+// 重新匹配分析（对比优化前后匹配度变化；通用 AI 异步任务）
 async function rematch() {
   if (!savedResumeId.value || !selectedTargetId.value) {
     toast.error('请先保存优化结果');
@@ -1121,20 +1228,7 @@ function gotoInterview() {
   if (savedResumeId.value) router.push(`/interview/voice?resumeId=${savedResumeId.value}`);
 }
 
-function keywordsOf(s?: string): string[] {
-  return s ? s.split('、').filter(Boolean) : [];
-}
 
-function dimRows() {
-  const d = matchReport.value?.dimensions;
-  if (!d) return [];
-  return [
-    { key: 'keywordMatch', label: '关键词匹配', dim: d.keywordMatch },
-    { key: 'experienceMatch', label: '经验匹配', dim: d.experienceMatch },
-    { key: 'skillMatch', label: '技能匹配', dim: d.skillMatch },
-    { key: 'structureMatch', label: '结构完整度', dim: d.structureMatch },
-  ].filter(x => x.dim && typeof x.dim.score === 'number');
-}
 </script>
 
 <template>
@@ -1196,6 +1290,9 @@ function dimRows() {
               </div>
               <p class="text-xs text-theme-text-secondary mt-1 line-clamp-2 whitespace-pre-line">{{ t.jdText.slice(0, 120) }}{{ t.jdText.length > 120 ? '...' : '' }}</p>
             </div>
+            <button class="text-theme-text-secondary hover:text-theme-primary flex-shrink-0" title="编辑岗位" @click.prevent="openJobModalForEdit(t)">
+              <Pencil class="w-4 h-4" />
+            </button>
             <button class="text-theme-text-secondary hover:text-theme-danger flex-shrink-0" title="删除岗位" @click.prevent="t.id && removeJobTarget(t.id)">
               <Trash2 class="w-4 h-4" />
             </button>
@@ -1267,7 +1364,7 @@ function dimRows() {
         </div>
       </div>
 
-      <!-- ==================== STEP 3：分析进度（v10.18 抽离为 OptimizeProgress 组件） ==================== -->
+      <!-- ==================== STEP 3：分析进度（OptimizeProgress 组件） ==================== -->
       <OptimizeProgress
         v-else-if="step === 3"
         :analyzing="analyzing"
@@ -1278,10 +1375,10 @@ function dimRows() {
 
       <!-- ==================== STEP 4：匹配结果 + 深度优化对比 ==================== -->
       <div v-else-if="step === 4" class="space-y-4">
-        <!-- 匹配摘要（v10.18 抽离为 JobMatchPanel 组件） -->
+        <!-- 匹配摘要（JobMatchPanel 组件） -->
         <JobMatchPanel :report="matchReport" />
 
-        <!-- 深度优化建议（v10.18 抽离为 OptimizeCompare 组件 / v10.20 交互优化） -->
+        <!-- 深度优化建议（OptimizeCompare 组件） -->
         <OptimizeCompare
           :result="optimizeResult"
           :adopted-set="adoptedSet"
@@ -1296,7 +1393,7 @@ function dimRows() {
           @preview="toggleQuickPreview"
         />
 
-        <!-- v10.20：step4 内就地预览面板（不跳转 step5，采纳后实时反映） -->
+        <!-- step4 内就地预览面板（不跳转 step5，采纳后实时反映） -->
         <div v-if="quickPreviewVisible" class="bg-theme-surface rounded-xl border border-theme-border p-6 mt-4">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold flex items-center gap-2">
@@ -1372,7 +1469,7 @@ function dimRows() {
           </div>
         </div>
 
-        <!-- v10.20：单字段重新生成候选弹窗（Teleport 到 body，放 step4 内部不打断 v-else-if 链） -->
+        <!-- 单字段重新生成候选弹窗（Teleport 到 body，放 step4 内部不打断 v-else-if 链） -->
         <FieldRegenerateDialog
           v-model:visible="regenDialogVisible"
           :section-title="regenDialogTitle"
@@ -1508,6 +1605,16 @@ function dimRows() {
               >
                 <Star class="w-4 h-4" /> {{ rescoredScore !== null ? `最终评分 ${rescoredScore} 分` : '重新评分' }}
               </button>
+              <!-- 历史评分报告：ScoreReportDialog 与 loadScoreReports 早已实现，
+                   但 scoreReportVisible 从未被置 true ⇒ 弹窗永不可达（清单 #8） -->
+              <button
+                v-if="savedResumeId"
+                class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium"
+                style="background: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                @click="openScoreReportDialog"
+              >
+                <History class="w-4 h-4" /> 历史评分报告
+              </button>
               <button
                 v-if="savedResumeId"
                 class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg text-white font-medium"
@@ -1548,8 +1655,9 @@ function dimRows() {
       </div>
     </div>
 
-    <!-- 新建岗位弹窗（v10.18 抽离为 JobTargetForm 组件） -->
+    <!-- 新建岗位弹窗（JobTargetForm 组件） -->
     <JobTargetForm
+      :editing="jobEditId != null"
       v-model:visible="jobModalVisible"
       v-model:form="jobForm"
       :saving="jobSaving"
@@ -1557,7 +1665,7 @@ function dimRows() {
       @save="saveJobTarget"
     />
 
-    <!-- 评分报告弹窗（v10.18 阶段五：评分报告存档 + 优化历史整合） -->
+    <!-- 评分报告弹窗（评分报告存档 + 优化历史整合） -->
     <ScoreReportDialog
       v-model:visible="scoreReportVisible"
       :reports="scoreReports"

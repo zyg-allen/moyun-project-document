@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ICP_LICENSE, SITE_NAME, SITE_SLOGAN } from '@/constants/site';
 import { Github, Mail } from 'lucide-vue-next';
-import { useToast } from '@/composables/useToast';
+/* 已移除未使用导入：useToast（v14.00 清理） */
 import { getFriendLinks } from '@/api/friendLink';
 
 const currentYear = computed(() => new Date().getFullYear());
 const router = useRouter();
-const toast = useToast();
 
 // 友情链接（原型页脚模块，数据与首页同源）
 const friendLinks = ref<any[]>([]);
@@ -37,7 +37,8 @@ function goTo(path: string) {
 }
 
 function handlePrivacyPolicy() {
-  router.push('/agreement');
+  // v13.87：此前与「用户协议」同指 /agreement，等于"隐私政策"没有独立文档（清单 #11）
+  router.push('/privacy');
 }
 
 function handleUserAgreement() {
@@ -65,7 +66,7 @@ function handleUserAgreement() {
         </p>
       </div>
 
-      <!-- 桌面端（>=768px）：四列布局 + 友情链接 + 版权条（v11.94.1 紧凑化：间距减半，删版权条重复链接） -->
+      <!-- 桌面端（>=768px）：四列布局 + 友情链接 + 版权条 -->
       <div class="hidden md:block py-5">
         <div class="grid grid-cols-4 gap-6">
           <!-- 品牌 -->
@@ -160,9 +161,9 @@ function handleUserAgreement() {
           </div>
         </div>
 
-        <!-- 版权条（v11.94.1：删重复链接，仅版权与备案） -->
+        <!-- 版权条（仅版权与备案） -->
         <div class="mt-4 pt-3 border-t border-theme-border text-center text-[11px] text-theme-text-secondary">
-          <p>© {{ currentYear }} 旭林知行 · 知行合一，助你上岸 · 京ICP备xxxxxxxx号-2</p>
+          <p>© {{ currentYear }} {{ SITE_NAME }} · {{ SITE_SLOGAN }} · {{ ICP_LICENSE }}</p>
         </div>
       </div>
     </div>

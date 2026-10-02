@@ -64,6 +64,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 业务异常（{@link BusinessException}）
+     *
+     * <p>该类**直接继承 RuntimeException**，因此原先落到下面 {@code RuntimeException} 的兜底分支，
+     * 被当成"未知异常"统一回一句"操作失败，请稍后重试"——而它的 message 正是开发者写给用户的
+     * 可读原因（如"该银行卡已绑定"、"提现通道未开通"）。此处单独接管并透出 message，
+     * 与 {@code ServiceException} 的处理口径保持一致（日志仍记完整堆栈）。</p>
+     *
+     * <p>缺失 message 时保守回退通用提示，避免把 {@code null} 直接抛给前端。</p>
+     */
+    @ExceptionHandler(BusinessException.class)
+    public AjaxResult handleBusinessException(BusinessException e, HttpServletRequest request) {
+        log.error("请求地址'{}',业务异常: {}", request.getRequestURI(), e.getMessage(), e);
+        String message = e.getMessage();
+        if (StringUtils.isEmpty(message) || "null".equals(message)) {
+            return AjaxResult.error("操作失败，请稍后重试");
+        }
+        return AjaxResult.error(message);
+    }
+
+    /**
      * 请求路径中缺少必需的路径变量
      */
     @ExceptionHandler(MissingPathVariableException.class)

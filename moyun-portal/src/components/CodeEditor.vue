@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Monaco 代码编辑器封装（v6.2）
+ * Monaco 代码编辑器封装
  *
  * 特性：
  * - 按需动态 import（首屏不增加体积）
@@ -87,13 +87,11 @@ const initMonaco = async () => {
 
     // 注册 Worker（Vite 环境）
     // 说明：
-    //   - 旧实现使用 cdn.jsdelivr.net 在线加载 monaco-editor@0.52.2/min/vs/base/worker/workerMain.js，
-    //     内网/离线/沙箱环境无法访问 CDN 会导致 NetworkError，编辑器卡死。
-    //   - 新实现通过 Vite 的 ?worker 语法本地打包 worker，无外网依赖，且版本跟随 package.json。
+    //   - Worker 通过 Vite 的 ?worker 语法本地打包，无外网依赖（CDN 不可达的内网/离线/沙箱环境也可用），且版本跟随 package.json。
     //   - 各语言 worker（ts/json/css/html）一并本地化，未命中语言时回退到 base worker。
     self.MonacoEnvironment = {
       // 注意：monaco-editor 0.53+ 的 package.json exports 会把子路径重写到 ./esm/vs/*，
-      //   因此导入说明符必须写 'monaco-editor/language/...'（而非旧的 'monaco-editor/esm/vs/language/...'），
+      //   因此导入说明符必须写 'monaco-editor/language/...'，
       //   且须使用 Vite 的 ?worker 动态导入语法（new URL(裸模块, import.meta.url) 无法被 Vite 解析）；
       //   Monaco 0.56 的 getWorker 支持返回 Promise<Worker>。
       async getWorker(_workerId: string, label: string): Promise<Worker> {

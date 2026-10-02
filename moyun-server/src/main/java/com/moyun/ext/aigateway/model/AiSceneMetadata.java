@@ -11,7 +11,7 @@ import lombok.Data;
  * 类名区别于响应元数据 {@link AiMetadata}（tokenUsed/modelUsed）——本类是"配置侧"元数据。</p>
  *
  * <p>含网关入口校验与执行兜底依赖的字段：outputMode / openApi / fallbackModelId /
- * fallbackResponse（v3.1 修正 ⑥-b 补齐）。</p>
+ * fallbackResponse。</p>
  *
  * @author laomao
  * @since 2026-09-24

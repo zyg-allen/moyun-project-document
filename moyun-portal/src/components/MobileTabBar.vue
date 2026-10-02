@@ -43,7 +43,7 @@ const tabs: TabItem[] = [
   {
     key: 'learn',
     label: '学习',
-    // V10.4：学习 Tab 承载 学习中心 + 阅读空间（散文/技术/读书）
+    // 学习 Tab 承载 学习中心 + 阅读空间（散文/技术/读书）
     path: '/learn',
     matchPrefix: ['/learn', '/reading', '/reading-space', '/category/散文', '/category/技术'],
   },

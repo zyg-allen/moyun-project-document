@@ -3,9 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter, RouterLink as Link } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-    UserPlus, Loader2, Users, Heart, UserCheck
+    UserPlus, Loader2, Users, Heart, UserCheck, AlertCircle
 } from 'lucide-vue-next';
-import type { User as UserType, FollowUserItem } from '@/types/api';
+import type { UserProfileVO, FollowUserItem } from '@/types/api';
 import * as userApi from '@/api/user';
 import * as followApi from '@/api/follow';
 import { getSafeAvatar } from '@/utils/avatar';
@@ -24,7 +24,7 @@ const activeType = ref<ListType>(route.path.endsWith('/followers') ? 'followers'
 
 const userId = computed(() => String(route.params.id || ''));
 
-const targetUser = ref<UserType | null>(null);
+const targetUser = ref<UserProfileVO | null>(null);
 const isLoadingUser = ref(false);
 const notFound = ref(false);
 
@@ -131,12 +131,21 @@ async function loadTargetUser() {
     }
 }
 
+/**
+ * 加载失败提示（清单 P2）。
+ *
+ * <p>原实现失败时只 console.error 并清空列表 ⇒ 模板把它渲染成「暂无关注/暂无粉丝」的**空态**，
+ * 用户以为"确实没有"，既无错误提示也无重试入口。</p>
+ */
+const loadError = ref<string | null>(null);
+
 async function loadList(reset = false) {
     if (!userId.value) return;
     if (reset) {
         pageNum.value = 1;
         list.value = [];
         isLoadingList.value = true;
+        loadError.value = null;
     } else {
         loadingMore.value = true;
     }
@@ -160,8 +169,13 @@ async function loadList(reset = false) {
         }
     } catch (error) {
         console.error('加载列表失败:', error);
+        const e = error as { message?: string };
+        loadError.value = e?.message || '加载失败，请稍后重试';
         if (reset) {
             list.value = [];
+        } else {
+            // 「加载更多」失败：页码已在 loadMore 里 +1，必须回滚，否则重试会**跳过一页**
+            pageNum.value = Math.max(1, pageNum.value - 1);
         }
     } finally {
         isLoadingList.value = false;
@@ -196,7 +210,9 @@ async function toggleFollow(item: FollowUserItem) {
         return;
     }
     if (item.isMe) return;
-    const itemId = String(item.id);
+    // 必须用真实用户 ID（item.userId）；item.id 是 portal_follow 主键，
+    // 拿它调 /portal/follow/{userId} 会关注到错误的用户。
+    const itemId = String(item.userId);
     if (pendingIds.value.has(itemId)) return;
     pendingIds.value.add(itemId);
     const wasFollowing = item.following === true;
@@ -257,10 +273,10 @@ function displayName(item: FollowUserItem): string {
             <div class="flex items-center gap-4">
               <Link :to="`/author/${targetUser.id}`" class="flex-shrink-0">
                 <img
-                  :src="getSafeAvatar(targetUser.avatar, targetUser.id)"
+                  :src="getSafeAvatar(targetUser.avatar, String(targetUser.id))"
                   :alt="targetUser.nickname || targetUser.username"
                   class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover"
-                  @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, targetUser.id)"
+                  @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(targetUser?.id ?? ''))"
                 />
               </Link>
               <div class="flex-1 min-w-0">
@@ -304,11 +320,33 @@ function displayName(item: FollowUserItem): string {
             <p class="mt-3 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
           </div>
 
+          <!-- 失败态（清单 P2）：与"真的没有数据"区分开，并提供重试 -->
+          <div
+            v-else-if="loadError"
+            class="py-16 text-center rounded-2xl"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          >
+            <AlertCircle class="w-12 h-12 mx-auto mb-3" style="color: #ef4444;" />
+            <p class="text-base mb-1" style="color: var(--theme-text);">{{ loadError }}</p>
+            <button
+              class="mt-4 px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style="background-color: var(--theme-primary);"
+              @click="loadList(true)"
+            >重试</button>
+          </div>
+
           <div v-else-if="list.length === 0" class="py-16 text-center rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <Users class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary);" />
             <p class="text-base mb-1" style="color: var(--theme-text);">暂无{{ activeType === 'followers' ? '粉丝' : '关注' }}</p>
             <p class="text-sm" style="color: var(--theme-text-secondary);">
-              {{ isOwnPage ? '还没有人关注你哦~' : '该用户还没有关注的人' }}
+              <!-- 清单 P2：原先只按 isOwnPage 二选一，未随 activeType 区分：
+                   自己的「关注」页签会显示"还没有人关注你哦"，别人的「粉丝」页签会显示
+                   "该用户还没有关注的人"，两者都是错位的。 -->
+              {{
+                activeType === 'followers'
+                  ? (isOwnPage ? '还没有人关注你哦~' : '该用户还没有粉丝')
+                  : (isOwnPage ? '你还没有关注任何人' : '该用户还没有关注的人')
+              }}
             </p>
           </div>
 
@@ -318,14 +356,14 @@ function displayName(item: FollowUserItem): string {
               :key="item.id"
               class="flex items-center gap-3 sm:gap-4 p-4 rounded-2xl transition-colors cursor-pointer"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-              @click="gotoAuthor(String(item.id))"
+              @click="gotoAuthor(String(item.userId))"
             >
               <!-- 头像 -->
               <img
-                :src="getSafeAvatar(item.avatar, String(item.id))"
+                :src="getSafeAvatar(item.avatar, String(item.userId))"
                 :alt="displayName(item)"
                 class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover flex-shrink-0"
-                @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(item.id))"
+                @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(item.userId))"
               />
 
               <!-- 信息 -->
@@ -359,13 +397,13 @@ function displayName(item: FollowUserItem): string {
               <button
                 v-if="!item.isMe"
                 @click.stop="toggleFollow(item)"
-                :disabled="pendingIds.has(String(item.id))"
+                :disabled="pendingIds.has(String(item.userId))"
                 class="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl text-sm font-medium transition-colors flex-shrink-0 disabled:opacity-60"
                 :style="item.following
                   ? { border: '1px solid var(--theme-border)', color: 'var(--theme-text-secondary)', backgroundColor: 'var(--theme-surface)' }
                   : { backgroundColor: 'var(--theme-primary)', color: 'white' }"
               >
-                <Loader2 v-if="pendingIds.has(String(item.id))" class="w-4 h-4 animate-spin" />
+                <Loader2 v-if="pendingIds.has(String(item.userId))" class="w-4 h-4 animate-spin" />
                 <component :is="item.following ? UserCheck : UserPlus" v-else class="w-4 h-4" />
                 <span class="hidden sm:inline">{{ item.following ? '已关注' : '关注' }}</span>
                 <span class="sm:hidden">{{ item.following ? '已关注' : '+ 关注' }}</span>

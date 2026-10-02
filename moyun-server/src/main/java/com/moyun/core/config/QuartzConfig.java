@@ -14,7 +14,7 @@ import javax.sql.DataSource;
 import java.util.Properties;
 
 /**
- * Quartz 调度器配置：**JDBCJobStore 集群模式**（v13.7）
+ * Quartz 调度器配置：**JDBCJobStore 集群模式**
  *
  * <h3>为什么必须自定义 {@code SchedulerFactoryBean}（而不是只改 yaml）</h3>
  * <p>只需把 {@code spring.quartz.job-store-type} 设为 {@code jdbc} 会**启动失败**（上一批实测）：</p>
@@ -42,7 +42,7 @@ import java.util.Properties;
  * </ul>
  *
  * <p>注意：{@code @Configuration} 类上标 {@code @Order} 对本类的 bean 无效的坑，
- * v13.6 已在安全链上踩过一次；此处只有一个 {@code SchedulerFactoryBean}，不涉及顺序。</p>
+ * 已在安全链上踩过一次；此处只有一个 {@code SchedulerFactoryBean}，不涉及顺序。</p>
  *
  * <p>配套改动：{@code SysJobServiceImpl#init()} 不再 {@code scheduler.clear()}
  * （共享 JobStore 下清库会波及其他实例），改为**幂等同步**；见该类注释。</p>

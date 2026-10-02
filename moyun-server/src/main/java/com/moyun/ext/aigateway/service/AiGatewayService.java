@@ -65,7 +65,7 @@ public class AiGatewayService {
     private final AiExecuteLogService executeLogService;
     /** 场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
     private final TokenCostGuard tokenCostGuard;
-    /** Token 计量（真实 usage 优先，缺失则本地分词估算并标记；v13.3） */
+    /** Token 计量（真实 usage 优先，缺失则本地分词估算并标记） */
     private final TokenMeter tokenMeter;
     /** 输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
     private final AiOutputFilter outputFilter;
@@ -105,7 +105,7 @@ public class AiGatewayService {
             sceneCode = config.getSceneCode();
             handler = registry.getHandler(sceneCode);
 
-            // 1.2 输出模式路由校验（output_mode 配置接线——此前配置可编辑零消费）。
+            // 1.2 输出模式路由校验（output_mode 配置接线）。
             //     显式 stream-only 场景拒绝同步入口；both/null 放行（Handler 能力校验在流式侧兜底）
             if ("stream".equals(config.getOutputMode())) {
                 return failure(request, AiErrorCodes.INVALID_REQUEST,
@@ -220,7 +220,7 @@ public class AiGatewayService {
             long elapsed = System.currentTimeMillis() - startTime;
             fillCommon(response, request, elapsed);
             fillAgentMetadata(response, agentName);
-            // Token 计量兜底（v13.3）：Handler 未回传 usage（部分端点/Agent 链路）时本地估算并标记，
+            // Token 计量兜底：Handler 未回传 usage（部分端点/Agent 链路）时本地估算并标记，
             // 避免"静默 0"——0 会让成本熔断与成本报表失真
             ensureTokenMetered(response, request, sceneCode);
             // 按实际消耗累计场景日 Token（真实或估算；两者都不存在时不计）
@@ -320,7 +320,7 @@ public class AiGatewayService {
                 return;
             }
             // 成本熔断：流式路径同样前置配额检查。
-            // 消费累计见下方（v13.3 起由 TokenMeter 汇总真实/估算 Token 后 tokenCostGuard.consume），
+            // 消费累计见下方（由 TokenMeter 汇总真实/估算 Token 后 tokenCostGuard.consume），
             // 不再有"流式不计量"的缺口。注意 emitter 流式端点（/api/ai/execute/stream）
             // 目前无任何场景声明 support stream（getSupportedOutputMode 默认 sync），会在上方被拒绝。
             if (!tokenCostGuard.checkQuota(scene, config.getDailyTokenLimit()).allowed()) {
@@ -456,10 +456,9 @@ public class AiGatewayService {
                     }
                     AiMetadata metadata = new AiMetadata();
                     try {
-                        // Token 计量（v13.3）：langchain4j 流式不下发 stream_options.include_usage，
-                        // 服务端通常不回 usage → tokenUsage 为 null。原实现只在非 null 时累计，
-                        // 导致**流式 Token 全部漏计**（绕过日配额、成本报表恒为 0）。
-                        // 现改为 TokenMeter：真实优先，缺失则本地分词估算并标记 estimated。
+                        // Token 计量：langchain4j 流式不下发 stream_options.include_usage，
+                        // 服务端通常不回 usage → tokenUsage 为 null。
+                        // TokenMeter：真实优先，缺失则本地分词估算并标记 estimated。
                         TokenMeter.Metered metered = tokenMeter.meter(
                                 response == null ? null : response.tokenUsage(),
                                 messages, buffer.toString());
@@ -638,7 +637,7 @@ public class AiGatewayService {
     }
 
     /**
-     * 同步路径的 Token 计量兜底（v13.3）
+     * 同步路径的 Token 计量兜底
      *
      * <p>Handler 通过 {@code ChatOutcome.tokenUsage} 填了真实值就保持不动；
      * 未填（部分端点不回 usage、或 Agent 链路未透传）时用 {@link TokenMeter#meterTexts} 估算并打标，

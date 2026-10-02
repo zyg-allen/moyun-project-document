@@ -318,7 +318,6 @@ import { MagicStick } from "@element-plus/icons-vue";
 import { sanitizeHtml } from "@/utils/index";
 
 const { proxy } = getCurrentInstance();
-const router = useRouter();
 const route = useRoute();
 
 // 表单数据
@@ -467,7 +466,7 @@ function init() {
     getArticle(route.query.id).then(response => {
       const data = response.data || {};
       form.value = { ...form.value, ...data };
-      // 标签回显：优先用后端返回的 tagIds/tagNameList 数组（V11.3.1 详情接口已关联 ID 与名称）；
+      // 标签回显：优先用后端返回的 tagIds/tagNameList 数组（详情接口已关联 ID 与名称）；
       // 兼容旧字段：tagNames 若为逗号字符串则拆为数组（后端实体 tagNames 是 List<String>，
       // 直接透传会导致 JSON 解析失败）
       if (Array.isArray(data.tagNameList)) {

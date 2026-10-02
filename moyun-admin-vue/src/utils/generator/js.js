@@ -347,25 +347,6 @@ function buildexport(
     `
   } else {
     str += `
-    /**
-     * @name: 表单提交
-     * @description: 表单提交方法
-     * @return {*}
-     */
-    function submitForm() {
-      ${conf.formRef}.value.validate((valid) => {
-        if (!valid) return
-        // TODO 提交表单
-      })
-    }
-    /**
-     * @name: 表单重置
-     * @description: 表单重置方法
-     * @return {*}
-     */
-    function resetForm() {
-      ${conf.formRef}.value.resetFields()
-    }
     `
   }
   return str

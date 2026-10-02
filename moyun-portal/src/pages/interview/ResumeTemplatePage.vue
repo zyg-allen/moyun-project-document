@@ -10,9 +10,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
-import {
-  getResumeTemplateList, getResumeTemplateDetail, downloadResumeTemplate, toggleResumeTemplateLike,
-} from '@/api/interview';
+import { getResumeTemplateList, getResumeTemplateDetail, downloadResumeTemplate } from '@/api/interview';
 import type { InterviewResumeTemplateVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 import { useResumeStore } from '@/stores/resume';
@@ -69,7 +67,7 @@ function openPreview(t: InterviewResumeTemplateVO) {
 
 function closePreview() { previewVisible.value = false; }
 
-// 预览缩放（v13.25）：放大后可上下/左右滚动，1:1 可复位；顺序严格按 previewImages（= 后台预览图顺序）
+// 预览缩放：放大后可上下/左右滚动，1:1 可复位；顺序严格按 previewImages（= 后台预览图顺序）
 const previewScale = ref(1);
 const PREVIEW_SCALE_MIN = 0.5;
 const PREVIEW_SCALE_MAX = 4;
@@ -171,7 +169,8 @@ function doSearch() {
 async function loadTemplates() {
   try {
     loading.value = true;
-    const params: any = { page: page.value, pageSize };
+    // PageDomain 只接受 pageNum；用 page 会被 Spring 忽略、页码恒为 1
+    const params: any = { pageNum: page.value, pageSize };
     if (activeCategory.value !== 'all') params.category = activeCategory.value;
     if (keyword.value) params.keyword = keyword.value;
     const res = await getResumeTemplateList(params);
@@ -238,20 +237,6 @@ async function useTemplate(t: InterviewResumeTemplateVO) {
   });
 }
 
-async function handleLike(t: InterviewResumeTemplateVO) {
-  try {
-    const res = await toggleResumeTemplateLike(t.id);
-    if (res.code === 200 && res.data) {
-      t.liked = res.data.liked;
-      t.likeCount = res.data.likeCount;
-      toast.success(res.data.liked ? '点赞成功' : '已取消点赞');
-    } else {
-      toast.error(res.message || '操作失败');
-    }
-  } catch (err: any) {
-    toast.error(err?.message || '操作失败');
-  }
-}
 
 function totalPages() {
   return Math.max(1, Math.ceil(total.value / pageSize));
@@ -336,7 +321,7 @@ function gotoPage(p: number) {
               class="rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col group"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
-              <!-- 大图区（优先预览图第一张 > 封面）v10.21：高度调矮 h-64→h-44，突出预览 -->
+              <!-- 大图区（优先预览图第一张 > 封面） -->
               <div
                 class="h-44 relative cursor-pointer overflow-hidden"
                 style="background-color: var(--theme-bg);"
@@ -375,7 +360,7 @@ function gotoPage(p: number) {
                 >
                   <FileText class="w-3 h-3 inline mr-1" />{{ getAllImages(t).length }} 张
                 </span>
-                <!-- v10.21：操作按钮组（hover 显示，小按钮叠在图片右上角） -->
+                <!-- 操作按钮组（hover 显示，小按钮叠在图片右上角） -->
                 <div class="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <button
                     @click.stop="handleDownload(t)"
@@ -403,7 +388,7 @@ function gotoPage(p: number) {
                   </span>
                 </div>
               </div>
-              <!-- 信息区 v10.21：padding 调小 p-5→p-3.5，突出标题与点赞收藏 -->
+              <!-- 信息区（突出标题与点赞收藏） -->
               <div class="p-3.5 flex flex-col flex-1">
                 <h3 class="text-base font-semibold mb-1 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
                 <p class="text-xs mb-2.5 line-clamp-1 flex-1" style="color: var(--theme-text-secondary);">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue';
 import { useConfirmModal } from '@/composables/useConfirmModal';
-import { useRouter } from 'vue-router';
+/* 已移除未使用导入：useRouter（v14.00 清理） */
 import { useHead } from '@vueuse/head';
 import {
   Target, Plus, Pencil, Trash2, CheckCircle2, Loader2,
@@ -20,7 +20,7 @@ import { useToast } from '@/composables/useToast';
 
 const confirmModal = useConfirmModal();
 
-const router = useRouter();
+// 未使用的 router 变量已移除（v14.00：本页跳转均用 <Link>）
 const toast = useToast();
 
 const loading = ref(false);
@@ -30,7 +30,7 @@ const total = ref(0);
 const page = ref(1);
 const pageSize = 12;
 const actionId = ref<number | null>(null);
-// v5.9 阶段3：画像生成状态
+// 画像生成状态
 const generating = ref(false);
 
 type StatusFilter = 'active' | 'completed' | 'abandoned' | '';
@@ -120,7 +120,7 @@ function openCreate() {
   formOpen.value = true;
 }
 
-// v5.9 阶段3：基于画像自动生成学习计划
+// 基于画像自动生成学习计划
 async function handleAutoGenerate() {
   if (generating.value) return;
   try {
@@ -170,6 +170,12 @@ async function submitForm() {
     formError.value = '计划标题不能为空';
     return;
   }
+  // 清单 P2：原先开始/结束日期没有任何顺序校验（后端 savePlan 也是直接 set），
+  // 可以保存出"开始日期晚于结束日期"的计划，卡片会原样渲染出颠倒区间。
+  if (form.startDate && form.endDate && form.startDate > form.endDate) {
+    formError.value = '开始日期不能晚于结束日期';
+    return;
+  }
   formLoading.value = true;
   formError.value = null;
   try {
@@ -199,6 +205,12 @@ async function removePlan(plan: StudyPlanVO) {
   actionId.value = plan.id;
   try {
     await deleteStudyPlan(plan.id);
+    // 清单 P2：删除后原先只 loadPlans()，不纠正页码 ——
+    // 删掉**末页最后一条**时 page 仍指向超界页（后端分页未开启溢出纠正，返回空 records），
+    // 模板随即进入空态显示"还没有学习计划，开始创建第一个吧"，用户以为计划全没了。
+    if (page.value > 1 && plans.value.length <= 1) {
+      page.value -= 1;
+    }
     await loadPlans();
   } catch (err) {
     const e = err as { message?: string };
@@ -213,12 +225,12 @@ async function incProgress(plan: StudyPlanVO, delta: number) {
   try {
     const res = await recordPlanProgress(plan.id, delta);
     if (res.code === 200) {
-      // 局部更新进度
-      plan.todayDoneCount = (res.data as number) ?? plan.todayDoneCount + delta;
-      plan.doneCount = Math.max(0, plan.doneCount + delta);
-      if (plan.targetCount && plan.targetCount > 0) {
-        plan.progressPercent = Math.min(100, Math.round(plan.doneCount * 100 / plan.targetCount));
-      }
+      // 清单 P2：服务端 recordTodayProgress 返回的是**今日完成数**（clamp 到 0），
+      // 而 doneCount / progressPercent 是**累计**口径，两者语义不同 ——
+      // 原先用 delta 直接对累计数本地加减，导致"今日完成数为 0 时点减号"：
+      // 服务端不变、前端却仍减 1（累计数与百分比随之漂移）。
+      // 现改为以服务端为准：重新拉取列表（今日数、累计数、百分比、连续天数全部对齐）。
+      await loadPlans();
     }
   } catch (err) {
     const e = err as { message?: string };
@@ -254,6 +266,20 @@ function planTypeText(t: string | null) {
     custom: '自定义',
   };
   return (t && map[t]) || '学习计划';
+}
+
+/**
+ * 目标量单位（清单 P2）。
+ *
+ * <p>原先三处模板都写死「题」，但 planType 还包含 {@code weekly_reading} 与 {@code custom}
+ * （见 StudyPlanVO 注释），阅读类计划的"目标量"并不是题数。这里按类型给单位，未知类型用中性词「项」。</p>
+ */
+function planUnit(t: string | null) {
+  const map: Record<string, string> = {
+    daily_question: '题',
+    weekly_reading: '篇',
+  };
+  return (t && map[t]) || '项';
 }
 
 function statusText(s: string) {
@@ -384,7 +410,7 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mb-3" style="color: var(--theme-text-secondary);">
             <span v-if="plan.targetCount" class="inline-flex items-center">
               <ListChecks class="w-3.5 h-3.5 mr-1" />
-              目标 {{ plan.targetCount }} 题
+              目标 {{ plan.targetCount }} {{ planUnit(plan.planType) }}
             </span>
             <span v-if="plan.targetCategory">分类：{{ plan.targetCategory }}</span>
             <span v-if="plan.startDate">{{ plan.startDate }} 起</span>
@@ -394,7 +420,7 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
           <!-- 进度 -->
           <div class="mb-3">
             <div class="flex items-center justify-between text-xs mb-1.5" style="color: var(--theme-text-secondary);">
-              <span>已完成 {{ plan.doneCount }} / {{ plan.targetCount || '∞' }}</span>
+              <span>已完成 {{ plan.doneCount }} / {{ plan.targetCount || '∞' }} {{ plan.targetCount ? planUnit(plan.planType) : '' }}</span>
               <span>{{ plan.progressPercent || 0 }}%</span>
             </div>
             <div class="h-2 rounded-full overflow-hidden" style="background-color: var(--theme-border);">
@@ -411,7 +437,7 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
               <Flame class="w-3.5 h-3.5 mr-1" style="color: #f59e0b;" />
               连续 {{ plan.streakDays }} 天
             </span>
-            <span>今日完成 {{ plan.todayDoneCount }} 题</span>
+            <span>今日完成 {{ plan.todayDoneCount }} {{ planUnit(plan.planType) }}</span>
           </div>
 
           <!-- 操作 -->
@@ -419,7 +445,7 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
             <!-- 今日打卡（仅 active 可用） -->
             <div v-if="plan.status === 'active'" class="flex items-center gap-2">
               <button
-                :disabled="actionId === plan.id"
+                :disabled="actionId === plan.id || (plan.todayDoneCount || 0) <= 0"
                 @click="incProgress(plan, -1)"
                 class="w-7 h-7 rounded-md flex items-center justify-center transition hover:opacity-80 disabled:opacity-40"
                 style="border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"

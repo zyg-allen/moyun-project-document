@@ -48,9 +48,9 @@ public class EmailNodeExecutor extends BaseNodeExecutor {
         }
 
         // 检查邮件通道是否就绪（配置层判定，先于真正连接 SMTP）
-        // 历史实现此处返回"模拟发送成功"（success=true + simulated=true）——属 fail-open 假成功：
-        // 工作流上游会认为邮件已送达，而实际上什么都没发。与项目"不伪装成功"的取向相反，
-        // 故改为明确失败，由调用方/编排决定是否走错误分支。
+        // 邮件通道未就绪时必须明确失败，不得伪装成"模拟发送成功"（fail-open 假成功）：
+        // 否则工作流上游会以为邮件已送达，而实际上什么都没发；
+        // 因此这里明确失败，由调用方/编排决定是否走错误分支。
         String notReady = mailChannelStatus.unavailableReason();
         if (notReady != null) {
             log.warn("📧 邮件节点无法执行，邮件通道未就绪：{}", notReady);

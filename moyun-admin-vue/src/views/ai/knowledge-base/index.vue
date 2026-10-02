@@ -906,11 +906,6 @@ const startPolling = (knowledgeId) => {
   console.log(`[轮询] 已启动ID=${knowledgeId}的轮询，定时器ID=${timer}`)
 }
 
-// 检查知识库是否可选择
-const isKnowledgeSelectable = (knowledge) => {
-  // 只有处理成功的才能选择
-  return knowledge.status === 2
-}
 
 // 判断是否处理完成
 const isCompleted = (row) => {
@@ -924,10 +919,6 @@ const paginatedKnowledge = computed(() => {
   return filteredKnowledge.value.slice(start, end)
 })
 
-// 判断是否处理中
-const isProcessing = (row) => {
-  return row.processingStatus === 'processing' || row.status === 1
-}
 
 // 判断是否失败
 const isFailed = (knowledge) => {
@@ -1010,21 +1001,6 @@ const getProgressText = (row) => {
 // 处理进度追踪
 const processingProgress = ref(new Map())
 
-// 获取知识库状态提示
-const getKnowledgeStatusTip = (knowledge) => {
-  switch (knowledge.status) {
-    case 0:
-      return '待处理'
-    case 1:
-      return '处理中...'
-    case 2:
-      return '可用'
-    case 3:
-      return '处理失败'
-    default:
-      return '未知状态'
-  }
-}
 
 /**
  * 获取解析方式对应的图标类名
@@ -1444,18 +1420,8 @@ const onPdfLoaded = (pdf) => {
   console.log(`PDF加载完成，共 ${pdfTotalPages.value} 页`)
 }
 
-// PDF工具栏控制（使用自适应宽度）
-const zoomIn = () => {
-  // 自适应宽度模式下不需要缩放
-}
 
-const zoomOut = () => {
-  // 自适应宽度模式下不需要缩放
-}
 
-const resetZoom = () => {
-  // 自适应宽度模式下不需要缩放
-}
 
 const nextPage = () => {
   if (pdfCurrentPage.value < pdfTotalPages.value) {

@@ -19,7 +19,6 @@ import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
-import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -54,7 +53,7 @@ public class SysJobServiceImpl implements ISysJobService {
     /**
      * 项目启动时把 {@code sys_job} 的配置同步到 Quartz JobStore（**集群安全的幂等同步**）。
      *
-     * <p><b>v13.7 关键改动：不再 {@code scheduler.clear()}</b>。自本版起 Quartz 使用
+     * <p><b>不调用 {@code scheduler.clear()}</b>。Quartz 使用
      * <b>JDBC 集群 JobStore</b>，JobStore 是**多实例共享的持久状态**，启动时清库会：</p>
      * <ol>
      *   <li>删掉其他实例正在使用的任务（对方不会感知，任务静默消失）；</li>

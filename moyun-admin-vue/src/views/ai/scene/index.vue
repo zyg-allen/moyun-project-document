@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <!-- 场景注册表总览（v11.38：来自 AiSceneEnum，场景代码唯一权威来源） -->
+    <!-- 场景注册表总览（来自 AiSceneEnum，场景代码唯一权威来源） -->
     <el-card shadow="never" class="registry-card">
       <template #header>
         <div class="registry-header">
@@ -108,9 +108,7 @@
           <!-- ===== 基础配置 ===== -->
           <el-tab-pane label="基础配置" name="basic">
             <el-form-item label="场景代码" required>
-              <!-- v13.51 批次 4：双下拉（主场景 + 子任务）拼出两段式代码。
-                   原先是单个整串下拉 ⇒ 无法组合出 voice_interview:warmup 这类
-                   合法子场景，只能靠 SQL 维护（"管理端看得见改不了"）。 -->
+              <!-- 场景代码由「主场景 + 子任务」两级下拉拼成两段式 -->
               <div class="scene-code-dual">
                 <el-select
                   v-model="formMainCode"
@@ -404,7 +402,7 @@ const loading = ref(true);
 const sceneList = ref([]);
 const agentOptions = ref([])
 const registry = ref([]);
-/** v13.51 批次 4：子任务白名单（双下拉第二级选项） */
+/** 子任务白名单（双下拉第二级选项） */
 const taskOptions = ref([]);
 /** 双下拉第一级：主场景代码 */
 const formMainCode = ref('');
@@ -461,7 +459,7 @@ function makeDefaultForm() {
     knowledgeLibraryIds: '',
     toolIds: '',
     configJson: '',
-    // v11.41 执行层
+    // 执行层
     handlerBeanName: '',
     handlerMethod: 'execute',
     systemPromptTemplate: '',
@@ -526,7 +524,6 @@ function bindingCountOf(code) {
   return sceneList.value.filter((c) => c.sceneCode === code).length;
 }
 
-const currentSceneMeta = computed(() => registry.value.find((s) => s.code === form.value.sceneCode) || null);
 
 async function getList() {
   loading.value = true;
@@ -552,7 +549,7 @@ function resetQuery() {
 
 function handleAdd() {
   form.value = makeDefaultForm();
-  // v13.51 批次 4：双下拉复位（新增时默认为空）
+  // 双下拉复位（新增时默认为空）
   formMainCode.value = '';
   formTaskCode.value = '';
   dialogVisible.value = true;
@@ -562,7 +559,7 @@ async function handleEdit(row) {
   try {
     const res = await getScene(row.id);
     const data = res.data || {};
-    // v13.51 批次 4：把既有 sceneCode 拆成「主场景 + 子任务」回填双下拉
+    // 把既有 sceneCode 拆成「主场景 + 子任务」回填双下拉
     // （编辑态两个下拉均 disabled，仅用于展示，不改变提交值）
     const fullCode = (data.sceneCode || '').trim();
     const ci = fullCode.indexOf(':');
@@ -580,7 +577,7 @@ async function handleEdit(row) {
       knowledgeLibraryIds: data.knowledgeLibraryIds || '',
       toolIds: data.toolIds || '',
       configJson: data.configJson || '',
-      // v11.41 执行层
+      // 执行层
       handlerBeanName: data.handlerBeanName || '',
       handlerMethod: data.handlerMethod || 'execute',
       systemPromptTemplate: data.systemPromptTemplate || '',
@@ -643,7 +640,7 @@ function normalizeJsonObject(value) {
 }
 
 async function submitForm() {
-  // v13.51 批次 4：场景代码/名称以「双下拉」为准（后端 validate 会再次校验两段式）
+  // 场景代码/名称以「双下拉」为准（后端 validate 会再次校验两段式）
   form.value.sceneCode = formSceneCode.value;
   if (formSceneName.value) form.value.sceneName = formSceneName.value;
   if (!form.value.sceneCode || !form.value.sceneCode.trim()) {
@@ -790,7 +787,7 @@ async function loadRegistry() {
     // 注册表加载失败不阻塞页面，下拉降级为可手输
     registry.value = [];
   }
-  // v13.51 批次 4：子任务白名单（双下拉第二级）
+  // 子任务白名单（双下拉第二级）
   // 失败时降级为空数组 —— 仅影响"可选性"，不影响页面与主流程
   try {
     const res2 = await sceneTasks();
@@ -831,7 +828,7 @@ onMounted(() => {
   word-break: break-all;
 }
 .registry-card { margin-bottom: 16px; }
-/* v13.51 批次 4：场景代码双下拉 */
+/* 场景代码双下拉 */
 .scene-code-dual { display: flex; align-items: center; gap: 6px; width: 100%; }
 .scene-code-colon { color: #909399; font-weight: 700; }
 .registry-header { display: flex; align-items: center; justify-content: space-between; }

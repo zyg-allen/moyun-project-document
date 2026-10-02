@@ -73,7 +73,7 @@ export const getMyPurchasedArticles = (params?: TipQuery) => {
 };
 
 /**
- * 发起微信支付打赏（V11.0 公共支付通道）
+ * 发起微信支付打赏（公共支付通道）
  * POST /portal/tip/{targetType}/{targetId}/wechat
  * 返回收银台参数：payNo/codeUrl/amount(元)/expireTime/tipOrderId/mockEnabled
  */

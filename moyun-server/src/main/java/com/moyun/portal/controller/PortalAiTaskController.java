@@ -36,6 +36,30 @@ public class PortalAiTaskController extends BaseController {
     @Autowired
     private AiTaskService aiTaskService;
 
+    @Autowired
+    private com.moyun.vip.service.IVipService vipService;
+
+    /**
+     * **会员权益门禁登记表**：taskType → {platform, benefit, consume, 错误文案}。
+     *
+     * <p>为什么必须有：通用任务入口 {@code POST /portal/ai/task/submit} 接受任意 taskType，
+     * 而各专用入口上的 {@code @VipOnly} 只作用于**那个**方法 —— 于是
+     * {@code taskType=deep_optimize} 可经本入口提交，**完全绕过**深度优化的会员校验与次数扣减
+     * （清单 P1：付费能力被白嫖）。</p>
+     *
+     * <p>取值必须与专用入口的注解一致（此处 deep_optimize 对齐
+     * {@code PortalResumeOptimizeController#deepOptimizeAsync} 的
+     * {@code @VipOnly(platform="portal", benefit="resume_optimize")}，含 consume=true 与 402 语义）。
+     * 新增受权益保护的异步任务类型时，**在此登记**即可，无需改动别处。</p>
+     */
+    private static final Map<String, VipGate> VIP_GATED_TASKS = Map.of(
+            "deep_optimize", new VipGate("portal", "resume_optimize", true, "简历深度优化次数已用完，请开通会员")
+    );
+
+    /** 受权益保护的异步任务类型（见 {@link #VIP_GATED_TASKS}） */
+    private record VipGate(String platform, String benefit, boolean consume, String message) {
+    }
+
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -52,6 +76,18 @@ public class PortalAiTaskController extends BaseController {
         }
         try {
             String taskType = params.get("taskType") == null ? null : String.valueOf(params.get("taskType")).trim();
+            // ── 会员权益门禁（与专用入口同口径）──
+            // 通用入口若不校验，deep_optimize 可绕过 @VipOnly 直接提交 ⇒ 付费能力被白嫖。
+            VipGate gate = taskType == null ? null : VIP_GATED_TASKS.get(taskType);
+            if (gate != null) {
+                boolean pass = gate.consume()
+                        ? vipService.consumeBenefit(userId, gate.platform(), gate.benefit())
+                        : vipService.hasBenefit(userId, gate.platform(), gate.benefit());
+                if (!pass) {
+                    // 与 @VipOnly 一致：402 语义（前端据此弹开通引导）
+                    return AjaxResult.error(402, gate.message());
+                }
+            }
             @SuppressWarnings("unchecked")
             Map<String, Object> bizRef = (Map<String, Object>) params.get("bizRef");
             Long taskId = aiTaskService.submitTask(userId, taskType, bizRef);

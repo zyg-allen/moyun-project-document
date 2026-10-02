@@ -16,11 +16,7 @@ import java.util.Map;
  *
  * <p>同时执行多个分支，等待全部完成后继续</p>
  *
- * <p><b>v13.5</b>：删除历史遗留的实例字段
- * {@code private final ExecutorService executorService = Executors.newFixedThreadPool(10)}——
- * 该字段自始至终<strong>无任何使用点</strong>（真正的并行执行在 {@code WorkflowEngine}，
- * 用的是受 Spring 管理的 {@code workflowParallelExecutor}）。它的存在只是白占 10 个线程
- * 的池对象，且每个实例一份。</p>
+ * <p>本类不持有线程池字段：真正的并行执行在 {@code WorkflowEngine}，用的是受 Spring 管理的 {@code workflowParallelExecutor}。</p>
  *
  * @author laomao
  */

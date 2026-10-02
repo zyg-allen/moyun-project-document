@@ -20,6 +20,31 @@ export interface PaginationResponse<T> {
 }
 
 // 用户相关类型
+/**
+ * 门户**公开**用户资料（他人主页可见字段白名单）
+ *
+ * 对应后端 `GET /portal/user/{id}` → `UserProfileVO`：**不含** email/phone/wechat/loginIp/
+ * role/vipExpireAt 等隐私与账户字段（后端曾直接下发实体全字段，v13.76 已改为白名单）。
+ */
+export interface UserProfileVO {
+  id: string | number;
+  username: string;
+  nickname?: string;
+  avatar?: string;
+  bio?: string;
+  position?: string;
+  company?: string;
+  school?: string;
+  location?: string;
+  website?: string;
+  github?: string;
+  identityTag?: string;
+  gender?: string;
+  /** 是否认证创作者（主页徽章） */
+  certifiedCreator?: boolean;
+  createTime?: string;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -161,6 +186,14 @@ export interface ResetPasswordParams {
 }
 
 // 文章相关类型
+/** 我的文章分页结果（后端 /portal/article/my 返回 MyBatis-Plus Page：records/total） */
+export interface MyArticlesResult {
+  records: Article[];
+  total: number;
+  current?: number;
+  size?: number;
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -198,15 +231,32 @@ export interface Article {
   sessionToken?: string;
   createdAt?: string;
   createTime?: string;
-  updatedAt?: string;
+  /** 更新时间（后端 BaseEntity.updateTime；原声明的 updatedAt 后端并不返回，v13.78 订正） */
+  updateTime?: string;
   publishedAt?: string;
-  remark?: string; // 审核意见（rejected 时存拒绝原因）
+  /** 通用备注（**不是**审核意见；历史注释有误导，已于 v13.78 订正） */
+  remark?: string;
+  /** 审核意见/驳回原因（后端 portal_article.audit_remark，rejected 时展示给作者） */
+  auditRemark?: string;
   /** 是否付费阅读 0=免费 1=付费 */
   isPaid?: number;
+  /**
+   * 付费阅读是否已开通（后端 moyun.pay.article-paid-enabled）。
+   * 未开通时「解锁全文」按钮应置灰并提示"即将开放"——后端该分支目前直接抛
+   * "付费阅读功能正在接入支付通道"，让用户走完确认弹窗再报错是虚假承诺。
+   */
+  paidPurchaseEnabled?: boolean;
   /** 付费内容（购买后可见；未购买时后端会清空该字段） */
   paidContent?: string;
   /** 试读字数（未购买可预览的字数） */
   previewLength?: number;
+  /**
+   * SEO 自定义标题/描述/关键词（v13.89 后端补齐并贯通）。
+   * 详情接口回显，发布页据此回填「高级选项」。
+   */
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
   /** 付费价格，0=免费 */
   price?: number;
   /** 当前用户是否已购买该付费文章（详情接口动态填充） */
@@ -313,6 +363,13 @@ export interface CreateArticleParams {
   slug?: string;
   /** 外部链接 */
   link?: string;
+  /**
+   * SEO 自定义标题/描述/关键词。
+   * v13.89 起后端 portal_article 已有对应列并贯通落库与详情回显（此前前端采集但不提交，清单 #4）。
+   */
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
 }
 
 export interface UpdateArticleParams {
@@ -777,7 +834,7 @@ export interface Book {
   authorBio?: string;
   createTime?: string;
   updateTime?: string;
-  // v1.0 章节/连载扩展字段
+  // 章节/连载扩展字段
   /** 书籍类型：published 出版书籍 / novel 网络小说 / longform 长文文章（兼容面试空间） */
   type?: 'published' | 'novel' | 'longform';
   /** 连载状态：ongoing 连载中 / completed 已完结 / hiatus 暂停 */
@@ -801,6 +858,12 @@ export interface BookChapter {
   id: string;
   bookId: string;
   title: string;
+  /**
+   * 是否为**试读片段**（后端 PortalBookChapter.preview，非持久化字段）。
+   * VIP 章节在未开通 VIP 时后端只下发前 500 字并置 true —— 门禁在服务端，
+   * 前端据此展示引导，不能反过来假设"客户端没拿到完整正文"。
+   */
+  preview?: boolean;
   /** 正文 HTML（详情接口返回，列表接口不返回） */
   content?: string;
   /** 正文 Markdown（编辑器为 markdown 时返回） */
@@ -831,7 +894,7 @@ export interface BookChapterNav {
 }
 
 // =====================================================
-// v1.0 第二阶段新增：阅读进度 / 书架 / 阅读偏好
+// 阅读进度 / 书架 / 阅读偏好
 // =====================================================
 
 /** 阅读进度（章节级） */
@@ -856,7 +919,7 @@ export interface ReadingProgress {
   /** 累计阅读时长（毫秒） */
   readingDurationMs?: number;
   /**
-   * 章节完成标记（v1.1 阅读闭环）
+   * 章节完成标记（阅读闭环）
    * 前端检测到用户已读到章节底部时上报 true，后端据此将整书 status 置为 finished
    * 并触发成长事件 + Feed 动态。仅最后一章上报才有意义。
    */
@@ -880,6 +943,12 @@ export interface BookshelfItem {
   sort?: number;
   createTime?: string;
   updateTime?: string;
+  /** 书名（清单 P2：后端随列表批量下发，避免前端逐条取详情造成 N+1 与虚增阅读量） */
+  bookTitle?: string;
+  /** 封面 */
+  bookCover?: string;
+  /** 作者 */
+  bookAuthor?: string;
 }
 
 /** 书架收藏检查结果 */
@@ -977,7 +1046,7 @@ export interface PagedResponse<T> {
 }
 
 // =====================================================
-// v1.0 第三阶段新增：发现与运营（推荐位 / 发现页 / 排行榜 / 限免）
+// 发现与运营（推荐位 / 发现页 / 排行榜 / 限免）
 // =====================================================
 
 /**
@@ -1000,6 +1069,8 @@ export interface BookRecommend {
   isActive?: boolean;
   /** 书名（JOIN portal_book 查询返回，非表字段） */
   bookTitle?: string;
+  /** 封面（JOIN portal_book 查询返回，非表字段） */
+  bookCover?: string;
   createTime?: string;
   updateTime?: string;
   /** 备注（后台维护用，预留） */
@@ -1007,7 +1078,8 @@ export interface BookRecommend {
 }
 
 /** 排行榜类型 */
-export type RankingType = 'hot' | 'new' | 'completed' | 'word_count';
+// 清单 P2：补 updated（按最后更新时间，用于"最近更新"）与 ongoing（连载中过滤 serial_status）
+export type RankingType = 'hot' | 'new' | 'updated' | 'completed' | 'word_count' | 'ongoing';
 
 /** 排行榜单项（复用 Book，附加排名序号由前端渲染） */
 export type RankingItem = Book;
@@ -1052,7 +1124,7 @@ export interface InterviewCategoryVO {
 }
 
 /**
- * 简历解析预览结果 VO（v13.38）
+ * 简历解析预览结果 VO
  *
  * <p>对应后端 `ResumePreviewVO` / `POST /portal/interview/resume/user/parse/preview`。
  * 额外携带 `previewToken`（确认落库用）与 `rawText`（左右对照校对用）。</p>
@@ -1085,11 +1157,9 @@ export interface ResumePreviewVO {
   scannedLike?: boolean;
 }
 /**
- * 岗位模板选项 VO（v13.37：全 portal 岗位配置唯一来源）
+ * 岗位模板选项 VO（全 portal 岗位配置唯一来源）
  *
- * <p>对应 portal_job_template 表 / GET `/portal/interview/jobTemplate/list`。
- * 原「面试岗位字典」（portal_interview_position / InterviewPositionVO）因与岗位模板职责重复、
- * 且无后台管理入口，已删除并全部并入本结构。</p>
+ * <p>对应 portal_job_template 表 / GET `/portal/interview/jobTemplate/list`。</p>
  */
 export interface JobTemplateOptionVO {
   id: string | number;
@@ -1137,7 +1207,7 @@ export interface InterviewQuestionVO {
   title: string;
   description?: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  /** 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR（v6.3 题目结构化） */
+  /** 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR */
   questionType?: QuestionType | string;
   categoryId?: string | number;
   categoryName?: string;
@@ -1161,7 +1231,7 @@ export interface InterviewQuestionVO {
 }
 
 /**
- * 题目类型枚举（v6.3 题目结构化）
+ * 题目类型枚举
  * - bagwen 八股：基础理论，文本作答
  * - algorithm 算法：编程题，代码作答
  * - system_design 系统设计：架构方案，文本/图示作答
@@ -1170,7 +1240,7 @@ export interface InterviewQuestionVO {
  */
 export type QuestionType = 'bagwen' | 'algorithm' | 'system_design' | 'project' | 'hr';
 
-/** 评分标准单条项（v6.3 题目结构化） */
+/** 评分标准单条项 */
 export interface ScoringCriterionItem {
   /** 评分维度名称，如"完整性"、"深度"、"代码质量" */
   dimension: string;
@@ -1186,7 +1256,7 @@ export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
   solution?: string;
   mySubmissions?: InterviewSubmissionVO[];
 
-  // ===== 结构化字段（v6.3 题目结构化） =====
+  // ===== 结构化字段 =====
   /** 考察点列表 */
   examinePoints?: string[];
   /** 答题大纲（Markdown） */
@@ -1198,7 +1268,7 @@ export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
   /** 前置题目 ID 列表（用于学习路径推荐） */
   prerequisiteIds?: (string | number)[];
 
-  // ===== 练习模式扩展字段（v10.6 题库重构·阶段2） =====
+  // ===== 练习模式扩展字段 =====
   /** 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题 */
   practiceMode?: string;
   /** 选择题选项（JSON 字符串，前端 JSON.parse 为 [{label,text,is_correct}]） */
@@ -1216,15 +1286,15 @@ export interface InterviewQuestionQuery {
   pageSize?: number;
   categoryId?: string | number;
   difficulty?: string;
-  /** 题目类型筛选（v6.3 题目结构化） */
+  /** 题目类型筛选 */
   questionType?: QuestionType | string;
-  /** 练习模式筛选（v10.6 题库重构·阶段2）：reading/choice/coding */
+  /** 练习模式筛选：reading/choice/coding */
   practiceMode?: string;
   keyword?: string;
   companyId?: string | number;
 }
 
-/** 相邻题目导航（v12.0 做题页上一题/下一题） */
+/** 相邻题目导航（做题页上一题/下一题） */
 export interface InterviewQuestionNeighborVO {
   /** 上一题 ID（结果集首位时为 null） */
   prevId?: string | number | null;
@@ -1256,7 +1326,7 @@ export interface InterviewSubmissionVO {
   userNickname?: string;
   userAvatar?: string;
   createTime?: string;
-  // ===== OJ 判题字段（v6.3） =====
+  // ===== OJ 判题字段 =====
   passedCaseCount?: number;
   totalCaseCount?: number;
   failedCaseId?: string | number;
@@ -1264,7 +1334,7 @@ export interface InterviewSubmissionVO {
   failedCaseExpected?: string;
   failedCaseActual?: string;
   errorMessage?: string;
-  // ===== 选择题服务端权威判分字段（v9.1） =====
+  // ===== 选择题服务端权威判分字段 =====
   /** 是否通过（服务端权威判分结果，与 isSuccess 同源） */
   passed?: boolean;
   /** 练习模式：reading/choice/coding */
@@ -1275,7 +1345,7 @@ export interface InterviewSubmissionVO {
   analysis?: string;
 }
 
-// ============ OJ 判题系统类型（v6.3） ============
+// ============ OJ 判题系统类型 ============
 
 /** 判题状态码 */
 export type JudgeStatusCode =
@@ -1432,7 +1502,7 @@ export interface InterviewResumeTemplateVO {
   liked?: boolean;
   createTime?: string;
   /**
-   * 模板结构化示例数据（JSON 字符串，v10.18 阶段一模板套用打通）
+   * 模板结构化示例数据（JSON 字符串）
    * 字段：name/phone/email/city/avatar/jobIntention/educations/works/projects/skills/selfIntro
    * 后端 PortalInterviewResumeTemplate.sampleData 直传；前端 fillFromTemplate 解析后填充编辑页
    */
@@ -1495,7 +1565,7 @@ export interface UserResumeScoreItem {
   maxScore: number;
   score: number;
   message?: string;
-  /** 子项明细（v5.9 阶段2：用于岗位匹配度等维度，可为空） */
+  /** 子项明细（用于岗位匹配度等维度，可为空） */
   subItems?: UserResumeSubScoreItem[];
 }
 
@@ -1533,7 +1603,7 @@ export interface UserResumeVO {
   mine?: boolean;
   createTime?: string;
   updateTime?: string;
-  /** 简历来源类型（v10.22）：online=在线简历（默认），attachment=附件简历 */
+  /** 简历来源类型：online=在线简历（默认），attachment=附件简历 */
   sourceType?: 'online' | 'attachment' | string;
   /** 附件源文件 URL（sourceType=attachment 时有值，认证下载流） */
   sourceFileUrl?: string;
@@ -1541,7 +1611,7 @@ export interface UserResumeVO {
   sourceFileName?: string;
 }
 
-/** 简历 AI 改进建议 VO（v5.9 阶段2） */
+/** 简历 AI 改进建议 VO */
 export interface ResumeAiAdviceVO {
   resumeId?: string | number;
   /** 当前评分（0-115） */
@@ -1559,7 +1629,7 @@ export interface ResumeAiAdviceVO {
   generatedTime?: string;
 }
 
-/** 岗位目标（v10.13，与后端 PortalResumeJobTarget 对齐） */
+/** 岗位目标（与后端 PortalResumeJobTarget 对齐） */
 export interface ResumeJobTarget {
   id?: number | string;
   position: string;
@@ -1600,7 +1670,7 @@ export interface ResumeJobMatchReport {
   createTime?: string;
 }
 
-/** 优化历史记录（与后端 PortalResumeOptimizeHistory 对齐，v10.15 评分闭环） */
+/** 优化历史记录（与后端 PortalResumeOptimizeHistory 对齐） */
 export interface ResumeOptimizeHistory {
   id?: number | string;
   resumeId?: number | string;
@@ -1641,7 +1711,7 @@ export interface ResumeDeepOptimizeVO {
 }
 
 /**
- * 评分报告（与后端 PortalResumeScoreReport 对齐，v10.18 阶段五）
+ * 评分报告（与后端 PortalResumeScoreReport 对齐）
  * 每次评分（单独评分 / 优化后重新评分 / 模板套用评分）结果存档，可追溯历史评分
  */
 export interface ResumeScoreReport {
@@ -1661,7 +1731,7 @@ export interface ResumeScoreReport {
   createTime?: string;
 }
 
-/** 简历附件解析结果（v10.12，与后端 ResumeParseVO 对齐，字段语义同 UserResumeVO） */
+/** 简历附件解析结果（与后端 ResumeParseVO 对齐，字段语义同 UserResumeVO） */
 export interface ResumeParseVO {
   name?: string;
   gender?: string;
@@ -1680,11 +1750,11 @@ export interface ResumeParseVO {
   aiPowered?: boolean;
   /** 附件抽取文本长度 */
   textLength?: number;
-  /** v10.22：后端创建的附件简历记录 ID（上传解析成功后返回，前端据此跳转编辑页） */
+  /** 后端创建的附件简历记录 ID（上传解析成功后返回，前端据此跳转编辑页） */
   attachmentResumeId?: string | number;
-  /** v10.22：附件源文件 URL（认证下载流） */
+  /** 附件源文件 URL（认证下载流） */
   sourceFileUrl?: string;
-  /** v10.22：附件源文件名 */
+  /** 附件源文件名 */
   sourceFileName?: string;
 }
 
@@ -1774,8 +1844,16 @@ export interface UserGrowthVO {
   title: string;
   /** 本季成长值 */
   seasonValue: number;
-  /** 距离下一级所需成长值 */
+  /** 距离下一级**还差**多少成长值（增量） */
   nextLevelGrowth?: number;
+  /** 当前等级的起点成长值（后端阈值口径，非线性） */
+  levelBaseGrowth?: number;
+  /** 本级进度百分比（0..100，后端权威计算） */
+  levelProgress?: number;
+  /** 昵称（后端 UserGrowthVO 已返回；查看他人成就时用于展示身份） */
+  nickname?: string;
+  /** 头像（后端 UserGrowthVO 已返回；查看他人成就时用于展示身份） */
+  avatar?: string;
   /** 下一级头衔 */
   nextLevelTitle?: string;
   /** 本季排名 */
@@ -1810,6 +1888,11 @@ export interface UserStatsVO {
   checkinStreak: number;
   /** 最后签到日期（YYYY-MM-DD，前端据此判断今日是否已签到） */
   lastCheckinDate?: string;
+  /**
+   * 今日是否已签到（服务端按服务器本地日期判定）。
+   * 前端不要再用 new Date()/toISOString() 自行推算——那是 UTC 日期，与服务器本地日期不一致。
+   */
+  checkedInToday?: boolean;
 }
 
 /** 用户徽章 */
@@ -1993,12 +2076,6 @@ export interface ColumnSaveBody {
   price?: number;
 }
 
-/** 订阅切换返回 */
-export interface SubscribeToggleResult {
-  subscribed: boolean;
-  subscribeCount: number;
-}
-
 /** 批量排序条目 */
 export interface ColumnArticleSortItem {
   id: string | number;
@@ -2028,10 +2105,8 @@ export interface MessageSessionVO {
   peerId?: string;
   peerNickname?: string;
   peerAvatar?: string;
-  /** 最后一条消息预览 */
-  lastMessage?: string;
-  /** 最后一条消息内容 */
-  lastContent?: string;
+  /** 最后一条消息内容（后端 MessageSessionVO.lastMessageContent；原先的 lastMessage/lastContent 后端并不存在） */
+  lastMessageContent?: string;
   /** 最后消息时间 */
   lastMessageTime?: string;
   /** 最后消息发送者ID */
@@ -2127,7 +2202,10 @@ export interface UserDashboard {
 
 /** 关注/粉丝列表中的用户项（公开用户基础信息） */
 export interface FollowUserItem {
+  /** portal_follow 表主键（**不是**用户 ID，仅用于列表 key） */
   id: string | number;
+  /** 真实用户 ID（后端 SQL 取 following_id/follower_id AS user_id）——关注/取关、跳主页必须用它 */
+  userId: string | number;
   username?: string;
   nickname?: string;
   avatar?: string;
@@ -2161,7 +2239,7 @@ export interface CodeRunVO {
   createTime?: string;
 }
 
-// ==================== 用户画像快照（v5.9 阶段0：画像驱动抽题） ====================
+// ==================== 用户画像快照（画像驱动抽题） ====================
 
 /** 薄弱知识点条目 */
 export interface WeakTagItem {
@@ -2177,7 +2255,7 @@ export interface WeakTagItem {
   failRate: number;
 }
 
-/** 用户画像快照 VO（v5.9 阶段0） */
+/** 用户画像快照 VO */
 export interface UserProfileSnapshotVO {
   userId?: number;
   /** 目标岗位 */
@@ -2201,7 +2279,11 @@ export interface Topic {
   description?: string;
   cover?: string;
   creatorId: number;
-  creator?: { id: number; nickname: string; avatar?: string; isCertifiedCreator?: boolean };
+  /** 发起人昵称/头像（后端 TopicVO 为**扁平字段**，非嵌套对象） */
+  creatorNickname?: string;
+  creatorAvatar?: string;
+  /** 发起人是否认证创作者（后端 TopicVO.creatorCertified） */
+  creatorCertified?: boolean;
   /**
    * 状态：pending 待审核 / active 活跃 / archived 归档 / deleted 删除 / rejected 审核驳回
    * 新话题默认 pending，审核通过后 active
@@ -2231,16 +2313,19 @@ export interface TopicPost {
   id: number;
   topicId: number;
   userId: number;
-  user?: { id: number; nickname: string; avatar?: string };
+  /** 作者昵称/头像（后端 TopicPostVO 为扁平字段 nickname/avatar） */
+  nickname?: string;
+  avatar?: string;
   content: string;
   images?: string[];
   parentPostId?: number;
   replyToUserId?: number;
-  replyToUser?: { id: number; nickname: string };
+  /** 被回复人昵称（后端 TopicPostVO.replyToNickname） */
+  replyToNickname?: string;
   floor: number;
   likeCount: number;
   commentCount: number;
-  /** 软删标记（v13.13 起统一为 del_flag：'0'=存在 / '2'=删除） */
+  /** 软删标记（统一为 del_flag：'0'=存在 / '2'=删除） */
   delFlag: string;
   createdTime: string;
   isLiked?: boolean;
@@ -2253,23 +2338,26 @@ export interface TopicComment {
   targetType: string;
   targetId: number;
   authorId: number;
-  author?: { id: number; nickname: string; avatar?: string };
+  /** 作者昵称/头像（后端 TopicCommentVO 为扁平字段 authorNickname/authorAvatar） */
+  authorNickname?: string;
+  authorAvatar?: string;
   content: string;
   parentId: number;
   rootId: number;
   replyTo?: number;
   replyToContent?: string;
-  replyToUser?: { id: number; nickname: string };
+  /** 被回复人昵称（后端 TopicCommentVO.replyToNickname） */
+  replyToNickname?: string;
   likeCount: number;
   replyCount: number;
-  /** 软删标记（v13.13 起统一为 del_flag：'0'=存在 / '2'=删除） */
+  /** 软删标记（统一为 del_flag：'0'=存在 / '2'=删除） */
   delFlag: string;
   createdTime: string;
   isLiked?: boolean;
   replies?: TopicComment[];
 }
 
-// ==================== V11.0 支付中心类型 ====================
+// ==================== 支付中心类型 ====================
 
 /** 微信打赏下单返回（收银台参数） */
 export interface PayCashierResult {
@@ -2304,10 +2392,18 @@ export interface PayAccountOverview {
   userId: number | string;
   /** 余额（元） */
   balance: number;
+  /** 可用余额（元，= balance - frozen，与后端提现校验同口径） */
+  availableBalance?: number;
+  /** 冻结金额（元，审核中提现单占用） */
+  frozenAmount?: number;
   /** 累计收入（元） */
   totalIncome: number;
   /** 累计提现（元） */
   totalWithdraw: number;
+  /** 单笔提现下限（元，来自后端配置） */
+  withdrawMin?: number;
+  /** 单笔提现上限（元，来自后端配置） */
+  withdrawMax?: number;
 }
 
 /** 资金流水条目 */
@@ -2353,14 +2449,16 @@ export interface UserBankCard {
 export interface BankCardForm {
   holderName: string;
   cardNo: string;
+  /** 持卡人身份证号：银行卡四要素核验必需项；缺失则后端不发起核验、卡恒为 PENDING */
+  certNo: string;
   phone: string;
   bankCode?: string;
   bankName?: string;
-  /** 短信验证码（V11.1 银行卡绑定强校验） */
+  /** 短信验证码（银行卡绑定强校验） */
   smsCode?: string;
 }
 
-/** 提现单（v11.79 提现闭环） */
+/** 提现单（提现闭环） */
 export interface PayWithdrawOrder {
   id?: number | string;
   withdrawNo?: string;

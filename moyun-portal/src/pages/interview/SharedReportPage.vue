@@ -1,9 +1,14 @@
 <template>
   <div class="shared-report-page">
     <div v-if="loading" class="state-tip">报告加载中…</div>
+    <!--
+      清单 P2：原先任何异常（网络/代理返回 HTML/5xx）都只显示"分享链接不存在或已过期"，且**没有重试入口**，
+      把"加载失败"误说成"链接失效"。这里展示真实原因并给出重试。
+    -->
     <div v-else-if="!report" class="state-tip error">
-      <p>分享链接不存在或已过期</p>
+      <p>{{ loadError || '分享链接不存在或已过期' }}</p>
       <p class="sub">请向分享者索取新的链接</p>
+      <button v-if="canRetry" class="retry-btn" @click="loadReport">重试</button>
     </div>
     <template v-else>
       <header class="report-header">
@@ -80,15 +85,7 @@
         </div>
       </section>
 
-      <section v-if="kpItems.length" class="card">
-        <h2>相关知识点</h2>
-        <div class="kp-grid">
-          <div v-for="(k, i) in kpItems" :key="i" class="kp-item">
-            <div class="kp-title">📚 {{ k.title }}</div>
-            <div v-if="k.desc" class="kp-desc">{{ k.desc }}</div>
-          </div>
-        </div>
-      </section>
+      <!-- 清单 P2：原"相关知识点"区块已移除（后端不再产出该字段，恒为 null，属死 UI） -->
 
       <footer class="report-footer">
         <p>本报告由 AI 语音面试官生成，仅代表练习评估参考</p>
@@ -100,12 +97,34 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { useHead } from '@vueuse/head';
 import { getSharedReport } from '@/api/voiceInterview';
 import type { VoiceInterviewReportVO } from '@/api/voiceInterview';
 
 const route = useRoute();
 const loading = ref(true);
 const report = ref<VoiceInterviewReportVO | null>(null);
+
+/**
+ * SEO 与分享卡片（清单 P2）。
+ *
+ * <p>本页是**免登录公开页**（路由 `requiresAuth: false` 且声明了 `robots`），
+ * 但全仓库没有任何代码读取 `route.meta.robots`，而本页原先**完全没有 useHead** ⇒
+ * 既没有 robots meta，也没有可被社交平台抓取的 title/description/og 标签。
+ * 这里补上（robots 取 noindex：分享链接不应被搜索引擎收录，但需要社交卡片信息）。</p>
+ */
+useHead(
+  computed(() => ({
+    title: 'AI 语音面试报告 · 旭林知行',
+    meta: [
+      { name: 'description', content: '由 AI 面试官生成的语音面试能力评估报告（脱敏公开分享）。' },
+      { name: 'robots', content: 'noindex,nofollow' },
+      { property: 'og:title', content: 'AI 语音面试报告 · 旭林知行' },
+      { property: 'og:description', content: '由 AI 面试官生成的语音面试能力评估报告（脱敏公开分享）。' },
+      { property: 'og:type', content: 'article' },
+    ],
+  })),
+);
 
 const DIM_META: Record<string, string> = {
   relevance: '回答相关性',
@@ -135,15 +154,21 @@ const introDims = computed(() => {
     .filter((d) => typeof d.value === 'number');
 });
 
-const kpItems = computed(() =>
-  (report.value?.knowledgePoints ?? []).map((k) =>
-    typeof k === 'string' ? { title: k, desc: '' } : { title: k.title ?? k.name ?? '', desc: k.desc ?? k.description ?? '' },
-  ),
-);
+// 清单 P2：后端已在报告生成处显式移除"相关知识点"产出
+//（VoiceInterviewServiceImpl 注释：题库 tags 聚合对 agent 自由面试无参考意义，前端 Tab 已删），
+// 全仓库再无 setKnowledgePoints 调用 ⇒ knowledgePoints 恒为 null。
+// 原先此处的双形态兼容解析（string / {title,desc}）与对应模板区块都是**永不渲染的死代码**，已移除。
 
+/**
+ * 等级文案（清单 P2）。
+ *
+ * <p>原先阈值为 85/70/60，而**同一份报告**在站内主报告页用的是 80/70/60 ⇒ 同一分数在两处显示不同等级。
+ * 这里统一到 80/70/60（与主报告页 & scoreClass 口径一致）。
+ * 后端另有结构化定级字段 `levelEstimate`（junior/mid/senior），如需彻底统一应改用它，属后续项。</p>
+ */
 const levelText = computed(() => {
   const s = report.value?.totalScore ?? 0;
-  if (s >= 85) return '优秀 · 具备冲击大厂的实力';
+  if (s >= 80) return '优秀 · 具备冲击大厂的实力';
   if (s >= 70) return '良好 · 框架完整，细节待补';
   if (s >= 60) return '合格 · 基础尚可，需要体系化梳理';
   return '待提升 · 建议系统性复习后再战';
@@ -156,17 +181,39 @@ function scoreClass(score?: number) {
   return 'bad';
 }
 
-onMounted(async () => {
+/** 失败原因（清单 P2）：区分"链接失效"与"加载失败"，后者可重试 */
+const loadError = ref<string | null>(null);
+/** 仅当失败原因可能是临时性的（网络/服务异常）才提供重试 */
+const canRetry = ref(false);
+
+/** 加载分享报告；抽成独立函数以便失败后重试 */
+async function loadReport() {
   const token = String(route.params.token ?? '');
+  loading.value = true;
+  loadError.value = null;
+  canRetry.value = false;
   try {
     const res = await getSharedReport(token);
-    report.value = (res as { data?: VoiceInterviewReportVO })?.data ?? null;
-  } catch {
+    const data = (res as { data?: VoiceInterviewReportVO })?.data ?? null;
+    report.value = data;
+    if (!data) {
+      // 接口成功但没有内容：确实是无效/过期的分享链接
+      loadError.value = '分享链接不存在或已过期';
+      canRetry.value = false;
+    }
+  } catch (e) {
     report.value = null;
+    const msg = (e as { message?: string })?.message || '';
+    // 带后端业务文案的失败（如"分享不存在"）按失效处理；其余（网络/服务异常）提示可重试
+    const looksLikeMissing = /不存在|已过期|无效|未找到/.test(msg);
+    loadError.value = msg || '报告加载失败，请稍后重试';
+    canRetry.value = !looksLikeMissing;
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(loadReport);
 </script>
 
 <style scoped>
@@ -180,6 +227,17 @@ onMounted(async () => {
   padding: 80px 16px;
   color: var(--text-secondary, #666);
 }
+.retry-btn {
+  margin-top: 12px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+}
+
 .state-tip.error .sub {
   font-size: 13px;
   margin-top: 8px;

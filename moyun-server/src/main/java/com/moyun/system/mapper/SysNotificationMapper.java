@@ -76,7 +76,9 @@ public interface SysNotificationMapper extends BaseMapper<SysNotification> {
      */
     Page<SysNotification> selectAllByUserId(Page<SysNotification> page,
                                             @Param("userId") Long userId,
-                                            @Param("userType") String userType);
+                                            @Param("userType") String userType,
+                                            @Param("type") String type,
+                                            @Param("excludeTodo") Boolean excludeTodo);
 
     /**
      * 统计用户未读通知数

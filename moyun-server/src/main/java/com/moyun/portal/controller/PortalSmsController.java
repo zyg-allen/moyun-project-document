@@ -160,8 +160,14 @@ public class PortalSmsController {
         if (phone == null || phone.isBlank() || code == null || code.isBlank()) {
             return AjaxResult.error("请填写手机号和短信验证码");
         }
-        if (newPassword == null || newPassword.length() < 6) {
-            return AjaxResult.error("新密码长度不能少于6位");
+        // 清单 P2：原先只判"长度不少于 6 位"，既不校验上限也不校验复杂度，
+        // 而邮箱通道（PortalEmailServiceImpl#resetPassword）要求 **6-20 位且含大小写字母和数字**。
+        // 同一账号体系两条找回路径策略必须一致，否则短信通道成为弱口令入口。
+        if (newPassword == null || newPassword.length() < 6 || newPassword.length() > 20) {
+            return AjaxResult.error("密码长度必须为 6-20 位");
+        }
+        if (!newPassword.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).*$")) {
+            return AjaxResult.error("密码必须包含大小写字母和数字");
         }
         if (confirmPassword != null && !newPassword.equals(confirmPassword)) {
             return AjaxResult.error("两次输入的密码不一致");

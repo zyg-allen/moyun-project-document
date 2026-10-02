@@ -11,7 +11,7 @@ import { httpPost } from '@/api/client'
  * 若连接失败（浏览器不支持、跨域、握手失败等），自动降级为轮询（每 5 秒拉取一次新消息），
  * 以保证私信实时接收功能可用。
  *
- * 安全（v13.21 已落地）：浏览器 `new WebSocket()` 无法自定义请求头，因此**不能**把门户 JWT 明文放进 URL
+ * 安全：浏览器 `new WebSocket()` 无法自定义请求头，因此**不能**把门户 JWT 明文放进 URL
  * （会进 Nginx access log / 浏览器历史 / 代理日志，而 JWT 有效期内可重放 = 账号接管）。
  * 现改为「一次性短时效票据」：先用受保护的普通 HTTP（POST /portal/ws-ticket，带 Authorization）换取
  * 30 位随机票据（服务端 60s TTL、原子消费一次），再用 ?ticket= 建连。详见 requestWsTicket()。
@@ -22,7 +22,7 @@ import { httpPost } from '@/api/client'
 const STOMP_SUBSCRIPTION = '/user/queue/message'
 
 /**
- * 获取 WebSocket 握手用的一次性票据（v13.21）
+ * 获取 WebSocket 握手用的一次性票据
  *
  * <p>服务端：{@code POST /portal/ws-ticket}（需登录）→ 返回 60 秒有效、只能消费一次的票据；
  * 握手时 {@code ?ticket=xxx}，服务端原子取并删。这样 URL 里出现的凭证一次即废，
@@ -117,7 +117,7 @@ export class MessageWebSocket {
 
         let ws: WebSocket
         try {
-            // v13.21：先换取一次性票据（失败则保持轮询降级，不把 token 放进 URL）
+            // 先换取一次性票据（失败则保持轮询降级，不把 token 放进 URL）
             const ticket = await requestWsTicket()
             const url = `${this.wsBaseUrl}/ws-message?ticket=${encodeURIComponent(ticket)}`
             ws = new WebSocket(url)
@@ -188,6 +188,7 @@ export class MessageWebSocket {
             // STOMP MESSAGE 帧格式：MESSAGE\nheaders...\n\nbody\x00
             const bodyStart = raw.indexOf('\n\n')
             if (bodyStart === -1) return
+            // eslint-disable-next-line no-control-regex -- STOMP 帧按协议以 NUL(\x00) 结尾，此处是在**剥离**该终止符，属有意为之
             const body = raw.substring(bodyStart + 2).replace(/\x00$/, '').trim()
             if (!body) return
             try {

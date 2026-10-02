@@ -5,21 +5,32 @@ import { useHead } from '@vueuse/head';
 import { Award, Lock, CheckCircle2, Sparkles, Trophy, BookOpen, BookMarked, Briefcase, Layers } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
+import { formatDate } from '@/utils/date';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getMyAchievements, getUserAchievements, getMyGrowth, getUserGrowth } from '@/api/growth';
 import { useUserStore } from '@/stores/user';
 import type { AchievementVO, UserGrowthVO } from '@/types/api';
 
 const route = useRoute();
-const router = useRouter();
+// 未使用的 router 变量已移除（v14.00：本页跳转均用 <Link>）
 const userStore = useUserStore();
 
 const isLoading = ref(false);
 const achievements = ref<AchievementVO[]>([]);
 const growth = ref<UserGrowthVO | null>(null);
+
+/**
+ * 图标加载失败标记（清单 P2）。
+ *
+ * <p>原先图标 404 时只把 `<img>` 自身 `display:none`，而紧随的 `v-else` 组件**只在 icon 为空时**才渲染
+ * ⇒ 圆圈里什么都没有。这里记录失败的徽章，模板据此回退到内置 Award/Lock 图标。</p>
+ */
+const brokenIcons = ref<Record<string, boolean>>({});
 const activeModule = ref<string>('all');
 
 // 路由参数决定查看自己还是他人
+const router = useRouter();
+
 const targetUserId = computed(() => {
   const id = route.query.userId as string | undefined;
   return id || null;
@@ -54,20 +65,14 @@ const earnedCount = computed(() => achievements.value.filter(a => a.earned).leng
 const totalCount = computed(() => achievements.value.length);
 const earnedReward = computed(() => achievements.value.filter(a => a.earned).reduce((sum, a) => sum + (a.growthReward || 0), 0));
 
-// 模块图标映射
-const moduleIconMap: Record<string, any> = {
-  article: BookOpen,
-  reading: BookMarked,
-  interview: Briefcase,
-  all: Sparkles,
-};
 
-function getModuleIcon(module?: string) {
-  return moduleIconMap[module || 'all'] || Award;
-}
+
+/** 加载失败提示（清单 P2）：与"筛选后无结果"的空态区分开 */
+const loadError = ref<string | null>(null);
 
 async function loadData() {
   isLoading.value = true;
+  loadError.value = null;
   try {
     // 游客查看自己（未登录无 targetUserId）：只查成就列表，不查个人成长数据
     // 已登录查看自己：调 getMyGrowth
@@ -92,6 +97,7 @@ async function loadData() {
     }
   } catch (error) {
     console.error('加载成就数据失败:', error);
+    loadError.value = (error as { message?: string })?.message || '成就数据加载失败，请稍后重试';
   } finally {
     isLoading.value = false;
   }
@@ -124,17 +130,34 @@ watch(targetUserId, () => {
     <div class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full">
       <!-- 页面标题 -->
       <div class="mb-6 sm:mb-8">
+        <!--
+          清单 P2：他人视角原先只把标题改成写死的「TA的成就」——
+          既不显示对方昵称/头像，也没有返回其主页的入口（而 UserGrowthVO 已返回 nickname/avatar，
+          本页还 import 了 getSafeAvatar 却未使用）。
+        -->
         <div class="flex items-center gap-3 mb-2">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);">
+          <img
+            v-if="!isMyself && growth?.avatar"
+            :src="getSafeAvatar(growth.avatar, String(targetUserId))"
+            :alt="growth?.nickname || '用户头像'"
+            class="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+          />
+          <div v-else class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);">
             <Award class="w-6 h-6 text-white" />
           </div>
           <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">
-            {{ isMyself ? '我的成就' : 'TA的成就' }}
+            {{ isMyself ? '我的成就' : ((growth?.nickname || 'TA') + ' 的成就') }}
           </h1>
         </div>
         <p class="text-sm sm:text-base" style="color: var(--theme-text-secondary);">
           每一枚徽章都记录着成长的足迹
         </p>
+        <button
+          v-if="!isMyself"
+          class="mt-2 text-sm font-medium"
+          style="color: var(--theme-primary);"
+          @click="router.push(`/author/${targetUserId}`)"
+        >← 返回 TA 的主页</button>
       </div>
 
       <!-- 成长概览卡片 -->
@@ -222,6 +245,20 @@ watch(targetUserId, () => {
         <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
       </div>
 
+      <!-- 失败态（清单 P2）：必须排在"筛选无结果"空态之前 -->
+      <div
+        v-else-if="loadError"
+        class="p-8 sm:p-12 rounded-2xl text-center"
+        style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+      >
+        <p class="text-sm mb-4" style="color: var(--theme-text);">{{ loadError }}</p>
+        <button
+          class="px-4 py-2 rounded-xl text-sm font-medium"
+          style="background-color: var(--theme-primary); color: white;"
+          @click="loadData()"
+        >重试</button>
+      </div>
+
       <!-- 成就网格 -->
       <div v-else-if="filteredAchievements.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
         <div
@@ -234,7 +271,7 @@ watch(targetUserId, () => {
             opacity: ach.earned ? 1 : 0.6
           }"
         >
-          <!-- 徽章图标（v1.1.2：图标缩小一半，原 w-16 h-16 sm:w-20 sm:h-20） -->
+          <!-- 徽章图标 -->
     <div class="relative inline-block mb-3">
       <div
         class="w-8 h-8 sm:w-10 sm:h-10 mx-auto rounded-full flex items-center justify-center"
@@ -243,11 +280,11 @@ watch(targetUserId, () => {
           : 'background-color: var(--theme-accent);'"
       >
         <img
-          v-if="ach.icon"
+          v-if="ach.icon && !brokenIcons[String(ach.id ?? ach.name)]"
           :src="ach.icon"
           :alt="ach.name"
           class="w-4 h-4 sm:w-5 sm:h-5 object-contain"
-          @error="(e: Event) => (e.target as HTMLImageElement).style.display = 'none'"
+          @error="brokenIcons[String(ach.id ?? ach.name)] = true"
         />
         <component
           v-else
@@ -257,7 +294,7 @@ watch(targetUserId, () => {
           :style="!ach.earned ? 'color: var(--theme-text-secondary);' : ''"
         />
       </div>
-      <!-- 达成标记（v1.1.2：随主图标同步缩小一半，原 w-5 h-5 → w-3 h-3） -->
+      <!-- 达成标记 -->
       <div
         v-if="ach.earned"
         class="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full flex items-center justify-center"
@@ -267,7 +304,7 @@ watch(targetUserId, () => {
       </div>
     </div>
 
-          <!-- 名称（v1.1.2：字号同步缩，原 text-sm sm:text-base → text-xs sm:text-sm） -->
+          <!-- 名称 -->
           <h3 class="font-bold text-xs sm:text-sm mb-1 truncate" style="color: var(--theme-text);">
             {{ ach.name }}
           </h3>
@@ -285,7 +322,7 @@ watch(targetUserId, () => {
 
           <!-- 达成时间 -->
           <p v-if="ach.earned && ach.earnedTime" class="mt-2 text-xs" style="color: var(--theme-text-secondary);">
-            {{ ach.earnedTime }} 达成
+            {{ formatDate(ach.earnedTime, 'YYYY-MM-DD') }} 达成
           </p>
           <p v-else class="mt-2 text-xs" style="color: var(--theme-text-secondary);">未达成</p>
         </div>

@@ -34,8 +34,7 @@ import com.moyun.system.service.ISysNotificationService;
 /**
  * 门户收藏 Controller
  *
- * <p>说明：原通用 CRUD 接口（list/export/getInfo/add/edit/remove/checkBookmarkStatus）已删除，
- * 前端从未调用。文章收藏统一走 {@link #toggleBookmark(Long)} 接口（幂等 toggle）。
+ * <p>说明：文章收藏统一走 {@link #toggleBookmark(Long)} 接口（幂等 toggle）。
  * Service / Mapper / XML 保留，因 Service 方法可能被其他模块复用。</p>
  *
  * @author moyun

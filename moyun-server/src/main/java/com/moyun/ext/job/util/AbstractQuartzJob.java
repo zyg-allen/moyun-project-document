@@ -60,6 +60,11 @@ public abstract class AbstractQuartzJob implements Job {
     protected void after(JobExecutionContext context, SysJob sysJob, Exception e) {
         Date startTime = threadLocal.get();
         threadLocal.remove();
+        // 清单 P2：threadLocal 仅在 before() 成功时写入；若 before 抛异常或未被调用，
+        // startTime 为 null ⇒ 下面 getStartTime().getTime() 直接 NPE（实跑中已出现数十次）。
+        if (startTime == null) {
+            startTime = new Date();
+        }
 
         final SysJobLog sysJobLog = new SysJobLog();
         sysJobLog.setJobName(sysJob.getJobName());

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * LLM 输出 JSON 提取（全项目唯一实现，v13.19 收敛）
+ * LLM 输出 JSON 提取（全项目唯一实现）
  *
  * <h3>为什么要有唯一实现</h3>
  * <p>LLM 不会老老实实只吐 JSON：常见形态有 markdown 围栏（{@code ```json ... ```} / {@code ``` ... ```}）、
@@ -15,7 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *   <li>有的只找 {@code {..}} 不支持数组，或漏了"数组在前、对象在后"的场景；</li>
  *   <li>有的返回 {@code null}、有的返回原文、有的抛异常——调用方各自再兜一层。</li>
  * </ul>
- * <p>v13.19 前全仓有 4 处同族实现（含 1 处从未被调用的死代码），本类是它们的<b>能力并集</b>：
+ * <p>全仓曾有 4 处同族实现（含 1 处从未被调用的死代码），本类是它们的<b>能力并集</b>：
  * 围栏（任意位置）+ 对象/数组（谁先出现取谁）+ <b>括号配平扫描</b>（跳过字符串字面量与转义，
  * 因此 {@code {"a":"}"} 这类内含花括号的字符串不会被切错）+ 括号未配平时的"首个左括号 → 最后一个右括号"兜底；
  * <b>完全不闭合（如被 max_tokens 截断）时返回空串</b>——半截 JSON 无法解析，交给调用方走降级分支更安全。</p>

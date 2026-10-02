@@ -77,13 +77,16 @@ class FrontendTemplateStructureGuardTest {
         assertEquals(tabButtonRaw.stream().distinct().count(), (long) tabButtonRaw.size(),
                 "tab 按钮值出现重复：" + tabButtonRaw + "（是否重复插入了同一 tab？）");
 
-        // ② 内容 div 数 == 按钮数 + 1
-        //    「对话回放」是**无按钮 tab**（由 finish 后自动切换展示，历史查看时呈现），
-        //    故恒等式为：内容 = 可见按钮 + 1。v13.59 缺陷时该式不成立（按钮被截断→按钮数偏少）。
-        assertEquals(tabButtonRaw.size() + 1, contentCount,
-                "tab 内容 div 数应为『tab 按钮数 + 1（对话回放无按钮）』，实际：按钮 "
+        // ② 内容 div 数 == 按钮数
+        //    v13.79 变更：原口径为"内容 = 按钮 + 1"，理由是「对话回放」为**无按钮 tab**
+        //    （注释称"由 finish 后自动切换展示"）。但实测页面中**不存在**任何把
+        //    reportTab 置为 'dialog' 的赋值 ⇒ 该 tab 实际**不可达**（整块回放永远不显示），
+        //    清单 #44 即此问题。故补上「💬 对话回放」按钮，等式随之收紧为**必须相等**：
+        //    每个 tab 都必须有按钮入口（无按钮 tab = 用户到不了的死内容）。
+        assertEquals(tabButtonRaw.size(), contentCount,
+                "tab 内容 div 数应等于 tab 按钮数（每个 tab 都必须有按钮入口），实际：按钮 "
                         + tabButtonRaw.size() + " 个、内容 " + contentCount
-                        + " 份 —— 不符即说明有 tab 被重复插入或按钮被截断/丢失");
+                        + " 份 —— 不符即说明有 tab 被重复插入、按钮被截断，或存在无入口的死 tab");
         // 且「对话回放」必须恰有 1 份内容
         assertEquals(1, rawCapture(src, Pattern.compile("v-if=\"reportTab === 'dialog'\"")).size(),
                 "「对话回放」内容分支应恰有 1 份（重复插入会产生多份）");
@@ -201,10 +204,11 @@ class FrontendTemplateStructureGuardTest {
         // 计数口径与守卫 1 一致（按 <button> 元素 + report-tab 类），避免"按行计数"把
         // 容器 class="report-tabs"、分组 class="report-tabs-group" 也算进来。
         long buttons = tabButtonValues(String.join("\n", lines.subList(open, close + 1))).size();
-        // 期望 4 而非 5：「对话回放」没有 tab 按钮 —— 它由 finish 后自动切换展示，
-        // 仅历史查看/报告完整时以内容分支呈现。此口径由本守卫钉死，防止按钮被误删。
-        assertEquals(4L, buttons,
-                "report-tabs 内 tab 按钮数异常（应恰为 4，实际 " + buttons + "）—— 是否有按钮被截断/丢失？");
+        // 期望 5（v13.79 由 4 上调）：「对话回放」原先**没有按钮**，注释声称"由 finish 后自动切换
+        // 展示"，但页面里并无任何 reportTab='dialog' 的赋值 ⇒ 整块回放不可达（清单 #44）。
+        // 已补「💬 对话回放」按钮，故此处由 4 改为 5；口径仍为"按钮被截断/丢失即失败"。
+        assertEquals(5L, buttons,
+                "report-tabs 内 tab 按钮数异常（应恰为 5，实际 " + buttons + "）—— 是否有按钮被截断/丢失？");
     }
 
     // ========================================================================

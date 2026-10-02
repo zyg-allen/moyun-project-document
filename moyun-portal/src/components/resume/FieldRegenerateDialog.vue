@@ -84,7 +84,7 @@ import { ref, watch } from 'vue';
 import { RefreshCw, X, Sparkles, CheckCircle2, Check } from 'lucide-vue-next';
 
 /**
- * 单字段重新生成候选弹窗（v10.20）
+ * 单字段重新生成候选弹窗
  * props:
  *   - visible: 是否显示（支持 v-model:visible）
  *   - sectionTitle: 段落标题（如「工作经历 #1 · 描述」）

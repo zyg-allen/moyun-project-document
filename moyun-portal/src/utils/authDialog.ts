@@ -418,7 +418,7 @@ export function showLoginConfirmDialog(actionName: string = '此操作'): Promis
  *
  * @param msg 后端返回的提示文案（可选）
  */
-export async function handleUnauthorized(msg?: string): Promise<void> {
+export async function handleUnauthorized(_msg?: string): Promise<void> {
   const confirmed = await showLoginConfirmDialog('继续操作')
   // 无论选什么，都清掉本地过期态（避免循环 401）
   clearAuthState()

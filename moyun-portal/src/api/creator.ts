@@ -33,7 +33,7 @@ export interface ReaderHour {
   percentage: number;
 }
 
-/** v1.1 读者性别分布项 */
+/** 读者性别分布项 */
 export interface ReaderGender {
   /** male / female / other / unknown */
   gender: string;
@@ -41,7 +41,7 @@ export interface ReaderGender {
   percentage: number;
 }
 
-/** v1.1 读者年龄段分布项 */
+/** 读者年龄段分布项 */
 export interface ReaderAgeRange {
   /** under_18 / 18_24 / 25_30 / 31_35 / 36_45 / over_45 / unknown */
   range: string;
@@ -49,7 +49,7 @@ export interface ReaderAgeRange {
   percentage: number;
 }
 
-/** v1.1 读者画像数据局限说明（前端展示在卡片下方，告知用户数据可能不真实的原因） */
+/** 读者画像数据局限说明（前端展示在卡片下方，告知用户数据可能不真实的原因） */
 export interface ReaderProfileDataNote {
   genderNote: string;
   ageRangeNote: string;

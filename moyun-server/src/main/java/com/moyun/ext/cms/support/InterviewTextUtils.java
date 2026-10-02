@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 面试文本与 JSON 处理工具（v13.54 批次 4 四 / 第①步）。
+ * 面试文本与 JSON 处理工具。
  *
  * <p><b>为什么抽出来</b>：{@code VoiceInterviewServiceImpl} 曾达 <b>2943 行 / 64 私有方法 / 24 依赖</b>，
  * 四职责（编排 / 提示词装配 / 评分 / 报告）混杂。拆分按「风险从低到高」渐进：

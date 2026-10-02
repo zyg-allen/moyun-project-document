@@ -25,7 +25,8 @@ const pageSize = 12;
 const actionId = ref<number | null>(null);
 const stats = ref<WrongQuestionCount | null>(null);
 
-type StatusFilter = '' | 'wrong' | 'reviewing' | 'mastered';
+// 与 statusTabs 同口径：'reviewing' 后端从不写入，已移除（v13.84）
+type StatusFilter = '' | 'wrong' | 'mastered';
 const statusFilter = ref<StatusFilter>('wrong');
 const tagInput = ref('');
 const tagFilter = ref('');
@@ -63,14 +64,26 @@ watch(statusFilter, () => {
   }
 });
 
+/**
+ * 统计加载失败提示（清单 P2）。
+ *
+ * <p>原实现是空 catch：失败时统计卡片因 v-if="stats" **整块不渲染**，页面看起来"没有问题"，
+ * 用户既不知道数据没出来，也没有重试入口。统计失败确实不该阻断列表，但**必须可见**。</p>
+ */
+const statsError = ref(false);
+
 async function loadStats() {
   try {
+    statsError.value = false;
     const res = await getWrongQuestionCount();
     if (res.code === 200 && res.data) {
       stats.value = res.data;
+    } else {
+      statsError.value = true;
     }
   } catch {
-    // 统计失败不阻断列表
+    // 统计失败不阻断列表，但要让用户看到并可就地重试
+    statsError.value = true;
   }
 }
 
@@ -146,13 +159,13 @@ function gotoPage(p: number) {
 }
 
 function statusText(s: string) {
-  const map: Record<string, string> = { wrong: '待复习', reviewing: '复习中', mastered: '已掌握' };
+  const map: Record<string, string> = { wrong: '待复习', mastered: '已掌握' };
   return map[s] || s;
 }
 
 function statusColor(s: string) {
   if (s === 'mastered') return '#10b981';
-  if (s === 'reviewing') return '#3b82f6';
+  // 'reviewing' 分支已移除（后端不产生该状态）
   return '#ef4444';
 }
 
@@ -180,9 +193,11 @@ function formatReviewTime(t: string | null) {
   return `还有 ${days} 天复习`;
 }
 
+// 说明（v13.84）：原先还有 { value: 'reviewing', label: '复习中' } 页签，
+// 但后端**没有任何写入点**会产生 status='reviewing'（只有 wrong → mastered），
+// 该页签恒为空；"待复习"已由「今日待复习」（时间口径）承担，故移除死页签。
 const statusTabs: { value: StatusFilter; label: string }[] = [
   { value: 'wrong', label: '待复习' },
-  { value: 'reviewing', label: '复习中' },
   { value: 'mastered', label: '已掌握' },
   { value: '', label: '全部' },
 ];
@@ -199,16 +214,23 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
     </div>
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <!-- 统计失败提示（清单 P2）：原空 catch 导致统计区静默消失 -->
+      <div
+        v-if="statsError && !stats"
+        class="mb-6 px-4 py-3 rounded-xl flex items-center justify-between gap-3"
+        style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+      >
+        <span class="text-sm" style="color: var(--theme-text-secondary);">统计数据加载失败</span>
+        <button class="text-sm font-medium" style="color: var(--theme-primary);" @click="loadStats()">重试</button>
+      </div>
+
       <!-- 统计卡片 -->
-      <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div v-if="stats" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <div class="rounded-lg border p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
           <div class="text-xs" style="color: var(--theme-text-secondary);">待复习</div>
           <div class="text-xl font-bold mt-1" style="color: #ef4444;">{{ stats.unMasteredCount }}</div>
         </div>
-        <div class="rounded-lg border p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-          <div class="text-xs" style="color: var(--theme-text-secondary);">复习中</div>
-          <div class="text-xl font-bold mt-1" style="color: #3b82f6;">{{ stats.reviewingCount }}</div>
-        </div>
+        <!-- 「复习中」卡片已移除（v13.84）：后端不存在该状态的写入点，计数恒为 0 -->
         <div class="rounded-lg border p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
           <div class="text-xs" style="color: var(--theme-text-secondary);">已掌握</div>
           <div class="text-xl font-bold mt-1" style="color: #10b981;">{{ stats.masteredCount }}</div>

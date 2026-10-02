@@ -9,13 +9,15 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getMyBookmarkList } from '@/api/interview';
-import type { InterviewQuestionVO } from '@/types/api';
+import type { InterviewQuestionVO, InterviewBookmarkVO } from '@/types/api';
 
 const router = useRouter();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
-const bookmarks = ref<InterviewQuestionVO[]>([]);
+/** 收藏项：题目字段平铺 + 收藏时间（由后端 InterviewBookmarkVO.question 展开而来） */
+type BookmarkedQuestion = InterviewQuestionVO & { bookmarkTime?: string };
+const bookmarks = ref<BookmarkedQuestion[]>([]);
 const total = ref(0);
 const page = ref(1);
 const pageSize = 10;
@@ -56,7 +58,13 @@ async function loadBookmarks() {
     error.value = null;
     const res = await getMyBookmarkList({ pageNum: page.value, pageSize });
     if (res.code === 200 && res.data) {
-      bookmarks.value = res.data.list || [];
+      // 后端返回 InterviewBookmarkVO（题目嵌在 question 下、createTime 是收藏时间）：
+      // 展开成"题目字段 + bookmarkTime"，模板与跳转才能拿到正确的题目 id 与标题。
+      bookmarks.value = (res.data.list || [])
+        .map((b: InterviewBookmarkVO) => (b && b.question
+          ? ({ ...b.question, bookmarkTime: b.createTime } as BookmarkedQuestion)
+          : null))
+        .filter((q): q is BookmarkedQuestion => q !== null);
       total.value = res.data.total || 0;
     } else {
       error.value = res.message || '加载收藏失败';
@@ -78,9 +86,9 @@ function gotoPage(p: number) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 收藏时间：后端可能在题目上附带 bookmarkTime，否则回退到 createTime
-function bookmarkTime(item: any): string {
-  return item.bookmarkTime || item.createTime || '';
+// 收藏时间：由 InterviewBookmarkVO.createTime 展开而来（见 loadBookmarks）
+function bookmarkTime(item: BookmarkedQuestion): string {
+  return item.bookmarkTime || '';
 }
 
 function diffLabel(item: InterviewQuestionVO) {

@@ -352,7 +352,7 @@ export default {
       this.form.subCategoryId = this.form.subCategoryId === s.id ? null : s.id;
       this.refreshRemark();
     },
-    /** 在当前大类下新增自定义分类（v11.76：仅自己可见，创建后自动选中） */
+    /** 在当前大类下新增自定义分类（仅自己可见，创建后自动选中） */
     addCustomCategory() {
       if (!this.userStore.isLoggedIn) { this.promptLogin(); return; }
       const typeName = TYPE_NAMES[this.form.type] || this.form.type;
@@ -375,7 +375,7 @@ export default {
         }
       });
     },
-    /** 长按删除自己创建的自定义分类（v11.76：绑定流水的分类后端拒绝删除） */
+    /** 长按删除自己创建的自定义分类（绑定流水的分类后端拒绝删除） */
     onCategoryLongPress(c) {
       if (c.isSystem !== 0) return;
       uni.showModal({
@@ -725,7 +725,7 @@ export default {
 .cat-name { font-size: 24rpx; color: #666; margin-top: 10rpx; }
 .cat-name.selected { color: var(--primary-strong); font-weight: 600; }
 .cat-empty { width: 100%; text-align: center; color: #bbb; font-size: 26rpx; padding: 40rpx 0; }
-/* 添加自定义分类入口 + 自定义角标（v11.76） */
+/* 添加自定义分类入口 + 自定义角标 */
 .cat-add-icon {
   background: #f5f6f8; color: var(--primary-strong); font-size: 40rpx;
   border: 1rpx dashed #c8c8d0; box-shadow: none;

@@ -415,9 +415,6 @@ public class KnowledgeBaseController {
         return fileType.matches("jpg|jpeg|png|gif|bmp|webp|svg");
     }
 
-    private boolean isDocumentFile(String fileType) {
-        return fileType.matches("docx?|xlsx?|pptx?|txt|md|csv");
-    }
 
     private String getImageContentType(String fileType) {
         switch (fileType.toLowerCase()) {

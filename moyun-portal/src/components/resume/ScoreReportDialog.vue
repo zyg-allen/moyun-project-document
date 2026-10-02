@@ -99,7 +99,7 @@ import { History, X, Star, GitCompare } from 'lucide-vue-next';
 import type { ResumeOptimizeHistory, ResumeScoreReport } from '@/types/api';
 
 /**
- * 评分报告弹窗（v10.18 阶段五独立组件）
+ * 评分报告弹窗
  * props:
  *   - visible: 弹窗显示
  *   - reports: 评分报告列表（ResumeScoreReport[]，按时间倒序）

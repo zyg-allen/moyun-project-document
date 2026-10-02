@@ -32,23 +32,34 @@ const deletingId = ref<string | number | null>(null);
 
 // 状态筛选（参考文章模块「我的文章」），支持 URL ?status= 直达
 const activeStatus = ref<string>((route.query.status as string) || 'all');
+
+/**
+ * 面经状态**单一来源**（清单 P2）。
+ *
+ * <p>原先 tabs 与 statusMap **各写一份硬编码**，且都缺 archived —— 而后端
+ * InterviewExperienceVO / 实体注释明确是 draft/pending/published/rejected/**archived**；
+ * 缺项会让已归档面经在列表里显示成原始英文状态、也无法按该状态筛选。
+ * 这里合并为一处定义，tab 与徽章样式都从这里派生。</p>
+ */
+const EXPERIENCE_STATUS: Array<{ value: string; label: string; class: string }> = [
+  { value: 'draft', label: '草稿', class: 'bg-gray-100 text-gray-600' },
+  { value: 'pending', label: '待审核', class: 'bg-yellow-100 text-yellow-700' },
+  { value: 'published', label: '已发布', class: 'bg-green-100 text-green-700' },
+  { value: 'rejected', label: '已驳回', class: 'bg-red-100 text-red-700' },
+  { value: 'archived', label: '已归档', class: 'bg-slate-100 text-slate-600' },
+];
+
 const statusTabs: { value: string; label: string }[] = [
   { value: 'all', label: '全部' },
-  { value: 'draft', label: '草稿' },
-  { value: 'pending', label: '待审核' },
-  { value: 'published', label: '已发布' },
-  { value: 'rejected', label: '已驳回' },
+  ...EXPERIENCE_STATUS.map(s => ({ value: s.value, label: s.label })),
 ];
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 
-// 状态映射
-const statusMap: Record<string, { label: string; class: string }> = {
-  draft: { label: '草稿', class: 'bg-gray-100 text-gray-600' },
-  pending: { label: '待审核', class: 'bg-yellow-100 text-yellow-700' },
-  published: { label: '已发布', class: 'bg-green-100 text-green-700' },
-  rejected: { label: '已驳回', class: 'bg-red-100 text-red-700' },
-};
+// 状态映射（与上面的 tab 同源，避免两处硬编码再次漂移）
+const statusMap: Record<string, { label: string; class: string }> = Object.fromEntries(
+  EXPERIENCE_STATUS.map(s => [s.value, { label: s.label, class: s.class }]),
+);
 
 useHead(computed(() => generateSeo({
   title: '我的面经',
@@ -81,13 +92,22 @@ watch(activeStatus, () => {
   }
 });
 
+/**
+ * 请求序号（清单 P2）：连续快速切换「草稿→已发布→已驳回」时，先发出的慢响应可能后到并
+ * **覆盖新列表**。只接受最后一次请求的响应（注：httpGetList 有 10s 结果缓存，切回旧筛选会先显示缓存，
+ * 序号守卫保证缓存/慢响应都不会覆盖当前筛选的结果）。
+ */
+let loadSeq = 0;
+
 async function loadExperiences() {
+  const seq = ++loadSeq;
   try {
     loading.value = true;
     error.value = null;
     const params: Record<string, unknown> = { pageNum: page.value, pageSize };
     if (activeStatus.value !== 'all') params.status = activeStatus.value;
     const res = await getMyExperienceList(params);
+    if (seq !== loadSeq) return;   // 过期响应丢弃
     if (res.code === 200 && res.data) {
       experiences.value = res.data.list || [];
       total.value = res.data.total || 0;
@@ -95,9 +115,11 @@ async function loadExperiences() {
       error.value = res.message || '加载面经失败';
     }
   } catch (err: any) {
+    if (seq !== loadSeq) return;   // 过期请求的异常不覆盖当前状态
     error.value = err?.message || '加载面经失败，请稍后重试';
   } finally {
-    loading.value = false;
+    // 只有"最后一次请求"才有权关闭 loading
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -315,8 +337,8 @@ function gotoPage(p: number) {
                     <Star class="w-3 h-3 mr-1" style="color: var(--theme-primary);" />
                     {{ formatNumber(exp.likeCount) }} 点赞
                   </span>
-                  <span v-if="formatDate((exp.createTime || exp.updateTime, 'YYYY-MM-DD'), 'YYYY-MM-DD HH:mm')" class="flex items-center">
-                    {{ formatDate((exp.createTime || exp.updateTime, 'YYYY-MM-DD'), 'YYYY-MM-DD HH:mm') }}
+                  <span v-if="exp.createTime || exp.updateTime" class="flex items-center">
+                    {{ formatDate(exp.createTime || exp.updateTime, 'YYYY-MM-DD HH:mm') }}
                   </span>
                 </div>
                 <div class="flex items-center gap-2">

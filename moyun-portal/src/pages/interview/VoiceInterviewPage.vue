@@ -31,7 +31,6 @@ import {
 import { getMyResumeList, getJobTemplates } from '@/api/interview';
 import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
 import { getVipStatus, benefitLeft } from '@/api/vip';
-import { pollAiTask } from '@/api/aiTask';
 import type { UserResumeVO, JobTemplateOptionVO, ResumePreviewVO } from '@/types/api';
 import { useUserStore } from '@/stores/user';
 import type {
@@ -66,7 +65,7 @@ const userStore = useUserStore();
 interface DimMeta {
   key: 'relevance' | 'professionalism' | 'fluency' | 'interactivity' | 'confidence' | 'logic';
   label: string;
-  /** v11.89：评分依据说明（雷达图轴标签太短，图例区逐维解释"按什么打分"） */
+  /** 评分依据说明（雷达图轴标签太短，图例区逐维解释"按什么打分"） */
   desc: string;
   vertex: [number, number];
   textPos: { x: number; y: number; anchor: 'middle' | 'start' | 'end' };
@@ -87,7 +86,7 @@ const RADAR_GRID = [
 ];
 const RADAR_AXES = DIMENSION_META.map((m) => ({ x1: 100, y1: 100, x2: m.vertex[0], y2: m.vertex[1] }));
 
-/** V11.0：候选人心态状态标签（对齐后端 InterviewTurnResult.sentiment.state） */
+/** 候选人心态状态标签（对齐后端 InterviewTurnResult.sentiment.state） */
 const SENTIMENT_LABEL: Record<string, string> = {
   nervous: '紧张',
   confident: '自信',
@@ -140,13 +139,12 @@ const currentSpeakText = ref('');
 
 // 报告
 const report = ref<VoiceInterviewReportVO | null>(null);
-// v11.97：报告 Tab 收窄（面试官剖析并入概要、相关知识点移除）
-// v13.47 批次 2：三层五 tab（复盘区：概要→问题分析→回放殿后；备战区：追问预测→发展方向）
+// 三层五 tab（复盘区：概要→问题分析→回放殿后；备战区：追问预测→发展方向）
 // 主线 = 表现 → 归因 → 证据 → 个人预测 → 环境导航
 const reportTab = ref<'summary' | 'analysis' | 'predict' | 'insight' | 'dialog'>('summary');
 const historyLoading = ref(false);
 
-// v11.88 V2：结束后批量分析进度（前端轮询 analysis 接口驱动进度条）
+// 结束后批量分析进度（前端轮询 analysis 接口驱动进度条）
 const analysisState = ref({ active: false, progress: 0 });
 const analysisStepText = computed(() => {
   if (analysisState.value.progress < 40) return '正在逐题深度分析…';
@@ -167,13 +165,13 @@ const questionShownAt = ref(0);
 const elapsedSec = ref(0);
 let timerHandle: ReturnType<typeof setInterval> | null = null;
 
-// v11.96 时长制：全场倒计时（默认 20 分钟，sys_config 可配；归零自动保存并生成报告）
+// 全场倒计时（默认 20 分钟，sys_config 可配；归零自动保存并生成报告）
 const interviewRemainSec = ref(0);
 let globalCountdownHandle: ReturnType<typeof setInterval> | null = null;
 /** 归零待收尾标记：正在生成/作答中先补交答案，onEnd 后统一收尾 */
 let timeUpPending = false;
 
-// 作答计时（v13.39 改制：不限时、不自动提交——模拟面试允许充分思考，仅展示已用时长；
+// 作答计时（不限时、不自动提交——模拟面试允许充分思考，仅展示已用时长；
 // 超过软提醒阈值 toast 一次，思考时长由提交时 latencyMs 上报后台统计）
 const ANSWER_SOFT_REMIND_SEC = 90;
 // 卡壳自动提示阈值（秒，超时未作答自动给一级提示，每题一次）
@@ -185,7 +183,6 @@ let softRemindFired = false;
 let countdownHandle: ReturnType<typeof setInterval> | null = null;
 
 // ==================== 对话气泡 ====================
-// v11.88 V2：analysis 实时分析气泡已移除（六维评分/深度分析统一进结束后报告）
 interface ChatMessage {
   id: string;
   role: 'question' | 'user' | 'ai';
@@ -194,7 +191,7 @@ interface ChatMessage {
   total?: number;
   source?: string;
   tag?: string;
-  /** V11.0：是否正在流式输出（打字机） */
+  /** 是否正在流式输出（打字机） */
   streaming?: boolean;
   createdAt: number;
 }
@@ -221,7 +218,7 @@ function pushChat(
   return id;
 }
 
-/** V11.0：追加流式增量到 streaming 气泡（无则新建） */
+/** 追加流式增量到 streaming 气泡（无则新建） */
 function appendDelta(text: string) {
   if (!streamingMsgId) {
     streamingMsgId = pushChat('ai', '', { streaming: true, tag: '思考中' });
@@ -233,7 +230,7 @@ function appendDelta(text: string) {
   }
 }
 
-/** V11.0：结束流式气泡（data 事件到达后调用；delta 未输出过则静默移除占位） */
+/** 结束流式气泡（data 事件到达后调用；delta 未输出过则静默移除占位） */
 function finishStreaming(tag?: string) {
   if (!streamingMsgId) return;
   const msg = chatList.value.find((m) => m.id === streamingMsgId);
@@ -292,7 +289,7 @@ const {
       toast.error('语音转写失败，请重试或手动输入');
     }
   },
-  // V10.5：最终识别结果增量追加到输入栏（不再覆盖用户手动编辑的内容）
+  // 最终识别结果增量追加到输入栏（不再覆盖用户手动编辑的内容）
   onFinalChange: (full) => {
     const chunk = full.length >= prevFinalLen.value
       ? full.slice(prevFinalLen.value).replace(/^\n+/, '')
@@ -371,14 +368,14 @@ function onAnswerInput(e: Event) {
 // ==================== 配置表单 ====================
 /** 数据库 position varchar(64)，前端统一上限并预留余量 */
 const POSITION_MAX_LEN = 64;
-// v13.37：岗位候选已改由后台【岗位模板】驱动（GET /portal/interview/jobTemplate/list），
-// 原前端硬编码 POSITION_OPTIONS 已删除 —— 岗位配置必须可在后台维护，不能写死在前端。
+// 岗位候选由后台【岗位模板】驱动（GET /portal/interview/jobTemplate/list），
+// 岗位配置必须可在后台维护，不能写死在前端。
 const DIFFICULTY_OPTIONS = [
   { label: '初级（应届/转行）', value: 'easy' as const },
   { label: '中级（1-3 年）', value: 'medium' as const },
   { label: '高级（3 年以上）', value: 'hard' as const },
 ];
-// v13.62：题数口径=考察方向数（1 方向 = 1 主问 + 1~2 轮追问，自我介绍不计入），
+// 题数口径=考察方向数（1 方向 = 1 主问 + 1~2 轮追问，自我介绍不计入），
 // 选项从 3/5/8 扩至 5/8/12/15，匹配 20 分钟标准场的考察密度
 const QUESTION_COUNT_OPTIONS = [
   { label: '5 个方向（快速版）', value: 5 },
@@ -388,7 +385,11 @@ const QUESTION_COUNT_OPTIONS = [
 ];
 
 const config = ref<VoiceStartConfig>({
-  position: 'Java 后端开发',
+  // 岗位留空：由 loadJobTemplates() 用后台配置的**首个岗位模板**回填（清单 #1）。
+  // 原实现写死 'Java 后端开发'，导致 "if (!config.value.position)" 恒为 false ——
+  // 模板回填分支永不执行，且该写死值不一定对得上任何模板名。
+  // 留空是安全的：handleStart() 对空岗位有明确校验与提示。
+  position: '',
   difficulty: 'medium',
 });
 const questionCount = ref(8);
@@ -405,8 +406,8 @@ const {
   micTesting,
   micLevel,
   micPeakLevel,
-  refreshDevices,
-  requestMicPermission,
+  // refreshDevices / requestMicPermission：设备检测的这两个方法当前页面未使用（v14.00 清理）
+
   startMicTest,
   stopMicTest,
   playSpeakerTest,
@@ -489,7 +490,7 @@ async function testSpeaker() {
   }
 }
 
-// ==================== v11.90 V2：环境噪声检测（3 秒采样取平均，多次防误判） ====================
+// ==================== 环境噪声检测（3 秒采样取平均，多次防误判） ====================
 const noiseTesting = ref(false);
 const noiseTested = ref(false);
 const noiseAvgLevel = ref<number | null>(null);
@@ -545,13 +546,15 @@ const selectedResumeId = ref<number | null>(null);
 const useCustomPosition = ref(false);
 const customPosition = ref('');
 
-/** v11.90 V2：岗位要求 JD（面试官提问方向与深度贴合岗位要求；后端 jobRequirements）
+/** 岗位要求 JD（面试官提问方向与深度贴合岗位要求；后端 jobRequirements）
  *  声明提前到岗位模板逻辑之前 —— 后者在 computed 初始化期即引用本 ref，避免 TDZ。 */
 const jobRequirements = ref('');
 
-/** v11.88：岗位下拉选择值（岗位模板直选；__custom__ 展开自定义输入） */
-const positionSelectValue = computed<string>({
-  get: () => (useCustomPosition.value ? '__custom__' : config.value.position),
+/** 岗位下拉选择值（岗位模板直选；__custom__ 展开自定义输入） */
+// 清单 P1（strict）：`computed<string>({get,set})` 不匹配 computed 的重载
+//（带 setter 时应由 getter 的返回类型推导），这里给 getter 标注返回类型即可。
+const positionSelectValue = computed({
+  get: (): string => (useCustomPosition.value ? '__custom__' : config.value.position ?? ''),
   set: (v: string) => {
     if (v === '__custom__') {
       // 切到自定义：清掉模板回填来源标记，JD 交由用户手输
@@ -565,10 +568,9 @@ const positionSelectValue = computed<string>({
   },
 });
 
-// ==================== v13.37：岗位模板（全 portal 岗位配置唯一来源） ====================
+// ==================== 岗位模板（全 portal 岗位配置唯一来源） ====================
 /**
  * 岗位下拉数据源 = GET /portal/interview/jobTemplate/list（后台【岗位模板】可配）。
- * 原为前端硬编码 POSITION_OPTIONS；原「岗位字典」portal_interview_position 已并入岗位模板表。
  */
 const jobTemplates = ref<JobTemplateOptionVO[]>([]);
 const jobTemplatesLoading = ref(false);
@@ -615,7 +617,7 @@ function applyTemplate(t: JobTemplateOptionVO, force = false) {
   appliedTemplateId.value = t.id;
   appliedTemplateSnapshot.value = {
     jd: t.jobDescription ?? '',
-    difficulty: t.difficulty ?? config.value.difficulty,
+    difficulty: t.difficulty ?? config.value.difficulty ?? 'medium',
     questionCount: t.questionCount ?? questionCount.value,
   };
   // JD 回填：用户已手改过则不覆盖（以用户输入为准），除非显式「恢复模板值」
@@ -657,10 +659,10 @@ function clearJobRequirements() {
 }
 
 
-/** v11.90 V2：高级设置折叠（核心只留岗位+JD+简历，其余收进折叠区保持准备页紧凑） */
+/** 高级设置折叠（核心只留岗位+JD+简历，其余收进折叠区保持准备页紧凑） */
 const advancedOpen = ref(false);
 
-// ==================== v11.90 V2：开始面试 5 步准备进度条（点击后展示，完成自动进入面试页） ====================
+// ==================== 开始面试 5 步准备进度条（点击后展示，完成自动进入面试页） ====================
 const PREPARE_STEPS = ['加载简历画像', '解析岗位要求', '生成会话上下文', '生成面试题单', '准备面试环境'];
 const prepareState = ref({ active: false, step: 0, progress: 0 });
 let prepareTimer: ReturnType<typeof setInterval> | null = null;
@@ -673,7 +675,7 @@ function stopPrepareProgress() {
   prepareState.value.active = false;
 }
 
-// ==================== v11.90 V2：结束触发点（连续跳过 3 题 / 5 分钟无响应，均弹确认） ====================
+// ==================== 结束触发点（连续跳过 3 题 / 5 分钟无响应，均弹确认） ====================
 const SKIP_END_THRESHOLD = 3;
 const skipStreak = ref(0);
 const IDLE_END_MS = 5 * 60 * 1000;
@@ -708,7 +710,7 @@ function armIdleWatch() {
   }, IDLE_END_MS);
 }
 
-// ==================== v11.90 V2：报告等级徽章 + 三段式信息（candidate/jobInfo） ====================
+// ==================== 报告等级徽章 + 三段式信息（candidate/jobInfo） ====================
 const scoreLevel = computed(() => {
   const s = report.value?.totalScore ?? 0;
   if (s >= 80) return { label: '优秀', cls: 'excellent' };
@@ -718,7 +720,7 @@ const scoreLevel = computed(() => {
 });
 const candidateInfo = computed(() => report.value?.candidate ?? null);
 const jobInfoView = computed(() => report.value?.jobInfo ?? null);
-/** 技能字符串拆分为标签（逗号/顿号/斜杠/分号分隔）；v11.97：原始 JSON 先解析再拆（兜底存量数据） */
+/** 技能字符串拆分为标签（逗号/顿号/斜杠/分号分隔）；原始 JSON 先解析再拆（兜底存量数据） */
 const candidateSkills = computed(() => {
   let raw = candidateInfo.value?.skills;
   if (!raw) return [];
@@ -769,7 +771,7 @@ function selectResume(r: UserResumeVO) {
   if (intentPos) {
     // 简历求职意向优先作为面试岗位（个性化出题），超长截断对齐数据库 varchar(64)
     const safePos = intentPos.slice(0, POSITION_MAX_LEN);
-    // v13.37：岗位候选来自后台岗位模板；命中则连带回填该模板的 JD/难度/题量
+    // 岗位候选来自后台岗位模板；命中则连带回填该模板的 JD/难度/题量
     const matched = jobTemplates.value.find((o) => o.name === safePos);
     if (!matched) {
       useCustomPosition.value = true;
@@ -784,7 +786,7 @@ function selectResume(r: UserResumeVO) {
 }
 
 // ==================== 上传简历：AI 解析 → 回填默认简历 ====================
-/** v11.89：简历收起/展开面板（默认收起保持紧凑；当前选择常显于头部按钮，选中联动求职意向到岗位） */
+/** 简历收起/展开面板（默认收起保持紧凑；当前选择常显于头部按钮，选中联动求职意向到岗位） */
 const resumePanelOpen = ref(false);
 const selectedResume = computed(() =>
   resumeList.value.find((x) => Number(x.id) === selectedResumeId.value) ?? null,
@@ -805,7 +807,7 @@ function chooseResume(r: UserResumeVO) {
 const resumeUploading = ref(false);
 const resumeUploadInput = ref<HTMLInputElement | null>(null);
 
-// v13.38：简历解析「预览 → 确认」两步式（与编辑页一致）
+// 简历解析「预览 → 确认」两步式（与编辑页一致）
 // 解析不落库（避免失败留脏数据），用户左右对照校对后确认才落库
 const parsePreviewVisible = ref(false);
 const parsePreviewSaving = ref(false);
@@ -838,7 +840,7 @@ async function handleResumeUpload(e: Event) {
   resumeUploading.value = true;
   resumeParsingMsg.value = '正在解析附件…';
   try {
-    // v13.38：同步规则解析（毫秒级、离线可用、不调 LLM、不落库），随即弹出校对弹窗
+    // 同步规则解析（毫秒级、离线可用、不调 LLM、不落库），随即弹出校对弹窗
     const { data: resp, success } = await run(() => previewResumeParse(file), {
       errorToast: '附件解析失败',
     });
@@ -887,7 +889,8 @@ const effectivePosition = computed(() => {
   const raw = useCustomPosition.value
     ? customPosition.value.trim() || config.value.position
     : config.value.position;
-  return raw.slice(0, POSITION_MAX_LEN);
+  // 清单 P1（strict）：config.value.position 可选，兜底为空串后再截断
+  return (raw ?? '').slice(0, POSITION_MAX_LEN);
 });
 
 onMounted(() => {
@@ -895,7 +898,7 @@ onMounted(() => {
   checkActiveInterview();
 });
 
-// ==================== v11.91 断点续接：意外关闭后恢复进行中面试 ====================
+// ==================== 断点续接：意外关闭后恢复进行中面试 ====================
 const activeInterview = ref<ActiveVoiceInterviewVO | null>(null);
 const resuming = ref(false);
 
@@ -1007,7 +1010,7 @@ function formatElapsed(sec: number) {
   return `${h}:${m}:${s}`;
 }
 
-// ==================== v11.96 时长制：全场倒计时 ====================
+// ==================== 全场倒计时 ====================
 function startGlobalCountdown() {
   stopGlobalCountdown();
   const durationMin = interview.value?.durationMinutes ?? 20;
@@ -1088,7 +1091,7 @@ function stopCountdown() {
   }
 }
 
-// ==================== 题目进度时间线（v11.96 时长制：题数软参考，动态扩展） ====================
+// ==================== 题目进度时间线（时长制：题数软参考，动态扩展） ====================
 const progressItems = computed(() => {
   if (!interview.value) return [];
   // 时长制下题目无上限（问到时间结束为止），时间线按实际题数动态扩展
@@ -1109,7 +1112,7 @@ function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
-// ==================== 面试背景（v11.88 V2：右栏卡片，替代实时评分雷达） ====================
+// ==================== 面试背景（右栏卡片） ====================
 const DIFFICULTY_LABEL: Record<string, string> = {
   easy: '初级（应届/转行）', medium: '中级（1-3 年）', hard: '高级（3 年以上）',
 };
@@ -1161,7 +1164,7 @@ function gotoPractice(text: string) {
   const kw = practiceKeyword(text);
   router.push(kw ? `/learn/practice/choice?keyword=${encodeURIComponent(kw)}` : '/learn/practice/choice');
 }
-// ==================== v11.97：整场 LLM 复盘字段（新字段优先，旧报告回退旧字段） ====================
+// ==================== 整场 LLM 复盘字段（新字段优先，旧报告回退旧字段） ====================
 /** 整场总评：overallComment 优先，旧报告回退 summary */
 const reportOverall = computed(() => report.value?.overallComment || report.value?.summary || '');
 /** 岗位匹配度：jobMatch 优先，旧报告回退 jobInfo.matchRate */
@@ -1175,7 +1178,7 @@ const jobMatchRate = computed(() => {
 const jobMatchReason = computed(() => report.value?.jobMatch?.reason || '');
 
 // ============================================================================
-// v13.47 批次 2：「🔮 追问预测」tab 数据
+// 「🔮 追问预测」tab 数据
 // ============================================================================
 /** 定级徽章文案（junior/mid/senior → 中文；非法值返回空串表示不展示） */
 const levelBadge = computed(() => {
@@ -1201,7 +1204,7 @@ const predictedUnasked = computed(() =>
 );
 
 /**
- * v13.49 批次 2：概要 tab「归档区」折叠状态。
+ * 概要 tab「归档区」折叠状态。
  *
  * 归档区放**资料类**内容（自我介绍评分 / 心态趋势 / 可疑信号 / 流畅度）——
  * 它们是佐证材料而非结论，默认折叠（对齐 V1.2 §6.2「归档区（折叠）」与
@@ -1210,7 +1213,7 @@ const predictedUnasked = computed(() =>
 const archiveOpen = ref(false);
 
 // ============================================================================
-// v13.50 批次 3：「🧭 发展方向」懒生成
+// 「🧭 发展方向」懒生成
 // ============================================================================
 /** 生成中标记（防重复点击；后端另有分布式锁兜底） */
 const insightLoading = ref(false);
@@ -1275,7 +1278,7 @@ async function handleGenerateInsight(force = false) {
 }
 
 // ============================================================================
-// v13.49 批次 2：问题分析「按维度聚类」
+// 问题分析「按维度聚类」
 // ============================================================================
 /**
  * 最低维度（雷达六维中得分最低者）。
@@ -1284,7 +1287,10 @@ async function handleGenerateInsight(force = false) {
  * 因此这里不做「把某题归到某维度」的臆测映射 —— 那是无依据的编造。
  * 实际做法：找出最低维度作为**归因锚点**，再把**低分题置顶**供优先复盘。
  */
-const weakestDimension = computed(() => {
+// 清单 P1（strict）：lowest 只在 forEach 回调里被赋值，TS 会把返回类型收窄为 `null`，
+  // 导致模板里 `weakestDimension.label` 报 "Property 'label' does not exist on type 'never'"。
+  // 显式声明返回类型即可（运行时不变）。
+const weakestDimension = computed<{ key: string; label: string; value: number } | null>(() => {
   // 注意：reportScores 是 **number[]**（与 DIMENSION_META 同序），不是按 key 的 Record。
   const dims = reportScores.value;
   let lowest: { key: string; label: string; value: number } | null = null;
@@ -1333,7 +1339,7 @@ const weakPointItems = computed<{ title: string; detail: string }[]>(() => {
     detail: pointQuote(p),
   }));
 });
-/** v11.97：逐题"你的回答"折叠展开（默认 2 行，点击展开全文） */
+/** 逐题"你的回答"折叠展开（默认 2 行，点击展开全文） */
 const expandedReviews = ref<Set<number>>(new Set());
 function toggleReviewExpand(idx: number) {
   const next = new Set(expandedReviews.value);
@@ -1341,7 +1347,7 @@ function toggleReviewExpand(idx: number) {
   else next.add(idx);
   expandedReviews.value = next;
 }
-/** v11.97：重新生成报告——确认后重置进度复用现有轮询链路（skipConfirm：历史页入口已确认过） */
+/** 重新生成报告——确认后重置进度复用现有轮询链路（skipConfirm：历史页入口已确认过） */
 async function handleRegenerateReport(skipConfirm = false) {
   const id = interview.value?.id;
   if (!id || analysisState.value.active) return;
@@ -1407,7 +1413,7 @@ async function loadHistoryReport(idStr: string) {
     const vo = resp.data;
     interview.value = vo;
 
-    // v11.96：进行中——回准备页走断点续接横幅（历史点错/旧标签页场景）
+    // 进行中——回准备页走断点续接横幅（历史点错/旧标签页场景）
     if (vo.status === 'in_progress') {
       phase.value = 'setup';
       checkActiveInterview();
@@ -1415,7 +1421,7 @@ async function loadHistoryReport(idStr: string) {
       return;
     }
 
-    // v11.96：已结束但报告仍在生成（刷新/离开后）——进报告页显示进度并轮询，完成后展示完整报告
+    // 已结束但报告仍在生成（刷新/离开后）——进报告页显示进度并轮询，完成后展示完整报告
     if ((vo.analysisStatus ?? 0) < 2) {
       phase.value = 'report';
       reportTab.value = 'summary';
@@ -1424,12 +1430,12 @@ async function loadHistoryReport(idStr: string) {
       return;
     }
 
-    // v11.96：报告已生成——finish 幂等拉取库中完整报告（真实数据，不再前端拼凑伪报告）
+    // 报告已生成——finish 幂等拉取库中完整报告（真实数据，不再前端拼凑伪报告）
     phase.value = 'report';
     reportTab.value = 'summary';
     await loadFullReport();
 
-    // v11.97：历史页「重新生成报告」入口携带 regenerate=1，报告加载完成后自动触发（入口处已确认过，跳过二次弹窗）
+    // 历史页「重新生成报告」入口携带 regenerate=1，报告加载完成后自动触发（入口处已确认过，跳过二次弹窗）
     if (route.query.regenerate === '1') {
       router.replace({ query: { ...route.query, regenerate: undefined } });
       handleRegenerateReport(true);
@@ -1442,11 +1448,11 @@ async function loadHistoryReport(idStr: string) {
 onMounted(() => {
   const id = String(route.query.id ?? '').trim();
   if (id) loadHistoryReport(id);
-  // v13.37：岗位下拉改由后台【岗位模板】驱动（默认选中首个并回填 JD/难度/题量）
+  // 岗位下拉由后台【岗位模板】驱动（默认选中首个并回填 JD/难度/题量）
   loadJobTemplates();
   // 页签切走/最小化：立即停止聆听与播报，及时释放麦克风等硬件占用
   document.addEventListener('visibilitychange', releaseOnHidden);
-  // v11.89：浏览器关闭/刷新：无条件释放麦克风/播放器；面试进行中先触发浏览器离开确认
+  // 浏览器关闭/刷新：无条件释放麦克风/播放器；面试进行中先触发浏览器离开确认
   window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
@@ -1455,14 +1461,14 @@ onUnmounted(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
   // 卸载即丢弃：立即停麦克风/断 WS/停播报与计时，不等转写收尾（用户已离开页面，无需保留结果）
   releaseMediaResources();
-  // v11.88 V2：停止报告分析进度轮询（服务端继续生成，可从历史记录查看）
+  // 停止报告分析进度轮询（服务端继续生成，可从历史记录查看）
   stopAnalysisPolling();
-  // v11.90 V2：清理结束触发点计时与准备进度条
+  // 清理结束触发点计时与准备进度条
   clearIdleWatch();
   stopPrepareProgress();
 });
 
-/** v11.89：统一释放麦克风/播放器/计时器——结束面试、临时退出、关闭标签页均有始有终 */
+/** 统一释放麦克风/播放器/计时器——结束面试、临时退出、关闭标签页均有始有终 */
 function releaseMediaResources() {
   if (speaking.value) ttsCancel();
   if (listening.value) stopAsr();
@@ -1476,7 +1482,7 @@ function releaseMediaResources() {
   }
 }
 
-/** v11.89：浏览器关闭/刷新标签页——先释放硬件连接；面试进行中触发浏览器离开确认 */
+/** 浏览器关闭/刷新标签页——先释放硬件连接；面试进行中触发浏览器离开确认 */
 function handleBeforeUnload(e: BeforeUnloadEvent) {
   releaseMediaResources();
   if (phase.value === 'interview') {
@@ -1485,7 +1491,7 @@ function handleBeforeUnload(e: BeforeUnloadEvent) {
   }
 }
 
-// v11.89：面试进行中路由跳转（返回/切页）前确认；确认离开后统一释放麦克风与播放器
+// 面试进行中路由跳转（返回/切页）前确认；确认离开后统一释放麦克风与播放器
 onBeforeRouteLeave(async () => {
   if (phase.value !== 'interview') return true;
   const ok = await confirmModal.confirm(
@@ -1521,7 +1527,7 @@ function presentQuestion(question: string, speakText: string, idx?: number, tag?
   editableAnswer.value = '';
   resetAsrWithTracker();
   startCountdown();
-  // v11.90 V2：5 分钟无响应触发点——新题展示时武装
+  // 5 分钟无响应触发点——新题展示时武装
   armIdleWatch();
   // 卡壳自动提示：每题重置标记与计时起点
   autoHintFired.value = false;
@@ -1548,7 +1554,7 @@ function resetForNewQuestion(question?: string) {
   resetAsrWithTracker();
   answerStartTime.value = 0;
   startCountdown();
-  // v11.90 V2：5 分钟无响应触发点——新题展示时武装
+  // 5 分钟无响应触发点——新题展示时武装
   armIdleWatch();
   // 卡壳自动提示：每题重置标记与计时起点
   autoHintFired.value = false;
@@ -1600,12 +1606,17 @@ async function handleStart() {
     toast.warning(`岗位名称不能超过 ${POSITION_MAX_LEN} 个字符`);
     return;
   }
-  // v12.0 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
+  // 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
   try {
     const vipRes = await getVipStatus();
     if (!vipRes.data?.isVip) {
-      const left = benefitLeft(vipRes.data, 'interview_unlimited') ?? 0;
-      if (left > 0) {
+      // 清单 P2：benefitLeft 在"权益未在 free 档配置"时返回 null，原先 `?? 0` 会把
+      // **未知**当成**已用完**，直接把用户拦到开通弹窗（与后端 @VipOnly 的真实额度判断不是同一事实来源）。
+      // 现改为：显式 0 才提示用完；null/undefined 视为"次数未配置"，交由后端门禁判定。
+      const left = benefitLeft(vipRes.data, 'interview_unlimited');
+      if (left == null) {
+        toast.info('免费体验次数以后端判定为准，开通会员可不限次开练');
+      } else if (left > 0) {
         toast.info(`免费体验剩余 ${left} 次，开通会员可不限次开练`);
       } else {
         const goBuy = await confirmModal.confirm(
@@ -1622,7 +1633,7 @@ async function handleStart() {
     /* 会员状态查询失败不阻断面试（后端 @VipOnly 兜底） */
   }
   loading.value = true;
-  // v11.90 V2：5 步准备进度条（简历画像→岗位要求→会话上下文→题单→环境；请求返回即 100%）
+  // 5 步准备进度条（简历画像→岗位要求→会话上下文→题单→环境；请求返回即 100%）
   prepareState.value = { active: true, step: 0, progress: 6 };
   prepareTimer = setInterval(() => {
     const s = prepareState.value;
@@ -1634,7 +1645,7 @@ async function handleStart() {
   try {
     const payload: VoiceStartConfig = {
       position: pos,
-      // v11.90 V2：岗位要求 JD（面试官提问贴合岗位要求）
+      // 岗位要求 JD（面试官提问贴合岗位要求）
       jobRequirements: jobRequirements.value.trim() || undefined,
       resumeId: selectedResumeId.value ?? undefined,
       difficulty: config.value.difficulty,
@@ -1655,7 +1666,7 @@ async function handleStart() {
       elapsedSec.value = 0;
       timerPaused.value = false;
       skipStreak.value = 0;
-      // v11.91：新面试已开始（后端已收口遗留会话），同步清掉恢复横幅
+      // 新面试已开始（后端已收口遗留会话），同步清掉恢复横幅
       activeInterview.value = null;
       startElapsedTimer();
       startGlobalCountdown(); // v11.96 时长制：全场倒计时（归零自动保存+生成报告）
@@ -1724,14 +1735,14 @@ function buildAnswerCallbacks(isSkip: boolean) {
       finishStreaming();
       // 缓冲尾巴（无句末标点的收尾句）入队，保证整段话术播完才重新开麦
       flushTtsBuffer();
-      // v11.90 V2：成功作答清零连续跳过计数（跳过路径保留计数）
+      // 成功作答清零连续跳过计数（跳过路径保留计数）
       if (!isSkip) skipStreak.value = 0;
       if (payload?.finished) {
         toast.info('面试结束，正在生成报告...');
         handleFinish();
         return;
       }
-      // v11.96 时长制：倒计时归零后的收尾（答案已自动提交保存，直接进报告）
+      // 倒计时归零后的收尾（答案已自动提交保存，直接进报告）
       if (timeUpPending) {
         timeUpPending = false;
         toast.info('本场时间已到，面试结束，正在生成报告...');
@@ -1747,7 +1758,7 @@ function buildAnswerCallbacks(isSkip: boolean) {
         resetForNewQuestion(payload.nextQuestion);
       }
     },
-    // V11.0.2：流被服务端异常切断（后端 SSE 120s 超时收尾/网络中断），提示用户可重答或下一题
+    // 流被服务端异常切断（后端 SSE 120s 超时收尾/网络中断），提示用户可重答或下一题
     onAborted: () => {
       toast.error('AI 响应超时中断，请重试或点击下一题继续');
       submitting.value = false;
@@ -1765,20 +1776,24 @@ function buildAnswerCallbacks(isSkip: boolean) {
 
 async function handleSubmitAnswer() {
   if (!interview.value || !currentQaId.value) return;
+  if (submitting.value) return;   // 清单 P2：在途防重
+  // 清单 P2：submitting 原先在 `await whenTranscriptionDone()` **之后**才置 true ——
+  // 等待转写期间「回答完毕」按钮仍是可点状态，连点会并发提交。这里提前置位。
+  submitting.value = true;
   if (listening.value) stopAsr();
   // 服务端 ASR 兜底：等待录音停止与上传转写完成，确保语音文本已并入答案
   await whenTranscriptionDone();
   const transcript = editableAnswer.value || finalText.value;
   if (!transcript.trim()) {
+    submitting.value = false;   // 提前置位后，早退分支必须复位
     toast.warning('答案不能为空');
     return;
   }
   stopCountdown();
-  submitting.value = true;
   pushChat('user', transcript);
   const latencyMs = answerStartTime.value ? Date.now() - answerStartTime.value : 0;
   clearTtsBuffer();
-  // v11.94.1：首字前预建"思考中"占位气泡（delta 到达即续写；失败/中断由 finishStreaming 移除空占位）
+  // 首字前预建"思考中"占位气泡（delta 到达即续写；失败/中断由 finishStreaming 移除空占位）
   streamingMsgId = pushChat('ai', '', { streaming: true, tag: '思考中' });
 
   await submitVoiceAnswer(
@@ -1817,7 +1832,7 @@ async function handleHint() {
 // ==================== 跳过本题（V3：answer 接口 body 加 skip:true，走同一 SSE 渲染路径） ====================
 async function handleSkip() {
   if (!interview.value || !currentQaId.value || submitting.value) return;
-  // v11.90 V2：连续跳过 3 题触发结束确认（真实面试连续拒答会被终止）
+  // 连续跳过 3 题触发结束确认（真实面试连续拒答会被终止）
   skipStreak.value++;
   if (skipStreak.value >= SKIP_END_THRESHOLD) {
     const end = await confirmModal.confirm(
@@ -1835,7 +1850,7 @@ async function handleSkip() {
   stopCountdown();
   submitting.value = true;
   clearTtsBuffer();
-  // v11.94.1：首字前预建"思考中"占位气泡（同作答路径）
+  // 首字前预建"思考中"占位气泡（同作答路径）
   streamingMsgId = pushChat('ai', '', { streaming: true, tag: '思考中' });
   await submitVoiceAnswer(
     String(interview.value.id),
@@ -1849,15 +1864,15 @@ async function handleSkip() {
 
 // ==================== 结束面试 + 报告 ====================
 /**
- * v11.88 V2：finish 同步段仅收口会话并触发异步批量分析（返回报告骨架）。
+ * finish 同步段仅收口会话并触发异步批量分析（返回报告骨架）。
  * 前端进入报告页后轮询 analysis 接口驱动进度条，analysisStatus=2 后
  * 重新调用 finish（幂等，返回完整报告）拉取最终结果。
  */
 async function handleFinish() {
   if (!interview.value) return;
-  // v11.89：结束面试统一释放麦克风/播放器/计时器（有始有终）
+  // 结束面试统一释放麦克风/播放器/计时器（有始有终）
   releaseMediaResources();
-  // v11.90 V2：结束触发点收口——清理无响应计时与准备进度
+  // 结束触发点收口——清理无响应计时与准备进度
   clearIdleWatch();
   stopPrepareProgress();
   loading.value = true;
@@ -1870,7 +1885,7 @@ async function handleFinish() {
       report.value = reportVo.data;
       phase.value = 'report';
       reportTab.value = 'summary';
-      // v11.88 V2：骨架报告（summary=报告生成中…）→ 启动分析进度轮询；
+      // 骨架报告（summary=报告生成中…）→ 启动分析进度轮询；
       // 完整报告（幂等重入/历史查看）→ 直接刷新对话回放数据
       if (reportVo.data.summary === '报告生成中…') {
         startAnalysisPolling();
@@ -1884,7 +1899,7 @@ async function handleFinish() {
   }
 }
 
-// ==================== v11.88 V2：报告分析进度轮询 ====================
+// ==================== 报告分析进度轮询 ====================
 // 5s 间隔 × 120 次 = 10 分钟上限（与记账 AI 任务轮询节奏一致）
 const ANALYSIS_POLL_INTERVAL = 5000;
 const ANALYSIS_POLL_MAX = 120;
@@ -1947,7 +1962,7 @@ async function loadFullReport() {
   await refreshDetailAfterFinish();
 }
 
-/** v11.30.3：finish 后重拉详情填充 qaList（对话回放 Tab 数据源） */
+/** finish 后重拉详情填充 qaList（对话回放 Tab 数据源） */
 async function refreshDetailAfterFinish() {
   try {
     const detailId = interview.value?.id;
@@ -1991,9 +2006,9 @@ function handleRestart() {
   editableAnswer.value = '';
   chatList.value = [];
   resetAsrWithTracker();
-  // v11.89：重开面试同样统一释放，避免残留占用
+  // 重开面试同样统一释放，避免残留占用
   releaseMediaResources();
-  // v11.88 V2：重开时停止上一场的分析进度轮询并复位进度
+  // 重开时停止上一场的分析进度轮询并复位进度
   stopAnalysisPolling();
   analysisState.value = { active: false, progress: 0 };
   elapsedSec.value = 0;
@@ -2007,36 +2022,60 @@ function goHome() {
 
 // ==================== 错题本 ====================
 const wrongBookLoading = ref<number | null>(null);
-async function handleAddToWrongBook(qaId: number | undefined) {
+/** 批量加入错题本进行中（清单 P2：原批量入口无 loading/防重复，连点会重复请求） */
+const wrongBookBatchLoading = ref(false);
+
+async function handleAddToWrongBook(qaId: number | undefined, silentToast = false): Promise<boolean> {
   if (!qaId) {
     toast.warning('无法关联题目');
-    return;
+    return false;
   }
+  if (wrongBookLoading.value != null) return false;   // 在途防重
   wrongBookLoading.value = qaId;
+  // 清单 P2：原先既传 successToast:'已加入错题本' 又手动 toast.success('…可在错题本中复习')
+  // ⇒ 一次操作弹两条提示。这里统一：批量场景静默（由批量结果统一提示），单条场景只弹一条。
   const { success } = await run(() => addQaToWrongBook(qaId), {
     errorToast: '加入错题本失败',
-    successToast: '已加入错题本',
+    successToast: silentToast ? undefined : '已加入错题本，可在错题本中复习',
   });
-  if (success) {
-    toast.success('已加入错题本，可在错题本中复习');
-  }
   wrongBookLoading.value = null;
+  return success;
 }
 
 async function addAllWeakToWrongBook() {
+  if (wrongBookBatchLoading.value) return;      // 在途防重
   const weak = (report.value?.questionReviews ?? []).filter((q) => q.score < 80 && q.qaId);
   if (weak.length === 0) {
     toast.info('暂无薄弱题（评分 < 80）需要加入错题本');
     return;
   }
-  for (const q of weak) {
-    await handleAddToWrongBook(q.qaId);
+  wrongBookBatchLoading.value = true;
+  try {
+    let ok = 0;
+    for (const q of weak) {
+      const success = await handleAddToWrongBook(q.qaId, true);
+      if (success) ok += 1;
+    }
+    if (ok === weak.length) {
+      toast.success(`已加入错题本 ${ok} 题，可在错题本中复习`);
+    } else if (ok > 0) {
+      toast.warning(`已加入 ${ok} / ${weak.length} 题，其余失败请重试`);
+    }
+  } finally {
+    wrongBookBatchLoading.value = false;
   }
 }
 
 // ==================== 报告操作 ====================
+/**
+ * 打印/另存为 PDF（清单 P2）。
+ *
+ * <p>原函数名与按钮文案都写「下载 PDF 报告」，但实现是 `window.print()` ——
+ * 得到的是**浏览器打印对话框**（用户可"另存为 PDF"），并非文件下载。
+ * 这里把文案与注释改成与实际行为一致，避免误导。</p>
+ */
 async function downloadReport() {
-  toast.info('正在生成 PDF 报告，请稍候...');
+  toast.info('已打开打印窗口，可选择"另存为 PDF"');
   setTimeout(() => window.print(), 300);
 }
 
@@ -2046,7 +2085,7 @@ async function shareReport() {
     toast.warning('暂无可分享的报告');
     return;
   }
-  // v11.30.5：token 分享（免登录公开，7 天有效），替代旧的需登录 ?id= 链接
+  // token 分享（免登录公开，7 天有效）
   const { success, data } = await run(() => createReportShareToken(id), { errorToast: '生成分享链接失败' });
   const token = (data as unknown as { data?: string })?.data ?? (data as unknown as string);
   if (!success || !token) {
@@ -2108,7 +2147,7 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
-        <!-- v11.91 断点续接横幅：意外关闭后再次进入，提示继续上次面试 -->
+        <!-- 断点续接横幅：意外关闭后再次进入，提示继续上次面试 -->
         <div v-if="activeInterview" class="resume-banner">
           <div class="resume-banner-info">
             <span class="resume-banner-title">🔄 检测到未完成的面试</span>
@@ -2176,7 +2215,7 @@ const chatStatus = computed(() => {
               <div class="device-status"><span :class="['status-badge', headphoneStatusClass]">{{ headphoneStatusText }}</span></div>
             </div>
 
-            <!-- v11.90 V2：环境噪声检测（3 秒采样取平均；嘈杂时黄色提示换环境/戴耳机） -->
+            <!-- 环境噪声检测（3 秒采样取平均；嘈杂时黄色提示换环境/戴耳机） -->
             <div class="device-item">
               <div class="device-info"><div class="device-icon">🌊</div><span class="device-name">环境噪声</span></div>
               <div class="device-status">
@@ -2201,11 +2240,11 @@ const chatStatus = computed(() => {
           <div class="device-tip">💡 建议佩戴耳机避免回声。麦克风权限可在浏览器地址栏图标中管理；插拔设备后列表会自动刷新。</div>
         </div>
 
-        <!-- 第二步：岗位与简历（v11.90 V2：核心只留岗位 + JD + 简历，其余配置收进高级设置） -->
+        <!-- 第二步：岗位与简历（核心只留岗位 + JD + 简历，其余配置收进高级设置） -->
         <div class="prep-card">
           <div class="prep-card-title"><span class="step-badge">2</span>岗位与简历</div>
 
-          <!-- v11.88：岗位选择保持紧凑下拉 -->
+          <!-- 岗位选择保持紧凑下拉 -->
           <div class="config-grid">
             <div class="config-item">
               <label class="config-label">🎯 面试岗位</label>
@@ -2236,8 +2275,7 @@ const chatStatus = computed(() => {
             </div>
           </div>
 
-          <!-- v11.90 V2：岗位要求 JD（面试官 AI 交流贴合岗位要求，限制因素之一）
-               v13.37：选中岗位模板后自动回填模板 JD，用户可自由修改；未选岗位/自定义则以手输为准 -->
+          <!-- 岗位要求 JD（选中岗位模板后自动回填，可自由修改；未选或自定义则以手输为准） -->
           <div class="config-item jd-item">
             <label class="config-label">
               📋 岗位要求（选填）
@@ -2290,7 +2328,7 @@ const chatStatus = computed(() => {
               </div>
             </div>
 
-            <!-- v11.89：简历收起/展开面板（默认收起保持紧凑；按钮常显当前选择，选中联动求职意向到岗位） -->
+            <!-- 简历收起/展开面板（默认收起保持紧凑；按钮常显当前选择，选中联动求职意向到岗位） -->
             <template v-else>
               <button class="resume-collapse-btn" @click="toggleResumePanel">
                 <span class="resume-collapse-title">
@@ -2343,7 +2381,7 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
-        <!-- v11.90 V2：高级设置折叠（其余配置可酌情保留；默认收起保持准备页紧凑） -->
+        <!-- 高级设置折叠（其余配置可酌情保留；默认收起保持准备页紧凑） -->
         <div class="prep-card advanced-card">
           <button class="advanced-toggle" type="button" @click="advancedOpen = !advancedOpen">
             <span class="advanced-toggle-title"><span class="step-badge">⚙</span>高级设置（选填）</span>
@@ -2387,7 +2425,7 @@ const chatStatus = computed(() => {
         </button>
       </div>
 
-      <!-- v11.90 V2：准备进度覆盖层（不可关闭；完成自动进入面试页） -->
+      <!-- 准备进度覆盖层（不可关闭；完成自动进入面试页） -->
       <div v-if="prepareState.active" class="prepare-overlay">
         <div class="prepare-modal">
           <div class="prepare-title">🔄 正在准备面试…</div>
@@ -2554,7 +2592,7 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
-        <!-- 右面板（v11.88 V2：实时评分雷达已移除，改面试背景+提示，化繁为简） -->
+        <!-- 右面板（面试背景 + 提示） -->
         <div class="right-panel">
           <div class="analysis-card">
             <div class="analysis-card-title">🎯 面试背景</div>
@@ -2589,7 +2627,7 @@ const chatStatus = computed(() => {
             <button class="back-btn" @click="goHome">← 返回首页</button>
           </div>
         </div>
-        <!-- v11.88 V2：批量分析进度条（结束后轮询 analysis 接口驱动，完成自动拉取完整报告） -->
+        <!-- 批量分析进度条（结束后轮询 analysis 接口驱动，完成自动拉取完整报告） -->
         <div v-if="analysisState.active" class="report-analysis-progress">
           <div class="rap-header">
             <span class="rap-spinner"></span>
@@ -2601,7 +2639,7 @@ const chatStatus = computed(() => {
           </div>
           <div class="rap-tip">深度分析需要一点时间，可先切换到「对话回放」浏览；完成后报告自动呈现</div>
         </div>
-        <!-- v11.97：报告总览横幅卡——综合分 + 等级 + 整场总评（LLM 复盘）+ 岗位匹配度（含依据） -->
+        <!-- 报告总览横幅卡——综合分 + 等级 + 整场总评（LLM 复盘）+ 岗位匹配度（含依据） -->
         <div v-if="report && !analysisState.active" class="report-banner-card">
           <div class="banner-score">
             <span class="banner-score-value" :style="{ color: scoreColor(report.totalScore ?? 0) }">
@@ -2609,7 +2647,7 @@ const chatStatus = computed(() => {
             </span>
             <span class="banner-score-label">综合得分</span>
             <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
-            <!-- v13.47 批次 2：水平定级徽章（LLM 结构化输出 levelEstimate；缺失则不展示） -->
+            <!-- 水平定级徽章（LLM 结构化输出 levelEstimate；缺失则不展示） -->
             <span v-if="levelBadge" :class="['level-estimate-badge', levelBadge.key]" :title="levelBadge.tip">
               定级 · {{ levelBadge.text }}
             </span>
@@ -2627,7 +2665,7 @@ const chatStatus = computed(() => {
             </div>
           </div>
         </div>
-        <!-- v11.90 V2：报告三段式——第一栏 面试者简介（简历提取 + 口头自我介绍）+ 第二栏 岗位信息 -->
+        <!-- 报告三段式——第一栏 面试者简介（简历提取 + 口头自我介绍）+ 第二栏 岗位信息 -->
         <div v-if="candidateInfo || jobInfoView" class="report-profile-grid">
           <div v-if="candidateInfo" class="profile-card">
             <div class="profile-card-title">👤 面试者简介</div>
@@ -2689,7 +2727,7 @@ const chatStatus = computed(() => {
             <span class="meta-value">{{ interview?.qaList?.filter(q => q.userAnswer).length ?? 0 }} / {{ interview?.totalQa ?? 0 }}</span>
           </div>
         </div>
-        <!-- v13.47 批次 2：三层五 tab —— 复盘区（概要→归因→证据殿后）+ 备战区（个人预测→环境导航） -->
+        <!-- 三层五 tab —— 复盘区（概要→归因→证据殿后）+ 备战区（个人预测→环境导航） -->
         <div class="report-tabs">
           <span class="report-tabs-group">复盘</span>
           <button
@@ -2700,6 +2738,12 @@ const chatStatus = computed(() => {
             :class="['report-tab', { active: reportTab === 'analysis' }]"
             @click="reportTab = 'analysis'"
             >🔍 问题分析</button>
+          <!-- 复盘区"证据殿后"：对话回放的渲染分支早已实现（reportTab==='dialog'），
+               但此前没有任何入口 ⇒ reportTab 永远不会等于 'dialog'，整块回放不可达。 -->
+          <button
+            :class="['report-tab', { active: reportTab === 'dialog' }]"
+            @click="reportTab = 'dialog'"
+            >💬 对话回放</button>
           <span class="report-tabs-group">备战</span>
           <button
             v-if="showPredictTab"
@@ -2924,7 +2968,7 @@ const chatStatus = computed(() => {
 
         <!-- Tab 2: 问题分析 -->
         <div v-if="reportTab === 'analysis'" class="tab-content active">
-          <!-- v13.49 批次 2：按维度聚类（归因锚点 + 低分题置顶） -->
+          <!-- 按维度聚类（归因锚点 + 低分题置顶） -->
           <div v-if="weakestDimension || lowScoreCount" class="cluster-banner">
             <div class="cluster-banner-head">
               <span class="cluster-banner-icon">🧭</span>
@@ -2941,7 +2985,7 @@ const chatStatus = computed(() => {
             </div>
           </div>
 
-          <!-- v11.97：薄弱点收口（结构化 title+detail + 去练习） -->
+          <!-- 薄弱点收口（结构化 title+detail + 去练习） -->
           <div v-if="weakPointItems.length" class="weak-points-card">
             <div class="analysis-card-title">⚠️ 待提升（{{ weakPointItems.length }}）</div>
             <div v-for="(c, i) in weakPointItems" :key="i" class="weak-point-row">
@@ -2965,7 +3009,7 @@ const chatStatus = computed(() => {
                 <div class="analysis-item-title">第 {{ q.questionIdx }} 题 · {{ truncate(q.question, 18) }}</div>
               </div>
               <div class="analysis-item-content">{{ q.analysis || q.feedback }}</div>
-              <!-- v11.97：你的回答折叠展开（默认 2 行，点击展开全文） -->
+              <!-- 你的回答折叠展开（默认 2 行，点击展开全文） -->
               <div v-if="q.userAnswer" class="analysis-user-answer" :class="{ expanded: expandedReviews.has(q.questionIdx ?? i) }">
                 <div class="analysis-user-answer-text">
                   <strong>你的回答：</strong>{{ q.userAnswer }}
@@ -3180,18 +3224,18 @@ const chatStatus = computed(() => {
             @click="handleRegenerateReport()"
           >{{ analysisState.active ? '⏳ 报告生成中…' : '🔄 重新生成报告' }}</button>
           <button class="report-btn" @click="addAllWeakToWrongBook">📚 薄弱点入错题本</button>
-          <button class="report-btn" @click="downloadReport">📥 下载 PDF 报告</button>
+          <button class="report-btn" @click="downloadReport">🖨️ 打印 / 另存为 PDF</button>
           <button class="report-btn" @click="shareReport">🔗 分享报告</button>
           <button class="report-btn primary" @click="startNewInterview">🚀 开始新的面试</button>
         </div>
       </div>
     </div>
   </div>
-  <!-- v11.94.1：站点尾部放模板根级（vi-shell 外层，不受其水平 padding 挤压），
+  <!-- 站点尾部放模板根级（vi-shell 外层，不受其水平 padding 挤压），
        宽度与首页一致（content-container 1280px 居中），全阶段统一显示 -->
   <SiteFooter />
 
-<!-- v13.38：简历解析校对（U1 左右对照）——解析不落库，确认才落库 -->
+<!-- 简历解析校对（U1 左右对照）——解析不落库，确认才落库 -->
 <ResumeParsePreviewModal
   :visible="parsePreviewVisible"
   :data="parsePreviewData"
@@ -3204,7 +3248,7 @@ const chatStatus = computed(() => {
 <style scoped>
 /* ========== 视觉系统 · 红色主题（CSS 变量，与 demo HTML 一致） ========== */
 .vi-shell {
-  /* v11.88：视觉系统 · 跟随站点主题（light/dark/eye 由 html class 切换 --theme-* 变量） */
+  /* 视觉系统 · 跟随站点主题（light/dark/eye 由 html class 切换 --theme-* 变量） */
   --primary: var(--theme-primary);
   --primary-light: var(--theme-primary-hover);
   --primary-dark: var(--theme-primary-active);
@@ -3275,7 +3319,7 @@ const chatStatus = computed(() => {
 .prep-ghost-btn { padding: 0.375rem 0.75rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-md); cursor: pointer; font-size: 0.8125rem; color: var(--gray-600); display: inline-flex; align-items: center; gap: 0.375rem; transition: all 0.2s; white-space: nowrap; }
 .prep-ghost-btn:hover { background: var(--gray-50); border-color: var(--gray-300); color: var(--gray-800); }
 
-/* ==================== v11.91 断点续接横幅 ==================== */
+/* ==================== 断点续接横幅 ==================== */
 .resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.875rem 1.25rem; margin-bottom: 1.25rem; border-radius: var(--radius-lg); background: var(--primary-bg); border: 1px solid var(--primary); }
 .resume-banner-info { display: flex; flex-direction: column; gap: 0.25rem; }
 .resume-banner-title { font-size: 0.9375rem; font-weight: 700; color: var(--primary); }
@@ -3315,11 +3359,11 @@ const chatStatus = computed(() => {
 .status-badge.error { background: var(--error-bg); color: var(--error); }
 .status-badge.warn { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
 
-/* ==================== v11.90 V2：环境噪声检测结果 ==================== */
+/* ==================== 环境噪声检测结果 ==================== */
 .noise-result { margin-top: 0.375rem; font-size: 0.8125rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success); }
 .noise-result.noisy { background: var(--warning-bg); color: var(--warning); border-left: 3px solid var(--warning); }
 
-/* ==================== v11.90 V2：岗位要求 JD 输入 ==================== */
+/* ==================== 岗位要求 JD 输入 ==================== */
 .jd-item { margin-top: 0.75rem; }
 .jd-textarea { width: 100%; min-height: 96px; padding: 0.625rem 0.875rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); font-size: 0.875rem; line-height: 1.6; resize: vertical; background: var(--theme-surface); color: var(--gray-800); font-family: var(--font-sans); }
 .jd-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
@@ -3327,19 +3371,19 @@ const chatStatus = computed(() => {
 .jd-counter-actions { display: inline-flex; align-items: center; gap: 0.5rem; }
 .jd-inline-btn { padding: 0.125rem 0.5rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-sm); font-size: 0.75rem; color: var(--gray-600); cursor: pointer; transition: all 0.2s; }
 .jd-inline-btn:hover { border-color: var(--primary); color: var(--primary); }
-/* v13.37：岗位模板回填来源标记 */
+/* 岗位模板回填来源标记 */
 .jd-source-badge { margin-left: 0.5rem; padding: 0.0625rem 0.5rem; border-radius: var(--radius-full); background: var(--primary-bg); color: var(--primary); font-size: 0.6875rem; font-weight: 500; }
-/* v13.37：岗位下拉加载失败/为空的提示 */
+/* 岗位下拉加载失败/为空的提示 */
 .config-hint { margin-top: 0.375rem; font-size: 0.75rem; line-height: 1.5; color: var(--warning); }
 
-/* ==================== v11.90 V2：高级设置折叠 ==================== */
+/* ==================== 高级设置折叠 ==================== */
 .advanced-card { padding: 0; overflow: hidden; }
 .advanced-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.875rem 1.25rem; background: transparent; border: none; cursor: pointer; font-size: 0.9375rem; font-weight: 600; color: var(--gray-800); }
 .advanced-toggle-title { display: flex; align-items: center; gap: 0.5rem; }
 .advanced-toggle-state { font-size: 0.8125rem; font-weight: 500; color: var(--primary); }
 .advanced-body { padding: 0.25rem 1.25rem 1.25rem; border-top: 1px dashed var(--gray-200); }
 
-/* ==================== v11.90 V2：准备进度覆盖层 ==================== */
+/* ==================== 准备进度覆盖层 ==================== */
 .prepare-overlay { position: fixed; inset: 0; z-index: 1200; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
 .prepare-modal { width: 100%; max-width: 420px; background: var(--theme-surface); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); padding: 1.75rem 1.5rem; }
 .prepare-title { font-size: 1.0625rem; font-weight: 700; color: var(--gray-900); margin-bottom: 1rem; text-align: center; }
@@ -3351,7 +3395,7 @@ const chatStatus = computed(() => {
 .prepare-step-row.current { color: var(--gray-900); background: var(--primary-bg); font-weight: 600; }
 .prepare-eta { font-size: 0.8125rem; color: var(--gray-500); text-align: center; }
 
-/* ==================== v11.90 V2：报告三段式（面试者简介 + 岗位信息） ==================== */
+/* ==================== 报告三段式（面试者简介 + 岗位信息） ==================== */
 .report-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
 .profile-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); padding: 1.125rem 1.25rem; }
 .profile-card-title { font-size: 0.9375rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.875rem; }
@@ -3371,7 +3415,7 @@ const chatStatus = computed(() => {
 .match-bar { flex: 1; height: 8px; background: var(--gray-100); border-radius: var(--radius-full); overflow: hidden; }
 .match-fill { height: 100%; background: var(--primary-gradient); border-radius: var(--radius-full); }
 
-/* ==================== v11.90 V2：综合得分等级徽章 + 概要入口 ==================== */
+/* ==================== 综合得分等级徽章 + 概要入口 ==================== */
 .score-level-badge { display: inline-block; margin-top: 0.375rem; padding: 0.1875rem 0.75rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 600; }
 .score-level-badge.excellent { background: var(--success-bg); color: var(--success); }
 .score-level-badge.good { background: var(--info-bg); color: var(--info); }
@@ -3379,7 +3423,7 @@ const chatStatus = computed(() => {
 .score-level-badge.weak { background: var(--error-bg); color: var(--error); }
 .detail-entry-btn { width: 100%; margin-top: 0.25rem; }
 
-/* ==================== v11.97：报告总览横幅卡（综合分 + 等级 + LLM 总评 + 岗位匹配） ==================== */
+/* ==================== 报告总览横幅卡（综合分 + 等级 + LLM 总评 + 岗位匹配） ==================== */
 .report-banner-card { display: flex; align-items: center; gap: 1.5rem; background: var(--theme-bg-elevated); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 1.5rem 1.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
 .banner-score { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 108px; padding: 0.5rem 0.75rem; background: var(--gray-50); border-radius: var(--radius-md); }
 .banner-score-value { font-size: 2.5rem; font-weight: 800; line-height: 1.1; }
@@ -3392,7 +3436,7 @@ const chatStatus = computed(() => {
 .banner-match { display: flex; flex-direction: column; gap: 0.375rem; min-width: 168px; max-width: 220px; padding: 0.5rem 0.875rem; background: var(--gray-50); border-radius: var(--radius-md); }
 .banner-match .match-rate { font-size: 1.5rem; }
 
-/* ==================== v11.90 V2：问题分析 Tab 薄弱点区块 ==================== */
+/* ==================== 问题分析 Tab 薄弱点区块 ==================== */
 .weak-points-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
 .weak-point-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.625rem 0.5rem; border-bottom: 1px dashed var(--gray-200); }
 .weak-point-row:last-child { border-bottom: none; }
@@ -3412,7 +3456,7 @@ const chatStatus = computed(() => {
 .section-label { font-size: 0.8125rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.375rem; }
 
 
-/* ==================== V10.3 简历库选择器 ==================== */
+/* ==================== 简历库选择器 ==================== */
 .resume-empty { border: 2px dashed var(--gray-200); border-radius: var(--radius-md); padding: 1.25rem; text-align: center; background: var(--gray-50); }
 .empty-icon { font-size: 1.5rem; margin-bottom: 0.375rem; }
 .empty-title { font-size: 0.9375rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.375rem; }
@@ -3422,7 +3466,7 @@ const chatStatus = computed(() => {
 
 
 .resume-manage-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.625rem; flex-wrap: wrap; }
-/* v11.89：简历收起/展开面板 */
+/* 简历收起/展开面板 */
 .resume-collapse-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.5625rem 0.875rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); background: var(--theme-bg-elevated); cursor: pointer; font-size: 0.8125rem; color: var(--gray-800); transition: border-color 0.2s; }
 .resume-collapse-btn:hover { border-color: var(--primary); }
 .resume-collapse-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3526,14 +3570,14 @@ const chatStatus = computed(() => {
 .question-header { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; font-size: 0.75rem; color: var(--warning); font-weight: 600; }
 .ai-tag { font-size: 0.6875rem; color: var(--primary); font-weight: 600; margin-bottom: 0.375rem; display: inline-block; padding: 0.125rem 0.5rem; background: var(--primary-bg); border-radius: var(--radius-full); }
 
-/* --- V11.0 流式打字机光标 --- */
+/* --- 流式打字机光标 --- */
 .streaming-cursor { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: text-bottom; background: var(--primary); animation: cursor-blink 0.8s steps(1) infinite; }
 @keyframes cursor-blink { 50% { opacity: 0; } }
 
-/* --- V11.0 agent 选择提示 --- */
+/* --- agent 选择提示 --- */
 .agent-hint { margin-top: 0.625rem; font-size: 0.75rem; line-height: 1.5; color: var(--gray-400); background: var(--primary-bg); border-radius: var(--radius-md); padding: 0.5rem 0.75rem; }
 
-/* --- V11.0 报告 AI 深度复盘 --- */
+/* --- 报告 AI 深度复盘 --- */
 .deep-review { margin-top: 1.25rem; background: var(--theme-bg-elevated); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 1rem 1.25rem; box-shadow: var(--shadow-sm); }
 .deep-review-title { font-size: 0.8125rem; font-weight: 700; color: var(--gray-600); margin-bottom: 0.75rem; }
 .deep-review-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.375rem 0; font-size: 0.8125rem; }
@@ -3571,7 +3615,7 @@ const chatStatus = computed(() => {
 .analysis-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
 .analysis-card-title { font-size: 0.8125rem; font-weight: 600; color: var(--gray-500); margin-bottom: 0.875rem; display: flex; align-items: center; gap: 0.375rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .radar-chart { width: 100%; aspect-ratio: 1; max-width: 200px; margin: 0 auto; }
-/* v11.89：六维评分标准图例（逐维说明评分依据 + 实时得分） */
+/* 六维评分标准图例（逐维说明评分依据 + 实时得分） */
 .dimension-legend { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.625rem; }
 .dimension-legend-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.375rem; border-radius: var(--radius-sm); }
 .dimension-legend-row:hover { background: var(--gray-50); }
@@ -3593,13 +3637,13 @@ const chatStatus = computed(() => {
 .back-btn { padding: 0.5rem 1rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-md); cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.375rem; transition: all 0.2s; color: var(--gray-600); }
 .back-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
 
-/* V10.4 报告元信息条 */
+/* 报告元信息条 */
 .report-meta-bar { display: flex; flex-wrap: wrap; gap: 0.625rem; margin-bottom: 1.5rem; padding: 0.875rem 1.125rem; background: var(--theme-bg-elevated); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
 .meta-chip { display: flex; align-items: center; gap: 0.375rem; padding: 0.3125rem 0.75rem; background: var(--gray-50); border-radius: var(--radius-full); font-size: 0.8125rem; }
 .meta-label { color: var(--gray-500); }
 .meta-value { color: var(--gray-900); font-weight: 600; max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* v11.88 V2：批量分析进度条（结束后轮询驱动） */
+/* 批量分析进度条（结束后轮询驱动） */
 .report-analysis-progress { margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: var(--theme-bg-elevated); border: 1px solid var(--gray-100); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
 .rap-header { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.75rem; }
 .rap-spinner { width: 1rem; height: 1rem; border: 2px solid var(--theme-primary-soft); border-top-color: var(--theme-primary); border-radius: var(--radius-full); animation: rap-spin 0.8s linear infinite; flex-shrink: 0; }
@@ -3615,7 +3659,7 @@ const chatStatus = computed(() => {
 .report-tab:hover { color: var(--gray-700); background: var(--gray-50); }
 .report-tab.active { color: var(--primary); background: var(--primary-bg); font-weight: 600; }
 
-/* ==================== V10.4 对话回放与历史保留 ==================== */
+/* ==================== 对话回放与历史保留 ==================== */
 .replay-list { display: flex; flex-direction: column; gap: 1.25rem; }
 .replay-item { display: flex; flex-direction: column; gap: 0.625rem; }
 .replay-item + .replay-item { padding-top: 1.25rem; border-top: 1px dashed var(--gray-100); }
@@ -3661,7 +3705,7 @@ const chatStatus = computed(() => {
 .analysis-item-title { font-size: 0.9375rem; font-weight: 600; color: var(--gray-800); }
 .analysis-item-content { font-size: 0.875rem; color: var(--gray-500); line-height: 1.65; margin-bottom: 1rem; }
 .analysis-user-answer { font-size: 0.8125rem; color: var(--gray-500); background: var(--gray-50); padding: 0.625rem 0.875rem; border-radius: var(--radius-md); margin-bottom: 1rem; line-height: 1.6; }
-/* v11.97：你的回答默认 2 行截断，点击展开全文 */
+/* 你的回答默认 2 行截断，点击展开全文 */
 .analysis-user-answer-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; word-break: break-word; }
 .analysis-user-answer.expanded .analysis-user-answer-text { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
 .answer-expand-btn { margin-top: 0.375rem; border: none; background: transparent; color: var(--primary); font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 0; }
@@ -3679,7 +3723,7 @@ const chatStatus = computed(() => {
 .interviewer-analysis { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
 .interviewer-comment { font-size: 0.9375rem; line-height: 1.85; color: var(--gray-600); margin-bottom: 1.5rem; padding: 1.25rem; background: var(--gray-50); border-radius: var(--radius-md); border-left: 4px solid var(--primary); }
 .suggestion-list { list-style: none; padding: 0; margin: 0; }
-/* v11.97：概要 Tab 中栏改进建议块 */
+/* 概要 Tab 中栏改进建议块 */
 .summary-suggestion-block { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed var(--gray-200); }
 .summary-suggestion-block .practice-btn { margin-top: 0.875rem; }
 /* v11.x：自我介绍独立评分卡 */
@@ -3812,7 +3856,7 @@ const chatStatus = computed(() => {
 
   /* --- 报告页 --- */
   .report-page { padding: 1rem 0.5rem; }
-  /* v11.97：横幅卡窄屏纵向堆叠（分隔线隐藏，匹配块铺满） */
+  /* 横幅卡窄屏纵向堆叠（分隔线隐藏，匹配块铺满） */
   .report-banner-card { flex-direction: column; align-items: stretch; gap: 0.875rem; padding: 1.125rem; }
   .banner-score { flex-direction: row; min-width: 0; justify-content: center; gap: 0.75rem; }
   .banner-score-value { font-size: 2rem; }
@@ -3840,7 +3884,7 @@ const chatStatus = computed(() => {
   .top-bar, .chat-input-area, .report-actions, .report-tabs { display: none; }
   .report-page { background: var(--theme-bg-elevated); padding: 0; }
 }
-  /* ==================== v13.47 批次 2：三层五 tab ==================== */
+  /* ==================== 三层五 tab ==================== */
 
   /* tab 分组标签（复盘 / 备战） */
   .report-tabs-group {
@@ -3863,7 +3907,7 @@ const chatStatus = computed(() => {
     background: var(--gray-200);
   }
 
-  /* ==================== v13.49 批次 2：概要 tab 四区 ==================== */
+  /* ==================== 概要 tab 四区 ==================== */
 
   /* ---- 问题分析：按维度聚类归因横幅 ---- */
   .cluster-banner {
@@ -3955,7 +3999,7 @@ const chatStatus = computed(() => {
     margin-bottom: 0.75rem;
   }
 
-  /* 水平定级徽章（v13.47 批次 2） */
+  /* 水平定级徽章 */
   .level-estimate-badge {
     margin-left: 0.375rem; padding: 0.0625rem 0.4375rem;
     border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 700;
@@ -4011,7 +4055,7 @@ const chatStatus = computed(() => {
   }
   .predict-block-text { flex: 1; color: var(--gray-600); }
 
-  /* ---- Tab「🧭 发展方向」（v13.50 批次 3 开通） ---- */
+  /* ---- Tab「🧭 发展方向」 ---- */
   .insight-head-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
   .insight-stamp { font-size: 0.75rem; color: var(--gray-400); }
   .insight-stale { font-size: 0.75rem; color: var(--warning); }
@@ -4070,7 +4114,7 @@ const chatStatus = computed(() => {
     font-size: 0.6875rem; color: var(--gray-400); line-height: 1.6;
   }
 
-  /* ---- Tab「🧭 发展方向」占位（批次 3 开通） ---- */
+  /* ---- Tab「🧭 发展方向」占位 ---- */
   .insight-head { margin-bottom: 1rem; }
   .insight-head-title { font-size: 0.9375rem; font-weight: 700; color: var(--gray-800); }
   .insight-head-desc { margin-top: 0.25rem; font-size: 0.75rem; color: var(--gray-500); line-height: 1.6; }
@@ -4088,7 +4132,7 @@ const chatStatus = computed(() => {
     font-size: 0.8125rem; cursor: not-allowed;
   }
 
-/* ==================== V10.1 语音对话可视化增强 ==================== */
+/* ==================== 语音对话可视化增强 ==================== */
 
 /* --- 实时音浪条（聆听状态） --- */
 .voice-wave {

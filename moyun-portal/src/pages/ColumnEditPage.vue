@@ -17,12 +17,15 @@ import { getColumnDetail, saveColumn, addArticle, removeArticle } from '@/api/co
 import type { ColumnSaveBody } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 import { promptRealNameOptional } from '@/utils/creatorPermission';
+import { useUserStore } from '@/stores/user';
 
 
 const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
+/** 当前登录用户（清单 P2：编辑页需要校验作者身份） */
+const userStore = useUserStore();
 const toast = useToast();
 
 const editId = computed(() => route.params.id as string | undefined);
@@ -37,11 +40,13 @@ const categoryId = ref('');
 const isFinished = ref(false);
 const price = ref<number | ''>('');
 
-// v1.1.3 新增：专栏文章关联（已选 articleId 列表 + 加载时回填的原列表）
+// 专栏文章关联（已选 articleId 列表 + 加载时回填的原列表）
 const selectedArticleIds = ref<Array<string | number>>([]);
 const originalArticleIds = ref<Array<string | number>>([]);
 
 const submitting = ref(false);
+/** 待清理的旧封面（清单 P2：保存成功后才物理删除，避免"改了没保存"却已丢文件） */
+const pendingDeleteCover = ref('');
 const loadingDetail = ref(false);
 const uploading = ref(false);
 const pageError = ref<string | null>(null);
@@ -96,6 +101,17 @@ async function loadDetail() {
     const res = await getColumnDetail(editId.value);
     if (res.code === 200 && res.data) {
       const c = res.data;
+      // 清单 P2：编辑页用**公开详情接口**预填表单，原先只拦"非 published 且非作者"，
+      // 于是**已发布专栏的编辑表单对任意登录用户开放**（且该接口对非作者还会 +1 浏览量）。
+      // 这里统一校验作者身份：非作者直接拒绝，不渲染表单。
+      const me = userStore.user?.id;
+      const authorId = (c as unknown as { userId?: string | number; authorId?: string | number }).userId
+        ?? (c as unknown as { authorId?: string | number }).authorId;
+      if (me != null && authorId != null && String(me) !== String(authorId)) {
+        pageError.value = '无权编辑该专栏（仅作者本人可编辑）';
+        toast.error(pageError.value);
+        return;
+      }
       title.value = c.title || '';
       subtitle.value = c.subtitle || '';
       description.value = c.description || '';
@@ -103,7 +119,7 @@ async function loadDetail() {
       categoryId.value = c.categoryId != null ? String(c.categoryId) : '';
       isFinished.value = !!c.isFinished;
       price.value = c.price != null ? c.price : '';
-      // v1.1.3 新增：回填专栏已关联的文章 ID 列表
+      // 回填专栏已关联的文章 ID 列表
       const ids = (c.articles || []).map(a => a.id);
       selectedArticleIds.value = ids;
       originalArticleIds.value = [...ids];
@@ -137,13 +153,11 @@ async function handleUpload(e: Event) {
     const res = await uploadImage(file, { businessType: 'column_cover' });
     if (res.code === 200 && res.data) {
       cover.value = res.data.fileUrl;
-      // 新封面上传成功后，删除旧封面（DB+存储），失败仅警告不影响新封面
+      // 清单 P2：原先上传成功就**立即物理删除旧封面**，但封面字段要到点「保存」才落库 ——
+      // 用户若不保存（或保存失败），旧封面已被删除，专栏就指向了不存在的图片。
+      // 现改为"延后清理"：先记住待删文件，保存成功后再删。
       if (oldCover) {
-        try {
-          await deletePortalFile(oldCover);
-        } catch (e) {
-          console.warn('旧封面清理失败：', e);
-        }
+        pendingDeleteCover.value = oldCover;
       }
       toast.success('封面上传成功');
     } else {
@@ -170,14 +184,10 @@ async function clearCover() {
   }
   const ok = await confirmModal.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？', { danger: true,  title: '确认操作'});
   if (!ok) return;
-  const oldCover = cover.value;
+  // 清单 P2：同上 —— 清除操作只解除绑定并记下待删文件，**保存成功后**才真正清理，
+  // 避免"清除了但没保存"导致旧文件被误删（专栏仍引用它）。
+  pendingDeleteCover.value = cover.value;
   cover.value = '';
-  try {
-    await deletePortalFile(oldCover);
-  } catch (e) {
-    toast.error((e as Error)?.message || '文件记录清理失败，请稍后在文件管理中处理');
-    console.warn('封面清理失败：', e);
-  }
 }
 
 function validate(): string | null {
@@ -200,7 +210,11 @@ function buildPayload(): ColumnSaveBody {
     // 后端 ColumnVO.isFinished 为 Integer（0/1），此处把 boolean 转换为 0/1
     isFinished: isFinished.value ? 1 : 0,
   };
-  if (categoryId.value.trim()) payload.categoryId = categoryId.value.trim();
+  if (categoryId.value.trim()) {
+    // 清单 P2：全站尚无专栏分类体系（无字典、无后台菜单），此处保持手填，
+    // 但至少要挡住非数字（后端 ColumnVO.categoryId 为 Long，非数字会触发转换异常）。
+    payload.categoryId = categoryId.value.trim();
+  }
   if (price.value !== '') payload.price = Number(price.value);
   if (isEdit.value && editId.value) payload.id = editId.value;
   return payload;
@@ -212,20 +226,43 @@ async function submit() {
     toast.error(errMsg);
     return;
   }
-  // 新建专栏提示实名认证（v10.10：创作行为不强制，可跳过）
-  if (!isEdit.value && !(await promptRealNameOptional())) return;
+  if (submitting.value) return;   // 清单 P2：在途防重
+  // 清单 P2：submitting 原先在 `await promptRealNameOptional()` **之后**才置 true ——
+  // 实名提示弹出/等待期间按钮与表单仍可再次提交（后端 save 也无防重）。
+  // 这里提前置位，任何早退分支负责复位。
   submitting.value = true;
+  // 新建专栏提示实名认证（创作行为不强制，可跳过）
+  if (!isEdit.value && !(await promptRealNameOptional())) {
+    submitting.value = false;
+    return;
+  }
   try {
     const res = await saveColumn(buildPayload());
     if (res.code === 200) {
-      // v1.1.3 新增：保存专栏后增量同步文章关联（diff selectedArticleIds 与 originalArticleIds）
+      // 保存专栏后增量同步文章关联（diff selectedArticleIds 与 originalArticleIds）
       // - 新建专栏：res.data 是新专栏 ID，所有 selectedArticleIds 都需要 addArticle
       // - 编辑专栏：editId.value 是已有专栏 ID，diff 出新增和移除
       const columnId = res.data ?? editId.value;
+      let articleSyncFailures = 0;
       if (columnId) {
-        await syncArticleRelations(String(columnId));
+        articleSyncFailures = await syncArticleRelations(String(columnId));
       }
-      toast.success(isEdit.value ? '专栏已更新' : '专栏创建成功');
+      if (articleSyncFailures > 0) {
+        // 专栏本身已保存成功，但文章关联有失败 ⇒ 必须说清，不能报"完全成功"
+        toast.warning(`专栏已保存，但有 ${articleSyncFailures} 篇文章关联失败，请到"管理文章"中确认`);
+      } else {
+        toast.success(isEdit.value ? '专栏已更新' : '专栏创建成功');
+      }
+      // 保存成功后再清理旧封面（清单 P2：此时数据库已指向新封面/空封面）
+      if (pendingDeleteCover.value) {
+        const toDelete = pendingDeleteCover.value;
+        pendingDeleteCover.value = '';
+        try {
+          await deletePortalFile(toDelete);
+        } catch (e) {
+          console.warn('旧封面清理失败（不影响本次保存）：', e);
+        }
+      }
       const newId = res.data;
       if (newId !== undefined && newId !== null && newId !== '') {
         router.push(`/column/${newId}`);
@@ -246,7 +283,7 @@ async function submit() {
 }
 
 /**
- * v1.1.3 新增：增量同步专栏-文章关联
+ * 增量同步专栏-文章关联
  * 比较 selectedArticleIds（当前勾选）与 originalArticleIds（加载时的原列表），
  * 调 addArticle 加入新增的，调 removeArticle 移除取消的。
  * 单条失败不影响整体（已加入/移出的不回滚，仅提示）。
@@ -266,21 +303,31 @@ async function syncArticleRelations(columnId: string) {
   });
 
   // 串行执行（避免并发对同一专栏的并发冲突）
+  //
+  // 清单 P2：原先两处 catch 只 console.warn 吞掉，调用方随后仍提示"专栏创建成功/已更新"并跳转
+  // ⇒ 用户以为文章都关联好了，实际部分失败。这里返回失败数，由调用方如实告知。
+  let failedCount = 0;
   for (const aid of toAdd) {
     try {
       await addArticle(columnId, aid);
     } catch (e) {
-      // 已加入过的会因唯一索引冲突报错，忽略
-      console.warn(`加入文章 ${aid} 失败：`, e);
+      // 已加入过的会因唯一索引冲突报错（幂等：视为成功），其余计入失败
+      const msg = (e as { message?: string })?.message || '';
+      if (!/唯一|duplicate|已存在/i.test(msg)) {
+        failedCount += 1;
+        console.warn(`加入文章 ${aid} 失败：`, e);
+      }
     }
   }
   for (const aid of toRemove) {
     try {
       await removeArticle(columnId, aid);
     } catch (e) {
+      failedCount += 1;
       console.warn(`移出文章 ${aid} 失败：`, e);
     }
   }
+  return failedCount;
 }
 
 function goBack() {
@@ -446,10 +493,18 @@ function goBack() {
                 class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
                 style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
               />
+              <!--
+                清单 P2：price 列与接口都支持写入，但**订阅接口 ColumnServiceImpl#toggleSubscribe
+                完全不读 price**，门户也没有专栏支付链路 ⇒ 保存了价格也**收不到钱**。
+                保留字段（便于后续接入付费），但必须明确告知，避免作者误以为设了价就有收入。
+              -->
+              <p class="mt-1 text-xs" style="color: var(--theme-text-secondary);">
+                专栏付费链路尚未开通：价格会保存，但当前订阅免费、暂不生效。
+              </p>
             </div>
           </div>
 
-          <!-- v1.1.3 新增：专栏文章选择（与详情页"管理文章"统一组件） -->
+          <!-- 专栏文章选择（与详情页"管理文章"统一组件） -->
           <div>
             <label class="block text-sm font-medium mb-1.5 flex items-center" style="color: var(--theme-text);">
               <FileText class="w-4 h-4 mr-1" style="color: var(--theme-primary);" />

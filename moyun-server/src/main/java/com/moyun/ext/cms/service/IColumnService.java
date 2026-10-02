@@ -45,6 +45,19 @@ public interface IColumnService {
     int toggleFinish(Long id, Long userId);
 
     /**
+     * 作者**主动提交审核**：draft / rejected → pending，并创建统一审核任务。
+     *
+     * <p>为什么必须有：门户新建专栏被强制置为 {@code draft}（防绕过审核），但此前**没有任何门户侧送审入口**
+     * ——只有"命中敏感词"才会被动转 pending。正常内容的专栏因此永远停在 draft，他人不可见、
+     * 后台审核中心也没有待办（清单 #15）。</p>
+     *
+     * @param id     专栏ID
+     * @param userId 当前用户（须为作者）
+     * @return 送审后的专栏详情
+     */
+    ColumnVO submitForAudit(Long id, Long userId);
+
+    /**
      * 删除专栏（仅作者本人，级联删除关联与订阅）
      *
      * @return 影响行数

@@ -123,7 +123,7 @@ import { listLedgerCategory, addLedgerCategory, updateLedgerCategory,
 
 const { proxy } = getCurrentInstance();
 
-/** 大类（交易类型）标签：一级=大类，二级=分类（v11.76 大类二级模型） */
+/** 大类（交易类型）标签：一级=大类，二级=分类 */
 const TYPE_LABELS = {
   income: '收入', expense: '支出', transfer: '转账',
   repayment: '还款', borrow: '借款', adjust: '校准'

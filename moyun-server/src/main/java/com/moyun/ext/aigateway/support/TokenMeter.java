@@ -20,8 +20,8 @@ import java.util.List;
  * 无 {@code stream_options}/{@code include_usage} 字样）。因此 OpenAI 兼容端点默认不回 usage，
  * 流式回调里的 {@code ChatResponse.tokenUsage()} 恒为 {@code null}。</p>
  *
- * <p>原实现只在 {@code tokenUsage != null} 时才 {@code tokenCostGuard.consume(...)}，
- * 于是<b>流式请求的 Token 全部漏计</b>：场景日配额（成本熔断）被绕过，
+ * <p>{@code tokenCostGuard.consume(...)} 不能在 {@code tokenUsage != null} 时才有条件调用：
+ * 否则<b>流式请求的 Token 全部漏计</b>：场景日配额（成本熔断）被绕过，
  * 执行日志与成本报表里流式场景恒为 0（会话流式是语音面试主干，正是高消耗场景）。</p>
  *
  * <h3>本类规则</h3>

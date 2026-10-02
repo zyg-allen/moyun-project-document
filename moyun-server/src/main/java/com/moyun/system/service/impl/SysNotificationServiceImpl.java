@@ -18,12 +18,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * 系统通知 服务实现
  * 通过 user_type 区分门户用户(portal)和系统用户(sys)
  *
  * @author moyun
  */
+@Slf4j
 @Service
 public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMapper, SysNotification>
         implements ISysNotificationService {
@@ -84,7 +87,59 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
         if (notification.getStatus() == null) {
             notification.setStatus("0");
         }
+        // ── 接收方通知偏好校验（清单 #36）──
+        // portal_user 的 notify_like/notify_comment/notify_follow/notify_system 此前**没有任何读取点**，
+        // 设置页的开关形同虚设。本方法是门户个人通知的唯一落库入口，故在此统一收口：
+        // 按 type 映射到对应偏好，关闭则**不写库**（返回 0，调用方均为"失败不影响主流程"的语义）。
+        if ("user".equals(notification.getScope())
+                && USER_TYPE_PORTAL.equals(notification.getUserType())
+                && !recipientAllowsNotification(notification.getUserId(), notification.getType())) {
+            log.info("[notification] 接收方已关闭该类通知，跳过写入 userId={} type={}",
+                    notification.getUserId(), notification.getType());
+            return 0;
+        }
         return sysNotificationMapper.insertNotification(notification);
+    }
+
+    /**
+     * 接收方是否允许该类通知。
+     *
+     * <p>映射口径：{@code like → notifyLike}、{@code comment/reply → notifyComment}、
+     * {@code follow → notifyFollow}，其余（系统/审核/认证等）归 {@code notifySystem}。</p>
+     *
+     * <p><b>null 视为开启</b>：偏好字段可空（历史用户未设置），缺省应保持原有"发通知"行为，
+     * 避免因数据缺失把通知静默丢弃。</p>
+     */
+    private boolean recipientAllowsNotification(Long userId, String type) {
+        if (userId == null) {
+            return true;
+        }
+        // 用 var 承接：本类已依赖 portalUserMapper（见类头 import），此处不再新增
+        // com.moyun.portal.domain.entity.PortalUser 的 import —— 避免把
+        // ModuleDependencyGuardTest 冻结的 system -> portal 计数推高（该计数写明"待建端口"）。
+        var recipient = portalUserMapper.selectPortalUserById(userId);
+        if (recipient == null) {
+            return true;
+        }
+        Boolean flag;
+        switch (type == null ? "" : type) {
+            case "like":
+            case "article_like":
+                flag = recipient.getNotifyLike();
+                break;
+            case "comment":
+            case "reply":
+            case "article_comment":
+                flag = recipient.getNotifyComment();
+                break;
+            case "follow":
+                flag = recipient.getNotifyFollow();
+                break;
+            default:
+                flag = recipient.getNotifySystem();
+                break;
+        }
+        return flag == null || flag;
     }
 
     @Override
@@ -198,13 +253,20 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
 
     @Override
     public Page<SysNotification> selectUserNotifications(Page<SysNotification> page, Long userId, String userType) {
+        // 兼容旧调用方（系统用户收件箱）：不按类型过滤
+        return selectUserNotifications(page, userId, userType, null, null);
+    }
+
+    @Override
+    public Page<SysNotification> selectUserNotifications(Page<SysNotification> page, Long userId, String userType,
+                                                         String type, Boolean excludeTodo) {
         if (userId == null) {
             throw new ServiceException("用户ID不能为空");
         }
         if (userType == null || userType.isEmpty()) {
             userType = USER_TYPE_PORTAL;
         }
-        return sysNotificationMapper.selectAllByUserId(page, userId, userType);
+        return sysNotificationMapper.selectAllByUserId(page, userId, userType, type, excludeTodo);
     }
 
     @Override

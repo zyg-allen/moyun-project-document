@@ -8,6 +8,7 @@ import com.moyun.ext.ai.entity.QueryHistory;
 import com.moyun.ext.ai.mapper.QueryHistoryMapper;
 import com.moyun.ext.ai.service.*;
 import com.moyun.ext.ai.vo.DataQueryResponse;
+import com.moyun.ext.ai.util.DataMaskingUtils;
 import com.moyun.ext.ai.vo.TableSchemaVO;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -141,8 +142,30 @@ public class DataQueryServiceImpl implements DataQueryService {
             log.info("增强查询: {}", enhancedQuery);
 
             // 4. SQL安全验证（使用增强的安全验证器）
-            com.moyun.ext.ai.util.SqlSecurityValidator.ValidationResult validationResult = 
-                com.moyun.ext.ai.util.SqlUtils.validateSql(sql);
+            //
+            // 清单 P2：原先调用的是 1 参 validateSql ⇒ SqlSecurityValidator.validate(sql)，
+            // 其 allowedTables 恒为 null ⇒「表名白名单」整条分支**从未生效**，
+            // 生成出来的 SQL 可以访问库内任意表。
+            // 现在的白名单来源就是本次**提供给 AI 的表结构（schemas）**——AI 只被允许看到这些表，
+            // 因此也只允许查询这些表；另把 CTE（WITH x AS ...）名也算作合法"表"，避免误伤。
+            java.util.Set<String> allowedTables = new java.util.HashSet<>();
+            for (com.moyun.ext.ai.vo.TableSchemaVO s : schemas) {
+                if (s != null && s.getTableName() != null && !s.getTableName().isBlank()) {
+                    allowedTables.add(s.getTableName().trim().toLowerCase(java.util.Locale.ROOT));
+                }
+            }
+            java.util.regex.Matcher cteMatcher = java.util.regex.Pattern
+                    .compile("(?i)\\bWITH\\s+([\\w,]+)\\s+AS\\s*\\(")
+                    .matcher(sql);
+            while (cteMatcher.find()) {
+                for (String cte : cteMatcher.group(1).split(",")) {
+                    if (!cte.isBlank()) allowedTables.add(cte.trim().toLowerCase(java.util.Locale.ROOT));
+                }
+            }
+            com.moyun.ext.ai.util.SqlSecurityValidator.ValidationResult validationResult =
+                allowedTables.isEmpty()
+                        ? com.moyun.ext.ai.util.SqlUtils.validateSql(sql)
+                        : com.moyun.ext.ai.util.SqlSecurityValidator.validate(sql, allowedTables);
             
             if (!validationResult.isValid()) {
                 log.warn("🚫 SQL安全验证失败: {} (风险级别: {})", 
@@ -324,10 +347,13 @@ public class DataQueryServiceImpl implements DataQueryService {
                         // 数据类型格式化
                         value = formatValue(value);
 
-                        // 数据脱敏 - 已禁用，显示完整数据
-                        // if (value instanceof String && DataMaskingUtils.needsMasking(columnName)) {
-                        //     value = DataMaskingUtils.autoMask(columnName, (String) value);
-                        // }
+                        // 结果集脱敏（清单 P2：原为"已禁用，显示完整数据"——敏感字段会被原样带出）
+                        // 采用**严格档**：只对能由值格式自证的 PII（手机号/身份证/邮箱/银行卡）脱敏，
+                        // 不对"名字里含 name/address"的业务列一刀切（那会让公司名/产品名等分析结果失去意义，
+                        // 也是此前整段被禁用的原因）。如需按列定制脱敏，应由后台配置列策略。
+                        if (value instanceof String) {
+                            value = DataMaskingUtils.autoMaskStrict(columnName, (String) value);
+                        }
 
                         row.put(columnName, value);
                     }
@@ -820,104 +846,6 @@ public class DataQueryServiceImpl implements DataQueryService {
         public void addKeyword(String keyword) { this.keywords.add(keyword); }
     }
     
-    /**
-     * 根据意图生成查询示例
-     */
-    private String generateQueryExample(QueryIntent intent, List<com.moyun.ext.ai.vo.TableInfoVO> indices) {
-        if (indices == null || indices.isEmpty()) {
-            return null;
-        }
-        
-        String indexName = indices.get(0).getTableName();
-        
-        switch (intent.getType()) {
-            case "STATISTICS":
-                return String.format(
-                    "示例（统计文档总数）：\n" +
-                    "{\n" +
-                    "  \"index\": \"%s\",\n" +
-                    "  \"query\": { \"match_all\": {} },\n" +
-                    "  \"size\": 0,\n" +
-                    "  \"aggs\": {\n" +
-                    "    \"total_count\": { \"value_count\": { \"field\": \"_id\" } }\n" +
-                    "  }\n" +
-                    "}",
-                    indexName
-                );
-                
-            case "AGGREGATION":
-                return String.format(
-                    "示例（按字段分组统计）：\n" +
-                    "{\n" +
-                    "  \"index\": \"%s\",\n" +
-                    "  \"query\": { \"match_all\": {} },\n" +
-                    "  \"size\": 0,\n" +
-                    "  \"aggs\": {\n" +
-                    "    \"group_by_field\": {\n" +
-                    "      \"terms\": { \"field\": \"字段名.keyword\" }\n" +
-                    "    }\n" +
-                    "  }\n" +
-                    "}",
-                    indexName
-                );
-                
-            case "SORT":
-                return String.format(
-                    "示例（排序查询）：\n" +
-                    "{\n" +
-                    "  \"index\": \"%s\",\n" +
-                    "  \"query\": { \"match_all\": {} },\n" +
-                    "  \"sort\": [ { \"字段名\": \"desc\" } ],\n" +
-                    "  \"size\": 10\n" +
-                    "}",
-                    indexName
-                );
-                
-            case "RANGE":
-                return String.format(
-                    "示例（范围查询）：\n" +
-                    "{\n" +
-                    "  \"index\": \"%s\",\n" +
-                    "  \"query\": {\n" +
-                    "    \"range\": {\n" +
-                    "      \"字段名\": { \"gte\": 起始值, \"lte\": 结束值 }\n" +
-                    "    }\n" +
-                    "  },\n" +
-                    "  \"size\": 100\n" +
-                    "}",
-                    indexName
-                );
-                
-            case "EXACT":
-                return String.format(
-                    "示例（精确匹配）：\n" +
-                    "{\n" +
-                    "  \"index\": \"%s\",\n" +
-                    "  \"query\": {\n" +
-                    "    \"term\": { \"字段名.keyword\": \"精确值\" }\n" +
-                    "  },\n" +
-                    "  \"size\": 100\n" +
-                    "}",
-                    indexName
-                );
-                
-            case "SEARCH":
-                return String.format(
-                    "示例（全文搜索）：\n" +
-                    "{\n" +
-                    "  \"index\": \"%s\",\n" +
-                    "  \"query\": {\n" +
-                    "    \"match\": { \"字段名\": \"搜索词\" }\n" +
-                    "  },\n" +
-                    "  \"size\": 100\n" +
-                    "}",
-                    indexName
-                );
-                
-            default:
-                return null;
-        }
-    }
     
     /**
      * 查询意图类（增强版 - 包含上下文信息）
@@ -957,63 +885,6 @@ public class DataQueryServiceImpl implements DataQueryService {
         }
     }
     
-    /**
-     * 智能选择最相关的索引
-     */
-    private List<com.moyun.ext.ai.vo.TableInfoVO> selectRelevantIndices(
-        List<com.moyun.ext.ai.vo.TableInfoVO> allIndices,
-        String query,
-        int maxCount
-    ) {
-        // 计算每个索引的相关性分数
-        List<IndexScore> scores = new ArrayList<>();
-        String lowerQuery = query.toLowerCase();
-        
-        for (com.moyun.ext.ai.vo.TableInfoVO index : allIndices) {
-            String indexName = index.getTableName().toLowerCase();
-            int score = 0;
-            
-            // 基础分数：文档数量（优先有数据的索引）
-            if (index.getRowCount() > 0) {
-                score += 10;
-            }
-            
-            // 名称匹配分数
-            String[] queryWords = lowerQuery.split("\\s+");
-            for (String word : queryWords) {
-                if (word.length() < 2) continue;
-                
-                if (indexName.contains(word)) {
-                    score += 20;  // 完全匹配
-                } else if (indexName.contains(word.substring(0, Math.min(3, word.length())))) {
-                    score += 10;  // 部分匹配
-                }
-            }
-            
-            // 关键词匹配
-            if (lowerQuery.contains("用户") && indexName.contains("user")) score += 15;
-            if (lowerQuery.contains("日志") && indexName.contains("log")) score += 15;
-            if (lowerQuery.contains("订单") && indexName.contains("order")) score += 15;
-            if (lowerQuery.contains("商品") && indexName.contains("product")) score += 15;
-            if (lowerQuery.contains("文档") && indexName.contains("doc")) score += 15;
-            if (lowerQuery.contains("向量") && indexName.contains("vector")) score += 15;
-            if (lowerQuery.contains("搜索") && indexName.contains("search")) score += 15;
-            
-            // 时间范围索引（如果查询提到时间）
-            if (lowerQuery.matches(".*\\d{4}.*") && indexName.matches(".*\\d{4}.*")) {
-                score += 15;
-            }
-            
-            scores.add(new IndexScore(index, score));
-        }
-        
-        // 按分数排序并返回前N个
-        return scores.stream()
-            .sorted((a, b) -> Integer.compare(b.score, a.score))
-            .limit(maxCount)
-            .map(s -> s.index)
-            .collect(java.util.stream.Collectors.toList());
-    }
     
     /**
      * 索引评分辅助类
@@ -1028,316 +899,9 @@ public class DataQueryServiceImpl implements DataQueryService {
         }
     }
     
-    /**
-     * 智能推断索引用途
-     */
-    private String inferIndexPurpose(String indexName) {
-        String lowerName = indexName.toLowerCase();
-        
-        // 用户相关
-        if (lowerName.contains("user") || lowerName.contains("member") || lowerName.contains("account")) {
-            return "用户数据存储";
-        }
-        
-        // 日志相关
-        if (lowerName.contains("log") || lowerName.contains("audit") || lowerName.contains("trace")) {
-            return "日志记录";
-        }
-        
-        // 订单相关
-        if (lowerName.contains("order") || lowerName.contains("transaction") || lowerName.contains("payment")) {
-            return "订单交易数据";
-        }
-        
-        // 商品相关
-        if (lowerName.contains("product") || lowerName.contains("goods") || lowerName.contains("item")) {
-            return "商品信息";
-        }
-        
-        // 文档相关
-        if (lowerName.contains("doc") || lowerName.contains("article") || lowerName.contains("content")) {
-            return "文档内容";
-        }
-        
-        // AI/向量相关
-        if (lowerName.contains("vector") || lowerName.contains("embedding") || lowerName.contains("ai")) {
-            return "AI向量存储";
-        }
-        
-        // 搜索相关
-        if (lowerName.contains("search") || lowerName.contains("query")) {
-            return "搜索数据";
-        }
-        
-        // 消息相关
-        if (lowerName.contains("message") || lowerName.contains("msg") || lowerName.contains("notification")) {
-            return "消息通知";
-        }
-        
-        // 事件相关
-        if (lowerName.contains("event") || lowerName.contains("activity")) {
-            return "事件活动记录";
-        }
-        
-        // 指标相关
-        if (lowerName.contains("metric") || lowerName.contains("stat") || lowerName.contains("analytics")) {
-            return "统计分析数据";
-        }
-        
-        return null;  // 无法推断
-    }
     
-    /**
-     * 分析字段值特征
-     */
-    private String analyzeFieldValues(List<String> samples, String fieldType) {
-        if (samples == null || samples.isEmpty()) {
-            return null;
-        }
-        
-        // 检查是否为枚举值（样本数量少且重复）
-        Set<String> uniqueValues = new HashSet<>(samples);
-        if (uniqueValues.size() <= 5 && samples.size() >= 3) {
-            // 可能是枚举字段
-            return "可能的枚举值：" + String.join(", ", uniqueValues);
-        }
-        
-        // 检查是否为数值类型
-        if ("integer".equals(fieldType) || "long".equals(fieldType) || 
-            "float".equals(fieldType) || "double".equals(fieldType)) {
-            try {
-                List<Double> numbers = new ArrayList<>();
-                for (String sample : samples) {
-                    numbers.add(Double.parseDouble(sample));
-                }
-                if (!numbers.isEmpty()) {
-                    double min = numbers.stream().min(Double::compare).orElse(0.0);
-                    double max = numbers.stream().max(Double::compare).orElse(0.0);
-                    return String.format("数值范围：%.1f ~ %.1f", min, max);
-                }
-            } catch (Exception e) {
-                // 忽略解析错误
-            }
-        }
-        
-        // 检查文本长度
-        if ("text".equals(fieldType)) {
-            int avgLength = (int) samples.stream()
-                .mapToInt(String::length)
-                .average()
-                .orElse(0.0);
-            if (avgLength > 100) {
-                return "长文本字段，平均长度" + avgLength + "字符";
-            } else if (avgLength > 20) {
-                return "短文本字段";
-            }
-        }
-        
-        // 检查是否为时间格式
-        if ("keyword".equals(fieldType)) {
-            String firstSample = samples.get(0);
-            if (firstSample.matches("\\d{4}-\\d{2}-\\d{2}.*") || 
-                firstSample.matches("\\d{13}")) {
-                return "时间格式数据";
-            }
-        }
-        
-        return null;
-    }
     
-    /**
-     * 智能推断字段描述
-     */
-    private String inferFieldDescription(String fieldName, String fieldType) {
-        // 常见字段映射
-        Map<String, String> descMap = new HashMap<>();
-        // 身份标识
-        descMap.put("id", "唯一标识");
-        descMap.put("user_id", "用户ID");
-        descMap.put("doc_id", "文档ID");
-        descMap.put("order_id", "订单ID");
-        descMap.put("product_id", "商品ID");
-        
-        // 用户信息
-        descMap.put("username", "用户名");
-        descMap.put("email", "邮箱地址");
-        descMap.put("phone", "手机号");
-        descMap.put("name", "姓名");
-        descMap.put("age", "年龄");
-        descMap.put("gender", "性别");
-        
-        // 内容字段
-        descMap.put("text", "文本内容");
-        descMap.put("content", "内容");
-        descMap.put("title", "标题");
-        descMap.put("description", "描述");
-        descMap.put("summary", "摘要");
-        descMap.put("body", "正文");
-        descMap.put("message", "消息");
-        descMap.put("comment", "评论");
-        
-        // AI相关
-        descMap.put("embedding", "向量嵌入");
-        descMap.put("vector", "向量");
-        descMap.put("embeddings", "向量数据");
-        
-        // 元数据
-        descMap.put("metadata", "元数据");
-        descMap.put("tags", "标签");
-        descMap.put("category", "分类");
-        descMap.put("status", "状态");
-        descMap.put("type", "类型");
-        descMap.put("level", "等级");
-        descMap.put("priority", "优先级");
-        
-        // 时间
-        descMap.put("created_at", "创建时间");
-        descMap.put("updated_at", "更新时间");
-        descMap.put("timestamp", "时间戳");
-        descMap.put("date", "日期");
-        descMap.put("time", "时间");
-        descMap.put("datetime", "日期时间");
-        
-        // 行为
-        descMap.put("action", "操作");
-        descMap.put("event", "事件");
-        descMap.put("activity", "活动");
-        descMap.put("behavior", "行为");
-        
-        // 网络
-        descMap.put("ip", "IP地址");
-        descMap.put("url", "网址");
-        descMap.put("domain", "域名");
-        descMap.put("path", "路径");
-        
-        // 数值
-        descMap.put("count", "计数");
-        descMap.put("total", "总数");
-        descMap.put("amount", "金额");
-        descMap.put("price", "价格");
-        descMap.put("score", "分数");
-        descMap.put("rating", "评分");
-        
-        // 位置
-        descMap.put("location", "位置");
-        descMap.put("address", "地址");
-        descMap.put("city", "城市");
-        descMap.put("country", "国家");
-        
-        // 直接匹配
-        String desc = descMap.get(fieldName.toLowerCase());
-        if (desc != null) {
-            return desc;
-        }
-        
-        // 处理下划线命名（如：user_name）
-        if (fieldName.contains("_")) {
-            String[] parts = fieldName.split("_");
-            StringBuilder result = new StringBuilder();
-            for (String part : parts) {
-                String partDesc = descMap.get(part.toLowerCase());
-                if (partDesc != null) {
-                    result.append(partDesc);
-                } else {
-                    result.append(part);
-                }
-            }
-            if (result.length() > 0) {
-                return result.toString();
-            }
-        }
-        
-        // 根据类型推断
-        switch (fieldType) {
-            case "date":
-            case "date_nanos":
-                return "时间字段";
-            case "ip":
-                return "IP地址";
-            case "geo_point":
-                return "地理坐标";
-            case "geo_shape":
-                return "地理形状";
-            case "dense_vector":
-            case "sparse_vector":
-                return "向量字段";
-            case "object":
-                return "对象字段";
-            case "nested":
-                return "嵌套对象";
-            default:
-                return fieldName;  // 默认返回字段名
-        }
-    }
     
-    /**
-     * 应用智能分析
-     */
-    private void applyIntelligentAnalysis(DataQueryRequest request, DataQueryResponse response) {
-        try {
-            // 使用基础分析
-            Map<String, Object> statistics = analysisService.autoAnalyze(
-                response.getData(), 
-                response.getColumns()
-            );
-            response.setStatistics(statistics);
-            
-            // AI生成分析文本
-            String analysis = analysisService.generateAnalysisText(
-                response.getData(),
-                statistics,
-                request.getQuery()
-            );
-            response.setAnalysis(analysis);
-            
-            // 生成洞察
-            List<DataQueryResponse.DataInsight> insights = analysisService.generateInsights(
-                response.getData(),
-                statistics
-            );
-            response.setInsights(insights);
-            
-            // 使用增强分析服务
-            if (enhancedAnalysisService != null) {
-                try {
-                    com.moyun.ext.ai.vo.EnhancedAnalysisReport enhancedReport = 
-                        enhancedAnalysisService.generateEnhancedAnalysis(
-                            response,
-                            request.getQuery()
-                        );
-                    
-                    // 追加增强分析内容
-                    StringBuilder enhancedAnalysis = new StringBuilder(response.getAnalysis());
-                    
-                    if (enhancedReport.getRecommendations() != null && !enhancedReport.getRecommendations().isEmpty()) {
-                        enhancedAnalysis.append("\n\n💡 行动建议：\n");
-                        for (String recommendation : enhancedReport.getRecommendations()) {
-                            enhancedAnalysis.append("• ").append(recommendation).append("\n");
-                        }
-                    }
-                    
-                    if (enhancedReport.getAnomalies() != null && !enhancedReport.getAnomalies().isEmpty()) {
-                        enhancedAnalysis.append("\n\n⚠️ 异常检测：\n");
-                        for (com.moyun.ext.ai.vo.EnhancedAnalysisReport.Anomaly anomaly : enhancedReport.getAnomalies()) {
-                            enhancedAnalysis.append(String.format("• %s：%s\n", anomaly.getTitle(), anomaly.getDescription()));
-                        }
-                    }
-                    
-                    if (enhancedReport.getPrediction() != null) {
-                        enhancedAnalysis.append(String.format("\n\n🔮 预测分析：\n• %s\n", 
-                            enhancedReport.getPrediction().getDescription()));
-                    }
-                    
-                    response.setAnalysis(enhancedAnalysis.toString());
-                } catch (Exception e) {
-                    log.error("增强分析失败", e);
-                }
-            }
-            
-        } catch (Exception e) {
-            log.error("智能分析失败", e);
-        }
-    }
     
     /**
      * 保存查询历史
@@ -1469,63 +1033,5 @@ public class DataQueryServiceImpl implements DataQueryService {
         log.debug("SQL安全验证通过: {}", sql);
     }
     
-    /**
-     * 智能字段匹配 - 模糊匹配字段名
-     */
-    private List<String> findSimilarFields(String userInput, List<String> availableFields) {
-        List<String> matches = new ArrayList<>();
-        String lowerInput = userInput.toLowerCase();
-        
-        for (String field : availableFields) {
-            String lowerField = field.toLowerCase();
-            
-            // 1. 精确匹配
-            if (lowerField.equals(lowerInput) || lowerField.contains(lowerInput) || lowerInput.contains(lowerField)) {
-                matches.add(field);
-                continue;
-            }
-            
-            // 2. 同义词匹配
-            for (Map.Entry<String, List<String>> entry : SYNONYM_MAP.entrySet()) {
-                if (lowerInput.contains(entry.getKey().toLowerCase())) {
-                    for (String synonym : entry.getValue()) {
-                        if (lowerField.contains(synonym.toLowerCase())) {
-                            matches.add(field);
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            // 3. 拼音首字母匹配（简单实现）
-            if (matches.size() < 3 && calculateSimilarity(lowerInput, lowerField) > 0.6) {
-                matches.add(field);
-            }
-        }
-        
-        return matches;
-    }
     
-    /**
-     * 计算字符串相似度（简单版）
-     */
-    private double calculateSimilarity(String s1, String s2) {
-        if (s1 == null || s2 == null) {
-            return 0.0;
-        }
-        
-        int maxLen = Math.max(s1.length(), s2.length());
-        if (maxLen == 0) {
-            return 1.0;
-        }
-        
-        int commonChars = 0;
-        for (char c : s1.toCharArray()) {
-            if (s2.indexOf(c) >= 0) {
-                commonChars++;
-            }
-        }
-        
-        return (double) commonChars / maxLen;
-    }
 }

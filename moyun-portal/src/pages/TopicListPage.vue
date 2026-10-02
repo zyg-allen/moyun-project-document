@@ -75,6 +75,13 @@ async function loadTopics() {
     if (res.code === 200 && res.data) {
       topics.value = res.data.list || [];
       total.value = res.data.total || 0;
+      // 清单 P2：后台下架/他人删帖会让 total 缩小，停留旧页码会返回空列表。
+      // 返回后校正页码并重新加载一次。
+      if (page.value > totalPages.value) {
+        page.value = totalPages.value;
+        await loadTopics();
+        return;
+      }
     } else {
       error.value = res.message || '加载失败';
     }
@@ -149,6 +156,25 @@ function gotoPage(p: number) {
             <Plus class="w-4 h-4 mr-1" />
             发起话题
           </button>
+        </div>
+
+        <!--
+          清单 P2：全站（Navbar/UserPage/TopicListPage 等）**没有任何链接**指向
+          /topic/my/topics 与 /topic/my/posts（只有路由定义与页面自身的 canonicalPath），
+          用户无处进入"我的话题/我的观点"。这里在话题列表页给出明确入口。
+        -->
+        <div class="flex flex-wrap items-center gap-2 pb-3 text-sm">
+          <span style="color: var(--theme-text-secondary);">我的：</span>
+          <button
+            class="px-2.5 py-1 rounded-lg transition hover:opacity-80"
+            style="background-color: var(--theme-surface); color: var(--theme-primary);"
+            @click="router.push('/topic/my/topics')"
+          >我的话题</button>
+          <button
+            class="px-2.5 py-1 rounded-lg transition hover:opacity-80"
+            style="background-color: var(--theme-surface); color: var(--theme-primary);"
+            @click="router.push('/topic/my/posts')"
+          >我的观点</button>
         </div>
 
         <!-- 工具栏：排序 + 搜索 -->
@@ -295,13 +321,13 @@ function gotoPage(p: number) {
                 <!-- 发起人 -->
                 <div class="flex items-center mb-3">
                   <img
-                    :src="getSafeAvatar(t.creator?.avatar, String(t.creatorId))"
-                    :alt="t.creator?.nickname || '发起人'"
+                    :src="getSafeAvatar(t.creatorAvatar, String(t.creatorId))"
+                    :alt="t.creatorNickname || '发起人'"
                     class="w-5 h-5 rounded-full object-cover mr-2 flex-shrink-0"
                     loading="lazy"
                   />
                   <span class="text-xs truncate flex-1" style="color: var(--theme-text);">
-                    {{ t.creator?.nickname || '匿名用户' }}
+                    {{ t.creatorNickname || '匿名用户' }}
                   </span>
                   <span
                     v-if="t.lastPostTime"

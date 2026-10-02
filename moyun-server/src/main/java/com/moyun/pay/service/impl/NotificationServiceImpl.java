@@ -74,4 +74,15 @@ public class NotificationServiceImpl implements INotificationService {
                 .eq(PayNotification::getUserId, userId)
                 .set(PayNotification::getReadFlag, 1));
     }
+
+    @Override
+    public int markAllRead(Long userId) {
+        if (userId == null) {
+            return 0;
+        }
+        return notificationMapper.update(null, new LambdaUpdateWrapper<PayNotification>()
+                .eq(PayNotification::getUserId, userId)
+                .eq(PayNotification::getReadFlag, 0)
+                .set(PayNotification::getReadFlag, 1));
+    }
 }

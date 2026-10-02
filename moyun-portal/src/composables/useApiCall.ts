@@ -56,7 +56,16 @@ export function useApiCall() {
       if (successToast) toast.success(successToast);
       return { data, error: null, success: true };
     } catch (err: unknown) {
-      const message = errorToast || getErrorMessage(err);
+      // 文案优先级（清单 P2）：
+      //   1) **业务错误**（client.ts 附了 code，如 402 会员权益不足）→ 必须原样展示服务端文案，
+      //      否则"次数已用完，请开通会员"这类关键引导会被页面的通用 errorToast（"开始失败"）吃掉；
+      //   2) 页面显式 errorToast → 用于网络/未知失败时给出更贴合场景的提示；
+      //   3) 通用兜底文案。
+      const bizCode = (err as { code?: number } | null)?.code;
+      const serverMessage = getErrorMessage(err, '');
+      const message = (bizCode !== undefined && serverMessage)
+        ? serverMessage
+        : (errorToast || serverMessage || '操作失败，请稍后重试');
       // 始终 console.error 便于调试
       console.error('[API Error]', err);
       // 静默模式不弹 toast（由页面通过 error 状态自行渲染错误 UI）

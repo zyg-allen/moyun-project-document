@@ -73,15 +73,7 @@ public class ResourcesConfig implements WebMvcConfigurer
      *
      * <p>通过环境变量 {@code CORS_ALLOWED_ORIGINS}（逗号分隔）配置允许的源；未配置时只在**非生产**使用本地开发白名单。</p>
      *
-     * <p><b>v13.17 收口（§6.4）</b>：原实现存在两个问题——</p>
-     * <ol>
-     *   <li>未配置环境变量时**无条件**放行 {@code http://192.168.*}、{@code http://10.*} 等内网 pattern，
-     *       而 Spring 的 origin pattern 里 {@code *} 是通配符，{@code http://192.168.*} 会匹配
-     *       {@code http://192.168.evil.com}（可注册域名）→ 配合 {@code allowCredentials(true)}
-     *       等于把带凭据的跨域请求开放给攻击者域名；</li>
-     *   <li>内网放行没有"仅开发环境"约束，生产漏配即生效。</li>
-     * </ol>
-     * <p>现在：内网 Origin 改为**按真实私网地址逐条精确放行**（解析 Origin 的 host，必须是 IPv4 私有段
+     * <p>内网 Origin 按**真实私网地址逐条精确放行**（解析 Origin 的 host，必须是 IPv4 私有段
      * 172.16/12、192.168/16、10/8 的字面量，或本机回环），且必须显式开启
      * {@code CORS_ALLOW_LAN_DEV_ORIGINS=true} **且**非生产 profile；生产未配置环境变量时**不放行任何跨域源**（fail-closed）。</p>
      */
@@ -177,7 +169,7 @@ public class ResourcesConfig implements WebMvcConfigurer
     }
 
     /**
-     * WebSocket 握手 Origin 校验（v13.23，供 {@code PortalWebSocketAuthInterceptor} 调用）
+     * WebSocket 握手 Origin 校验（供 {@code PortalWebSocketAuthInterceptor} 调用）
      *
      * <p>WebSocket 不受同源策略保护，浏览器允许任意站点发起握手，因此服务端必须自己判定 Origin。
      * 判定口径与 CORS 保持一致：</p>

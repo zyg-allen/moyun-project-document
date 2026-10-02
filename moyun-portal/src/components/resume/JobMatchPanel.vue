@@ -56,7 +56,7 @@ import { Target, Sparkles } from 'lucide-vue-next';
 import type { ResumeJobMatchReport } from '@/types/api';
 
 /**
- * 岗位匹配结果面板（v10.18 阶段三独立组件）
+ * 岗位匹配结果面板
  * props:
  *   - report: 匹配报告对象（含 matchScore/grade/dimensions/matchedKeywords/missingKeywords/summary/aiPowered）
  *   - gradeLabelMap: 评级文案映射（默认 { excellent:'优秀匹配', good:'良好匹配', medium:'中等匹配', poor:'匹配较弱' }）

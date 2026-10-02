@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 // 登录表单验证规则
+// 清单 P2：后端 loginPreCheck 允许 username 2-50、password 6-50，而门户原先把上限定在 20，
+// 于是由后台导入/接口创建/历史数据产生的长凭据账号**在门户根本无法登录**。
+// 这里与后端口径对齐（仅放宽长度上限，不下调下限）。
 export const loginSchema = z.object({
   username: z
     .string()

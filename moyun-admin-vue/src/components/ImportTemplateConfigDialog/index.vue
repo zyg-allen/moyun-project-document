@@ -180,7 +180,6 @@ const businessKey = ref(props.defaultBusinessKey || "");
 const configList = ref([]);
 const loading = ref(false);
 const saving = ref(false);
-const rowKeySeq = ref(0);
 
 const currentBusinessRemark = computed(() => {
   const b = props.businessOptions.find((x) => x.value === businessKey.value);

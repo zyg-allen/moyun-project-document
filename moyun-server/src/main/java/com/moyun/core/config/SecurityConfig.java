@@ -104,7 +104,7 @@ public class SecurityConfig {
     /**
      * 判断请求路径是否应该被当前 SecurityFilterChain 处理
      *
-     * <p><b>为什么显式包含 {@code /portal/admin/**}</b>（v13.6 补证）：该前缀虽然落在
+     * <p><b>为什么显式包含 {@code /portal/admin/**}</b>：该前缀虽然落在
      * {@code /portal/**} 之下，但它是**后台管理接口**（用 admin token），必须由本链
      * （核心链，含 {@code JwtAuthenticationTokenFilter}）处理，而不是门户链
      * （门户链的 {@code PortalJwtAuthenticationTokenFilter} 会主动跳过该前缀）。
@@ -116,10 +116,16 @@ public class SecurityConfig {
      * 方法都显式标了 {@code @Order}（本链 1、门户链 2）——实测把 {@code @Order} 标在
      * {@code @Configuration} 类上**不生效**（链顺序退化为注册顺序），不要再用那种写法。</p>
      */
+    /** 是否启用接口文档（清单 P2：生产置 KNIFE4J_ENABLE=false 后文档端点不再匿名放行） */
+    @org.springframework.beans.factory.annotation.Value("${knife4j.enable:true}")
+    private boolean knife4jEnabled;
+
     private boolean shouldApplyTo(HttpServletRequest request) {
         String uri = request.getRequestURI();
         // 后台管理路径（/portal/admin/**）需要由核心 SecurityConfig 处理 admin token
-        if (uri.startsWith("/portal/admin/")) {
+        // 清单 P2：原先只判 startsWith("/portal/admin/")，裸路径 /portal/admin（不带斜杠）
+        // 不落核心链，只能被门户链 authenticated() 兜住（鉴权口径不完全一致）。这里一并纳入。
+        if (uri.equals("/portal/admin") || uri.startsWith("/portal/admin/")) {
             return true;
         }
         List<String> excludeModules = getExcludeModules();
@@ -181,9 +187,14 @@ public class SecurityConfig {
                     requests.requestMatchers("/login", "/register", "/captchaImage").permitAll()
                             // 静态资源，可匿名访问
                             .requestMatchers(HttpMethod.GET, "/", "/*.html", "/*.css", "/*.js", "/profile/**").permitAll()
-                            // Swagger / Knife4j 文档：开发环境默认放行；生产环境应通过 KNIFE4J_PRODUCTION=true 关闭文档入口，
-                            // 或在生产 SecurityConfig 中将以下 permitAll 改为 hasRole("ADMIN") / IP 白名单以避免接口暴露
-                            .requestMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/doc.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                            // Swagger / Knife4j 文档（清单 P2）
+                            // 原说明"生产应设 KNIFE4J_PRODUCTION=true 关闭文档入口"其实**不成立**：
+                            // knife4j.production 只关增强 UI，原始 OpenAPI 端点仍在此 permitAll 内，匿名即可读取。
+                            // 现改为**跟随 knife4j.enable 开关**：生产设 KNIFE4J_ENABLE=false 后，
+                            // 文档端点不再 permitAll，回落为"已认证可访问"，匿名无法枚举接口。
+                            .requestMatchers(knife4jEnabled
+                                    ? new String[]{"/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/doc.html", "/swagger-ui/**", "/v3/api-docs/**"}
+                                    : new String[0]).permitAll()
                             // Druid 监控页面：整体放行，由 Druid StatViewServlet 自带的 SessionAuth 鉴权。
                             // 依赖 application-*.yaml 中 stat-view-servlet.login-username/password 配置。
                             // 两套鉴权机制不可混用：若 Spring Security 拦截 /druid/**，Druid 自带登录页

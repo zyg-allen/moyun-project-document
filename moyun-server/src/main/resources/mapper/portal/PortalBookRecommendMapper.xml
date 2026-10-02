@@ -18,12 +18,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateTime"    column="update_time"  />
         <result property="remark"        column="remark"       />
         <result property="bookTitle"     column="book_title"   />
+        <!-- 封面：JOIN portal_book 取回，供前台限免/推荐位展示（清单 P2：原前端传空 src 导致永远 loading） -->
+        <result property="bookCover"     column="book_cover"   />
     </resultMap>
 
     <sql id="selectBookRecommendVo">
         select r.id, r.book_id, r.position, r.sort, r.start_time, r.end_time, r.is_active,
                r.create_by, r.create_time, r.update_by, r.update_time, r.remark,
-               b.title as book_title
+               b.title as book_title,
+        b.cover as book_cover
         from portal_book_recommend r
         left join portal_book b on r.book_id = b.id
     </sql>

@@ -1,3 +1,24 @@
+-- =============================================================================
+-- ⚠️ 危险脚本：本文件是**全新库初始化**脚本，含 49 处 DROP TABLE 与 3 处 TRUNCATE。
+--    对**已有数据的库**执行会直接删表/清表，不可逆。
+--
+-- 因此文件开头增加**失败即中断**的守卫：若当前库已存在本项目的表（以 sys_menu 为哨兵），
+-- 立即抛错并终止执行，避免"手滑在正式库跑初始化脚本"。
+--   · 全新空库：输出 ok，继续执行后续 DDL/DML；
+--   · 非空库  ：报错 Table '...__REFUSE__init_sql_on_non_empty_db__' doesn't exist 并中断。
+-- 如确需重建，请先自行备份并**显式删除哨兵判断**（这是有意的摩擦，不是 bug）。
+-- =============================================================================
+SET @moyun_existing_tables := (
+  SELECT COUNT(*) FROM information_schema.TABLES
+   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_menu'
+);
+SET @moyun_guard_ddl := IF(@moyun_existing_tables > 0,
+  'SELECT 1 FROM `__REFUSE__init_sql_on_non_empty_db__`',
+  'SELECT ''ok: 空库，可安全执行初始化'' AS guard_msg');
+PREPARE moyun_guard_stmt FROM @moyun_guard_ddl;
+EXECUTE moyun_guard_stmt;
+DEALLOCATE PREPARE moyun_guard_stmt;
+
 -- `moyun-db`.ai_agent_tool definition
 drop table if exists `ai_agent_tool`;
 CREATE TABLE `ai_agent_tool` (
@@ -1087,6 +1108,9 @@ CREATE TABLE `portal_article` (
                                   `is_paid` tinyint NOT NULL DEFAULT '0' COMMENT '是否付费阅读 0=免费 1=付费',
                                   `paid_content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '付费内容（购买后可见）',
                                   `preview_length` int NOT NULL DEFAULT '0' COMMENT '试读字数（未购买可预览的字数）',
+  `seo_title` varchar(200) DEFAULT NULL COMMENT 'SEO 自定义标题（留空回退文章标题）',
+  `seo_description` varchar(500) DEFAULT NULL COMMENT 'SEO 自定义描述（留空回退摘要）',
+  `seo_keywords` varchar(300) DEFAULT NULL COMMENT 'SEO 关键词（逗号分隔）',
                                   `price` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '付费价格，0=免费',
                                   `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                   PRIMARY KEY (`id`),

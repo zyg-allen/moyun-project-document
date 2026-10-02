@@ -1,10 +1,7 @@
 package com.moyun.portal.controller;
 
 /**
- * 文件变更说明：
- * 已删除 GET /portal/user/info (getInfo) 接口，该接口为死接口，
- * 前端已改用 /portal/user/me 获取当前用户信息。
- * 本次仅清理 Controller 层方法，对应 Service/Mapper/XML 实现保持不变。
+ * 门户登录 Controller：当前用户信息接口为 GET /portal/user/me。
  */
 
 import java.time.LocalDateTime;
@@ -94,7 +91,6 @@ public class PortalLoginController {
     @PostMapping("/register")
     public AjaxResult register(
             @Parameter(description = "用户信息") @RequestBody PortalUser portalUser) {
-
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
         }
@@ -160,13 +156,8 @@ public class PortalLoginController {
             }
         }
 
-        // 设置默认角色
-        if (StringUtils.isEmpty(portalUser.getRole())) {
-            portalUser.setRole("user");
-        }
-
-        // 设置默认状态
-        portalUser.setStatus("0");
+        // 注册入参按**列白名单**复位，拒绝客户端自证/自授（mass assignment）
+        sanitizeRegisterFields(portalUser);
 
         // 保留明文密码，用于注册成功后立即登录认证
         String rawPassword = portalUser.getPassword();
@@ -233,6 +224,38 @@ public class PortalLoginController {
             log.error("获取当前登录用户异常", e);
         }
         return null;
+    }
+
+    /**
+     * 注册入参的**列白名单**：把不接受客户端控制的列显式复位。
+     *
+     * <p><b>为什么需要它</b>：注册接口直接绑定实体（{@code @RequestBody PortalUser}），
+     * 若不复位，注册者可以在请求体里自证"手机号/微信已验证"、自填 {@code vipExpireAt}（白拿会员）、
+     * 自选 {@code role}（提权）、自改 {@code isCertifiedCreator}、{@code status}/{@code delFlag}，
+     * 甚至写 {@code loginIp}/{@code loginDate} —— 属典型的 mass assignment 越权。</p>
+     *
+     * <p>本方法只做"复位"，不改变任何**合法**注册字段（用户名/密码/邮箱/手机号/昵称/头像等由用户填写）。
+     * 更彻底的做法是改用具名 DTO + 显式映射，已登记为后续批次。</p>
+     */
+    private void sanitizeRegisterFields(PortalUser u) {
+        boolean phoneFlow = StringUtils.isNotEmpty(u.getPhone());
+        u.setId(null);                     // 主键由 DB 生成（复活路径另有 reviveId 显式传入，不依赖该字段）
+        u.setUserId(null);                 // 由服务端分配
+        u.setRole("user");                 // 角色只能由后台授予，不接受注册时自选
+        u.setPlatformCode(null);           // 端归属不在注册入参范围内
+        u.setIsCertifiedCreator(0);        // 认证创作者只能由认证审核流程维护
+        u.setVipExpireAt(null);            // VIP 到期时间只能由支付/后台发放
+        u.setIsPhoneVerified(phoneFlow ? Boolean.TRUE : null);  // 仅凭"本次短信验证码已通过"判定
+        u.setIsWechatVerified(Boolean.FALSE);                   // 微信绑定走独立流程
+        u.setTwoFactorEnabled(Boolean.FALSE);                   // 安全设置由用户在设置页开启
+        u.setStatus("0");                  // 注册后为正常状态
+        u.setDelFlag("0");
+        u.setLoginIp(null);                // 登录信息由登录流程写入
+        u.setLoginDate(null);
+        // birthday 在库里是 date 列：只接受 yyyy-MM-dd，其余（含空串）一律归 null，
+        // 避免 '' 写入 date 列触发严格模式报错或产生 0000-00-00。
+        String birthday = u.getBirthday() == null ? null : u.getBirthday().trim();
+        u.setBirthday(birthday != null && birthday.matches("\\d{4}-\\d{2}-\\d{2}") ? birthday : null);
     }
 
     /**

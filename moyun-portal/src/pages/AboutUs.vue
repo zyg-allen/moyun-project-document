@@ -26,18 +26,16 @@ const values = [
   { icon: Globe, title: '开放共享', description: '沉淀优质面经与题库，帮助更多求职者上岸' }
 ];
 
-const team = [
-  { name: '张三', role: '产品负责人', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop' },
-  { name: '李四', role: '技术负责人', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop' },
-  { name: '王五', role: '运营负责人', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop' }
-];
+// 清单 P2：原先这里写死「张三/李四/王五」三位**占位假成员**，头像还是 images.unsplash.com 外链热链
+// （境内网络常不可达，且 img 无 loading/宽高属性）。虚构人物出现在公开「关于我们」页是可信度与合规风险，
+// 故整段撤下；真实团队信息应由后台 CMS 维护后展示（见对账 §5「需产品立项」）。
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 面包屑 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      class="border-b py-3"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
@@ -98,25 +96,10 @@ const team = [
         </div>
       </div>
 
-      <!-- 团队介绍 -->
-      <div class="py-12 sm:py-16 lg:py-20">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 class="text-2xl sm:text-3xl font-bold text-center mb-10 sm:mb-14" style="color: var(--theme-text);">我们的团队</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-            <div 
-              v-for="member in team" 
-              :key="member.name"
-              class="text-center"
-            >
-              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden mx-auto mb-4 sm:mb-6">
-                <img :src="member.avatar" :alt="member.name" class="w-full h-full object-cover" />
-              </div>
-              <h3 class="text-lg sm:text-xl font-semibold mb-1.5" style="color: var(--theme-text);">{{ member.name }}</h3>
-              <p class="text-sm" style="color: var(--theme-text-secondary);">{{ member.role }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!--
+        清单 P2：原「我们的团队」区块展示的是写死的占位假成员（张三/李四/王五）与外链热链头像，
+        已整块移除；真实团队信息待后台 CMS 维护后再上线（不展示虚构人物）。
+      -->
 
       <!-- 发展历程 -->
       <div class="py-12 sm:py-16 lg:py-20" style="background-color: var(--theme-accent);">
@@ -129,8 +112,8 @@ const team = [
               <div class="relative flex items-start gap-4 sm:gap-8">
                 <div class="flex sm:justify-end w-full sm:w-1/2 text-right pl-12 sm:pl-0 sm:pr-8">
                   <div>
-                    <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">2023年1月</h3>
-                    <p class="text-sm" style="color: var(--theme-text-secondary);">旭林正式上线，开始内测</p>
+                    <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">奠基</h3>
+                    <p class="text-sm" style="color: var(--theme-text-secondary);">题库与面经上线，支持按公司、岗位检索</p>
                   </div>
                 </div>
                 <div class="absolute left-4 sm:left-1/2 w-3 h-3 rounded-full -translate-x-1/2" style="background-color: var(--theme-primary);"></div>
@@ -140,15 +123,15 @@ const team = [
                 <div class="hidden sm:block w-1/2"></div>
                 <div class="absolute left-4 sm:left-1/2 w-3 h-3 rounded-full -translate-x-1/2" style="background-color: var(--theme-primary);"></div>
                 <div class="pl-12 sm:pl-8 w-full sm:w-1/2">
-                  <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">2023年6月</h3>
-                  <p class="text-sm" style="color: var(--theme-text-secondary);">用户数突破10万</p>
+                  <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">进阶</h3>
+                  <p class="text-sm" style="color: var(--theme-text-secondary);">接入 AI 能力：简历诊断、岗位匹配与语音面试模拟</p>
                 </div>
               </div>
               <div class="relative flex items-start gap-4 sm:gap-8">
                 <div class="flex sm:justify-end w-full sm:w-1/2 text-right pl-12 sm:pl-0 sm:pr-8">
                   <div>
-                    <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">2024年1月</h3>
-                    <p class="text-sm" style="color: var(--theme-text-secondary);">文章数超过100万篇</p>
+                    <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">体系</h3>
+                    <p class="text-sm" style="color: var(--theme-text-secondary);">成长等级与学习计划上线，学习行为可追踪</p>
                   </div>
                 </div>
                 <div class="absolute left-4 sm:left-1/2 w-3 h-3 rounded-full -translate-x-1/2" style="background-color: var(--theme-primary);"></div>

@@ -4,7 +4,7 @@ import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  BookOpen, Plus, Pencil, Trash2, CheckCircle2,
+  BookOpen, Plus, Pencil, Trash2, CheckCircle2, Send,
   FileText, Users, ChevronLeft, ChevronRight, Settings,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -12,7 +12,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
-import { getMyColumns, getSubscribedColumns, deleteColumn } from '@/api/column';
+import { getMyColumns, getSubscribedColumns, deleteColumn, submitColumnForAudit } from '@/api/column';
 import { useToast } from '@/composables/useToast';
 import type { ColumnListItemVO, ColumnQuery } from '@/types/api';
 
@@ -64,7 +64,11 @@ watch(activeTab, () => {
   }
 });
 
+// 请求序号（清单 P2）：Tab 切换与翻页并发时，先发的慢响应可能后到并覆盖新列表
+let loadSeq = 0;
+
 async function loadColumns() {
+  const seq = ++loadSeq;
   loading.value = true;
   error.value = null;
   try {
@@ -72,6 +76,7 @@ async function loadColumns() {
     const res = activeTab.value === 'created'
       ? await getMyColumns(params)
       : await getSubscribedColumns(params);
+    if (seq !== loadSeq) return;
     if (res.code === 200 && res.data) {
       columns.value = res.data.list || [];
       total.value = res.data.total || 0;
@@ -79,10 +84,11 @@ async function loadColumns() {
       error.value = res.message || '加载失败';
     }
   } catch (err) {
+    if (seq !== loadSeq) return;
     const e = err as { message?: string };
     error.value = e?.message || '加载失败，请稍后重试';
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -101,6 +107,38 @@ function gotoCreate() {
 
 async function gotoEdit(id: string | number) {
   router.push(`/column/edit/${id}`);
+}
+
+// ── 提交审核（清单 #15：门户新建专栏强制 draft，但此前没有任何送审入口）──
+/** 只有 draft / rejected 需要（且允许）送审 */
+function canSubmitAudit(col: ColumnListItemVO): boolean {
+  return col.status === 'draft' || col.status === 'rejected';
+}
+
+const columnStatusMeta: Record<string, { label: string; color: string }> = {
+  draft: { label: '草稿（未送审）', color: '#6b7280' },
+  pending: { label: '审核中', color: '#f59e0b' },
+  published: { label: '已发布', color: '#10b981' },
+  rejected: { label: '已驳回', color: '#ef4444' },
+};
+
+async function handleSubmitAudit(col: ColumnListItemVO) {
+  if (!col.id || actionId.value) return;
+  actionId.value = col.id;
+  try {
+    const res = await submitColumnForAudit(col.id);
+    if (res.code === 200) {
+      toast.success('已提交审核，通过后将在专栏广场公开展示');
+      const idx = columns.value.findIndex(c => String(c.id) === String(col.id));
+      if (idx >= 0) columns.value[idx] = { ...columns.value[idx], status: 'pending' };
+    } else {
+      toast.error(res.message || '提交审核失败');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || '提交审核失败，请稍后重试');
+  } finally {
+    actionId.value = null;
+  }
 }
 
 async function handleDelete(col: ColumnListItemVO) {
@@ -342,8 +380,30 @@ function formatNumber(n?: number) {
                   </div>
                 </div>
 
+                <!-- 审核状态（仅我创建的 Tab 显示）：让作者知道专栏是否已公开 -->
+                <div v-if="activeTab === 'created' && col.status" class="mb-2">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                    :style="{
+                      color: columnStatusMeta[col.status]?.color || 'var(--theme-text-secondary)',
+                      border: '1px solid currentColor',
+                    }"
+                  >
+                    {{ columnStatusMeta[col.status]?.label || col.status }}
+                  </span>
+                </div>
+
                 <!-- 操作（仅我创建的 Tab 显示） -->
                 <div v-if="activeTab === 'created'" class="flex items-center gap-1.5">
+                  <button
+                    v-if="canSubmitAudit(col)"
+                    @click="handleSubmitAudit(col)"
+                    :disabled="actionId === col.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50"
+                    style="background-color: var(--theme-primary);"
+                  >
+                    <Send class="w-3 h-3 mr-1" />提交审核
+                  </button>
                   <button
                     @click="gotoDetail(col.id)"
                     class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 flex-1 justify-center"

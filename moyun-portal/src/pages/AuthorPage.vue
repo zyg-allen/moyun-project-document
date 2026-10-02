@@ -3,14 +3,16 @@ import { ref, computed, onMounted, watch } from 'vue';
 import Pagination from '@/components/Pagination.vue';
 import { RouterLink as Link, useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
+import { formatDate } from '@/utils/date';
 import {
-  User, BookOpen, Heart, Star, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Award, Trophy
+  User, BookOpen, Heart, Star, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Award, Trophy, Loader2
 } from 'lucide-vue-next';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import type { Article, User as UserType, UserGrowthVO, AchievementVO } from '@/types';
+import type { UserProfileVO } from '@/types/api';
 import * as userApi from '@/api/user';
 import * as articleApi from '@/api/article';
 import * as followApi from '@/api/follow';
@@ -24,7 +26,7 @@ const router = useRouter();
 const toast = useToast();
 
 // 数据
-const author = ref<UserType | null>(null);
+const author = ref<UserProfileVO | null>(null);
 const authorArticles = ref<Article[]>([]);
 const authorGrowth = ref<UserGrowthVO | null>(null);
 const authorAchievements = ref<AchievementVO[]>([]);
@@ -32,6 +34,12 @@ const activeTab = ref('articles');
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 const isFollowing = ref(false);
+/**
+ * 关注请求进行中标志（清单 P2）：
+ * 原先按钮无锁、无 disabled —— 快速连点会**重复调用 follow** 并每次都给粉丝数 ++；
+ * 取消关注则无条件 --（统计接口失败时 followers 初值为 0，会被减成负数）。
+ */
+const followLoading = ref(false);
 const isLoading = ref(false);
 const notFound = ref(false);
 const currentUser = ref<UserType | null>(null);
@@ -53,13 +61,17 @@ const isOwnProfile = computed(() => {
 });
 
 // SEO
+// 清单 P2：原先在 setup 阶段直接生成（此时 author 恒为 null）且**不是响应式**，
+// 数据加载完成后标题/描述再也不会更新。改为 computed 让 SEO 随数据变化。
 useHead(
-  generateSeo({
-    title: author.value ? `${author.value.username}的主页` : '用户主页',
-    description: author.value ? author.value.bio : '查看用户的文章和资料',
-    keywords: ['用户主页', '作者', '文章'],
-    type: 'website'
-  })
+  computed(() =>
+    generateSeo({
+      title: author.value ? `${author.value.username}的主页` : '用户主页',
+      description: author.value?.bio || '查看用户的文章和资料',
+      keywords: ['用户主页', '作者', '文章'],
+      type: 'website'
+    })
+  )
 );
 
 onMounted(() => {
@@ -92,7 +104,8 @@ async function loadAuthorData() {
     // 处理 author
     if (authorResp.code === 200 && authorResp.data) {
       author.value = authorResp.data;
-      authorStats.value.joinDate = (author.value as any).createTime || (author.value as any).createdAt || '';
+      // 清单 P2：原先直接渲染后端 ISO 串（形如 2024-01-01T10:00）
+      authorStats.value.joinDate = formatDate(author.value.createTime, 'YYYY-MM-DD') || '';
     } else {
       notFound.value = true;
       return;
@@ -198,16 +211,25 @@ async function loadAuthorData() {
 
 // 切换关注状态
 async function toggleFollow() {
-  if (!author.value || !currentUser.value) return;
+  if (!author.value) return;
+  // 未登录：静默 return 会让游客以为按钮坏了（同页"私信"已有登录引导）→ 统一跳登录并带回跳地址
+  if (!currentUser.value) {
+    toast.info('登录后才能关注作者');
+    router.push({ name: 'login', query: { redirect: route.fullPath } });
+    return;
+  }
 
+  if (followLoading.value) return;   // 连点保护
+  followLoading.value = true;
   try {
     if (isFollowing.value) {
-      await followApi.unfollowUser({ userId: author.value.id });
+      await followApi.unfollowUser({ userId: String(author.value.id) });
       isFollowing.value = false;
-      authorStats.value.followers--;
+      // 计数只做"跟随操作"的乐观调整，且不允许为负（统计接口失败时初值为 0）
+      authorStats.value.followers = Math.max(0, (authorStats.value.followers || 0) - 1);
       toast.success('已取消关注');
     } else {
-      await followApi.followUser({ userId: author.value.id });
+      await followApi.followUser({ userId: String(author.value.id) });
       isFollowing.value = true;
       authorStats.value.followers++;
       toast.success('关注成功');
@@ -216,6 +238,9 @@ async function toggleFollow() {
     console.error('操作失败:', error);
     const e = error as { message?: string };
     toast.error(e?.message || '操作失败，请稍后重试');
+  } finally {
+    // 必须释放：否则一次失败后按钮永久不可点（加锁是为了防连点，不是禁用）
+    followLoading.value = false;
   }
 }
 
@@ -312,10 +337,10 @@ function handlePageChange(page: number) {
               <div class="flex-shrink-0">
                 <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden">
                   <img 
-                    :src="getSafeAvatar(author.avatar, author.id)" 
+                    :src="getSafeAvatar(author.avatar, String(author.id))" 
                     :alt="author.username" 
                     class="w-full h-full object-cover"
-                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, author.id)"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(author?.id ?? ''))"
                   >
                 </div>
               </div>
@@ -366,14 +391,15 @@ function handlePageChange(page: number) {
                       </button>
                     </template>
                     <template v-else>
-                      <button 
+                      <button
+            :disabled="followLoading" 
                         @click="toggleFollow"
                         class="px-4 sm:px-5 py-2.5 rounded-xl font-medium transition-colors text-sm flex items-center gap-2"
                         :style="isFollowing 
                           ? { border: '1px solid var(--theme-border)', color: 'var(--theme-text-secondary)' }
                           : { backgroundColor: 'var(--theme-primary)', color: 'white' }"
                       >
-                        <component :is="isFollowing ? UserMinus : UserPlus" class="w-4 h-4" />
+                        <component :is="followLoading ? Loader2 : (isFollowing ? UserMinus : UserPlus)" :class="['w-4 h-4', followLoading ? 'animate-spin' : '']" />
                         {{ isFollowing ? '已关注' : '关注' }}
                       </button>
                       <button
@@ -483,7 +509,7 @@ function handlePageChange(page: number) {
                     <div class="text-xs" style="color: var(--theme-text-secondary);">平均获赞</div>
                   </div>
                   <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
-                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ authorArticles.length > 0 ? Math.max(...authorArticles.map(a => a.likes)) : 0 }}</div>
+                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ authorArticles.length > 0 ? Math.max(...authorArticles.map(a => a.likes ?? 0)) : 0 }}</div>
                     <div class="text-xs" style="color: var(--theme-text-secondary);">最高获赞</div>
                   </div>
                   <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
@@ -498,7 +524,7 @@ function handlePageChange(page: number) {
                 <h3 class="font-medium mb-3" style="color: var(--theme-text);">最受欢迎的文章</h3>
                 <div class="space-y-4">
                   <ArticleCard 
-                    v-for="article in [...authorArticles].sort((a, b) => b.likes - a.likes).slice(0, 5)" 
+                    v-for="article in [...authorArticles].sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0)).slice(0, 5)" 
                     :key="article.id" 
                     :article="article" 
                   />

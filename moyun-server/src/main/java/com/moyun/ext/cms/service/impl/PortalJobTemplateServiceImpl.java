@@ -95,8 +95,7 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
     /**
      * 按岗位名称反查启用的岗位模板（精确优先，模糊兜底）。
      *
-     * <p>逻辑自原 {@code PortalInterviewPositionServiceImpl#findByName} 迁入（v13.37 两表合并），
-     * 行为保持一致：调用方传入的岗位可能是模板全名，也可能是自由文本（如 "后端"），
+     * <p>调用方传入的岗位可能是模板全名，也可能是自由文本（如 "后端"），
      * 模糊兜底用于提升 {@code required_skills} 的召回命中率（驱动简历岗位匹配与画像抽题）。</p>
      */
     @Override

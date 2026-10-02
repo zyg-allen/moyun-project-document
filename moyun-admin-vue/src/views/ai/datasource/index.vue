@@ -284,7 +284,6 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const router = useRouter()
@@ -566,14 +565,6 @@ const getTypeTagType = (type) => {
   return map[type] || 'info'
 }
 
-const getHealthTagType = (status) => {
-  const map = {
-    'healthy': 'success',
-    'unhealthy': 'danger',
-    'unknown': 'info'
-  }
-  return map[status] || 'info'
-}
 
 const getHealthText = (status) => {
   const map = {

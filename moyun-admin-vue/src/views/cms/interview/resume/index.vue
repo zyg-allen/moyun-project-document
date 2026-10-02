@@ -2,8 +2,10 @@
   <div class="app-container">
     <el-form :model="queryParams" :inline="true" class="search-form">
       <el-form-item label="分类">
-        <el-select v-model="queryParams.categoryId" placeholder="请选择分类" clearable filterable>
-          <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
+        <!-- 模板表的分类是**字符串列 category**（门户也按该字符串过滤），不存在 category_id；
+             原绑定 categoryId 会被后端忽略（查询对象字段是 category）⇒ 筛了等于没筛。 -->
+        <el-select v-model="queryParams.category" placeholder="请选择分类" clearable filterable>
+          <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.name" />
         </el-select>
       </el-form-item>
       <el-form-item label="关键词">
@@ -63,12 +65,14 @@
         </template>
       </el-table-column>
       <el-table-column label="分类" width="120">
-        <template #default="{ row }">{{ row.categoryName || '-' }}</template>
+        <!-- 后端列表返回实体，并无 categoryName 字段（原显示恒为 '-'） -->
+        <template #default="{ row }">{{ row.category || '-' }}</template>
       </el-table-column>
       <el-table-column label="文件类型" prop="fileType" width="100" />
       <el-table-column label="是否付费" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.isPaid ? 'danger' : 'success'">{{ row.isPaid ? '付费' : '免费' }}</el-tag>
+          <!-- 实体字段是 isPremium（无 isPaid）⇒ 原判断恒为"免费" -->
+          <el-tag :type="row.isPremium ? 'danger' : 'success'">{{ row.isPremium ? '付费' : '免费' }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="下载数" prop="downloadCount" width="100" />
@@ -128,8 +132,21 @@
         </el-form-item>
         <el-form-item label="标题"><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
         <el-form-item label="分类">
-          <el-select v-model="form.categoryId" placeholder="请选择分类" filterable style="width: 100%;">
-            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
+          <!--
+            写入的是**分类名字符串**（对应表列 category）：
+            原表单提交 categoryId，而后端以实体接收、实体无该字段 ⇒ Jackson 静默丢弃，
+            管理员"设了分类"其实没保存（清单 P1）。此处以既有分类作为候选，并允许直接输入新分类。
+          -->
+          <el-select
+            v-model="form.category"
+            placeholder="请选择或输入分类"
+            filterable
+            allow-create
+            default-first-option
+            clearable
+            style="width: 100%;"
+          >
+            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="标签">
@@ -157,11 +174,14 @@
           />
         </el-form-item>
         <el-form-item label="是否付费">
-          <el-switch v-model="form.isPaid" />
+          <!-- 实体字段为 isPremium；原绑 isPaid 提交后被忽略 ⇒ 永远存不上 -->
+          <el-switch v-model="form.isPremium" />
         </el-form-item>
-        <el-form-item label="价格" v-if="form.isPaid">
-          <el-input-number v-model="form.price" :min="0" :precision="2" />
-        </el-form-item>
+        <!--
+          「价格」输入已移除：portal_interview_resume_template **没有 price 列**，
+          且门户不存在"模板购买"流程 —— 原先填了价格提交后被静默丢弃，属假字段，
+          会让管理员误以为已设置价格。若后续要做付费模板，需先补 price 列与购买流程（见对账 §5）。
+        -->
         <el-form-item label="描述">
           <el-input v-model="form.description" type="textarea" :rows="3" />
         </el-form-item>
@@ -218,14 +238,14 @@ const categoryOptions = ref([]);
 const tagOptions = ref([]);
 
 const queryParams = reactive({
-  pageNum: 1, pageSize: 10, categoryId: '', keyword: '', fileType: ''
+  pageNum: 1, pageSize: 10, category: '', keyword: '', fileType: ''
 });
 
 const dialogVisible = ref(false);
 const dialogTitle = computed(() => form.value.id ? '编辑简历模板' : '新增简历模板');
 const form = ref({
-  id: null, title: '', cover: '', previewImagesStr: '', categoryId: null, tags: [],
-  fileType: 'pdf', downloadUrl: '', isPaid: false, price: 0,
+  id: null, title: '', cover: '', previewImagesStr: '', category: '', tags: [],
+  fileType: 'pdf', downloadUrl: '', isPremium: false,
   description: '', sort: 0, status: 'draft'
 });
 
@@ -317,14 +337,14 @@ async function getList() {
 
 function handleQuery() { queryParams.pageNum = 1; getList(); }
 function resetQuery() {
-  queryParams.categoryId = ''; queryParams.keyword = ''; queryParams.fileType = '';
+  queryParams.category = ''; queryParams.keyword = ''; queryParams.fileType = '';
   queryParams.pageNum = 1; getList();
 }
 
 function handleAdd() {
   form.value = {
-    id: null, title: '', cover: '', previewImagesStr: '', categoryId: null, tags: [],
-    fileType: 'pdf', downloadUrl: '', isPaid: false, price: 0,
+    id: null, title: '', cover: '', previewImagesStr: '', category: '', tags: [],
+    fileType: 'pdf', downloadUrl: '', isPremium: false,
     description: '', sort: 0, status: 'draft'
   };
   dialogVisible.value = true;
@@ -337,10 +357,10 @@ async function handleEdit(row) {
     form.value = {
       id: data.id, title: data.title || '', cover: data.cover || '',
       previewImagesStr: imagesToStr(data.previewImages),
-      categoryId: data.categoryId, tags: tagList(data.tags),
+      category: data.category || '', tags: tagList(data.tags),
       fileType: data.fileType || 'pdf',
-      downloadUrl: data.downloadUrl || '', isPaid: !!data.isPaid,
-      price: data.price || 0, description: data.description || '',
+      downloadUrl: data.downloadUrl || '', isPremium: !!data.isPremium,
+      description: data.description || '',
       sort: data.sort || 0, status: data.status || 'draft'
     };
     dialogVisible.value = true;
@@ -404,7 +424,7 @@ onMounted(() => {
 .app-container { padding: 20px; }
 .search-form, .button-group { margin-bottom: 16px; }
 
-/* 缩略图：简历是纵向页面，用 contain 保完整（原先 cover 会把页面中部裁掉，看着像"被截断"） */
+/* 缩略图：简历是纵向页面，用 contain 保完整 */
 .cover-thumb,
 .preview-thumb {
   object-fit: contain;

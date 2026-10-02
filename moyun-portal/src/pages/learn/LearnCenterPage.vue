@@ -99,17 +99,7 @@ function statusText(s: string) {
   return map[s] || s;
 }
 
-function difficultyText(d: string | null) {
-  const map: Record<string, string> = { easy: '简单', medium: '中等', hard: '困难' };
-  return (d && map[d]) || '未分级';
-}
 
-function difficultyColor(d: string | null) {
-  if (d === 'easy') return 'text-emerald-600';
-  if (d === 'medium') return 'text-amber-600';
-  if (d === 'hard') return 'text-rose-600';
-  return 'text-slate-500';
-}
 </script>
 
 <template>
@@ -167,7 +157,24 @@ function difficultyColor(d: string | null) {
 
       <template v-else-if="dashboard">
         <!-- 统计卡片 -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <!--
+          清单 P2：未登录时后端返回的是**全 0 骨架**（dashboard.loggedIn=false），
+          但四个统计卡片仍按真实数据样式渲染「0 / 0% / 0 天 / 0」，容易被误读为"我确实是 0"。
+          这里未登录时统一显示「登录后查看」。
+        -->
+        <section v-if="!isLoggedIn" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div
+            v-for="label in ['累计答题', '通过率', '连续打卡', '错题总数']"
+            :key="label"
+            class="rounded-xl p-5 border shadow-sm"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <div class="text-xs mb-2" style="color: var(--theme-text-secondary);">{{ label }}</div>
+            <div class="text-sm" style="color: var(--theme-text-secondary);">登录后查看</div>
+          </div>
+        </section>
+
+        <section v-else class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div
             class="rounded-xl p-5 border shadow-sm"
             style="background-color: var(--theme-surface); border-color: var(--theme-border);"
@@ -213,7 +220,9 @@ function difficultyColor(d: string | null) {
             @click="goWrong"
           >
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs" style="color: var(--theme-text-secondary);">错题本</span>
+              <!-- 清单 P2：后端 countWrong(userId, null) 统计的是**全部错题（含已掌握）**，
+                   与"错题本=未掌握"的直觉不符；先把文案写成实际口径，避免数字被误读。 -->
+              <span class="text-xs" style="color: var(--theme-text-secondary);">错题总数</span>
               <AlertCircle class="w-4 h-4" style="color: #ef4444;" />
             </div>
             <div class="text-2xl font-bold" style="color: var(--theme-text);">{{ dashboard.wrongCount }}</div>

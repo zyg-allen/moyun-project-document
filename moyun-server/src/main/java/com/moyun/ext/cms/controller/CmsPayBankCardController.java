@@ -2,6 +2,8 @@ package com.moyun.ext.cms.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.common.annotation.Log;
+import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.pay.domain.entity.UserBankCard;
@@ -13,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,6 +40,9 @@ public class CmsPayBankCardController extends BaseController {
 
     @Autowired
     private UserBankCardMapper bankCardMapper;
+
+    @Autowired
+    private com.moyun.pay.service.IBankCardService bankCardService;
 
     @Operation(summary = "银行卡列表", description = "分页查询用户绑定银行卡（脱敏），支持用户ID/核验状态筛选")
     @PreAuthorize("@ss.hasPermi('cms:payBankCard:list')")
@@ -68,6 +75,18 @@ public class CmsPayBankCardController extends BaseController {
             return error("银行卡不存在");
         }
         return success(stripEncrypted(card));
+    }
+
+    @Operation(summary = "人工核实银行卡",
+            description = "把四要素通道无法自动判定的 PENDING 卡置为 VERIFIED（人工确认通过）或 REJECTED（人工判定不通过）")
+    @PreAuthorize("@ss.hasPermi('cms:payBankCard:verify')")
+    @Log(title = "用户银行卡", businessType = BusinessType.UPDATE)
+    @PostMapping("/{cardId}/verify")
+    public AjaxResult verify(@PathVariable Long cardId,
+                             @RequestBody Map<String, String> body) {
+        String verifyStatus = body == null ? null : body.get("verifyStatus");
+        boolean ok = bankCardService.verifyByAdmin(cardId, verifyStatus);
+        return ok ? success("核实结果已保存") : error("核实失败，请稍后重试");
     }
 
     private Map<String, Object> stripEncrypted(UserBankCard card) {

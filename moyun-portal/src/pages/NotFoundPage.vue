@@ -1,4 +1,12 @@
 <script setup lang="ts">
+// 清单 P2：本页原先完全没有 useHead ⇒ 继承 index.html 的 robots=index,follow（404 页被索引）；
+// 路由 meta.robots 全站无消费方，必须显式输出。
+import { useHead } from '@vueuse/head';
+
+useHead({
+  title: '页面不存在 · 旭林知行',
+  meta: [{ name: 'robots', content: 'noindex,follow' }],
+});
 import { RouterLink as Link } from 'vue-router';
 import { Home, Search } from 'lucide-vue-next';
 </script>

@@ -2,12 +2,12 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { Search as SearchIcon, TrendingUp, Flame, PenLine, ArrowRight, Eye, Megaphone } from 'lucide-vue-next';
-import { RouterLink as Link } from 'vue-router';
+import { Search as SearchIcon, TrendingUp, Flame, PenLine, Eye } from 'lucide-vue-next';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Pagination from '@/components/Pagination.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import AdCard from '@/components/AdCard.vue';
 
 import * as articleApi from '@/api/article';
 import * as tagApi from '@/api/tag';
@@ -66,10 +66,17 @@ const breadcrumbs = computed(() => {
   return items;
 });
 
+/**
+ * 是否存在"已生效"的检索条件（清单 P2）。
+ *
+ * <p>原先读的是 v-model 绑定的 searchQuery —— 用户刚敲一个字符（还没回车、没点搜索）
+ * hasQuery 就为 true，而请求只在回车/点击/路由变化时才发，于是立刻渲染「未找到相关内容」空态。
+ * 改为以**路由参数（真正已提交的检索条件）**为准。</p>
+ */
 const hasQuery = computed(() =>
   (route.query.tag && route.query.tag !== '') ||
-  searchQuery.value.trim() ||
-  (selectedCategory.value && selectedCategory.value !== '')
+  (typeof route.query.q === 'string' && route.query.q.trim() !== '') ||
+  (route.query.category && route.query.category !== '')
 );
 
 // 加载热门标签
@@ -83,6 +90,12 @@ async function loadHotTags() {
     console.error('加载热门标签失败:', err);
   }
 }
+
+/**
+ * 检索失败提示（清单 P2）：原先三个加载函数 catch 后只 console.error 并清空数组，
+ * 与"确实没有结果"走同一空态分支，既无提示也无重试入口。
+ */
+const searchError = ref<string | null>(null);
 
 // 服务端分页搜索：只拉当前页 10 条，避免一次性拉 100 条导致首屏卡顿
 async function performSearch() {
@@ -98,10 +111,17 @@ async function performSearch() {
     let response: any;
     const tagParam = route.query.tag as string;
     // 公共分页参数
+    // 排序必须用**后端真实列名**：ArticleQuery 只认 PageDomain 的 orderByColumn/isAsc，
+    // 原先传的 sortBy 后端无此字段 ⇒ 被 Spring 静默丢弃，排序恒为后端默认序。
+    // 「推荐」无独立后端口径 ⇒ 不传排序参数，走 mapper 的 defaultOrderBy（置顶优先 + 发布时间倒序）。
+    const sortParams: { orderByColumn?: string; isAsc?: string } =
+      sortBy.value === '热门' ? { orderByColumn: 'views', isAsc: 'desc' }
+        : sortBy.value === '最新' ? { orderByColumn: 'create_time', isAsc: 'desc' }
+          : {};
     const pageParams = {
       pageNum: currentPage.value,
       pageSize: itemsPerPage.value,
-      sortBy: (sortBy.value === '热门' ? 'views' : 'createdAt') as 'views' | 'createdAt'
+      ...sortParams
     };
 
     if (tagParam) {
@@ -115,6 +135,7 @@ async function performSearch() {
       response = await articleApi.getArticleList({ categoryName: selectedCategory.value, ...pageParams });
     }
 
+    searchError.value = null;
     if (response && response.code === 200 && response.data) {
       const list = (response.data as any).list || response.data || [];
       allArticles.value = list.map(transformArticle) as unknown as Article[];
@@ -125,6 +146,7 @@ async function performSearch() {
     }
   } catch (err) {
     console.error('搜索失败:', err);
+    searchError.value = (err as Error)?.message || '搜索失败，请稍后重试';
     allArticles.value = [];
     totalItems.value = 0;
   } finally {
@@ -132,12 +154,15 @@ async function performSearch() {
   }
 }
 
-// 加载右侧栏热门文章（复用首页热门数据接口，取 5 条）
+// 加载右侧栏热门文章
+// 清单 P2：原先复用首页聚合接口 /portal/article/home —— 该接口一次执行 4 次查询
+//（轮播全量 + 精选 8 + 热门 10 + 最新 20），返回约 40 条却只用 5 条。
+// 改为直接走文章列表接口，按阅读量倒序取 5 条。
 async function loadHotArticles() {
   try {
-    const response = await articleApi.getHomeData();
+    const response = await articleApi.getArticleList({ pageSize: 5, sortBy: 'views', sortOrder: 'desc' });
     if (response.code === 200 && response.data) {
-      const list = (response.data as any).hotArticles || [];
+      const list = (response.data as any).list || response.data || [];
       hotArticles.value = list.slice(0, 5).map(transformArticle) as unknown as Article[];
     }
   } catch (err) {
@@ -166,13 +191,34 @@ function goToPublish() {
 
 function handleSearch() {
   currentPage.value = 1;
-  if (searchQuery.value.trim()) {
-    router.push({ path: '/search', query: { q: searchQuery.value } });
+  const next = searchQuery.value.trim();
+  const current = typeof route.query.q === 'string' ? route.query.q : '';
+  if (next === current) {
+    // 清单 P2：检索条件与当前 URL 完全一致时 route.query 不变、watch 不触发 ——
+    // 原先会出现"列表还是第 3 页数据，分页控件却显示第 1 页"。这里显式重新检索。
+    performSearch();
+    return;
+  }
+  if (next) {
+    router.push({ path: '/search', query: { q: next } });
   } else {
     router.push('/search');
   }
-  // 不在此处调用 performSearch：router.push 改变 route.query 后，
-  // 上方 watch(() => route.query, ...) 会自动触发 performSearch，避免重复请求
+  // 条件变化时由 watch(route.query) 触发 performSearch，避免重复请求
+}
+
+/**
+ * 清空全部检索条件（清单 P2）。
+ *
+ * <p>原先空态里的「浏览全部」只清 searchQuery/selectedCategory 两个局部 ref，
+ * **不清 route.query** —— 标签分支仍从 route.query.tag 取参、hasQuery 也仍为 true，
+ * performSearch 因无查询条件提前 return，结果是"列表被清空但 URL、面包屑、检索条件全不变"。</p>
+ */
+function clearAllFilters() {
+  searchQuery.value = '';
+  selectedCategory.value = '';
+  currentPage.value = 1;
+  router.push({ path: '/search' });
 }
 
 function handleTagClick(tag: string) {
@@ -227,7 +273,7 @@ useHead(
                 v-model="searchQuery"
                 @keyup.enter="handleSearch"
                 type="text"
-                placeholder="搜索文章、标签或作者..."
+                placeholder="搜索文章标题或摘要..."
                 class="w-full pl-11 sm:pl-12 pr-5 sm:pr-6 py-2.5 sm:py-3 text-sm sm:text-base border rounded-xl focus:outline-none focus:ring-2 transition-all"
                 style="background-color: var(--theme-surface); border-color: var(--theme-border); color: var(--theme-text);"
               />
@@ -286,6 +332,20 @@ useHead(
       </div>
 
       <!-- Results -->
+      <!-- 检索失败态（清单 P2）：排在结果/空态之前，与"无结果"区分 -->
+      <div
+        v-if="searchError"
+        class="my-6 rounded-xl border p-6 text-center"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+      >
+        <p class="mb-3 text-sm" style="color: var(--theme-text);">{{ searchError }}</p>
+        <button
+          class="px-4 py-2 rounded-lg text-sm font-medium text-white"
+          style="background-color: var(--theme-primary);"
+          @click="performSearch()"
+        >重试</button>
+      </div>
+
       <div class="py-6 sm:py-8" v-if="hasQuery">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="grid lg:grid-cols-[1fr_300px] gap-6 lg:gap-8">
@@ -326,7 +386,7 @@ useHead(
                 <h3 class="text-xl font-bold mb-2" style="color: var(--theme-text);">未找到相关内容</h3>
                 <p class="mb-6" style="color: var(--theme-text-secondary);">尝试使用不同的关键词或浏览其他分类</p>
                 <button
-                  @click="searchQuery = ''; selectedCategory = ''; performSearch()"
+                  @click="clearAllFilters()"
                   class="px-6 py-2 rounded-full font-medium transition-colors"
                   style="background-color: var(--theme-primary); color: white;"
                 >
@@ -390,22 +450,11 @@ useHead(
                 </div>
               </div>
 
-              <!-- 小广告位（纯静态占位卡，预留后端接口位置） -->
-              <div class="rounded-xl p-5 relative overflow-hidden" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-                <div class="flex items-center gap-2 mb-2">
-                  <Megaphone class="w-4 h-4 text-white/80" />
-                  <span class="text-xs text-white/80 font-medium">合作推广</span>
-                </div>
-                <h4 class="text-white font-semibold text-sm mb-1">成为认证创作者</h4>
-                <p class="text-white/80 text-xs mb-3 leading-relaxed">享受专属权益，让你的创作被更多人看见</p>
-                <button
-                    @click="router.push('/creator/certification')"
-                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
-                >
-                  了解更多
-                  <ArrowRight class="w-3 h-3" />
-                </button>
-              </div>
+              <!--
+                清单 P2：原为写死文案 + 写死跳转的静态推广卡；项目已有广告位体系（AdCard 按 slotKey 取广告
+                且后台可管理），故改为广告位；slotKey 已登记进字典 portal_ad_slot_key（增量脚本 20261001-07）。
+              -->
+              <AdCard slot-key="search_sidebar" />
             </aside>
           </div>
         </div>

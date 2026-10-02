@@ -4,7 +4,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
- * 当前登录主体解析器（模块中立，v13.11）
+ * 当前登录主体解析器（模块中立）
  *
  * <p>从 Spring Security 上下文取主体，仅当其实现了 {@link PrincipalProvider} 时返回信息 ——
  * 因此 {@code core} 无需认识任何一个业务模块的主体类型。</p>

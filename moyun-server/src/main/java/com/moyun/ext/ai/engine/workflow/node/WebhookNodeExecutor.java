@@ -64,6 +64,9 @@ public class WebhookNodeExecutor extends BaseNodeExecutor {
             // 构建请求头
             HttpHeaders headers = buildHeaders(config, context, payload);
 
+            // 清单 P2：同 HTTP 节点 —— 用户可配任意 URL，需拦截内网/元数据地址（SSRF）
+            com.moyun.ext.ai.util.OutboundUrlGuard.assertAllowed(url);
+
             log.info("🔔 Webhook节点执行: url={}", url);
 
             // 发送请求（带重试）

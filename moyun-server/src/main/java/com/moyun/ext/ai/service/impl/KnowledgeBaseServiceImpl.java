@@ -7,7 +7,6 @@ import com.moyun.ext.ai.exception.ErrorCode;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ext.ai.service.*;
-import com.moyun.ext.ai.util.JsonUtils;
 import com.moyun.ext.ai.vo.KnowledgeBaseVO;
 import com.moyun.ext.ai.entity.DocumentImage;
 import com.moyun.ext.ai.entity.DocumentSegment;
@@ -36,7 +35,6 @@ import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -114,7 +112,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 知识库文档处理执行器（CPU 密集型：PDF 转换 / 切片 / 向量化 / 图片提取）。
      *
-     * <p>v13.5 前 {@code uploadFile} 与 {@code reprocessFile} 两处异步处理直接
+     * <p>此前 {@code uploadFile} 与 {@code reprocessFile} 两处异步处理直接
      * {@code CompletableFuture.runAsync(task)}——未指定执行器即落在
      * {@code ForkJoinPool.commonPool()}（并行度 = CPU-1）。文档处理是分钟级长任务，
      * 会把公共池占满，导致全站并行流与并行任务一起饿死；且无命名、无队列上限、无优雅停机。</p>
@@ -124,9 +122,9 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     private Executor knowledgeProcessExecutor;
 
     /**
-     * 事务模板：用于把事务边界**收窄到只剩 DB 写**（v13.14）。
+     * 事务模板：用于把事务边界**收窄到只剩 DB 写**。
      *
-     * <p>背景（报告 §6.2「事务内做远程 IO」）：{@code uploadFileOnly} 原先整方法 {@code @Transactional}，
+     * <p>背景（报告 §6.2「事务内做远程 IO」）：{@code uploadFileOnly} 若整方法 {@code @Transactional}，
      * 而方法体中包含 **MinIO 上传**（网络 IO，大文件可达数秒）与内容哈希计算 ——
      * 等于把 DB 连接/事务开在整个上传期间；并发上传时会快速耗尽连接池。
      * 现在这些 IO 留在事务外，只有「插记录 + 建默认配置」两步在事务内。</p>
@@ -191,7 +189,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 确保Embedding模型可用且与最新配置一致。
      *
-     * <p>解决的问题：embeddingModel 原先只在应用启动时创建一次（@PostConstruct），
+     * <p>解决的问题：embeddingModel 若只在应用启动时创建一次（@PostConstruct），
      * 若启动时数据库中 API Key 为空（或事后才修复配置），内存中的实例将一直携带空 Key，
      * 导致向量化持续报 401，且修复配置后必须重启应用。</p>
      *
@@ -245,7 +243,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         this.save(knowledge);
 
         // 异步处理 PDF 转换和向量化
-        // v13.5：原先未指定执行器 → 落在 ForkJoinPool.commonPool()（并行度 = CPU-1，
+        // 未指定执行器 → 落在 ForkJoinPool.commonPool()（并行度 = CPU-1，
         // 且文档处理是长任务，会把公共池占满导致全站并行任务饿死）。
         // 现走本模块专用池 knowledgeProcessExecutor（CPU 密集型、有界队列、优雅停机）。
         knowledgeProcessExecutor.execute(() -> {
@@ -383,12 +381,12 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         this.updateById(knowledge);
 
         // 异步重新处理 - 通过 resolveEffectiveConfig 解析有效配置后调 processKnowledge，
-        // 实现"硬编码默认 ← 文档级覆盖"合并，消除旧版 processVectorization → getKnowledgeConfig
+        // 实现"硬编码默认 ← 文档级覆盖"合并，避免 processVectorization → getKnowledgeConfig
         // 硬编码默认值与 KnowledgeConfigServiceImpl.createDefaultConfigObject 不一致的隐患（阶段 2）
         //
         // 注意：不能直接调 processKnowledgeWithConfig(id, null)，因为后者在 config=null 时会回调 reprocessFile
         // 形成无限递归；这里直接调 resolveEffectiveConfig + processKnowledge 跳过 null 守卫
-        // v13.5：同 uploadFile，原先落 commonPool，现走本模块专用池
+        // 同 uploadFile，走本模块专用池
         knowledgeProcessExecutor.execute(() -> {
             try {
                 log.info("开始重新处理文档，ID: {}", knowledge.getId());
@@ -480,7 +478,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         } else if ("doc".equals(fileType) || "docx".equals(fileType)) {
             processWordDocument(knowledge);
         } else if ("xls".equals(fileType) || "xlsx".equals(fileType)) {
-            // legacy 路径：从 DB 取配置（与旧版行为保持一致），活跃路径走 processKnowledge(knowledgeId, config)
+            // legacy 路径：从 DB 取配置，活跃路径走 processKnowledge(knowledgeId, config)
             processExcelDocument(knowledge, getKnowledgeConfig(knowledge.getId()));
         } else if ("ppt".equals(fileType) || "pptx".equals(fileType)) {
             processPowerPointDocument(knowledge, getKnowledgeConfig(knowledge.getId()));
@@ -1151,7 +1149,6 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      */
     private Path downloadToTempFile(String objectName, String suffix) throws IOException {
         // 使用 try-with-resources 确保 InputStream 在 Files.copy 抛异常时也能被关闭
-        // 旧版在 Files.copy 后内联 close()，若 copy 抛 IOException（如磁盘满/网络中断）会导致连接泄漏
         try (java.io.InputStream inputStream = minioService.getFileStream(objectName, minioService.getKnowledgeBucket())) {
             if (inputStream == null) {
                 throw new IOException("无法从 MinIO 获取文件: " + objectName);
@@ -1234,8 +1231,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 检查知识库文档所属的 Library 是否被智能体关联
      *
-     * <p>注：原方法基于已废弃的 agent.knowledgeBaseIds（逗号分隔文档ID）检查，
-     * 现 agent 改用 knowledgeLibraryIds（JSON数组，存储 library ID）。
+     * <p>agent 使用 knowledgeLibraryIds（JSON数组，存储 library ID）判断关联。
      * 删除文档时检查所属 Library 是否被 agent 关联，避免删除后 agent 检索失败（清理）</p>
      */
     private List<com.moyun.ext.ai.entity.Agent> checkAgentAssociation(Long knowledgeBaseId) {
@@ -1688,7 +1684,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             }
 
             // 从 MinIO 下载文件到临时目录
-            // 使用 try-with-resources 确保 InputStream 被关闭（旧版在 Files.copy 后内联 close()，异常时泄漏）
+            // 使用 try-with-resources 确保 InputStream 被关闭
             try (java.io.InputStream inputStream = minioService.getFileStream(originalObjectName, minioService.getKnowledgeBucket())) {
                 if (inputStream == null) {
                     log.error("❌ 无法从 MinIO 获取文件: {}", originalObjectName);
@@ -1751,7 +1747,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 只上传文件，不进行处理（新流程第一阶段）
      *
-     * <p><b>事务边界（v13.14 收窄）</b>：本方法**不再**整体 {@code @Transactional} ——
+     * <p><b>事务边界</b>：本方法**并非**整体 {@code @Transactional} ——
      * MinIO 上传与哈希计算属远程 IO，必须在事务外；只有末尾两步 DB 写包在
      * {@link #transactionTemplate} 内（语义等价：DB 写失败仍整体回滚）。</p>
      */
@@ -1771,7 +1767,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         log.info("✅ 文件已上传到 MinIO: {}", filePath);
 
         // 2. 计算文件内容哈希（用于增量更新检测）
-        // 使用 try-with-resources 确保 InputStream 被关闭（旧版 file.getInputStream() 打开后未关闭，每次上传泄漏一个流）
+        // 使用 try-with-resources 确保 InputStream 被关闭
         String contentHash = null;
         if (knowledgeIncrementalService != null) {
             try (java.io.InputStream hashStream = file.getInputStream()) {
@@ -2679,7 +2675,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      *   <li>读取文档级配置 knowledge_config（实例级覆盖，可能为 null）；</li>
      *   <li>合并入参 libraryConfig（库级默认）；</li>
      *   <li>未设字段回退到硬编码默认，保证返回的 kc 永不为 null 且字段完整；</li>
-     *   <li>库级配置的所有冗余字段（含旧版有损转换遗漏的 embeddingModel / rerankModel）全部参与合并。</li>
+     *   <li>库级配置的所有冗余字段（含 embeddingModel / rerankModel）全部参与合并。</li>
      * </ol>
      *
      * <p>注意：检索参数（retrievalMode/topK/rerank*）目前是死字段（检索侧实际读 agent 表 + RagConfig），
@@ -2694,7 +2690,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         }
 
         // 通过 KnowledgeConfigService.resolveEffectiveConfig 完成双轨合并：
-        // 硬编码默认 ← 库级默认 ← 文档级覆盖（修复旧版有损转换丢失 embeddingModel/rerankModel 的 bug）
+        // 硬编码默认 ← 库级默认 ← 文档级覆盖（embeddingModel/rerankModel 也参与合并）
         KnowledgeConfig kc = knowledgeConfigService.resolveEffectiveConfig(documentId, config);
 
         try {
@@ -2930,7 +2926,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * @return 文档分片器
      */
     private DocumentSplitter createAdaptiveDocumentSplitter(Long knowledgeId, String fileName, String contentSample) {
-        // 旧版 3 参重载：内部查 DB 配置（含硬编码默认值）后委托给 4 参版本
+        // legacy 3 参重载：内部查 DB 配置（含硬编码默认值）后委托给 4 参版本
         // 仅被 legacy 路径（processPdfDocumentInternalWithCache / processTextDocument / processWordDocument）调用
         // 活跃路径（processExcelDocument）已改为显式传 config，不再走此重载
         KnowledgeConfig config = getKnowledgeConfig(knowledgeId);

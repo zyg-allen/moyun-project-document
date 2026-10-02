@@ -58,7 +58,7 @@
       </view>
     </view>
 
-    <!-- 收银台弹层（V11.80 公共支付通道） -->
+    <!-- 收银台弹层（公共支付通道） -->
     <view v-if="cashier.visible" class="cashier-mask" @tap="closeCashier(false)">
       <view class="cashier-panel" @tap.stop>
         <view class="cashier-title">微信支付</view>
@@ -100,7 +100,7 @@ export default {
       payChannel: 'wechat', // v11.80 统一命名（当前公共通道仅开通微信）
       totalAmount: '0.00',
       history: [],
-      // 收银台（V11.80）
+      // 收银台
       cashier: {
         visible: false,
         tipOrderId: null,
@@ -187,7 +187,7 @@ export default {
           if (!r.confirm) return;
           this.submitting = true;
           try {
-            // V11.80 公共通道：下单拿收银台参数（pending 单 + 网关 codeUrl）
+            // 公共支付通道下单：拿收银台参数（pending 单 + 网关 codeUrl）
             const cashier = await createTip({
               amount: num,
               payChannel: this.payChannel,
@@ -216,7 +216,7 @@ export default {
     },
     async renderQr(codeUrl) {
       if (!codeUrl) return;
-      // H5 与小程序同一套绘制（uni canvas + qrcode 纯计算模块）——旧实现仅 H5 有效
+      // H5 与小程序同一套绘制（uni canvas + qrcode 纯计算模块）
       await drawQrCode({
         canvasId: 'tipQr' + this.cashier.tipOrderId,
         text: codeUrl,

@@ -15,7 +15,6 @@ import com.moyun.portal.domain.entity.PortalAchievement;
 import com.moyun.portal.domain.entity.PortalGrowthLog;
 import com.moyun.portal.domain.entity.PortalGrowthRule;
 import com.moyun.portal.domain.entity.PortalUser;
-import com.moyun.portal.domain.entity.PortalUserBadge;
 import com.moyun.portal.domain.entity.PortalUserGrowth;
 import com.moyun.portal.domain.entity.PortalUserStats;
 import com.moyun.portal.domain.vo.AchievementVO;
@@ -149,7 +148,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         growthLog.setCreateTime(LocalDateTime.now());
         logMapper.insert(growthLog);
 
-        // 6. 原子增加成长值（v13.16：增量写必须校验影响行数——0 行 = 聚合行缺失，
+        // 6. 原子增加成长值（增量写必须校验影响行数——0 行 = 聚合行缺失，
         //    说明上面的 INSERT IGNORE 静默失败（非重复键原因）。此处抛错回滚，避免"流水写了、成长值没加"）
         int growthRows = growthMapper.addGrowth(userId, delta);
         if (growthRows == 0) {
@@ -174,7 +173,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         if (userId == null || delta == 0) {
             return;
         }
-        // v13.16：精选笔记数唯一写入源（±1），并校验影响行数——0 行=统计行缺失，失败即回滚
+        // 精选笔记数唯一写入源（±1），并校验影响行数——0 行=统计行缺失，失败即回滚
         statsMapper.insertIfNotExists(userId);
         int rows = statsMapper.addNoteAdopted(userId, delta);
         requireAggregateUpdated(rows, "note_adopted", userId);
@@ -282,12 +281,26 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         vo.setSeasonValue(growth.getSeasonValue());
         vo.setUpdateTime(growth.getUpdateTime());
 
-        // 计算下一级信息
+        // 计算下一级信息 + 本级进度（阈值非线性，进度必须按本级区间算）
         int currentLevel = growth.getLevel();
+        int currentValue = growth.getGrowthValue() == null ? 0 : growth.getGrowthValue();
+        // 本级起点：level 为 1 起，对应阈值数组下一项的下标以 level-1 为起点
+        int baseIndex = Math.max(0, Math.min(currentLevel - 1, LEVEL_THRESHOLDS.length - 1));
+        int baseThreshold = LEVEL_THRESHOLDS[baseIndex];
+        vo.setLevelBaseGrowth(baseThreshold);
         if (currentLevel < LEVEL_THRESHOLDS.length) {
             int nextThreshold = LEVEL_THRESHOLDS[currentLevel];
-            vo.setNextLevelGrowth(nextThreshold - growth.getGrowthValue());
+            vo.setNextLevelGrowth(nextThreshold - currentValue);
             vo.setNextLevelTitle(LEVEL_TITLES[currentLevel]);
+            int span = nextThreshold - baseThreshold;
+            // 整数除法（向下取整）：本级内最大值为 nextThreshold-1，四舍五入会在"还差 1 点"时显示 100%，
+            // 与实际语义不符；向下取整保证 100% 只在真正达到升级阈值时出现。
+            vo.setLevelProgress(span <= 0 ? 100
+                    : Math.max(0, Math.min(100, (currentValue - baseThreshold) * 100 / span)));
+        } else {
+            // 已达最高级：无下一级，进度按满级处理
+            vo.setNextLevelGrowth(null);
+            vo.setLevelProgress(100);
         }
 
         // 赛季排名
@@ -367,6 +380,10 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         vo.setTotalLikes(articleLikeSum + commentLikeSum);
         vo.setCheckinStreak(stats.getCheckinStreak() != null ? stats.getCheckinStreak() : 0);
         vo.setLastCheckinDate(stats.getLastCheckinDate());
+        // 今日是否已签到：与 checkin() 的判据**完全一致**（服务器本地日期比较），
+        // 避免前端再用 UTC 日期自行推算（见 UserStatsVO#checkedInToday 注释）
+        vo.setCheckedInToday(stats.getLastCheckinDate() != null
+                && stats.getLastCheckinDate().equals(LocalDate.now()));
         return vo;
     }
 
@@ -450,7 +467,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
 
         statsMapper.insertIfNotExists(userId);
         PortalUserStats stats = statsMapper.selectByUserId(userId);
-        // v13.16：INSERT IGNORE 静默失败时这里会拿到 null（原实现随后 stats.getLastCheckinDate() 直接 NPE），
+        // INSERT IGNORE 静默失败时这里会拿到 null，
         // 改为显式失败并给出可排查的信息；调用方事务 rollbackFor=Exception 会整体回滚
         if (stats == null) {
             throw new ServiceException("签到失败：用户统计记录缺失（userId=" + userId + "）");
@@ -478,7 +495,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         update.setId(stats.getId());
         update.setCheckinStreak(newStreak);
         update.setLastCheckinDate(today);
-        // v13.16：签到状态写回必须校验影响行数（0 行 = 统计行在并发下消失 → 连续签到天数会静默丢失）
+        // 签到状态写回必须校验影响行数（0 行 = 统计行在并发下消失 → 连续签到天数会静默丢失）
         int checkinRows = statsMapper.updateById(update);
         if (checkinRows == 0) {
             throw new ServiceException("签到失败：统计记录更新未生效（userId=" + userId + "）");
@@ -514,7 +531,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             // 奖励成长值
             if (achievement.getGrowthReward() != null && achievement.getGrowthReward() > 0) {
                 growthMapper.insertIfNotExists(userId);
-                // v13.16：奖励成长值同样校验影响行数（0 行 = 聚合行缺失 → 回滚，不静默丢奖励）
+                // 奖励成长值同样校验影响行数（0 行 = 聚合行缺失 → 回滚，不静默丢奖励）
                 int rewardRows = growthMapper.addGrowth(userId, achievement.getGrowthReward());
                 if (rewardRows == 0) {
                     throw new ServiceException("成就奖励成长值失败：用户成长记录缺失（userId=" + userId + "）");
@@ -590,8 +607,8 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             case "write_note":
                 requireAggregateUpdated(statsMapper.addNoteCount(userId, delta), action, userId);
                 break;
-            // v13.16：note_adopted 是"篇数"而非成长值，已移出本方法（否则会拿 rule.growthDelta 当篇数写），
-            // 唯一写入源改为 updateNoteAdoptedCount(userId, ±1)
+            // note_adopted 是篇数而非成长值，不在本方法处理（否则会拿 rule.growthDelta 当篇数写），
+            // 唯一写入源是 updateNoteAdoptedCount(userId, ±1)
             case "publish_experience":
                 requireAggregateUpdated(statsMapper.addExperienceCount(userId, delta), action, userId);
                 break;
@@ -603,7 +620,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         }
     }
     /**
-     * 聚合列增量写校验（v13.16）
+     * 聚合列增量写校验
      *
      * <p>{@code addXxx} 系列是"UPDATE ... SET col = col + ? WHERE user_id = ?"，返回 0 说明
      * {@code WHERE} 没命中——即 {@code INSERT IGNORE} 静默失败导致统计行缺失。

@@ -20,12 +20,6 @@ const isNotProps = makeMap(
   'layout,prepend,regList,tag,document,changeTag,defaultValue'
 )
 
-function useVModel(props, emit) {
-  return {
-    modelValue: props.defaultValue,
-    'onUpdate:modelValue': (val) => emit('update:modelValue', val),
-  }
-}
 const componentChild = {
   'el-button': {
     default(h, conf, key) {

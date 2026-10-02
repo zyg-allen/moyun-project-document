@@ -50,13 +50,11 @@ public final class AiSceneTasks {
     /**
      * JD 原文 → 岗位关键词提取（PortalJobTemplateServiceImpl）。
      *
-     * <p><b>v13.43 补常量（报告七 P0-4）</b>：原实现用**裸字面量** {@code "jd_keywords"}，
-     * 不在本白名单内 —— 既无法防「乱加子任务」，改名/重构也容易漏。
-     * 补齐后 {@code validate()} 的两段式校验才能覆盖它。</p>
+     * <p>该常量属 task 白名单，{@code validate()} 的两段式校验据此放行。</p>
      */
     public static final String QUESTION_JD_KEYWORDS = "jd_keywords";
 
-    // ===== voice_interview 新增子任务（方案 V1.2 批次 1）=====
+    // ===== voice_interview 子任务 =====
 
     /**
      * 开场降级：warmup 失败后的简版开场白 + 首题（VoiceInterviewServiceImpl）。
@@ -73,7 +71,7 @@ public final class AiSceneTasks {
     /**
      * 整场复盘 + 追问预测（一次调用双产出）。
      *
-     * <p>方案 V1.2 §3.2 裁决：追问预测**并入**复盘调用而**不单开** task ——
+     * <p>追问预测**并入**复盘调用而**不单开** task ——
      * 两触点输入完全同源（简历摘要 + 岗位 + JD + qaList），单开等于输入 token 翻倍，
      * 且模型一次看完对话后「顺带」产出预测问题质量更高（它知道哪些问过哪些没问）。</p>
      */
@@ -82,15 +80,13 @@ public final class AiSceneTasks {
     /** 发展方向建议（懒生成：首次打开 tab 才调用；配置行预留 RAG 知识库绑定） */
     public static final String INTERVIEW_INDUSTRY_INSIGHT = "industry_insight";
 
-    // ==================== 白名单（v13.51 批次 4：两段式校验用） ====================
+    // ==================== 白名单（两段式校验用） ====================
 
     /**
      * 全部合法 task 短码（白名单）。
      *
      * <p><b>为什么需要它</b>：场景配置的 {@code scene_code} 支持两段式
-     * {@code main:task} 写法，但原先管理端校验用 {@link AiSceneEnum#of(String)} 做**整串精确匹配**
-     * ⇒ 合法的子场景（如 {@code voice_interview:warmup}）反而**存不了**，只能靠 SQL 维护。
-     * 批次 4 把校验改为两段式后，task 段需要一份权威白名单 —— 就是本方法。</p>
+     * {@code main:task} 写法 ⇒ task 段需要一份权威白名单。</p>
      *
      * <p>白名单由本类常量派生（反射读取 {@code public static final String} 字段），
      * <b>新增子任务只需在本类加常量</b>，白名单自动跟随，不会再出现"加了常量但校验不认"的漂移。</p>

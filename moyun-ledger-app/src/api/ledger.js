@@ -224,11 +224,11 @@ export const uploadVoucher = (filePath) => {
 export const getAiAnalysis = (params) => get('/portal/ledger/ai/analysis', params);
 export const listAiReports = (params) => get('/portal/ledger/ai/reports', params);
 
-/** v11.55 异步分析任务：提交（立即返回 taskId）+ 轮询状态（success 时带 report） */
+/** 异步分析任务：提交（立即返回 taskId）+ 轮询状态（success 时带 report） */
 export const submitAiAnalysisTask = (data) => post('/portal/ledger/ai/analysis/task', data);
 export const getAiAnalysisTask = (taskId) => get('/portal/ledger/ai/analysis/task/' + taskId);
 
-/** v11.55 历史版本：完整回看 + 删除 */
+/** 历史版本：完整回看 + 删除 */
 export const getAiReportDetail = (id) => get('/portal/ledger/ai/reports/' + id);
 export const deleteAiReport = (id) => del('/portal/ledger/ai/reports/' + id);
 
@@ -238,7 +238,7 @@ export const getAiProfile = () => get('/portal/ledger/ai/profile');
 /** 更新画像（职位/公司/身份标签，与门户共用账号） */
 export const updateAiProfile = (data) => post('/portal/ledger/ai/profile', data);
 
-// ---------------- 小程序功能入口配置（v11.73 后台可视化运营） ----------------
+// ---------------- 小程序功能入口配置（后台可视化运营） ----------------
 
 /** 可见功能入口列表（后台配置；失败时前端回退内置默认清单） */
 export const getAppFeatures = () => get('/portal/ledger/app-features');
@@ -283,22 +283,22 @@ export const toggleMemo = (id) => post('/portal/ledger/memos/' + id + '/toggle',
 /** 删除待办 */
 export const deleteMemo = (id) => del('/portal/ledger/memos/' + id);
 
-// ---------------- 打赏（V11.80 接入公共支付通道） ----------------
+// ---------------- 打赏（接入公共支付通道） ----------------
 
 /** 累计打赏金额（status=paid） */
 export const getTipTotal = () => get('/portal/ledger/tips/total');
 
-/** 我的赞赏记录（分页，含 pending/paid，V11.80） */
+/** 我的赞赏记录（分页，含 pending/paid） */
 export const listMyTips = (params) => get('/portal/ledger/tips/my', params || { current: 1, size: 20 });
 
 /**
- * 发起打赏下单（V11.80 公共支付通道）
+ * 发起打赏下单（公共支付通道）
  * @param data { amount, payChannel, target, reason, clientUuid }
  * @returns {Promise<{ tipOrderId, payNo, codeUrl, amount, expireTime, mockEnabled }>}
  */
 export const createTip = (data) => post('/portal/ledger/tips', data);
 
-// ---------------- 支付通道（复用门户公共支付，V11.80） ----------------
+// ---------------- 支付通道（复用门户公共支付） ----------------
 
 /** 支付状态轮询（收银台 3s 轮询） */
 export const getPayStatus = (payNo) => get(`/portal/pay/status/${payNo}`);
@@ -306,7 +306,7 @@ export const getPayStatus = (payNo) => get(`/portal/pay/status/${payNo}`);
 /** mock 模式：模拟支付成功（触发与真实回调一致的后续链路） */
 export const mockPay = (payNo) => post(`/portal/pay/mock/${payNo}`);
 
-// ---------------- 记账VIP订阅（V11.81 接入公共支付通道，平台直收类） ----------------
+// ---------------- 记账VIP订阅（接入公共支付通道，平台直收类） ----------------
 
 /** 上架套餐列表（价格后台可配） */
 export const listVipPackages = () => get('/portal/ledger/vip/packages');
@@ -315,7 +315,7 @@ export const listVipPackages = () => get('/portal/ledger/vip/packages');
 export const getVipStatus = () => get('/portal/ledger/vip/status');
 
 /**
- * VIP订阅下单（V11.81 公共通道：pending 单 + 网关统一下单）
+ * VIP订阅下单（公共通道：pending 单 + 网关统一下单）
  * @param data { packageId, clientUuid }
  * @returns {Promise<{ vipOrderId, payNo, codeUrl, amount, packageName, expireTime, mockEnabled }>}
  */
@@ -354,7 +354,7 @@ export const submitFeedback = (data) => post('/portal/feedback/submit', data);
 
 /** 我的反馈历史（分页参数 page/pageSize 走 query；返回分页对象 records/total） */
 export const listMyFeedback = (params) => get('/portal/feedback/my-list', params);
-// ---------------- 注册（复用门户账号体系，v11.35 双模式） ----------------
+// ---------------- 注册（复用门户账号体系，双模式） ----------------
 
 /**
  * 发送邮箱验证码（注册场景）

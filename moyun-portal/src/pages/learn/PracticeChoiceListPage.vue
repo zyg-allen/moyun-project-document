@@ -9,6 +9,7 @@ import {
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import { getQuestionList } from '@/api/interview';
 import type { InterviewQuestionVO, InterviewQuestionQuery } from '@/types/api';
 
@@ -16,12 +17,22 @@ const router = useRouter();
 const route = useRoute();
 
 // ========== 筛选 ==========
-const activeDifficulty = ref<string>((route.query.difficulty as string) || '');
+// 清单 P2：原先直接把 route.query.difficulty 原文当筛选值，而后端是精确匹配（eq(difficulty)），
+// 任何脏值（?difficulty=Easy、?difficulty=1、外部系统拼错）都会命中 0 条。
+// 这里做白名单 + 小写归一，非法值一律忽略（等同"全部难度"）。
+const DIFFICULTY_WHITELIST = ['easy', 'medium', 'hard'];
+const normalizeDifficulty = (raw: unknown): string => {
+  const v = String(raw ?? '').trim().toLowerCase();
+  return DIFFICULTY_WHITELIST.includes(v) ? v : '';
+};
+const activeDifficulty = ref<string>(normalizeDifficulty(route.query.difficulty));
 const keyword = ref<string>((route.query.keyword as string) || '');
 const searchInput = ref(keyword.value);
 
 // ========== 分页 ==========
-const page = ref<number>(parseInt(route.query.page as string) || 1);
+// 清单 P2：原来 parseInt(route.query.page) || 1 只兜住 NaN/0，**负数照原样保留**
+// （?page=-5 → pageNum=-5 发给后端）。这里统一夹到 >=1 的整数。
+const page = ref<number>(Math.max(1, parseInt(route.query.page as string, 10) || 1));
 const pageSize = 10;
 const total = ref(0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
@@ -38,18 +49,36 @@ useHead(computed(() => generateSeo({
   canonicalPath: '/learn/practice/choice',
 })));
 
-// 难度配置
-const DIFFICULTY_OPTIONS = [
-  { label: '全部', value: '' },
-  { label: '简单', value: 'easy' },
-  { label: '中等', value: 'medium' },
-  { label: '困难', value: 'hard' },
-];
-const DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
+// 难度配置：字典 portal_question_difficulty 驱动（v13.91）
+//
+// 原先选项与徽章色板全部写死在组件内，后台调整难度字典门户不跟随；
+// 而同一份字典后台题库管理早已在用。现改为字典驱动 + **本地兜底**
+// （字典未加载/为空时退回原写死口径，保证不出现空白下拉）。
+const difficultyDict = useDictData(['portal_question_difficulty']);
+
+const DIFFICULTY_FALLBACK_MAP: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
   medium: { label: '中等', class: 'bg-yellow-100 text-yellow-700' },
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
+const DIFFICULTY_OPTIONS = computed(() => {
+  const items = difficultyDict['portal_question_difficulty'];
+  const rest = items && items.length > 0
+    ? items.map(i => ({ label: i.dictLabel, value: i.dictValue }))
+    : Object.entries(DIFFICULTY_FALLBACK_MAP).map(([value, m]) => ({ label: m.label, value }));
+  return [{ label: '全部', value: '' }, ...rest];
+});
+const DIFFICULTY_MAP = computed<Record<string, { label: string; class: string }>>(() => {
+  const items = difficultyDict['portal_question_difficulty'];
+  if (items && items.length > 0) {
+    const m: Record<string, { label: string; class: string }> = {};
+    for (const i of items) {
+      m[i.dictValue] = { label: i.dictLabel, class: dictBadgeClass(i.listClass) || 'bg-gray-100 text-gray-600' };
+    }
+    return m;
+  }
+  return DIFFICULTY_FALLBACK_MAP;
+});
 
 const breadcrumbs = computed(() => [
   { label: '学习中心', path: '/learn' },

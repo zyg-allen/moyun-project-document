@@ -39,11 +39,24 @@ const sentinelRef = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
 // eventType 中文映射
+/**
+ * 动态类型中文映射（清单 P2）。
+ *
+ * <p>原表只枚举 4 种，且其中 `checkin` 在全后端**没有任何写入点**（纯死分支）；
+ * 后端 `IFeedService#publishEvent` 实际还会产出 `solve_question` / `create_topic` /
+ * `finish_book` / `create_booklist` / `write_quote` / `column_new_article` 六种 ——
+ * 未登记的类型会一律显示成"有了新动态"，用户看不出发生了什么。</p>
+ */
 const eventTypeText: Record<string, string> = {
   publish_article: '发布了文章',
   publish_experience: '发布了面经',
   new_column: '创建了专栏',
-  checkin: '打卡了',
+  column_new_article: '专栏有新文章',
+  solve_question: '答对了一道题',
+  create_topic: '发布了话题',
+  finish_book: '读完了一本书',
+  create_booklist: '创建了书单',
+  write_quote: '写了条金句',
 };
 
 // eventType 图标映射（动态卡片动作）
@@ -54,8 +67,13 @@ function actionIcon(ev: FeedEventType) {
     case 'publish_experience':
       return Briefcase;
     case 'new_column':
+    case 'create_booklist':
       return BookOpen;
-    case 'checkin':
+    case 'column_new_article':
+    case 'write_quote':
+      return FileText;
+    case 'solve_question':
+    case 'finish_book':
       return Sparkles;
     default:
       return Bell;
@@ -67,6 +85,9 @@ function actionText(ev: FeedEventType): string {
 }
 
 // 跳转目标
+// 取值口径：后端 IFeedService#publishEvent 的 targetType **实参**（v13.81 逐处核对）。
+// 实际写入的只有这 5 类：article / column / question / experience / topic。
+// 此前缺 question 与 topic ⇒ 这两类动态的「查看详情」整块不渲染（点不进任何地方）。
 function targetPath(ev: FeedEventVO): string | null {
   if (ev.targetId === undefined || ev.targetId === null || ev.targetId === '') return null;
   switch (ev.targetType) {
@@ -76,6 +97,12 @@ function targetPath(ev: FeedEventVO): string | null {
       return `/interview/experience/${ev.targetId}`;
     case 'column':
       return `/column/${ev.targetId}`;
+    case 'question':
+      // 由 solve_question 事件写入（PortalInterviewServiceImpl#solveQuestion）
+      return `/interview/question/${ev.targetId}`;
+    case 'topic':
+      // 由 create_topic 事件写入（PortalTopicServiceImpl）
+      return `/topic/${ev.targetId}`;
     default:
       return null;
   }
@@ -190,6 +217,11 @@ async function loadMore() {
       const data = res.data;
       list.value = list.value.concat(data.list || []);
       total.value = data.total || 0;
+    } else {
+      // 清单 P2：业务失败（code!==200）原先**直接跳过** —— 既不回滚页码也不报错，
+      // 于是页码已 +1 却没有任何数据追加 ⇒ 下次"加载更多"会**跳过一页**。
+      page.value = Math.max(1, page.value - 1);
+      error.value = res.message || '加载更多失败';
     }
   } catch (err) {
     // 失败回退页码，便于下次重试
@@ -404,7 +436,24 @@ function avatarUrl(ev: FeedEventVO): string {
           </div>
 
           <!-- 加载更多 / 哨兵 -->
-          <div ref="sentinelRef" class="py-6">
+          <!--
+          清单 P2：原错误块条件是 error && list.length === 0，被前面"列表非空"分支屏蔽，
+          「加载更多」失败**永远不显示**。这里在哨兵区补内联错误 + 重试。
+        -->
+        <div
+          v-if="error && list.length > 0"
+          class="mt-4 rounded-xl border p-4 text-center"
+          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        >
+          <p class="mb-3 text-sm" style="color: #ef4444;">{{ error }}</p>
+          <button
+            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
+            @click="loadMore()"
+          >重试</button>
+        </div>
+
+        <div ref="sentinelRef" class="py-6">
             <div v-if="loadingMore" class="flex flex-col items-center justify-center">
               <div
                 class="animate-spin rounded-full h-8 w-8 border-2"

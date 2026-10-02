@@ -41,7 +41,7 @@ public class ContextManager {
     /**
      * 会话摘要异步预生成执行器（AI 模块专用池，见 {@code AsyncConfig#contextSummaryExecutor}）。
      *
-     * <p>v13.5 前是 {@code static final ExecutorService}（{@code Executors.newSingleThreadExecutor}）：
+     * <p>本执行器必须由容器管理，不能用 {@code static final ExecutorService}（{@code Executors.newSingleThreadExecutor}）：
      * 脱离 Spring 容器、无优雅停机、**无界队列**（LLM 变慢时摘要任务可无限堆积）。
      * 现由容器管理：单线程语义不变，队列 200 且有界，满则丢弃并告警——
      * 摘要属非关键路径，下一轮滑窗超窗会重新触发。</p>

@@ -370,22 +370,6 @@ function handleSelectionChange(selection) {
   single.value = selection.length != 1;
   multiple.value = !selection.length;
 }
-// 更多操作触发
-function handleCommand(command, row) {
-  switch (command) {
-    case "handleRun":
-      handleRun(row);
-      break;
-    case "handleView":
-      handleView(row);
-      break;
-    case "handleJobLog":
-      handleJobLog(row);
-      break;
-    default:
-      break;
-  }
-}
 // 任务状态修改
 function handleStatusChange(row) {
   let text = row.status === "0" ? "启用" : "停用";

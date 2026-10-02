@@ -4,7 +4,7 @@ import type { HintLevel, HintVO } from '@/api/voiceInterview';
 import { useApiCall } from '@/composables/useApiCall';
 
 /**
- * 面试提示引擎 Composable —— V10.0 语音面试官
+ * 面试提示引擎 Composable
  *
  * <p>封装 HintEngine 后端接口调用，提供：
  * <ul>

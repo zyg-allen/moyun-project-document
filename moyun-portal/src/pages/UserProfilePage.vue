@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -27,7 +27,7 @@ import type { User, UpdateUserProfileParams, JobTemplateOptionVO } from '@/types
 const router = useRouter();
 const userStore = useUserStore();
 
-// 岗位模板（v13.37：全 portal 岗位配置唯一来源；原「岗位字典」已并入 portal_job_template）
+// 岗位模板（全 portal 岗位配置唯一来源）
 const positions = ref<JobTemplateOptionVO[]>([]);
 const selectedPosition = computed<JobTemplateOptionVO | null>(() =>
   positions.value.find(p => p.name === profileForm.value.position) || null
@@ -101,8 +101,18 @@ onMounted(async () => {
     }
   }).catch(err => console.error('加载岗位模板失败:', err));
 
-  // 加载用户信息
-  const user = userStore.user;
+  // 加载用户信息：**先向服务端刷新**，再回填表单。
+  //
+  // 原先只读 userStore.user（localStorage 快照）：store 在 isUserInitialized 为 true 时
+  // 直接返回快照、不再请求后端 ⇒ 多设备/后台改过的资料在本页永远是旧值（清单 P1）。
+  // fetchCurrentUser() 会请求 GET /portal/user/me 并回写 store，故这里用它兜底。
+  let user = userStore.user;
+  try {
+    const fresh = await userStore.fetchCurrentUser();
+    if (fresh) user = fresh;
+  } catch (e) {
+    console.warn('[profile] 刷新用户资料失败，退回本地快照', e);
+  }
   if (user) {
     profileForm.value = {
       nickname: user.nickname || '',
@@ -206,6 +216,13 @@ async function handleAvatarChange(event: Event) {
   }
 }
 
+/** 保存成功后的跳转定时器（清单 P2/P3：需受管，避免卸载后仍跳转） */
+let saveRedirectTimer: ReturnType<typeof setTimeout> | null = null;
+
+onUnmounted(() => {
+  if (saveRedirectTimer) { clearTimeout(saveRedirectTimer); saveRedirectTimer = null; }
+});
+
 // 保存个人资料
 async function saveProfile() {
   isLoading.value = true;
@@ -216,7 +233,10 @@ async function saveProfile() {
     const result = await userStore.updateUserWithApi(profileForm.value);
     if (result.success) {
       successMessage.value = '资料更新成功！';
-      setTimeout(() => {
+      // 清单 P2/P3：原为裸 setTimeout，组件卸载时未清理（用户提前离开仍会被跳转）。受管后统一清理。
+      if (saveRedirectTimer) clearTimeout(saveRedirectTimer);
+      saveRedirectTimer = setTimeout(() => {
+        saveRedirectTimer = null;
         router.push('/user');
       }, 1000);
     } else {
@@ -349,14 +369,23 @@ function goBack() {
                   个人简介
                 </span>
               </label>
+              <!--
+                清单 P2：文案写着"最多 500 个字符"，但 textarea **既无 maxlength 也无字数统计**，
+                后端 updateProfile 用 @RequestBody Map 接收且无 @Valid（实体上的 @Size(max=500) 不会触发），
+                因此超长简介会被原样入库。这里前端先兜住：maxlength + 实时字数。
+              -->
               <textarea
                 v-model="profileForm.bio"
                 rows="3"
+                maxlength="500"
                 placeholder="介绍一下你自己..."
                 class="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 transition-all resize-none"
                 style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
               ></textarea>
-              <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">最多 500 个字符</p>
+              <p class="text-xs mt-1 flex justify-between" style="color: var(--theme-text-secondary);">
+                <span>最多 500 个字符</span>
+                <span :style="(profileForm.bio || '').length >= 500 ? 'color: #dc2626;' : ''">{{ (profileForm.bio || '').length }}/500</span>
+              </p>
             </div>
 
             <!-- 职位 -->
@@ -483,7 +512,11 @@ function goBack() {
                 class="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 transition-all"
                 style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
               />
-              <p v-if="userStore.user && userStore.user.isPhoneVerified === true" class="text-xs mt-1" style="color: #16a34a;">已验证</p>
+              <!--
+                清单 P2：原先这里（邮箱输入框下方）显示"已验证"，但判断用的是
+                userStore.user.isPhoneVerified —— **手机号**的验证字段，而 User 类型里并没有邮箱验证字段。
+                这属于"用错字段的假状态"，已移除；手机号验证徽章移到手机号输入框下方（语义正确）。
+              -->
             </div>
 
             <!-- 手机号 -->

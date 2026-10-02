@@ -1,7 +1,7 @@
 import { httpGet, httpPost } from './client';
 
 /**
- * 门户端统一会员（v12.0：一端一套等级/权益，替代旧 interviewVip / resumeOptimizeVip）
+ * 门户端统一会员（一端一套等级/权益）
  * 后端：PortalVipController → /portal/vip/*
  */
 
@@ -22,8 +22,8 @@ export interface VipTierVO {
   price: number;
   originalPrice: number | null;
   popular: boolean;
-  /** -1 = 永久 */
-  durationDays: number;
+  /** -1 = 永久；**null = 后台未配置有效期**（该等级不可下单，后端 subscribe 会拒绝） */
+  durationDays: number | null;
   description: string | null;
   benefits: VipBenefitItemVO[];
 }
@@ -41,7 +41,7 @@ export interface VipStatusVO {
 export interface VipSubscribeResult {
   amount: number;
   tierName: string;
-  durationDays: number;
+  durationDays: number | null;
   payNo: string;
   codeUrl: string | null;
   expireTime: string | null;

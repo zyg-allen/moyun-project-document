@@ -216,7 +216,7 @@ function go(path) {
   router.push(path);
 }
 
-/** 跳转收入管理-收入总览（v11.79 全平台收入收敛） */
+/** 跳转收入管理-收入总览 */
 function goRevenue() {
   router.push('/pay/revenue');
 }

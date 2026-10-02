@@ -4,6 +4,14 @@ import { FileText } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
+import { CONTACT_EMAIL } from '@/constants/site';
+
+/**
+ * 协议版本与最后更新时间（清单 P2：原先日期写死在模板里、且没有版本号）。
+ * 集中在此处：修订协议时只改这两行，模板无需改动。
+ */
+const AGREEMENT_VERSION = 'v1.0';
+const AGREEMENT_UPDATED_AT = '2024-01-01';
 
 useHead(
   generateSeo({
@@ -19,7 +27,7 @@ useHead(
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 面包屑 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      class="border-b py-3"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
@@ -32,7 +40,7 @@ useHead(
       <div class="text-center mb-8 sm:mb-10">
         <FileText class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4" style="color: var(--theme-primary);" />
         <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">用户服务协议</h1>
-        <p class="text-xs sm:text-sm mt-2" style="color: var(--theme-text-secondary);">最后更新时间：2024年1月1日</p>
+        <p class="text-xs sm:text-sm mt-2" style="color: var(--theme-text-secondary);">版本 {{ AGREEMENT_VERSION }} · 最后更新时间：{{ AGREEMENT_UPDATED_AT }}</p>
       </div>
 
       <div class="p-4 sm:p-8 rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
@@ -86,7 +94,7 @@ useHead(
             <p class="text-sm sm:text-base" style="color: var(--theme-text-secondary);">
               5.1 我们重视您的隐私保护，会采取合理措施保护您的个人信息安全。
               5.2 我们不会未经您的许可向第三方披露您的个人信息，法律法规另有规定的除外。
-              5.3 详情请参阅我们的《隐私政策》。
+              5.3 详情请参阅我们的<router-link to="/privacy" class="underline" style="color: var(--theme-primary);">《隐私政策》</router-link>。
             </p>
           </div>
 
@@ -134,8 +142,7 @@ useHead(
             <h3 class="text-base sm:text-lg font-semibold mb-3" style="color: var(--theme-text);">联系我们</h3>
             <p class="text-sm" style="color: var(--theme-text-secondary);">
               如您对本协议有任何疑问，请通过以下方式联系我们：
-              邮箱：support@xulin.com
-              客服热线：400-888-8888
+              邮箱：{{ CONTACT_EMAIL }}
             </p>
           </div>
         </div>

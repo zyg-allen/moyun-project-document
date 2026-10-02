@@ -6,7 +6,7 @@ import {
   Star, Flame,
   User, Tag, BookOpen,
   Quote, ArrowRight, Sparkles,
-  Book, Briefcase,
+  Briefcase,
   AlertCircle, RefreshCw,
   Network, TrendingUp,
   MessageCircle, Activity, Crown, Target,
@@ -26,6 +26,7 @@ import * as categoryApi from '@/api/category'
 import { filterCategoryTree, getCategoryTarget } from '@/api/category'
 import * as tagApi from '@/api/tag'
 import { getAuthors } from '@/api/user'
+import { getSafeAvatar } from '@/utils/avatar'
 import { getReadingHome } from '@/api/reading'
 import { getInterviewHome, getResumeTemplateList } from '@/api/interview'
 import { getHotFeed } from '@/api/feed'
@@ -54,6 +55,9 @@ const categoryArticles = ref<Record<string, any[]>>({})
 // 读书空间首页数据
 const readingBooks = ref<any[]>([])
 const readingBookLists = ref<any[]>([])
+// 后端返回的书籍真实总数（分页 total）；页面数组被 slice 截断，不能当总数用
+const readingBookTotal = ref<number | null>(null)
+const readingBookListTotal = ref<number | null>(null)
 const readingQuotes = ref<any[]>([])
 
 // 面试空间首页数据
@@ -71,7 +75,7 @@ const leaderboardTop3 = ref<any[]>([])
 // 社区动态预览数据（营造社区氛围）
 const hotFeedList = ref<any[]>([])
 
-// ==================== 已登录：问候区（V11.2 精简，仅问候 + 快捷入口） ====================
+// ==================== 已登录：问候区（问候 + 快捷入口） ====================
 // 问候语（按时段 + 场景化提示语；凌晨深夜关怀休息，白天按节奏激励）
 const greetingInfo = computed(() => {
   const h = new Date().getHours()
@@ -116,14 +120,38 @@ const retryLoad = async () => {
   await loadAll()
 }
 
+// ── 分区级失败可见化（清单 P2）──
+//
+// 首页有 8 个独立分区（分类/标签/名家/读书/面试/模板数/排行榜/社区动态），
+// 原先各自 `console.error` 后静默把数组置空：接口挂了用户只看到**空白区块**，
+// 既不知道是"没数据"还是"加载失败"，也没有任何重试入口。
+// 现统一记录失败分区名，页面顶部给出可操作的提示条，并支持**只重试失败的分区**。
+const failedSections = ref<string[]>([])
+
+/** 记录某分区加载失败（去重） */
+function markSectionFailed(name: string) {
+  if (!failedSections.value.includes(name)) {
+    failedSections.value = [...failedSections.value, name]
+  }
+}
+
+/** 某分区加载成功：从失败清单移除 */
+function markSectionOk(name: string) {
+  if (failedSections.value.includes(name)) {
+    failedSections.value = failedSections.value.filter(n => n !== name)
+  }
+}
+
 const loadCategories = async () => {
   try {
     const response = await categoryApi.getCategoryTree()
     if (response.code === 200 && response.data) {
       categories.value = response.data
     }
+    markSectionOk('分类')
   } catch (err) {
     console.error('加载分类失败:', err)
+    markSectionFailed('分类')
   }
 }
 
@@ -133,8 +161,10 @@ const loadTags = async () => {
     if (response.code === 200 && response.data) {
       tags.value = response.data
     }
+    markSectionOk('热门标签')
   } catch (err) {
     console.error('加载标签失败:', err)
+    markSectionFailed('热门标签')
   }
 }
 
@@ -146,15 +176,20 @@ const loadAuthors = async () => {
       authors.value = response.data.map((user: any) => ({
         id: String(user.id),
         name: user.nickname || user.username,
-        avatar: (user.nickname || user.username || 'A').charAt(0),
+        // 清单 P2：接口已返回 avatar 却只取昵称首字母渲染 ⇒ 有头像的作者也显示成字母。
+        // 保留真实头像（空时用 getSafeAvatar 兜底），模板据"是否图片地址"决定 img 或首字母。
+        avatar: getSafeAvatar(user.avatar, String(user.id)),
+        initial: (user.nickname || user.username || 'A').charAt(0),
         works: Number(user.works || 0),
         likes: Number(user.likes || 0),
         days: Number(user.days || 0)
       }))
     }
+    markSectionOk('入驻名家')
   } catch (err) {
     console.error('加载名家失败:', err)
     authors.value = []
+    markSectionFailed('入驻名家')
   }
 }
 
@@ -165,9 +200,15 @@ const loadReadingData = async () => {
       readingBookLists.value = (response.data.bookLists || []).slice(0, 3)
       readingBooks.value = (response.data.books || []).slice(0, 4)
       readingQuotes.value = (response.data.quotes || []).slice(0, 1)
+      // 后端返回的是**真实总数**（分页 total），而上面两个数组被 slice 截断过；
+      // 原先 heroStats 用截断后的长度当总数 ⇒ "精选好书"永远只有 7 本。
+      readingBookTotal.value = typeof response.data.bookCount === 'number' ? response.data.bookCount : null
+      readingBookListTotal.value = typeof response.data.bookListCount === 'number' ? response.data.bookListCount : null
     }
+    markSectionOk('读书空间')
   } catch (err) {
     console.error('加载读书空间数据失败:', err)
+    markSectionFailed('读书空间')
   }
 }
 
@@ -181,8 +222,10 @@ const loadInterviewData = async () => {
       interviewExperiences.value = (d.hotExperiences || []).slice(0, 3)
       interviewTotalQuestions.value = d.totalQuestionCount || 0
     }
+    markSectionOk('面试空间')
   } catch (err) {
     console.error('加载面试空间数据失败:', err)
+    markSectionFailed('面试空间')
   }
 }
 
@@ -206,9 +249,11 @@ const loadLeaderboardData = async () => {
       const list = (response.data as any).list || response.data || []
       leaderboardTop3.value = Array.isArray(list) ? list.slice(0, 3) : []
     }
+    markSectionOk('刷题排行榜')
   } catch (err) {
     console.error('加载刷题排行榜失败:', err)
     leaderboardTop3.value = []
+    markSectionFailed('刷题排行榜')
   }
 }
 
@@ -219,10 +264,12 @@ const loadHotFeedData = async () => {
       // httpGetList 已统一返回 { list, total, page, pageSize }
       hotFeedList.value = (response.data.list || []).slice(0, 3)
     }
+    markSectionOk('社区动态')
   } catch (err) {
-    // 游客或冷启动可能无数据，静默失败
+    // 游客或冷启动可能无数据，静默失败；但仍要记录失败分区，避免"空白无解释"
     console.error('加载社区动态失败:', err)
     hotFeedList.value = []
+    markSectionFailed('社区动态')
   }
 }
 
@@ -302,6 +349,25 @@ const loadAll = async () => {
   }
 }
 
+/**
+ * 只重试**加载失败**的分区（不整页刷新，避免把已成功的内容重新拉一遍）。
+ *
+ * <p>注册表在下方集中维护：新增分区时同步登记，否则重试按钮会漏掉该分区。</p>
+ */
+async function retryFailedSections() {
+  const loaders: Record<string, () => Promise<void>> = {
+    分类: loadCategories,
+    热门标签: loadTags,
+    入驻名家: loadAuthors,
+    读书空间: loadReadingData,
+    面试空间: loadInterviewData,
+    刷题排行榜: loadLeaderboardData,
+    社区动态: loadHotFeedData,
+  }
+  const targets = failedSections.value.filter(name => loaders[name])
+  await Promise.all(targets.map(name => loaders[name]().catch(() => undefined)))
+}
+
 onMounted(() => {
   loadAll()
 })
@@ -378,22 +444,45 @@ const goRegister = () => {
 
 // ============ Hero 区：站点核心数据（真实接口数据，非虚构指标） ============
 // 名家未满 10 位时隐藏该项（避免冷启动数据削弱信任感）
+// 名家 / 热门标签这两个接口只返回**列表、不返回总数**，且请求时带了 limit
+// （getAuthors(10) / getHotTags(20)）⇒ 长度达到 limit 时只能说明"至少这么多"，不能当精确总数。
+// 处理：达到上限时显示 "N+"（如实表达"至少"），未达上限时才显示精确值。
+const AUTHORS_FETCH_LIMIT = 10
+const TAGS_FETCH_LIMIT = 20
+
+/** 判断头像字段是"图片地址"还是"首字母兜底值"（清单 P2） */
+function isImageUrl(v?: string | null): boolean {
+  if (!v) return false
+  return /^(https?:\/\/|\/|data:image\/)/.test(v)
+}
+
+/** 列表数量文案：到达请求上限则加 "+"，表示"至少"（而不是谎报精确总数） */
+function countText(len: number, limit: number): string {
+  return len >= limit ? `${len}+` : `${len}`
+}
+
 const heroStats = computed(() => {
-  const stats: Array<{ label: string; value: string; suffix: string }> = [
-    { label: '面试题库', value: `${interviewTotalQuestions.value}+`, suffix: '道' }
-  ]
+  const stats: Array<{ label: string; value: string; suffix: string }> = []
+  // 清单 P2：原先把"面试题库"无条件放进数组 ⇒ 接口失败/冷启动时渲染出「0+ 道」。
+  // 与其它数据条一致：拿不到数据就不渲染，而不是显示 0。
+  if (interviewTotalQuestions.value > 0) {
+    stats.push({ label: '面试题库', value: `${interviewTotalQuestions.value}+`, suffix: '道' })
+  }
   if (resumeTemplateTotal.value > 0) {
     stats.push({ label: '简历模板', value: `${resumeTemplateTotal.value}`, suffix: '套' })
   }
-  if (authors.value.length >= 10) {
-    stats.push({ label: '入驻名家', value: `${authors.value.length}`, suffix: '位' })
+  if (authors.value.length >= AUTHORS_FETCH_LIMIT) {
+    stats.push({ label: '入驻名家', value: countText(authors.value.length, AUTHORS_FETCH_LIMIT), suffix: '位' })
   }
-  const bookCount = readingBooks.value.length + readingBookLists.value.length
+  // 精选好书：优先用后端真实总数（bookCount/bookListCount），后端未返回时才退回已加载条数
+  const bookCount = readingBookTotal.value !== null || readingBookListTotal.value !== null
+    ? (readingBookTotal.value ?? readingBooks.value.length) + (readingBookListTotal.value ?? readingBookLists.value.length)
+    : readingBooks.value.length + readingBookLists.value.length
   if (bookCount > 0) {
     stats.push({ label: '精选好书', value: `${bookCount}`, suffix: '本' })
   }
   if (tags.value.length > 0) {
-    stats.push({ label: '热门话题标签', value: `${tags.value.length}`, suffix: '个' })
+    stats.push({ label: '热门话题标签', value: countText(tags.value.length, TAGS_FETCH_LIMIT), suffix: '个' })
   }
   return stats
 })
@@ -423,7 +512,9 @@ const learnTools = [
 const resumeTools = [
   { title: '简历模板库', desc: '大量精选专业模板', path: '/interview/resume-templates', icon: LayoutTemplate, iconBg: 'bg-blue-500' },
   { title: '简历维护', desc: '针对岗位要求管理', path: '/interview/my/resumes', icon: ClipboardList, iconBg: 'bg-cyan-500' },
-  { title: 'AI 简历评分', desc: '多维度智能打分', path: '/interview/resume/optimize', icon: Target, iconBg: 'bg-violet-500' },
+  // 清单 P2：原「AI 简历评分」与「AI 简历优化」path 相同（都指向 /interview/resume/optimize），
+  // 导致"评分"这一格永远到不了评分入口；改为指向简历中心（那里可对具体简历发起评分）。
+  { title: 'AI 简历评分', desc: '多维度智能打分', path: '/interview/my/resumes', icon: Target, iconBg: 'bg-violet-500' },
   { title: 'AI 简历优化', desc: '一键生成优化建议', path: '/interview/resume/optimize', icon: Sparkles, iconBg: 'bg-orange-500' },
 ]
 
@@ -464,6 +555,34 @@ useHead(
     </div>
 
     <template v-else>
+      <!--
+        分区级失败提示条（清单 P2）：首页 8 个分区各自独立加载，
+        原先失败只 console.error + 置空 ⇒ 用户看到空白区块，既不知是"没数据"还是"加载失败"，也无重试入口。
+        这里给出可操作提示，并**只重试失败的分区**（不整页重拉）。
+      -->
+      <div
+        v-if="failedSections.length > 0"
+        class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4"
+        role="status"
+        aria-live="polite"
+      >
+        <div
+          class="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3"
+          style="border-color: var(--theme-border); background-color: var(--theme-surface);"
+        >
+          <AlertCircle class="w-4 h-4 flex-shrink-0" style="color: var(--theme-text-secondary);" />
+          <span class="meta-text flex-1 min-w-[12rem]" style="color: var(--theme-text-secondary);">
+            部分内容加载失败（{{ failedSections.join('、') }}），其余内容不受影响
+          </span>
+          <button
+            @click="retryFailedSections"
+            class="theme-btn theme-btn-primary px-3 py-1.5 rounded-lg caption-text font-medium inline-flex items-center gap-1"
+          >
+            <RefreshCw class="w-3.5 h-3.5" />
+            重试失败项
+          </button>
+        </div>
+      </div>
       <!-- ================================================================
            综述区（Hero + 五大主线锚点导航，登录与否均展示，
            保持品牌叙事一致性；已登录时上方叠加问候带）
@@ -480,7 +599,11 @@ useHead(
               <div class="space-y-6 sm:space-y-8">
                 <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-theme-surface border border-theme-border">
                   <span class="w-2 h-2 bg-theme-primary rounded-full animate-pulse"></span>
-                  <span class="meta-text font-medium text-theme-primary">{{ interviewTotalQuestions }}+ 道精选面试题持续更新</span>
+                  <!-- 清单 P2：原缺失条件渲染，接口未就绪时会显示「0+ 道精选面试题」 -->
+            <span
+              v-if="interviewTotalQuestions > 0"
+              class="meta-text font-medium text-theme-primary"
+            >{{ interviewTotalQuestions }}+ 道精选面试题持续更新</span>
                 </div>
 
                 <div class="space-y-5 sm:space-y-6">
@@ -628,7 +751,7 @@ useHead(
               </div>
             </div>
 
-            <!-- 五大主线导航（锚点直达，V11.3 升格为图标卡片带悬浮特效） -->
+            <!-- 五大主线导航（锚点直达，图标卡片带悬浮特效） -->
             <div class="relative mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-theme-border/60">
               <div class="grid grid-cols-5 gap-2 sm:gap-3">
                 <a
@@ -660,7 +783,7 @@ useHead(
            ================================================================ -->
       <template v-if="isLoggedIn">
         <div class="home-greeting-band">
-        <!-- 欢迎语 + 快捷入口（V11.2：登录态首屏精简为问候带，个人统计请前往成长时间线） -->
+        <!-- 欢迎语 + 快捷入口（登录态首屏为问候带，个人统计请前往成长时间线） -->
         <section class="content-container pt-4 sm:pt-6 pb-5">
           <div class="home-greeting-card">
             <div class="flex items-center gap-2.5 mb-1">
@@ -1028,7 +1151,7 @@ useHead(
             </div>
           </div>
 
-          <!-- 散文随笔 · 技术笔记（原"按主题探索"并入阅读主线） -->
+          <!-- 散文随笔 · 技术笔记 -->
           <div class="mt-3 sm:mt-4">
             <div class="flex items-center justify-between mb-3 sm:mb-4">
               <div class="flex items-center gap-2">
@@ -1040,9 +1163,19 @@ useHead(
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+            <!--
+              说明（清单 P2）：此处原为 themes 为空时兜底渲染一个写死的「散文」主题，
+              点击会把写死的 rootCategoryId='1' 传后端 → 展示与主题无关的内容。
+              改为：无数据不渲染假数据，给中性提示（不误导、不产生错误请求）。
+            -->
+            <p
+              v-if="themes.length === 0"
+              class="meta-text mb-3 sm:mb-4"
+              style="color: var(--theme-text-secondary);"
+            >主题暂不可用，稍后再试</p>
+            <div v-else class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
               <button
-                v-for="theme in (themes.length > 0 ? themes : [{ id: '1', name: '散文', key: 'prose' }])"
+                v-for="theme in themes"
                 :key="theme.id"
                 @click="selectTheme(theme.id, theme.name)"
                 class="px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all"
@@ -1116,8 +1249,16 @@ useHead(
               class="p-4 rounded-xl border text-left transition-all hover:scale-105 hover:shadow-theme-md bg-theme-surface border-theme-border"
             >
               <div class="flex items-center gap-2 mb-2">
-                <div class="w-8 h-8 rounded-full bg-theme-primary-soft flex items-center justify-center flex-shrink-0">
-                  <span class="text-xs font-bold text-theme-primary">
+                <div class="w-8 h-8 rounded-full bg-theme-primary-soft flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <!-- 清单 P2：原实现丢弃接口返回的 userAvatar，一律用昵称首字母 -->
+                  <img
+                    v-if="isImageUrl(feed.userAvatar)"
+                    :src="feed.userAvatar"
+                    :alt="feed.userNickname || '用户头像'"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <span v-else class="text-xs font-bold text-theme-primary">
                     {{ (feed.userNickname || 'A').charAt(0) }}
                   </span>
                 </div>
@@ -1172,8 +1313,16 @@ useHead(
                 @click="goToAuthor(author.id)"
                 class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors w-full bg-theme-surface hover:bg-theme-surface-highlight border border-theme-border"
               >
-                <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-full bg-theme-primary-soft flex items-center justify-center">
-                  <span class="text-sm font-bold text-theme-primary">{{ author.avatar }}</span>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-full bg-theme-primary-soft flex items-center justify-center overflow-hidden">
+                  <!-- 清单 P2：接口已返回头像，优先展示图片；无头像时回退首字母 -->
+                  <img
+                    v-if="isImageUrl(author.avatar)"
+                    :src="author.avatar"
+                    :alt="author.name"
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <span v-else class="text-sm font-bold text-theme-primary">{{ author.initial || 'A' }}</span>
                 </div>
                 <p class="card-title mb-1">{{ author.name }}</p>
                 <p class="meta-text">已创作 {{ author.works }} 篇</p>
@@ -1192,10 +1341,16 @@ useHead(
               <Star class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
               <h3 class="section-title">热门话题标签</h3>
             </div>
-            <nav class="flex flex-wrap gap-1.5 sm:gap-2">
+            <!-- 同主题 Tab：原为 tags 为空时渲染「文学/散文/随笔」三个假标签，点击进入无数据的 /tag 页 -->
+            <p
+              v-if="tags.length === 0"
+              class="meta-text"
+              style="color: var(--theme-text-secondary);"
+            >标签暂不可用，稍后再试</p>
+            <nav v-else class="flex flex-wrap gap-1.5 sm:gap-2">
               <button
                 type="button"
-                v-for="tag in (tags.length > 0 ? tags : [{ id: '1', name: '文学' }, { id: '2', name: '散文' }, { id: '3', name: '随笔' }])"
+                v-for="tag in tags"
                 :key="tag.id || tag"
                 @click="router.push(`/tag/${encodeURIComponent(tag.name || tag)}`)"
                 class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full cursor-pointer transition-all hover:opacity-80 bg-theme-accent text-theme-primary meta-text"
@@ -1271,7 +1426,7 @@ useHead(
 .home-card-lift { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .home-card-lift:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.1)); }
 
-/* ============== 问候带（V11.3 样式优化 + 特效） ============== */
+/* ============== 问候带 ============== */
 .home-greeting-band {
   background: linear-gradient(135deg, var(--theme-primary-soft) 0%, transparent 60%), var(--theme-bg);
   position: relative;
@@ -1322,7 +1477,7 @@ useHead(
   .home-join-days { animation: none; }
 }
 
-/* 仪表盘快捷入口按钮（原型 shortcut-btn，V11.3 加特效） */
+/* 仪表盘快捷入口按钮（原型 shortcut-btn） */
 .home-shortcut-btn {
   height: 2.5rem;
   padding: 0 1.25rem;
@@ -1381,7 +1536,7 @@ useHead(
 .stat-number { font-variant-numeric: tabular-nums; }
 .progress-ring { transition: stroke-dashoffset 0.5s ease; }
 
-/* 章节头：编号 + 竖分隔线 + 标题，建立页面叙事层次（V11.1 首页重构） */
+/* 章节头：编号 + 竖分隔线 + 标题，建立页面叙事层次 */
 .home-chapter-head {
   display: flex;
   align-items: flex-end;
@@ -1411,7 +1566,7 @@ useHead(
 }
 .home-chapter-link:hover { opacity: 0.8; }
 
-/* 五大主线导航卡片（V11.3：渐变描边 + 悬浮抬升 + 图标弹性 + 入场动画） */
+/* 五大主线导航卡片（渐变描边 + 悬浮抬升 + 图标弹性 + 入场动画） */
 .home-mainline-card {
   position: relative;
   display: flex;

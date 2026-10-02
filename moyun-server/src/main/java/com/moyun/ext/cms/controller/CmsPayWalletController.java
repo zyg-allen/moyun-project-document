@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 /**
  * CMS 用户钱包 Controller（收入管理模块）
  *
- * <p>单钱包架构：pay_user_account 为全平台唯一钱包（社区钱包 portal_wallet 已废弃删除）。
+ * <p>单钱包架构：pay_user_account 为全平台唯一钱包。
  * 资金流水 Tab 沿用 /cms/pay/ledger/list（pay_ledger_entry 复式记账）。
  * 守恒对账：理论公账余额 = 平台抽成累计 + Σ用户余额。
  *

@@ -7,12 +7,6 @@ const baseURL = import.meta.env.VITE_APP_BASE_API
 /**
  * 流式请求（纯 fetch 实现）
  *
- * 说明：此前版本基于 axios + 自定义 adapter 包装 fetch，存在两个缺陷：
- *   1. adapter 外层引用了不存在的 config 变量导致 ReferenceError，请求发不出去；
- *   2. axios transformRequest 已将 data 序列化为 JSON 字符串，adapter 内再次
- *      JSON.stringify 会双重编码，后端收到 JSON 字符串字面量而反序列化失败。
- * 故重构为直接使用 fetch，不再依赖 axios。
- *
  * @param {string} url 请求地址（相对路径自动拼接 baseURL）
  * @param {object} options { method, data, params, onMessage, onDone, onError, headers }
  * @returns {{ abort: Function }} 中断句柄

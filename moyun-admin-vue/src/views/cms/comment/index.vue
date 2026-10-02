@@ -125,7 +125,6 @@ const { proxy } = getCurrentInstance();
 
 // 表格数据
 const commentList = ref([]);
-const open = ref(false);
 const viewOpen = ref(false);
 const loading = ref(true);
 const showSearch = ref(true);

@@ -65,6 +65,15 @@ public class PortalBookChapter extends BaseEntity {
     /** 是否已发布：0=草稿，1=已发布 */
     private Boolean isPublished;
 
+    /**
+     * 是否为**试读片段**（非持久化字段）。
+     *
+     * <p>VIP 章节在未开通 VIP 时只下发前若干字，并置 true，供前端明确渲染
+     * "试读 + 开通 VIP" 引导，而不是把裁剪后的正文当成全文。</p>
+     */
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private Boolean preview;
+
     /** 发布时间（支持定时发布） */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date publishTime;

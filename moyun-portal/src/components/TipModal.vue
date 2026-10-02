@@ -49,7 +49,7 @@
           </div>
         </div>
 
-        <!-- 支付方式切换（V11.0：积分 / 微信支付） -->
+        <!-- 支付方式切换（积分 / 微信支付） -->
         <div class="mb-4">
           <p class="text-sm mb-2" style="color: var(--theme-text-secondary);">选择鼓励方式</p>
           <div class="grid grid-cols-2 gap-2">
@@ -206,7 +206,7 @@ const router = useRouter();
 const presetPoints = computed(() => props.presetPointOptions ?? [10, 50, 100, 500, 1000, 2000]);
 // 微信打赏快捷金额（元，可通过 props 覆盖）
 const presetAmounts = computed(() => props.presetAmountOptions ?? [5, 10, 20, 50, 100, 200]);
-// 支付模式：points=积分鼓励，wechat=微信打赏（V11.0）
+// 支付模式：points=积分鼓励，wechat=微信打赏
 const payMode = ref<'points' | 'wechat'>('points');
 const tipAmount = ref<number>(50);
 const wechatAmount = ref<number>(10);
@@ -243,7 +243,7 @@ async function handleTip() {
     emit('error', '请输入有效的积分数量');
     return;
   }
-  // v10.10 实名策略：打赏属积分消费敏感场景，前端先强制实名校验（后端同步兜底）
+  // 实名策略：打赏属积分消费敏感场景，前端先强制实名校验（后端同步兜底）
   if (!(await requireRealName())) return;
   tipping.value = true;
   try {
@@ -265,7 +265,7 @@ async function handleTip() {
 }
 
 /**
- * 微信打赏（V11.0 公共支付通道）
+ * 微信打赏（公共支付通道）
  * 下单成功后跳转收银台页（二维码 + 3s 轮询支付状态）
  */
 async function handleWechatTip() {

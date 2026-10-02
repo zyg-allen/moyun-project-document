@@ -60,10 +60,19 @@ public class BusinessException extends RuntimeException {
     /**
      * 获取完整的错误信息
      *
+     * <p><b>修复说明</b>：原实现返回 {@code String.format("[%s] %s", errorCode, errorMessage)}，
+     * 但 {@code errorCode}/{@code errorMessage} 这两个字段**从未在任何构造函数中赋值**（构造函数写的是
+     * {@code code}/{@code message}）⇒ 任何 {@code BusinessException} 的 {@code getMessage()} 恒为
+     * {@code "[null] null"}，交给全局异常处理器后前端只能拿到无意义字符串。
+     * 现改为返回构造函数传入的真实提示，仅在缺失时回退父类。</p>
+     *
      * @return 完整错误信息字符串
      */
     @Override
     public String getMessage() {
-        return String.format("[%s] %s", this.errorCode, this.errorMessage);
+        if (this.message != null && !this.message.isBlank()) {
+            return this.message;
+        }
+        return super.getMessage();
     }
 }

@@ -59,6 +59,12 @@ public class PortalReportFeedbackController extends BaseController {
         if (loginUser == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录后再提交举报");
         }
+        // 清单 P2：图片张数原先只在前端限制（MAX_IMAGES=3），后端 image 字段无任何校验，
+        // 直接绕过前端即可提交任意张数（占用存储、放大审核负担）。这里做服务端校验。
+        String imagesError = validateEvidenceImages(report.getImages());
+        if (imagesError != null) {
+            return AjaxResult.error(imagesError);
+        }
         report.setUserId(loginUser.getId());
         report.setUsername(loginUser.getUsername());
         report.setIp(getClientIp(request));
@@ -72,6 +78,43 @@ public class PortalReportFeedbackController extends BaseController {
                 loginUser.getId(), loginUser.getUsername(),
                 buildReportExtra(report));
         return success("举报提交成功，我们会尽快处理");
+    }
+
+    /** 举报/反馈证据图上限（与前端 MAX_IMAGES 一致） */
+    private static final int MAX_EVIDENCE_IMAGES = 3;
+
+    /**
+     * 校验证据图（清单 P2）。
+     *
+     * <p>前端限制可被绕过，服务端必须自行校验：最多 {@value #MAX_EVIDENCE_IMAGES} 张，
+     * 且每项必须是非空字符串 URL。</p>
+     *
+     * @param imagesJson 证据图 JSON 数组字符串（可为空）
+     * @return 校验失败时返回错误消息；通过时返回 null
+     */
+    private String validateEvidenceImages(String imagesJson) {
+        if (imagesJson == null || imagesJson.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            java.util.List<String> images = com.moyun.ext.ai.util.JsonUtils.fromJson(
+                    imagesJson, new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {
+                    });
+            if (images == null) {
+                return null;
+            }
+            if (images.size() > MAX_EVIDENCE_IMAGES) {
+                return "证据图最多上传 " + MAX_EVIDENCE_IMAGES + " 张";
+            }
+            for (String url : images) {
+                if (url == null || url.trim().isEmpty()) {
+                    return "证据图地址不合法";
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            return "证据图格式不合法";
+        }
     }
 
     /**

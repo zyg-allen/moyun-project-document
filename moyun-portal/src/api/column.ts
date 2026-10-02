@@ -4,7 +4,6 @@ import type {
   ColumnListItemVO,
   ColumnQuery,
   ColumnSaveBody,
-  SubscribeToggleResult,
   ColumnArticleSortItem,
 } from '@/types/api';
 
@@ -45,6 +44,14 @@ export const toggleColumnFinish = (id: string | number) => {
  * 删除专栏（需登录）
  * DELETE /portal/column/{id}
  */
+/**
+ * 提交专栏审核（作者主动送审：draft/rejected → pending）
+ * PUT /portal/column/{id}/submit
+ */
+export const submitColumnForAudit = (id: string | number) => {
+  return httpPut<ColumnVO>(`/portal/column/${id}/submit`);
+};
+
 export const deleteColumn = (id: string | number) => {
   return httpDelete<number>(`/portal/column/${id}`);
 };
@@ -52,9 +59,10 @@ export const deleteColumn = (id: string | number) => {
 /**
  * 切换订阅（需登录）
  * POST /portal/column/{id}/subscribe
+ * 返回切换后的专栏详情：isSubscribed 与 subscribeCount 由后端给出权威值
  */
 export const toggleSubscribe = (id: string | number) => {
-  return httpPost<SubscribeToggleResult>(`/portal/column/${id}/subscribe`);
+  return httpPost<ColumnVO>(`/portal/column/${id}/subscribe`);
 };
 
 /**

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * 面试报告「纯格式化」工具（v13.55 批次 4 四 / 第②步）。
+ * 面试报告「纯格式化」工具。
  *
  * <p><b>为什么单独一类</b>：{@link InterviewTextUtils} 收的是**文本/JSON 通用处理**，
  * 本类收的是**报告语义的纯格式化**（亮点/薄弱点视图、改进建议、概要文案、总结建议）
@@ -18,9 +18,6 @@ import java.util.function.Consumer;
  * <p><b>本类只放纯函数</b>：全部 {@code static}，不持有状态、不注入依赖、不做 IO。
  * 任何读实例字段（Mapper/锁/缓存）或做远程 IO 的报告逻辑**留在 Service**，
  * 待后续步骤按职责抽取（第③步才动编排主流程，含 SSE/事务/锁，最危险）。</p>
- *
- * <p><b>与原实现的关系</b>：逻辑**逐字迁移**，仅把「方法」改为「静态方法」并显式传入入参，
- * 行为不变 —— 由既有报告链路测试与新增单测共同看护。</p>
  *
  * @author laomao
  */

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useConfirmModal } from '@/composables/useConfirmModal';
-import { useRouter } from 'vue-router';
+
 import { useHead } from '@vueuse/head';
 import {
   Play, Loader2, Terminal, History, X, Clock,
@@ -10,14 +10,14 @@ import {
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
-import { runCode, getMyCodeRuns } from '@/api/codeRun';
+import { runCode, getMyCodeRuns, getCodeRunConfig } from '@/api/codeRun';
 import { useToast } from '@/composables/useToast';
 import type { CodeRunVO } from '@/types/api';
 
 
 const confirmModal = useConfirmModal();
 
-const router = useRouter();
+// 未使用的 router 变量已移除（v14.00：本页无编程式跳转）
 const toast = useToast();
 
 type Lang = 'java' | 'python' | 'javascript';
@@ -33,6 +33,12 @@ const language = ref<Lang>('python');
 const code = ref<string>(STARTER_CODE.python);
 const stdin = ref<string>('');
 const running = ref(false);
+/**
+ * 功能是否可用（后端 moyun.code-run.enabled）。
+ * 后端出于 RCE 安全考虑默认关闭（沙箱未就绪），此前只靠点一次报一次 503 的 toast 告知，
+ * 页面主体看起来完全可用 —— 现改为置灰按钮 + 常驻说明。null=尚未拉到配置。
+ */
+const runEnabled = ref<boolean | null>(null);
 const result = ref<CodeRunVO | null>(null);
 
 // 历史抽屉
@@ -49,6 +55,11 @@ const breadcrumbs = computed(() => [
   { label: '面试指南', path: '/interview' },
   { label: '在线编程' },
 ]);
+
+/**
+ * 运行失败原因（清单 P2）：失败时**常驻显示**在输出面板，而不是只弹一次 toast 就消失。
+ */
+const runError = ref<string | null>(null);
 
 const statusText = computed(() => statusLabel(result.value?.status));
 
@@ -84,12 +95,17 @@ function selectLang(lang: Lang) {
 
 async function handleRun() {
   if (running.value) return;
+  if (runEnabled.value === false) {
+    toast.info('代码执行功能正在升级安全沙箱，暂时不可用');
+    return;
+  }
   if (!code.value.trim()) {
     toast.error('代码不能为空');
     return;
   }
   running.value = true;
   result.value = null;
+  runError.value = null;
   try {
     const res = await runCode({
       language: language.value,
@@ -99,10 +115,14 @@ async function handleRun() {
     if (res.code === 200 && res.data) {
       result.value = res.data;
     } else {
+      // 清单 P2：原先失败只弹 toast，result 保持 null ⇒ 右侧面板回落成
+      // "点击「运行代码」查看输出结果"的空态，失败原因随 toast 消失后**无处可查**。
+      runError.value = res.message || '运行失败';
       toast.error(res.message || '运行失败');
     }
   } catch (err) {
     const e = err as { message?: string };
+    runError.value = e?.message || '运行失败，请稍后重试';
     toast.error(e?.message || '运行失败，请稍后重试');
   } finally {
     running.value = false;
@@ -113,7 +133,16 @@ async function openHistory() {
   historyOpen.value = true;
   if (history.value.length === 0) {
     historyPage.value = 1;
-    await loadHistory();
+    // 先拉功能开关：关闭时置灰运行按钮并展示常驻说明（避免"点了才知道不可用"）
+  try {
+    const cfg = await getCodeRunConfig();
+    if (cfg.code === 200 && cfg.data) {
+      runEnabled.value = cfg.data.enabled !== false;
+    }
+  } catch {
+    runEnabled.value = null;
+  }
+  await loadHistory();
   }
 }
 
@@ -287,13 +316,18 @@ function statusBadgeFg(s?: string): string {
               ></textarea>
             </div>
             <!-- 运行按钮 -->
-            <div class="px-3 py-2 border-t flex items-center justify-between" style="border-color: var(--theme-border);">
+            <div class="px-3 py-2 border-t flex items-center justify-between gap-3" style="border-color: var(--theme-border);">
               <span class="text-xs" style="color: var(--theme-text-secondary);">
-                超时 5s · 输出限 1MB · 无网络访问
+                <template v-if="runEnabled === false">
+                  <span class="font-medium" style="color: var(--theme-warning, #f59e0b);">功能维护中</span>
+                  · 沙箱升级期间暂停执行，历史记录仍可查看
+                </template>
+                <template v-else>超时 5s · 输出限 1MB · 无网络访问</template>
               </span>
               <button
                 @click="handleRun"
-                :disabled="running"
+                :disabled="running || runEnabled === false"
+                :title="runEnabled === false ? '代码执行功能正在升级安全沙箱，暂时不可用' : '运行代码'"
                 class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
                 style="background-color: var(--theme-primary);"
               >
@@ -354,6 +388,18 @@ function statusBadgeFg(s?: string): string {
 
             <!-- 结果输出 -->
             <div v-else class="flex-1 flex flex-col overflow-hidden" style="min-height: 320px;">
+              <!-- 运行失败（清单 P2）：常驻错误区，避免失败原因只存在于一瞬的 toast 里 -->
+              <div
+                v-if="runError"
+                class="border-b px-4 py-3 flex items-start gap-2"
+                style="border-color: var(--theme-border); background-color: rgba(239, 68, 68, 0.08);"
+              >
+                <AlertCircle class="w-4 h-4 flex-shrink-0 mt-0.5" style="color: #ef4444;" />
+                <div class="text-sm" style="color: #ef4444;">
+                  <p class="font-medium">运行失败</p>
+                  <p class="mt-1 break-all">{{ runError }}</p>
+                </div>
+              </div>
               <!-- 标准输出 -->
               <div class="flex-1 overflow-auto">
                 <div class="px-4 py-2 text-xs font-medium border-b sticky top-0" style="color: var(--theme-text-secondary); background-color: var(--theme-bg); border-color: var(--theme-border);">

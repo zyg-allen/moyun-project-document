@@ -36,6 +36,12 @@
             <if test="query != null and query.status != null and query.status != ''">
                 AND wq.status = #{query.status}
             </if>
+            <!-- 今日待复习：时间口径（与 countTodayReview 同一判据），不再依赖不存在的 reviewing 状态 -->
+            <if test="query != null and query.reviewOnly != null and query.reviewOnly == true">
+                AND wq.status != 'mastered'
+                AND wq.next_review_time IS NOT NULL
+                AND wq.next_review_time &lt;= NOW()
+            </if>
             <if test="query != null and query.tag != null and query.tag != ''">
                 AND q.tags LIKE CONCAT('%', #{query.tag}, '%')
             </if>

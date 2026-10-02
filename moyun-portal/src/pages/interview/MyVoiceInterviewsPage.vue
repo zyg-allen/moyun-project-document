@@ -3,16 +3,14 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import {
-  Mic, Clock, ChevronLeft, ChevronRight, RefreshCw, PlayCircle, FileText,
-  Target, RotateCcw, Loader2,
-} from 'lucide-vue-next';
+import { Mic, Clock, ChevronLeft, ChevronRight, RefreshCw, PlayCircle, FileText, Target, Loader2 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { getMyVoiceInterviewList, getVoiceAnalysisStatus } from '@/api/voiceInterview';
 import type { VoiceInterviewVO } from '@/api/voiceInterview';
 import { useToast } from '@/composables/useToast';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 
 const router = useRouter();
 const toast = useToast();
@@ -55,13 +53,27 @@ function statusOf(v: VoiceInterviewVO) {
   return statusMeta[v.status] || { label: v.status || '-', class: 'bg-theme-surface text-theme-text-secondary' };
 }
 
-/** v11.96：报告生成中（已结束但 analysisStatus<2，历史页显示生成进度并轮询） */
+/** 报告生成中（已结束但 analysisStatus<2，历史页显示生成进度并轮询） */
 function isGenerating(v: VoiceInterviewVO) {
-  return v.status === 'finished' && (v.analysisStatus ?? 0) < 2;
+  // analysisStatus 语义（后端 VoiceInterviewServiceImpl）：
+  //   0 = 从未提交分析（面试创建时置 0）  1 = 分析进行中  2 = 分析完成
+  // 原实现用 "(analysisStatus ?? 0) < 2"：把 **0（从未分析）** 与 null 都当成"生成中"
+  // ⇒ 这些记录会永远显示"报告生成中"并持续轮询（清单 P1）。只认 1 才是"进行中"。
+  return v.status === 'finished' && v.analysisStatus === 1;
 }
 
-/** v11.96：生成中项的轮询（5s 批量刷新进度；全部完成后重载列表拿最终分数/摘要） */
+/** 生成中项的轮询（5s 批量刷新进度；全部完成后重载列表拿最终分数/摘要） */
 let generatingPollHandle: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * 轮询上限（清单 P2）：原先 setInterval 无最大轮数/超时，也没有失败退出 ——
+ * 单条查询异常被空 catch 吞掉后只会**无限轮询**。
+ * 5s × 60 = 5 分钟；超时或连续失败即停止并明确告知用户。
+ */
+const MAX_POLL_ROUNDS = 60;
+const MAX_POLL_FAILURES = 5;
+let generatingPollRounds = 0;
+let generatingPollFailures = 0;
 
 function stopGeneratingPoll() {
   if (generatingPollHandle) {
@@ -74,8 +86,17 @@ function startGeneratingPoll() {
   stopGeneratingPoll();
   const generating = list.value.filter(isGenerating);
   if (generating.length === 0) return;
+  generatingPollRounds = 0;
+  generatingPollFailures = 0;
   generatingPollHandle = setInterval(async () => {
+    generatingPollRounds += 1;
+    if (generatingPollRounds > MAX_POLL_ROUNDS) {
+      stopGeneratingPoll();
+      toast.warning('报告生成超时（已等待约 5 分钟），请稍后刷新页面查看结果');
+      return;
+    }
     let stillGenerating = false;
+    let roundFailed = false;
     for (const item of generating) {
       if (!item.id) continue;
       try {
@@ -90,8 +111,20 @@ function startGeneratingPoll() {
           stillGenerating = true;
         }
       } catch {
-        stillGenerating = true; // 单次失败不中断轮询
+        roundFailed = true;
+        stillGenerating = true; // 单次失败不中断本轮
       }
+    }
+    // 连续多轮全部失败：停止轮询并告知（原实现会无限静默轮询）
+    if (roundFailed) {
+      generatingPollFailures += 1;
+      if (generatingPollFailures >= MAX_POLL_FAILURES) {
+        stopGeneratingPoll();
+        toast.error('查询报告进度连续失败，已停止自动刷新，请稍后手动刷新页面');
+        return;
+      }
+    } else {
+      generatingPollFailures = 0;
     }
     if (!stillGenerating) {
       stopGeneratingPoll();
@@ -101,6 +134,8 @@ function startGeneratingPoll() {
   }, 5000);
 }
 
+const confirmModal = useConfirmModal();
+
 async function loadList() {
   loading.value = true;
   try {
@@ -108,9 +143,10 @@ async function loadList() {
     const data = res.data;
     list.value = (data?.records as VoiceInterviewVO[]) || [];
     total.value = data?.total || 0;
-    // v11.96：存在报告生成中的记录则启动进度轮询（完成后自动重载列表并提示）
+    // 存在报告生成中的记录则启动进度轮询（完成后自动重载列表并提示）
     startGeneratingPoll();
   } catch (err: any) {
+    loadError.value = err?.message || '加载面试记录失败，请稍后重试';
     toast.error(err?.message || '加载面试记录失败，请稍后重试');
   } finally {
     loading.value = false;
@@ -122,8 +158,25 @@ function viewReport(v: VoiceInterviewVO) {
   router.push({ path: '/interview/voice', query: { id: String(v.id) } });
 }
 
-/** v11.97：重新生成报告——跳转报告页并携带 regenerate 参数自动触发（仅已出报告的场次） */
-function regenerateReport(v: VoiceInterviewVO) {
+/** 重新生成报告——跳转报告页并携带 regenerate 参数自动触发（仅已出报告的场次） */
+/**
+/** 列表加载失败提示（清单 P2：原只有 loading 与空态，失败被当成"还没有面试记录"） */
+const loadError = ref<string | null>(null);
+
+/**
+ * 重新生成报告（清单 P2）。
+ *
+ * <p>原先这里只做 `router.push(..., regenerate:'1')`，报告页收到该参数后走 `handleRegenerateReport(true)`
+ * 的 `skipConfirm` 分支（其注释写"入口处已确认过"）—— **但本页从未弹过任何确认**。
+ * 而该操作会**清空原报告后重跑**、后端还带 `@RateLimiter(key="voice:regenerate", count=10/小时)`，
+ * 属覆盖性 + 有成本 + 有限流的操作，必须在入口确认。</p>
+ */
+async function regenerateReport(v: VoiceInterviewVO) {
+  const ok = await confirmModal.confirm(
+    '重新生成会覆盖当前报告并重新分析全部问答，且每小时最多 10 次。确认继续？',
+    { title: '重新生成报告', confirmText: '确认重新生成', danger: true },
+  );
+  if (!ok) return;
   if (!v.id) return;
   router.push({ path: '/interview/voice', query: { id: String(v.id), regenerate: '1' } });
 }
@@ -238,7 +291,7 @@ onUnmounted(() => {
                 >
                   {{ statusOf(item).label }}
                 </span>
-                <!-- v11.96：报告生成中进度徽标（异步任务可见进度） -->
+                <!-- 报告生成中进度徽标（异步任务可见进度） -->
                 <span
                   v-if="isGenerating(item)"
                   class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium"
@@ -299,7 +352,7 @@ onUnmounted(() => {
           <div class="mt-3 pt-3 border-t flex items-center justify-between text-xs" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
             <span>查看完整对话 · 逐题点评 · 面试报告</span>
             <span class="inline-flex items-center gap-3">
-              <!-- v11.97：重新生成报告（跳转报告页自动触发，复用报告生成进度链路） -->
+              <!-- 重新生成报告（跳转报告页自动触发，复用报告生成进度链路） -->
               <button
                 v-if="item.status === 'finished' && !isGenerating(item)"
                 class="inline-flex items-center gap-1 px-2.5 py-1 font-medium transition-colors"
@@ -342,6 +395,6 @@ onUnmounted(() => {
       </div>
     </main>
   </div>
-  <!-- v11.94.1：站点尾部（模板根级，宽度与首页一致，与语音面试页统一结构） -->
+  <!-- 站点尾部（模板根级，宽度与首页一致，与语音面试页统一结构） -->
   <SiteFooter />
 </template>

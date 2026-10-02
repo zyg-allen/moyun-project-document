@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 话题观点发布数据传输对象
  *
- * <p>用于 PortalTopicController.createPost 接口参数接收，替代旧的 {@code Map<String, Object>}，
+ * <p>用于 PortalTopicController.createPost 接口参数接收，
  * 通过 JSR-303 校验保证参数合法性。</p>
  *
  * @author moyun

@@ -3,7 +3,7 @@ package com.moyun.core.portal;
 import java.util.Map;
 
 /**
- * 审核业务内容端口（防腐层，v13.22）
+ * 审核业务内容端口（防腐层）
  *
  * <h3>为什么需要它</h3>
  * <p>管理端（{@code system}）的审核中心需要读取/落地<b>用户端（portal）</b>的各类业务内容
@@ -21,7 +21,7 @@ import java.util.Map;
  *       {@code feedback}/{@code interview_comment}/{@code interview_exp}/{@code report}/{@code topic}）。</li>
  * </ul>
  *
- * <p>这样依赖方向变成 {@code system -> core <- portal}（依赖倒置），与 v13.11 的
+ * <p>这样依赖方向变成 {@code system -> core <- portal}（依赖倒置），与
  * {@code core.security.principal} 同一手法。</p>
  *
  * @author moyun

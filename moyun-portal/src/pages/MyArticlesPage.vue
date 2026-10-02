@@ -37,7 +37,21 @@
     </div>
 
     <!-- 文章列表 -->
-    <div class="article-list" :class="{ 'is-loading': loading }">
+    <!-- 失败态（清单 P2）：必须排在"暂无文章"空态之前 -->
+    <div
+      v-if="loadError"
+      class="py-16 text-center rounded-2xl"
+      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+    >
+      <p class="mb-4" style="color: var(--theme-text);">{{ loadError }}</p>
+      <button
+        class="px-5 py-2 rounded-xl text-sm font-medium text-white"
+        style="background-color: var(--theme-primary);"
+        @click="loadArticles()"
+      >重试</button>
+    </div>
+
+    <div v-else class="article-list" :class="{ 'is-loading': loading }">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
         <p>加载中...</p>
@@ -63,14 +77,14 @@
           <div class="article-title-row">
             <h3 class="article-title" @click="viewArticle(article)">{{ article.title || '无标题草稿' }}</h3>
             <span class="status-badge" :class="`status-${article.status}`">
-              {{ getStatusLabel(article.status) }}
+              {{ getStatusLabel(article.status || '') }}
             </span>
           </div>
           <p class="article-excerpt">{{ article.excerpt || '暂无摘要' }}</p>
           <!-- 拒绝原因 -->
-          <div v-if="article.status === 'rejected' && article.remark" class="reject-reason">
+          <div v-if="article.status === 'rejected' && article.auditRemark" class="reject-reason">
             <AlertCircle class="w-3.5 h-3.5" />
-            <span>拒绝原因：{{ article.remark }}</span>
+            <span>拒绝原因：{{ article.auditRemark }}</span>
           </div>
           <div class="article-meta">
             <span class="meta-item">
@@ -144,6 +158,7 @@ import { getMyArticles, deleteArticle as deleteArticleApi, updateArticle } from 
 import { useToast } from '@/composables/useToast';
 import { useConfirmModal } from '@/composables/useConfirmModal';
 import { normalizeFileUrl } from '@/utils/fileUrl';
+import type { Article } from '@/types/api';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 
 const router = useRouter();
@@ -153,7 +168,7 @@ const confirmModal = useConfirmModal();
 
 // 状态数据
 const loading = ref(false);
-const articles = ref<any[]>([]);
+const articles = ref<Article[]>([]);
 const total = ref(0);
 const pageNum = ref(1);
 const pageSize = ref(10);
@@ -194,8 +209,18 @@ function getStatusLabel(status: string): string {
 
 // 时间格式化
 // 加载文章列表
+/**
+ * 列表加载失败提示（清单 P2）。
+ *
+ * <p>原先只有 loading 与 empty 两态：catch 只 console.error（或跳登录），
+ * `articles` 保持空数组 ⇒ 模板立刻渲染「暂无文章 / 去发布第一篇文章」，
+ * 把"加载失败"说成"你还没有文章"。</p>
+ */
+const loadError = ref<string | null>(null);
+
 async function loadArticles() {
   loading.value = true;
+  loadError.value = null;
   try {
     const res = await getMyArticles({
       pageNum: pageNum.value,
@@ -209,8 +234,13 @@ async function loadArticles() {
     }
   } catch (error: any) {
     console.error('加载我的文章失败:', error);
-    if (error?.message?.includes('登录') || error?.message?.includes('401')) {
-      router.push('/login?redirect=/my/articles');
+    const msg: string = error?.message || '';
+    // 清单 P2：401 已由 client.ts 全局处理（showAuthExpiredDialog / handleUnauthorized）弹确认框，
+    // 这里再 push 登录页会把用户"留在当前页/继续浏览"的选择作废，故只记录错误态、不强行跳转。
+    if (/401|登录|过期/.test(msg)) {
+      loadError.value = '登录状态已失效，请重新登录后查看';
+    } else {
+      loadError.value = msg || '加载文章列表失败，请稍后重试';
     }
   } finally {
     loading.value = false;
@@ -228,6 +258,19 @@ function switchStatus(status: string) {
 function changePage(page: number) {
   pageNum.value = page;
   loadArticles();
+}
+
+/**
+ * 删除后的页码纠正（清单 P2）。
+ *
+ * <p>原先删完只 `loadArticles()`：若删的是**末页最后一条**，`pageNum` 仍指向已不存在的页，
+ * 后端返回空 records，页面显示「暂无文章」——用户以为文章全没了（实际只是页码越界）。</p>
+ */
+async function reloadAfterRemove() {
+  if (pageNum.value > 1 && articles.value.length <= 1) {
+    pageNum.value -= 1;
+  }
+  await loadArticles();
 }
 
 // 跳转发布页
@@ -290,7 +333,8 @@ async function deleteArticle(article: any) {
   try {
     await deleteArticleApi(article.id);
     toast.success('删除成功');
-    loadArticles();
+    // 清单 P2：末页最后一条被删时回退一页，避免停在空页显示"暂无文章"
+    await reloadAfterRemove();
   } catch (error: any) {
     toast.error(error?.message || '删除失败');
   }

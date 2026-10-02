@@ -2,7 +2,6 @@ package com.moyun.pay.controller;
 
 
 import com.moyun.core.base.AjaxResult;
-import com.moyun.pay.domain.entity.PayNotification;
 import com.moyun.pay.service.INotificationService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +50,17 @@ public class PortalPayNotificationController {
     }
 
     /** 标记已读 */
+    /** 全部标记已读（服务端批量，覆盖所有页） */
+    @PostMapping("/read-all")
+    public AjaxResult markAllRead() {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(401, "登录已过期，请重新登录");
+        }
+        int affected = notificationService.markAllRead(userId);
+        return AjaxResult.success(affected);
+    }
+
     @PostMapping("/{notificationId}/read")
     public AjaxResult markRead(@PathVariable Long notificationId) {
         Long userId = PortalSecurityUtils.getUserId();

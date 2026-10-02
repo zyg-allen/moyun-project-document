@@ -2107,23 +2107,7 @@ const formatTime = (time) => {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`
 }
 
-// 获取提示词预览（截取前80个字符，约2行）
-const getPromptPreview = (prompt) => {
-  if (!prompt) return ''
-  const cleanPrompt = prompt.trim()
-  if (cleanPrompt.length <= 80) {
-    return cleanPrompt
-  }
-  return cleanPrompt.substring(0, 80) + '...'
-}
 
-// 获取开场白预览
-const getWelcomePreview = (welcome) => {
-  if (!welcome) return ''
-  const clean = welcome.trim()
-  if (clean.length <= 40) return clean
-  return clean.substring(0, 40) + '...'
-}
 
 // 获取知识库数量（支持新旧两种格式）
 const getKnowledgeCount = (agent) => {

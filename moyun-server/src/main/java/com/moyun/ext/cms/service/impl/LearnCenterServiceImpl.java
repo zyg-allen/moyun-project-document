@@ -67,9 +67,15 @@ public class LearnCenterServiceImpl implements ILearnCenterService {
         vo.setTodayReviewCount(wrongQuestionService.countTodayReview(currentUserId));
 
         // === 学习计划（active） ===
-        List<StudyPlanVO> activePlans = studyPlanService.listMyPlans(currentUserId, "active", 1, 5).getRecords();
+        // 清单 P2：原先用"取 5 条记录的长度"当进行中计划数 ⇒ 计划超过 5 个时永远显示 5。
+        // 改为读取分页 total（真实总数）；下面仍取前 5 条用于"今日计划"展示。
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<StudyPlanVO> activePlanPage =
+                studyPlanService.listMyPlans(currentUserId, "active", 1, 5);
+        List<StudyPlanVO> activePlans = activePlanPage.getRecords();
         vo.setActivePlans(activePlans != null ? activePlans : new ArrayList<>());
-        vo.setActivePlanCount((long) vo.getActivePlans().size());
+        // 清单 P2：用分页 total 作为"进行中计划数"（原用列表条数，因只取 5 条而永远封顶 5）
+        long activePlanTotal = activePlanPage.getTotal();
+        vo.setActivePlanCount(activePlanTotal > 0 ? activePlanTotal : (long) vo.getActivePlans().size());
 
         // === 最近错题预览 ===
         List<WrongQuestionVO> recent = wrongQuestionService.listRecentWrong(currentUserId, RECENT_WRONG_LIMIT);

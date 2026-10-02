@@ -30,7 +30,7 @@ import java.util.Map;
  *
  * <p><b>缓存键：{@code ai2:cache:u:{userId}:{scene}:{md5(input)}}</b>，TTL 取场景配置 cache_ttl。</p>
  *
- * <p><b>为什么键里必须带 userId（v13.2 安全修复）</b>：原键为
+ * <p><b>为什么键里必须带 userId（安全修复）</b>：原键为
  * {@code ai2:cache:{scene}:{md5(input)}}，且语义命中的扫描模式是 {@code ai2:cache:{scene}:*}——
  * 两者都**不区分用户**。而缓存里存的是**完整的响应体**，其内容往往是用户私有数据
  * （简历解析/优化结果、财务分析、面试对话）。于是只要场景开了 {@code enable_cache}，

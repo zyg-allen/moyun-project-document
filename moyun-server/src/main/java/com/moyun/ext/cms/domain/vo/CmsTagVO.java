@@ -1,8 +1,6 @@
 package com.moyun.ext.cms.domain.vo;
 
-import java.time.LocalDateTime;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import com.moyun.core.base.BaseEntity;

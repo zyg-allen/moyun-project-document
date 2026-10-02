@@ -7,7 +7,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 
-import { getReadingHome, toggleBookListBookmark, checkBookListBookmark, getRanking } from '@/api/reading';
+import { getReadingHome, toggleBookListBookmark, getBookListBookmarkIds, getRanking } from '@/api/reading';
 import { generateSeo } from '@/utils/seo';
 import { formatDate } from '@/utils/date';
 import { useUserStore } from '@/stores/user';
@@ -45,15 +45,21 @@ async function loadReadingHome() {
       bookLists.value = response.data.bookLists || [];
       books.value = response.data.books || [];
       quotes.value = response.data.quotes || [];
-      // 登录用户批量查询收藏状态
-      if (userStore.isAuthenticated) {
-        bookLists.value.forEach(bl => {
-          checkBookListBookmark(bl.id).then(resp => {
-            if (resp.code === 200 && resp.data) {
-              bookmarkStates.value[bl.id] = !!(resp.data as any).bookmarked;
-            }
-          }).catch(() => { /* ignore */ });
-        });
+      // 登录用户批量查询收藏状态（清单 P2）
+      // 原先 forEach 对每个书单各发一次 check 请求（N 个书单 N 次往返 + N 次查库），且失败被完全静默。
+      // 现在改为**一次**批量请求；失败保留"未收藏"初始态但打印可诊断日志（不静默）。
+      if (userStore.isAuthenticated && bookLists.value.length > 0) {
+        try {
+          const resp = await getBookListBookmarkIds(bookLists.value.map(bl => bl.id));
+          if (resp.code === 200 && resp.data) {
+            const ids = (resp.data.bookmarkedIds || []).map(String);
+            bookLists.value.forEach(bl => {
+              bookmarkStates.value[bl.id] = ids.includes(String(bl.id));
+            });
+          }
+        } catch (e) {
+          console.warn('批量查询书单收藏状态失败（列表按未收藏展示）:', e);
+        }
       }
     } else {
       error.value = response.message || '加载数据失败';
@@ -67,25 +73,37 @@ async function loadReadingHome() {
 }
 
 // 第三阶段：并行加载排行榜区块（最近更新 / 连载中 / 完结好评）
+/** 排行榜区块失败提示（清单 P2）：原只 console.error，区块空白且用户无从判断 */
+const rankingError = ref(false);
+
 async function loadRankingSections() {
+  // 清单 P2：原先「最近更新」用 'new'（=create_time，实为**新书上架**）、
+  // 「连载中」用 'word_count'（=字数榜，未过滤连载状态，已完结长书会混入）——
+  // 区块标题与实际口径不符。后端已补 'updated'（last_update_time）与 'ongoing'（serial_status=ongoing）。
   const sections: { type: RankingType; target: typeof recentUpdate }[] = [
-    { type: 'new', target: recentUpdate },
-    { type: 'word_count', target: ongoingNovels },
+    { type: 'updated', target: recentUpdate },
+    { type: 'ongoing', target: ongoingNovels },
     { type: 'completed', target: completedBooks },
   ];
+  rankingError.value = false;
+  let failed = false;
   await Promise.all(
     sections.map(async (sec) => {
       try {
         const resp = await getRanking(sec.type, 6);
         if (resp.code === 200 && resp.data) {
           sec.target.value = (resp.data as any).list || [];
+        } else {
+          failed = true;
         }
       } catch (err) {
-        // 静默忽略单个区块加载失败，不影响主页面
+        // 单个区块失败不影响主页面，但要在界面上体现（不再静默）
+        failed = true;
         console.error(`加载排行榜区块[${sec.type}]失败:`, err);
       }
     })
   );
+  rankingError.value = failed;
 }
 
 async function handleToggleBookmark(bookListId: string | number) {
@@ -179,6 +197,23 @@ useHead(
         </div>
         
         <template v-else>
+          <!--
+            首页空态（清单 P2）：六个区块全部 `v-if="length > 0"`，
+            数据全空时整页只剩标题与页脚，没有任何说明或引导。
+          -->
+          <div
+            v-if="bookLists.length === 0 && books.length === 0 && recentUpdate.length === 0 && ongoingNovels.length === 0 && completedBooks.length === 0"
+            class="py-16 text-center rounded-2xl"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          >
+            <p class="mb-2 font-medium" style="color: var(--theme-text);">暂无推荐内容</p>
+            <p class="text-sm mb-5" style="color: var(--theme-text-secondary);">书库正在整理中，你也可以先去题库或面经区看看</p>
+            <div class="flex items-center justify-center gap-3">
+              <button class="px-4 py-2 rounded-xl text-sm text-white" style="background-color: var(--theme-primary);" @click="router.push('/reading/discover')">去发现</button>
+              <button class="px-4 py-2 rounded-xl text-sm" style="border: 1px solid var(--theme-border); color: var(--theme-text);" @click="loadRankingSections()">重试</button>
+            </div>
+          </div>
+
           <!-- 精选书单 -->
           <div v-if="bookLists.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
@@ -186,7 +221,11 @@ useHead(
                 <BookOpen class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
                 精选书单
               </h2>
-              <button class="font-medium flex items-center hover:opacity-80" style="color: var(--theme-primary);">
+              <button
+                class="font-medium flex items-center hover:opacity-80"
+                style="color: var(--theme-primary);"
+                @click="router.push('/reading/discover')"
+              >
                 查看更多
                 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
@@ -194,7 +233,7 @@ useHead(
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div
-                v-for="(bookList, index) in bookLists"
+                v-for="bookList in bookLists"
                 :key="bookList.id"
                 @click="router.push(`/reading/book-list/${bookList.id}`)"
                 class="rounded-xl overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
@@ -256,7 +295,7 @@ useHead(
 
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               <div
-                v-for="(book, index) in books"
+                v-for="book in books"
                 :key="book.id"
                 @click="router.push(`/reading/book/${book.id}`)"
                 class="group cursor-pointer"
@@ -279,6 +318,16 @@ useHead(
           </div>
 
           <!-- 最近更新 -->
+          <!-- 排行榜区块失败提示（清单 P2） -->
+          <div
+            v-if="rankingError && recentUpdate.length === 0 && ongoingNovels.length === 0 && completedBooks.length === 0"
+            class="mb-8 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
+          >
+            <span>排行榜与推荐位加载失败</span>
+            <button style="color: var(--theme-primary);" @click="loadRankingSections()">重试</button>
+          </div>
+
           <div v-if="recentUpdate.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
               <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
@@ -411,7 +460,7 @@ useHead(
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div 
-                v-for="(quote, index) in quotes" 
+                v-for="quote in quotes" 
                 :key="quote.id"
                 class="rounded-xl p-6 shadow-sm hover:shadow-md transition cursor-pointer"
                 style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
@@ -426,7 +475,7 @@ useHead(
                   <div class="flex items-center min-w-0">
                     <div v-if="quote.bookCover || quote.book?.cover" class="w-10 h-14 rounded overflow-hidden mr-3 flex-shrink-0">
                       <LazyImage
-                        :src="quote.bookCover || quote.book?.cover"
+                        :src="quote.bookCover || quote.book?.cover || ''"
                         :alt="quote.bookTitle || quote.book?.title"
                         class="w-full h-full object-cover"
                       />

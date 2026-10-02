@@ -8,7 +8,7 @@
         <view class="user-sub">最近备份：{{ lastBackup }} · 本地</view>
       </view>
       <view class="user-right">
-        <!-- v11.76：原"签到"为纯本地装饰（无后端接口、无积分数据），删除；改为个人信息维护入口（AI 财务分析基础数据） -->
+        <!-- 个人信息维护入口（AI 财务分析基础数据） -->
         <view v-if="userStore.isLoggedIn" class="sign-btn" @tap="go('/pages/mine/profile/index')">编辑资料</view>
         <view class="setting-btn" @tap="go('/pages/mine/settings/index')">⚙</view>
       </view>
@@ -98,9 +98,9 @@ export default {
       loginForm: { username: '', password: '' },
       captcha: { enabled: true, uuid: '', img: '', code: '' },
       lastBackup: '从未',
-      /** 画像完善状态（账号信息维护展示；v11.76 新增） */
+      /** 画像完善状态（账号信息维护展示） */
       profileDone: false,
-      // 主功能宫格（v11.73 内置兜底=仅已上线功能；运行时由后台配置覆盖）
+      // 主功能宫格（内置兜底=仅已上线功能；运行时由后台配置覆盖）
       mainMenus: [
         { key: 'category', icon: '☰', label: '分类管理', color: '#7fbf94' },
         { key: 'setting', icon: '⚙️', label: '记账设置', color: '#7fbf94' },
@@ -112,7 +112,7 @@ export default {
         { key: 'personalize', icon: '🎨', label: '个性化', color: '#e57373', badge: 'NEW' },
         { key: 'catIcon', icon: '🎭', label: '分类图标', color: '#7fbf94', badge: 'NEW' }
       ],
-      // 推荐小功能（v11.73 内置兜底=仅已上线功能）
+      // 推荐小功能（内置兜底=仅已上线功能）
       recommendMenus: [
         { key: 'memo', icon: '📝', label: '备忘录', color: '#7fbf94' },
         { key: 'list', icon: '☑', label: '清单', color: '#7fbf94' }
@@ -128,7 +128,7 @@ export default {
     if (!useUserStore().isLoggedIn && this.captcha.enabled && !this.captcha.img) {
       this.loadCaptcha();
     }
-    // 备份时间 + 画像完善状态（v11.76：签到已删除——纯本地装饰无业务数据）
+    // 备份时间 + 画像完善状态
     this.lastBackup = storage.get('last_backup') || '从未';
     if (useUserStore().isLoggedIn) {
       getAiProfile().then((pf) => {
@@ -140,11 +140,11 @@ export default {
         this.profileDone = filled >= 4;
       }).catch(() => {});
     }
-    // v11.73：功能宫格由后台可视化配置（仅展示 visible=1；失败回退内置默认）
+    // 功能宫格由后台可视化配置（仅展示 visible=1；失败回退内置默认）
     this.loadFeatureConfig();
   },
   methods: {
-    /** 拉取后台功能入口配置（v11.73）：按分组覆盖默认宫格；未配置/接口异常保持内置清单 */
+    /** 拉取后台功能入口配置：按分组覆盖默认宫格；未配置/接口异常保持内置清单 */
     async loadFeatureConfig() {
       try {
         const rows = await getAppFeatures();
@@ -211,7 +211,7 @@ export default {
       };
       const url = routes[m.key];
       if (url) { uni.navigateTo({ url }); return; }
-      // 链接型入口（v11.75，如"墨韵社区"）：引导使用门户平台；URL 由后台功能配置下发
+      // 链接型入口：引导使用门户平台；URL 由后台功能配置下发
       if (m.key === 'portal' && m.link) {
         // #ifdef H5
         window.open(m.link, '_blank');

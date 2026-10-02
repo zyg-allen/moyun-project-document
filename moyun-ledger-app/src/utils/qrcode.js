@@ -4,8 +4,8 @@ import QrCore from 'qrcode/lib/core/qrcode';
 /**
  * 收银台二维码绘制（H5 + 小程序通用）
  *
- * <h3>为什么不用 QRCode.toCanvas（v13.10 之前的写法）</h3>
- * 旧实现是 {@code QRCode.toCanvas(document.querySelector(...), codeUrl)}：
+ * <h3>为什么不用 QRCode.toCanvas</h3>
+ * {@code QRCode.toCanvas(document.querySelector(...), codeUrl)} 有两个问题：
  * <ul>
  *   <li>依赖 {@code document} / {@code HTMLCanvasElement} —— **小程序没有 DOM**，
  *       且旧代码用 {@code // #ifdef H5} 包住，小程序端**从来不渲染二维码**

@@ -832,7 +832,7 @@ public class WorkflowGeneratorServiceImpl implements WorkflowGeneratorService {
     }
     
     /**
-     * 从响应中提取JSON（v13.19：统一走 LlmJsonExtractor —— 围栏/对象/数组/括号配平一处实现）
+     * 从响应中提取JSON（统一走 LlmJsonExtractor —— 围栏/对象/数组/括号配平一处实现）
      *
      * @return JSON 文本；响应中不存在 JSON 主体时返回 null（保持原有调用方语义）
      */

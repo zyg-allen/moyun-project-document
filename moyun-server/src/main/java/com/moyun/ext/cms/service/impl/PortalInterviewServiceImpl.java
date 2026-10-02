@@ -223,8 +223,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
     /**
      * 题目分页查询条件构造（与 selectQuestionList 共享，避免重复）
-     * - 未传 status 默认查 published（与实体 status 枚举 draft/published/archived 一致；
-     *   历史曾用 active/inactive 已废弃，存量数据建议 UPDATE 修正为 published）
+     * - 未传 status 默认查 published（与实体 status 枚举 draft/published/archived 一致）
      * - 排序：sort 升序 + createTime 降序
      */
     private LambdaQueryWrapper<PortalInterviewQuestion> buildQuestionQueryWrapper(InterviewQuestionQuery query) {
@@ -238,6 +237,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
         // v11.x 智能出题：按岗位模板筛选
         if (query.getJobTemplateId() != null) qw.eq(PortalInterviewQuestion::getJobTemplateId, query.getJobTemplateId());
+        // 公司标签筛选：门户公司页传 companyId，但此前**没有对应分支** ⇒ 参数被静默忽略，
+        // "公司题目"Tab 实际返回全量题目（前端却当成本公司题目展示）。
+        if (query.getCompanyId() != null) applyCompanyFilter(qw, query.getCompanyId());
         // 关键词需嵌套分组：裸 .or() 会提升优先级，绕过 status/practiceMode 等前置 AND 条件
         if (StringUtils.isNotEmpty(query.getKeyword())) {
             qw.and(w -> w.like(PortalInterviewQuestion::getTitle, query.getKeyword())
@@ -245,6 +247,24 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         }
         qw.orderByAsc(PortalInterviewQuestion::getSort).orderByDesc(PortalInterviewQuestion::getCreateTime);
         return qw;
+    }
+
+    /**
+     * 公司标签筛选：以关联表 {@code portal_interview_question_company} 的题目 id 集合做 IN。
+     *
+     * <p>用"先查 id 再 IN"而不是 JOIN：分页查询用 JOIN 会影响 count 语义（一对多会放大行数），
+     * 且本项目的 SQL 模板守卫要求避免拼接 SQL。该公司**无关联题目时显式构造恒假条件**，
+     * 避免退化成"不过滤 = 返回全量题目"这一更难发现的错误。</p>
+     */
+    private void applyCompanyFilter(LambdaQueryWrapper<PortalInterviewQuestion> qw, Long companyId) {
+        // 复用本文件**已依赖**的 PortalInterviewCompanyMapper（不新增跨模块 import，
+        // 也就不会推高 ModuleDependencyGuardTest 冻结的 ext.cms -> portal 计数）。
+        List<Long> questionIds = companyMapper.selectQuestionIdsByCompanyId(companyId);
+        if (questionIds == null || questionIds.isEmpty()) {
+            qw.eq(PortalInterviewQuestion::getId, -1L);
+        } else {
+            qw.in(PortalInterviewQuestion::getId, questionIds);
+        }
     }
 
     @Override
@@ -260,6 +280,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
             // v11.x 智能出题：按岗位模板筛选
             if (query.getJobTemplateId() != null) qw.eq(PortalInterviewQuestion::getJobTemplateId, query.getJobTemplateId());
+            if (query.getCompanyId() != null) applyCompanyFilter(qw, query.getCompanyId());
             if (StringUtils.isNotEmpty(query.getKeyword())) {
                 qw.and(w -> w.like(PortalInterviewQuestion::getTitle, query.getKeyword())
                         .or().like(PortalInterviewQuestion::getDescription, query.getKeyword()));
@@ -711,7 +732,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         validateQuestionByPracticeMode(question);
         question.setCreateTime(LocalDateTime.now());
         question.setUpdateTime(LocalDateTime.now());
-        // 状态枚举 draft/published/archived（历史 active/inactive 已废弃，前台默认查 published）
+        // 状态枚举 draft/published/archived（前台默认查 published）
         if (question.getStatus() == null) question.setStatus("published");
         // 练习模式缺省按阅读题处理，保证前台三模式筛选均可命中
         if (question.getPracticeMode() == null || question.getPracticeMode().trim().isEmpty()) {
@@ -783,6 +804,18 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             // 选择题：服务端比对 correct_answer（单选直接比，多选排序后比）
             String userAnswer = body.get("answer") != null ? body.get("answer").toString() : "";
             String correctAnswer = question.getCorrectAnswer() != null ? question.getCorrectAnswer().trim() : "";
+            // 历史数据兜底：correct_answer 为空但 options JSON 里标了 is_correct 时，
+            // 从中反推答案再判分（否则"选对也判错"）；仍无法判定则按数据缺失处理并留痕。
+            if (correctAnswer.isEmpty()) {
+                correctAnswer = resolveCorrectAnswerFromOptions(question.getOptions());
+                if (!correctAnswer.isEmpty()) {
+                    log.info("[interview] 选择题 correct_answer 为空，已从 options.is_correct 反推：questionId={} answer={}",
+                            questionId, correctAnswer);
+                } else {
+                    log.warn("[interview] 选择题缺少正确答案（correct_answer 与 options.is_correct 均为空）：questionId={}",
+                            questionId);
+                }
+            }
             isSuccess = isChoiceAnswerCorrect(userAnswer, correctAnswer);
             // 选择题答案统一落 content，answerType 标记 choice
             if (submission.getContent() == null || submission.getContent().isEmpty()) {
@@ -1019,6 +1052,17 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     public Page<InterviewBookmarkVO> selectBookmarkPage(Page<InterviewBookmarkVO> page, Long userId) {
         if (userId == null) { page.setRecords(Collections.emptyList()); return page; }
         List<PortalInterviewBookmark> list = bookmarkMapper.selectBookmarkListByUserId(userId);
+        // 清单 P2：原先在流里逐条 questionMapper.selectById(entity.getQuestionId()) ⇒ **N+1 查询**
+        // （收藏 200 条就是 201 次 SQL）。改为一次性批量取题库后按 id 关联。
+        java.util.Set<Long> questionIds = list.stream()
+                .map(PortalInterviewBookmark::getQuestionId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.Map<Long, PortalInterviewQuestion> questionMap = questionIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : questionMapper.selectBatchIds(questionIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                PortalInterviewQuestion::getId, x -> x, (a, b) -> a));
         List<InterviewBookmarkVO> vos = list.stream().map(entity -> {
             InterviewBookmarkVO vo = new InterviewBookmarkVO();
             vo.setId(entity.getId());
@@ -1026,7 +1070,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             vo.setUserId(entity.getUserId());
             vo.setNote(entity.getNote());
             vo.setCreateTime(entity.getCreateTime());
-            PortalInterviewQuestion q = questionMapper.selectById(entity.getQuestionId());
+            PortalInterviewQuestion q = questionMap.get(entity.getQuestionId());
             if (q != null) vo.setQuestion(toQuestionVO(q, userId));
             return vo;
         }).skip((long) (int)((page.getCurrent() - 1) * page.getSize())).limit((int) page.getSize()).collect(Collectors.toList());
@@ -1042,6 +1086,16 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             return page;
         }
         List<PortalInterviewSubmission> list = submissionMapper.selectSubmissionsByUserId(userId);
+        // 清单 P2：同收藏列表，逐条 selectById 属 N+1，改为批量取题目后按 id 关联。
+        java.util.Set<Long> qIds = list.stream()
+                .map(PortalInterviewSubmission::getQuestionId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.Map<Long, PortalInterviewQuestion> qMap = qIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : questionMapper.selectBatchIds(qIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                PortalInterviewQuestion::getId, x -> x, (a, b) -> a));
         List<InterviewSubmissionVO> vos = list.stream().map(entity -> {
             InterviewSubmissionVO vo = new InterviewSubmissionVO();
             vo.setId(entity.getId());
@@ -1059,8 +1113,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             vo.setIsFeatured(entity.getIsFeatured());
             vo.setFeaturedTime(entity.getFeaturedTime());
             vo.setCreateTime(entity.getCreateTime());
-            // 填充题目标题和难度
-            PortalInterviewQuestion q = questionMapper.selectById(entity.getQuestionId());
+            // 填充题目标题和难度（批量结果）
+            PortalInterviewQuestion q = qMap.get(entity.getQuestionId());
             if (q != null) {
                 vo.setQuestionTitle(q.getTitle());
                 vo.setQuestionDifficulty(q.getDifficulty());
@@ -1127,7 +1181,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         result.put("affected", rows);
         result.put("isFeatured", isFeatured);
 
-        // v13.16：状态真正翻转时才动统计与成长事件（幂等：重复采纳同一篇不再累加计数）
+        // 状态真正翻转时才动统计与成长事件（幂等：重复采纳同一篇不再累加计数）
         //   - 精选笔记数固定 ±1（唯一写入源 updateNoteAdoptedCount，内部校验影响行数）
         //   - 成长事件只在"未采纳 → 采纳"时记录，避免重复加成长值
         if (rows > 0 && isFeatured != wasFeatured && submission.getUserId() != null) {
@@ -1279,8 +1333,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         }
         portalTagService.bindTags("interview_experience", experience.getId(), extractedTagIds, extractedTagNames, "interview_experience");
 
-        // 修复链路断裂：草稿/被拒面经通过编辑"提交发布"时，
-        // 此前未提交审核任务，导致面经永远停在 pending 且审核中心不可见。
+        // 草稿/被拒面经通过编辑入口提交发布时，同步提交审核任务。
         if (row > 0 && submitForReview) {
             submitAuditTask("interview_exp", experience.getId(), experience.getTitle(),
                     experience.getSummary(), userId);
@@ -1441,7 +1494,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public int insertComment(PortalInterviewComment comment, Long userId) {
+    public InterviewCommentVO insertComment(PortalInterviewComment comment, Long userId) {
         if (userId == null) throw new ServiceException("请登录后操作");
         PortalInterviewExperience exp = experienceMapper.selectById(comment.getExperienceId());
         if (exp == null) throw new ServiceException("面经不存在");
@@ -1477,7 +1530,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             submitAuditTask("interview_comment", comment.getId(), null,
                     comment.getContent(), userId);
         }
-        return row;
+        // 返回新建评论的 VO：门户发表评论后需要把新评论直接插入列表。
+        // 原先返回 int（影响行数）⇒ 前端按 InterviewCommentVO 解析会把数字当评论对象渲染成空白。
+        return row > 0 ? toCommentVO(comment, userId) : null;
     }
 
     @Override
@@ -1555,8 +1610,17 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (StringUtils.isNotEmpty(query.getCategory())) qw.eq(PortalInterviewResumeTemplate::getCategory, query.getCategory());
         if (StringUtils.isNotEmpty(query.getFileType())) qw.eq(PortalInterviewResumeTemplate::getFileType, query.getFileType());
         if (query.getIsPremium() != null) qw.eq(PortalInterviewResumeTemplate::getIsPremium, query.getIsPremium());
+        // 状态过滤：此前**完全忽略** query.status ⇒ 调用方（如面试首页第 157 行）设置的 "active"
+        // 形同虚设，后台草稿（draft）会直接出现在门户列表与首页推荐里。
+        // 门户侧另在 Controller 强制覆写为 active，不信任客户端传参。
+        if (StringUtils.isNotEmpty(query.getStatus())) qw.eq(PortalInterviewResumeTemplate::getStatus, query.getStatus());
         if (StringUtils.isNotEmpty(query.getKeyword())) {
-            qw.like(PortalInterviewResumeTemplate::getTitle, query.getKeyword()).or().like(PortalInterviewResumeTemplate::getDescription, query.getKeyword());
+            // 清单 P2：原先是**裸 .or()** —— 生成的 SQL 形如
+        // `category = ? AND title LIKE ? OR description LIKE ?`，OR 优先级高于 AND ⇒
+        // 只要 description 命中关键词，category/fileType/isPremium 等**前置条件全部被绕过**。
+        // 与本文件其他列表（面试题 L243、面经 L1140）保持一致，用 and(...) 嵌套分组。
+        qw.and(w -> w.like(PortalInterviewResumeTemplate::getTitle, query.getKeyword())
+                .or().like(PortalInterviewResumeTemplate::getDescription, query.getKeyword()));
         }
         qw.orderByAsc(PortalInterviewResumeTemplate::getSort).orderByDesc(PortalInterviewResumeTemplate::getCreateTime);
 
@@ -1585,6 +1649,11 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         // 先查询模板
         InterviewResumeTemplateVO vo = selectResumeTemplateById(id);
         if (vo == null) {
+            return null;
+        }
+        // 仅上架（active）模板可下载：本方法仅门户调用（CMS 走 selectResumeTemplateById），
+        // 否则知道 id 就能把后台草稿/下架模板的下载地址取走。
+        if (!"active".equalsIgnoreCase(vo.getStatus())) {
             return null;
         }
         // 原子递增下载次数，避免并发丢失更新
@@ -1838,6 +1907,47 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         Set<String> expected = normalizeChoiceAnswer(correctAnswer);
         Set<String> actual = normalizeChoiceAnswer(userAnswer);
         return expected.equals(actual);
+    }
+
+    /**
+     * 从选项 JSON 的 {@code is_correct} 标记反推正确答案（历史数据兜底）。
+     *
+     * <p><b>为什么需要</b>：历史选择题数据存在"<b>correct_answer 为空、仅 options JSON 里用
+     * {@code is_correct:true} 标记答案</b>"的形态（后台编辑页专门写了兼容分支）。
+     * 此时 {@link #isChoiceAnswerCorrect} 会因正确答案为空而直接判错 ⇒ **用户选对也判错**。</p>
+     *
+     * <p>返回选项 label 的升序拼接（多选用逗号），与判分侧的归一化口径一致；
+     * 无法判定时返回空串，由调用方按"数据缺失"处理（不再静默判错）。</p>
+     */
+    private String resolveCorrectAnswerFromOptions(String optionsJson) {
+        if (optionsJson == null || optionsJson.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            JsonNode arr = OBJECT_MAPPER.readTree(optionsJson);
+            if (arr == null || !arr.isArray()) {
+                return "";
+            }
+            java.util.TreeSet<String> labels = new java.util.TreeSet<>();
+            for (JsonNode item : arr) {
+                if (item == null || !item.isObject()) {
+                    continue;
+                }
+                boolean correct = item.path("is_correct").asBoolean(false)
+                        || item.path("isCorrect").asBoolean(false);
+                if (!correct) {
+                    continue;
+                }
+                String label = trimToEmpty(item.path("label").asText(""));
+                if (!label.isEmpty()) {
+                    labels.add(label.toUpperCase());
+                }
+            }
+            return String.join(",", labels);
+        } catch (Exception e) {
+            log.warn("[interview] 从 options 反推正确答案失败：{}", e.getMessage());
+            return "";
+        }
     }
 
     /**

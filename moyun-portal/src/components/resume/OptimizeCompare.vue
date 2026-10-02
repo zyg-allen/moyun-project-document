@@ -106,7 +106,7 @@
           </div>
           <div>
             <div class="text-xs text-theme-success mb-1.5 flex items-center gap-1"><Sparkles class="w-3 h-3" /> AI 优化后</div>
-            <!-- v10.22 阶段四：diff 视图，高亮增删改，更直观看到哪里改了 -->
+            <!-- diff 视图，高亮增删改，更直观看到哪里改了 -->
             <div class="text-theme-text leading-relaxed bg-theme-success-bg rounded-lg p-2.5">
               <DiffView :original="item.original" :optimized="item.optimized" />
             </div>
@@ -124,15 +124,15 @@ import type { ResumeDeepOptimizeVO, ResumeOptimizeItem } from '@/types/api';
 import DiffView from '@/components/resume/DiffView.vue';
 
 /**
- * 深度优化前后对比组件（v10.18 阶段四独立组件 / v10.20 交互优化）
+ * 深度优化前后对比组件
  * props:
  *   - result: 深度优化结果（含 items[]）
  *   - adoptedSet: 已采纳索引集合
  *   - optimizing: AI 生成中
  *   - targetPosition: 目标岗位文案（空状态占位展示）
  *   - sectionLabelMap: 段落标题映射（key=section, value=中文标签）
- *   - previewVisible: 就地预览面板是否展开（v10.20）
- *   - regeneratingIdx: 正在重新生成的建议索引（-1 表示无，v10.20）
+ *   - previewVisible: 就地预览面板是否展开
+ *   - regeneratingIdx: 正在重新生成的建议索引（-1 表示无）
  * emits:
  *   - generate: 生成/重新生成深度优化建议
  *   - toggle(index): 切换采纳状态
@@ -174,7 +174,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 /**
- * v10.20：section 归一化（与后端 ResumeDeepOptimizeService.normalizeSection 保持一致）
+ * section 归一化（与后端 ResumeDeepOptimizeService.normalizeSection 保持一致）
  * 兼容 LLM 返回 works/projects/experience 等变体，保证标题能正确显示为「工作经历/项目经历」
  */
 function normalizeSection(raw?: string | null): string {
@@ -215,7 +215,7 @@ function normalizeSection(raw?: string | null): string {
 /** 计算单项标题：section + index（如「工作经历 #2」） */
 function sectionLabel(item: ResumeOptimizeItem): string {
   const map = props.sectionLabelMap ?? DEFAULT_SECTION_LABELS;
-  // v10.20：归一化后再查表，兼容 LLM 返回变体
+  // 归一化后再查表，兼容 LLM 返回变体
   const normalized = normalizeSection(item.section);
   const base = map[normalized] || map[item.section] || item.section;
   if (item.index != null && item.index > 0) {

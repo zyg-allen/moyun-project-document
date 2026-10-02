@@ -71,7 +71,7 @@ public interface IVoiceInterviewService {
     VoiceInterviewReportVO regenerateReport(Long interviewId, Long userId);
 
     /**
-     * v13.50 批次 3：生成「发展方向」分析（懒生成，不在报告主链路里）。
+     * 生成「发展方向」分析（懒生成，不在报告主链路里）。
      *
      * <p><b>为什么懒生成</b>：发展方向是"备战区"内容，用户不打开 tab 就**不产生任何调用**
      * （V1.2 §1 原则 3「成本按需发生」）。若并入报告链路，每场面试都要多花一次 LLM 调用，

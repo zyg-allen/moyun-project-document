@@ -2,6 +2,7 @@ import { httpGet, httpPost, httpDelete, httpPut, httpGetList } from './client';
 import type {
   InterviewCategoryVO,
   InterviewQuestionVO,
+  InterviewBookmarkVO,
   InterviewQuestionDetailVO,
   InterviewQuestionNeighborVO,
   InterviewQuestionQuery,
@@ -32,15 +33,13 @@ export const getInterviewCategoryList = () => {
   return httpGet<InterviewCategoryVO[]>('/portal/interview/category/list');
 };
 
-// ==================== 岗位字典（v5.9 阶段1：驱动模拟面试岗位选择与画像抽题） ====================
+// ==================== 岗位字典（驱动模拟面试岗位选择与画像抽题） ====================
 
 /**
  * 岗位模板选项（公开接口）
  * GET /portal/interview/jobTemplate/list
  *
- * <p><b>全 portal 岗位配置的唯一来源</b>（v13.37 起）：原 `/portal/interview/position/list`
- * （面试岗位字典 portal_interview_position）因与 portal_job_template 职责重复、
- * 且没有任何后台管理入口，已删除并全部并入岗位模板表。</p>
+ * <p><b>全 portal 岗位配置的唯一来源</b>。</p>
  */
 export interface JobTemplateOptionVO {
   id: string | number;
@@ -88,7 +87,7 @@ export const getQuestionList = (params?: InterviewQuestionQuery) => {
 };
 
 /**
- * 画像推荐题目（v5.9 阶段1：题库页"为你推荐"）
+ * 画像推荐题目（题库页"为你推荐"）
  * GET /portal/interview/question/recommend?limit=
  * 基于用户画像（薄弱点 + 岗位必备技能 + 热门兜底）三路召回，需登录。
  * 未登录或无画像时返回空列表，前端按需隐藏"为你推荐"模块。
@@ -99,7 +98,7 @@ export const getRecommendedQuestions = (limit = 6) => {
 };
 
 /**
- * 我的画像快照（迁移自 mockInterview.ts，AI 面试官统一入口）
+ * 我的画像快照（AI 面试官统一入口）
  * GET /portal/interview/profile?position=&scene=
  * 返回薄弱知识点 + 岗位必备技能，用于题库页/知识图谱页画像展示与语音面试画像抽题。
  */
@@ -112,7 +111,7 @@ export const getQuestionDetail = (questionId: string | number) => {
 };
 
 /**
- * 相邻题目导航（v12.0 做题页/阅读页连续浏览）
+ * 相邻题目导航（做题页/阅读页连续浏览）
  * GET /portal/interview/question/{id}/neighbor?practiceMode=&difficulty=&keyword=&questionType=&categoryId=
  * 按来源列表页的筛选条件返回上一题/下一题（排序与列表一致：sort 升序 + createTime 降序），
  * 同时返回当前序号与总数，用于展示"第 x / 共 n 题"进度。
@@ -148,7 +147,7 @@ export const submitAnswer = (
 };
 
 /**
- * 记录题目阅读行为（v12.0 阅读闭环）
+ * 记录题目阅读行为（阅读闭环）
  * POST /portal/interview/question/{id}/read
  * 详情页加载/停留时上报：同用户同题目同一天仅记一次成长事件（read_question）。
  * 若携带 note，则同时落一条阅读笔记提交并记 write_note 成长事件。
@@ -196,7 +195,7 @@ export const getFeaturedNotes = (questionId: string | number) => {
 
 // 我的收藏题目列表
 export const getMyBookmarkList = (params?: { pageNum?: number; pageSize?: number }) => {
-  return httpGetList<InterviewQuestionVO>('/portal/interview/bookmark/my', params);
+  return httpGetList<InterviewBookmarkVO>('/portal/interview/bookmark/my', params);
 };
 
 // 我的答题历史
@@ -383,7 +382,7 @@ export const scoreResume = (id: string | number) => {
 };
 
 /**
- * 获取简历 AI 改进建议（v5.9 阶段2）
+ * 获取简历 AI 改进建议
  * POST /portal/interview/resume/user/{id}/ai-advice
  * 基于评分明细与岗位匹配度生成改进建议，当前规则化，后期接入 AI 模型。
  */
@@ -392,7 +391,7 @@ export const getResumeAiAdvice = (id: string | number) => {
 };
 
 /**
- * 上传附件简历（v10.23 异步化改造）
+ * 上传附件简历（异步化）
  * POST /portal/interview/resume/user/parse（multipart）
  * 上传后仅保存附件文件 + 创建附件简历记录，并提交后台 AI 解析任务；
  * 返回 {resumeId, taskId, fileName}，解析结果通过 /portal/ai/task/{taskId} 轮询获取（taskType=resume_parse）
@@ -417,10 +416,10 @@ export const updateResumeStatus = (id: string | number, status: string) => {
   );
 };
 
-// ==================== 附件简历（v10.22） ====================
+// ==================== 附件简历 ====================
 
 /**
- * 附件简历列表（v10.22）
+ * 附件简历列表
  * GET /portal/interview/resume/user/attachments
  * 返回当前用户的附件简历记录（sourceType=attachment），含 sourceFileUrl/sourceFileName
  */
@@ -429,7 +428,7 @@ export const getAttachmentList = () => {
 };
 
 /**
- * 附件转在线简历（v10.22）
+ * 附件转在线简历
  * POST /portal/interview/resume/user/{id}/convert-to-online
  * 将附件简历的结构化解析结果写入在线简历表单字段，转为可编辑的在线简历
  * 返回新在线简历 ID

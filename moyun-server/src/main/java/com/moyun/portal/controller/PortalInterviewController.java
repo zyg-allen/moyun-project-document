@@ -27,12 +27,8 @@ import com.moyun.ext.cms.domain.vo.InterviewSubmissionVO;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.ext.cms.service.IUserProfileSnapshotService;
-import com.moyun.portal.domain.entity.PortalInterviewCategory;
 import com.moyun.portal.domain.entity.PortalInterviewComment;
-import com.moyun.portal.domain.entity.PortalInterviewCompany;
 import com.moyun.portal.domain.entity.PortalInterviewExperience;
-import com.moyun.portal.domain.entity.PortalInterviewQuestion;
-import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.bean.PageUtils;
@@ -73,7 +69,7 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.getHomeData(currentUserId()));
     }
 
-    // ==================== 用户画像（迁移自 PortalMockInterview，AI 面试官统一入口） ====================
+    // ==================== 用户画像（AI 面试官统一入口） ====================
     @Operation(summary = "我的画像快照", description = "返回当前用户的薄弱知识点、岗位必备技能（用于题库页/知识图谱页画像展示与语音面试画像抽题）")
     @GetMapping("/profile")
     public AjaxResult getMyProfile(@RequestParam(value = "position", required = false) String position,
@@ -343,6 +339,9 @@ public class PortalInterviewController extends BaseController {
     @GetMapping("/resume/list")
     @Anonymous
     public AjaxResult getResumeTemplateList(InterviewResumeTemplateQuery query) {
+        // 门户只下发**上架**模板：强制覆写 status，不信任客户端传参
+        // （否则 `?status=draft` 即可枚举后台草稿，而草稿模板可能未完成/未定价）。
+        query.setStatus("active");
         Page<InterviewResumeTemplateVO> page = PageUtils.buildPage(query);
         return AjaxResult.success(portalInterviewService.selectResumeTemplatePage(page, query, currentUserId()));
     }
@@ -351,7 +350,12 @@ public class PortalInterviewController extends BaseController {
     @GetMapping("/resume/{id}")
     @Anonymous
     public AjaxResult getResumeTemplateDetail(@PathVariable("id") Long id) {
-        return AjaxResult.success(portalInterviewService.selectResumeTemplateById(id));
+        InterviewResumeTemplateVO vo = portalInterviewService.selectResumeTemplateById(id);
+        // 详情同样只对外暴露上架模板（该方法与 CMS 共用，故在门户层收口，避免误伤后台查看草稿）。
+        if (vo == null || !"active".equalsIgnoreCase(vo.getStatus())) {
+            return AjaxResult.error("模板不存在或已下架");
+        }
+        return AjaxResult.success(vo);
     }
 
     @Operation(summary = "下载简历模板（返回下载地址，并递增下载次数）")

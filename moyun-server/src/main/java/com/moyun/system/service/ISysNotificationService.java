@@ -91,6 +91,15 @@ public interface ISysNotificationService extends IService<SysNotification> {
     Page<SysNotification> selectUserNotifications(Page<SysNotification> page, Long userId, String userType);
 
     /**
+     * 按类型查询用户通知（门户「通知 / 待办」两个 Tab 依赖它区分数据）。
+     *
+     * @param type        指定类型（如 todo）；为 null/空表示不按类型过滤
+     * @param excludeTodo 未指定 type 时是否排除待办（「通知」Tab 语义：待办有自己的 Tab）
+     */
+    Page<SysNotification> selectUserNotifications(Page<SysNotification> page, Long userId, String userType,
+                                                  String type, Boolean excludeTodo);
+
+    /**
      * 统计用户未读通知数
      *
      * @param userId   用户ID

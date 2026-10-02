@@ -92,8 +92,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
 
     /** 首次结果是否含可提取的 JSON 主体（对象 {...} 或数组 [...]） */
     private boolean hasJsonBody(String text) {
-        // v13.19：统一走 LlmJsonExtractor（对象/数组、围栏、括号配平一处实现），
-        // 原先这里还内联了一份"首个 [ 到最后一个 ]"的数组兜底逻辑
+        // 统一走 LlmJsonExtractor（对象/数组、围栏、括号配平一处实现）。
         return LlmJsonExtractor.extractNode(MAPPER, text) != null;
     }
 
@@ -119,7 +118,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                     }
                     // 绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
                     // reasoning_content、或触发内容审查）。记录留痕并回落默认模型再试一次，
-                    // 不再静默失败（旧版直接 return 空结果，无任何日志，排障抓瞎）
+                    // 不再静默失败。
                     log.warn("[aigateway:{}] 绑定模型返回空内容，回落默认模型（疑似推理模型未产出final答案或内容审查）: model={}",
                             sceneCode, resp == null || resp.metadata() == null ? "unknown" : resp.metadata().modelName());
                 }
@@ -277,7 +276,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     /**
      * 按场景配置解析 LLM 原始输出（output_parser 配置接线）
      *
-     * <p>消费 ai_scene_config.output_parser（此前配置可编辑零消费，管理页与实际脱节）：</p>
+     * <p>消费 ai_scene_config.output_parser：</p>
      * <ul>
      *   <li>{@code json}（含 null/空，默认）：容错提取 JSON 主体为 Map——既有行为，存量场景零变化</li>
      *   <li>{@code markdown} / {@code text}：原文清洗后包装为 {@code {"content": 原文}}——

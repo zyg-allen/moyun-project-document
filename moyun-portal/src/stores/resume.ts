@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { InterviewResumeTemplateVO, UserResumeVO } from '@/types/api';
 
 /**
- * 简历 Store（v10.18 简历模块重构补丁·阶段一）
+ * 简历 Store
  *
  * 职责：跨页面传递「模板套用」数据。
  * 流程：模板库页点击「使用此模板」→ 拉详情 → fillFromTemplate 解析 sampleData 存入 store

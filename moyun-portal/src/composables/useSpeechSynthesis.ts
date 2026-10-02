@@ -1,7 +1,7 @@
 import { ref, readonly, onUnmounted } from 'vue';
 
 /**
- * 语音合成（TTS）Composable —— V10.0 语音面试官
+ * 语音合成（TTS）Composable
  *
  * <p>基于浏览器原生 Web Speech API（SpeechSynthesis），免费、离线、低延迟。
  * 特性：

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Briefcase, Search, Star, BookOpen, PenSquare,
@@ -17,7 +17,6 @@ import { useAuth } from '@/composables/useAuth';
 import { useUrlState } from '@/composables/useUrlState';
 import type { InterviewExperienceVO } from '@/types/api';
 
-const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const { requireAuth } = useAuth();
@@ -79,6 +78,13 @@ async function loadExperiences() {
       const data: any = res.data;
       experiences.value = data.list || [];
       total.value = data.total || 0;
+      // 清单 P2：带 ?page=99 的历史/分享链接、或数据减少导致总页数变小时，
+      // 停留旧页码会返回空列表并落入空态。返回后校正页码并重新加载一次。
+      if (page.value > totalPages()) {
+        page.value = totalPages();
+        await loadExperiences();
+        return;
+      }
     } else {
       error.value = res.message || '加载面经失败';
       toast.error(res.message || '加载失败');
@@ -100,18 +106,15 @@ function goPublish() {
   router.push('/interview/experience/publish');
 }
 
+// 说明（清单 P1）：原先先读 `(exp as any).user` —— 后端实体与 VO **都没有** user 对象，
+// 那是 types/api.ts 单方面声明的假字段，永远为 undefined（靠 && 回退到真实字段才没出事）。
+// 这里直接使用 VO 的真实扁平字段，消除"看着在取值、其实走的是回退"的误导。
 function expName(exp: InterviewExperienceVO) {
-  const u: any = (exp as any).user;
-  if (u?.nickname) return u.nickname;
-  if (exp.userNickname) return exp.userNickname;
-  return '匿名用户';
+  return exp.userNickname || '匿名用户';
 }
 
 function expAvatar(exp: InterviewExperienceVO) {
-  const u: any = (exp as any).user;
-  if (u?.avatar) return u.avatar;
-  if (exp.userAvatar) return exp.userAvatar;
-  return getSafeAvatar('', String(exp.id));
+  return exp.userAvatar || getSafeAvatar('', String(exp.id));
 }
 
 function formatNumber(n: number) {
@@ -229,17 +232,28 @@ function gotoPage(p: number) {
               style="background-color: var(--theme-surface); border-color: var(--theme-border);"
             >
               <!-- 封面图 -->
-              <div v-if="exp.coverImage" class="h-40" style="background-color: var(--theme-bg);">
+              <div v-if="exp.coverImage" class="h-40 relative" style="background-color: var(--theme-bg);">
                 <LazyImage
                   :src="exp.coverImage"
                   :alt="exp.title"
                   class="w-full h-full object-cover"
                 />
-              </div>
-              <!-- 置顶标记 -->
-              <div v-if="exp.isTop" class="relative">
                 <span
-                  class="absolute top-3 right-3 px-2 py-1 text-xs font-medium rounded-full text-white shadow-sm"
+                  v-if="exp.isTop"
+                  class="absolute top-3 right-3 z-10 px-2 py-1 text-xs font-medium rounded-full text-white shadow-sm"
+                  style="background-color: var(--theme-primary);"
+                >
+                  <Star class="w-3 h-3 inline mr-1" />置顶
+                </span>
+              </div>
+              <!--
+                置顶标记（清单 P2）：原先是独立 `<div class="relative">`，内部只有一个 absolute 的 span，
+                容器实际高度为 0 ⇒ 徽标会浮到后面"公司/职位/年份"标签行上方，有封面时也不落在封面上。
+                现改为放进封面容器（无封面时给一个 relative 包裹层），与 MyTopicsPage 口径一致。
+              -->
+              <div v-if="exp.isTop && !exp.coverImage" class="relative h-0">
+                <span
+                  class="absolute top-3 right-3 z-10 px-2 py-1 text-xs font-medium rounded-full text-white shadow-sm"
                   style="background-color: var(--theme-primary);"
                 >
                   <Star class="w-3 h-3 inline mr-1" />置顶

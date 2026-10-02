@@ -16,7 +16,9 @@ dayjs.extend(relativeTime);
  * @returns 格式化后的日期字符串
  */
 export function formatDate(
-  date: string | Date,
+  // 清单 P1（strict）：放宽为可空 —— 函数体第一行本就 `if (!date) return ''`，
+  // 而调用方常传入可选字段（如 `xxx.createTime`），strictNullChecks 下会报 TS2345。
+  date: string | Date | null | undefined,
   format: string = 'YYYY-MM-DD HH:mm:ss',
   dateOnlyFormat?: string
 ): string {
@@ -33,7 +35,7 @@ export function formatDate(
  * @param date 日期字符串或 Date 对象
  * @returns 相对时间字符串
  */
-export function formatRelativeTime(date: string | Date): string {
+export function formatRelativeTime(date: string | Date | null | undefined): string {
   if (!date) return '';
   return dayjs(date).fromNow();
 }
@@ -43,7 +45,7 @@ export function formatRelativeTime(date: string | Date): string {
  * @param date 日期字符串或 Date 对象
  * @returns 日期字符串，格式为 YYYY-MM-DD HH:mm
  */
-export function formatShortDate(date: string | Date): string {
+export function formatShortDate(date: string | Date | null | undefined): string {
   if (!date) return '';
   return dayjs(date).format('YYYY-MM-DD HH:mm');
 }

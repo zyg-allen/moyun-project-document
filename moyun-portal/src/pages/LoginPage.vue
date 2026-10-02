@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { ICP_LICENSE, SITE_NAME } from '@/constants/site';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import { Eye, EyeOff, Lock, ArrowRight, AlertCircle, User, ShieldCheck, RefreshCw } from 'lucide-vue-next';
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
 import { loginSchema, validateForm } from '@/utils/validation';
-import { useToast } from '@/composables/useToast';
+/* 已移除未使用导入：useToast（v14.00 清理） */
 import { getCaptchaImage } from '@/api/user';
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
-const toast = useToast();
 
 // 密码登录表单
 const passwordForm = ref({
@@ -30,6 +30,8 @@ const captchaImg = ref('');
 const captchaUuid = ref('');
 const captchaCode = ref('');
 const captchaLoading = ref(false);
+/** 验证码加载/可用性错误（与表单校验错误分开，便于就地展示与重试） */
+const captchaError = ref('');
 
 async function refreshCaptcha() {
   captchaLoading.value = true;
@@ -39,12 +41,17 @@ async function refreshCaptcha() {
     captchaImg.value = data.img;
     captchaUuid.value = data.uuid;
     captchaCode.value = '';
+    captchaError.value = '';
   } catch (error) {
-    // 验证码拉取失败时不阻断登录（降级：不展示验证码）
+    // ⚠ 不能静默降级为"不展示验证码"：登录是否校验验证码由**后端全局开关**决定
+    // （PortalLoginServiceImpl.validateCaptcha），前端擅自隐藏输入框 ⇒ 用户提交必被判
+    // "验证码错误/为空"，且完全看不到原因（此前唯一的痕迹是 console.warn）。
+    // 正确做法：保持展示 + 明确提示 + 提供重试（提交前另有 uuid 兜底拦截）。
     console.warn('获取验证码失败:', error);
-    captchaEnabled.value = false;
+    captchaEnabled.value = true;
     captchaImg.value = '';
     captchaUuid.value = '';
+    captchaError.value = '验证码加载失败，请点击右侧图片重试';
   } finally {
     captchaLoading.value = false;
   }
@@ -76,6 +83,11 @@ async function handlePasswordLogin() {
   }
 
   // 验证码前端校验：仅在开关开启时强制
+  if (captchaEnabled.value && !captchaUuid.value) {
+    // 验证码没加载成功（uuid 缺失）：提交只会拿到含糊的后端失败，故先行拦截
+    captchaError.value = '验证码尚未加载成功，请点击验证码图片重试';
+    return;
+  }
   if (captchaEnabled.value && !captchaCode.value.trim()) {
     errors.value.code = '请输入验证码';
     return;
@@ -273,6 +285,11 @@ const copyrightYear = computed(() => new Date().getFullYear());
                     </span>
                   </button>
                 </div>
+                <p v-if="captchaError" class="mt-2 text-xs text-amber-600 flex items-center gap-1 ml-1">
+                  <AlertCircle class="w-3.5 h-3.5" />
+                  {{ captchaError }}
+                  <button type="button" class="underline hover:no-underline" @click="refreshCaptcha">重试</button>
+                </p>
                 <p v-if="errors.code" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
                   <AlertCircle class="w-3.5 h-3.5" />
                   {{ errors.code }}
@@ -332,7 +349,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
 
       <!-- 版权提示 -->
       <div class="mt-8 text-center text-xs text-white/50">
-        Copyright © {{ copyrightYear }} 旭林知行 · 京ICP备xxxxxxxx号-2
+        Copyright © {{ copyrightYear }} {{ SITE_NAME }} · {{ ICP_LICENSE }}
       </div>
     </div>
   </div>

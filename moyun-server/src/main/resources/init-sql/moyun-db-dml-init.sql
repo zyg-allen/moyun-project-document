@@ -652,7 +652,50 @@ INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,l
 	 (6,'其他','other','ledger_identity_tag','','default','N','0','admin','2026-09-04 11:03:26','',NULL,'其他身份','0'),
 	 (1,'首页-旭林广告位','home_xulin_ad','portal_ad_slot_key','','success','N','0','admin','2026-08-28 13:16:38','',NULL,'首页-热门推荐上方的旭林广告位','0');
 INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 (1,'垃圾内容','spam','cms_report_type','','warning','Y','0','admin','2026-10-01 00:00:00','',NULL,'举报类型：spam','0'),
+	 (2,'不当内容','inappropriate','cms_report_type','','danger','N','0','admin','2026-10-01 00:00:00','',NULL,'举报类型：inappropriate','0'),
+	 (3,'侵权内容','infringement','cms_report_type','','danger','N','0','admin','2026-10-01 00:00:00','',NULL,'举报类型：infringement','0'),
+	 (4,'欺诈行为','fraud','cms_report_type','','danger','N','0','admin','2026-10-01 00:00:00','',NULL,'举报类型：fraud','0'),
+	 (5,'其他问题','other','cms_report_type','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'举报类型：other','0'),
+	 (1,'待处理','pending','cms_handle_status','','warning','Y','0','admin','2026-10-01 00:00:00','',NULL,'处理状态：pending','0'),
+	 (2,'处理中','processing','cms_handle_status','','primary','N','0','admin','2026-10-01 00:00:00','',NULL,'处理状态：processing','0'),
+	 (3,'已解决','resolved','cms_handle_status','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'处理状态：resolved','0'),
+	 (4,'已驳回','rejected','cms_handle_status','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'处理状态：rejected','0');
+-- v14.03：反馈类型字典此前"有类型无数据"，门户「我的反馈」只能写死枚举；补齐 4 行（与 MyFeedbackPage/ReportFeedback 口径一致）
+INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 (1,'功能建议','suggestion','cms_feedback_type','','primary','N','0','admin','2026-10-01 00:00:00','',NULL,'反馈类型：suggestion','0'),
+	 (2,'Bug反馈','bug','cms_feedback_type','','danger','N','0','admin','2026-10-01 00:00:00','',NULL,'反馈类型：bug','0'),
+	 (3,'体验问题','experience','cms_feedback_type','','warning','N','0','admin','2026-10-01 00:00:00','',NULL,'反馈类型：experience','0'),
+	 (4,'其他','other','cms_feedback_type','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'反馈类型：other','0');
+INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 (1,'算法','algorithm','portal_question_type','','primary','Y','0','admin','2026-10-01 00:00:00','',NULL,'题目类型：algorithm','0'),
+	 (2,'八股','bagwen','portal_question_type','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'题目类型：bagwen','0'),
+	 (3,'系统设计','system_design','portal_question_type','','warning','N','0','admin','2026-10-01 00:00:00','',NULL,'题目类型：system_design','0'),
+	 (4,'项目','project','portal_question_type','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'题目类型：project','0'),
+	 (5,'HR','hr','portal_question_type','','danger','N','0','admin','2026-10-01 00:00:00','',NULL,'题目类型：hr','0'),
+	 (1,'草稿','draft','cms_contest_status','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'征文状态：draft','0'),
+	 (2,'征稿中','collecting','cms_contest_status','','success','Y','0','admin','2026-10-01 00:00:00','',NULL,'征文状态：collecting','0'),
+	 (3,'投票中','voting','cms_contest_status','','warning','N','0','admin','2026-10-01 00:00:00','',NULL,'征文状态：voting','0'),
+	 (4,'已结束','ended','cms_contest_status','','default','N','0','admin','2026-10-01 00:00:00','',NULL,'征文状态：ended','0'),
+	 (1,'网络小说','novel','portal_book_type','','primary','Y','0','admin','2026-10-01 00:00:00','',NULL,'书籍类型：novel','0'),
+	 (2,'长文文章','longform','portal_book_type','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'书籍类型：longform','0'),
+	 (3,'出版书籍','published','portal_book_type','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'书籍类型：published','0'),
+	 (1,'连载中','ongoing','portal_book_serial_status','','warning','Y','0','admin','2026-10-01 00:00:00','',NULL,'连载状态：ongoing','0'),
+	 (2,'已完结','completed','portal_book_serial_status','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'连载状态：completed','0'),
+	 (3,'暂停更新','hiatus','portal_book_serial_status','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'连载状态：hiatus','0'),
+	 (1,'打赏','tip','portal_wallet_txn_type','','primary','N','0','admin','2026-10-01 00:00:00','',NULL,'流水类型：tip','0'),
+	 (2,'提现','withdraw','portal_wallet_txn_type','','warning','N','0','admin','2026-10-01 00:00:00','',NULL,'流水类型：withdraw','0'),
+	 (3,'会员','vip','portal_wallet_txn_type','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'流水类型：vip（后端实际写入值）','0'),
+	 (1,'待复习','wrong','portal_wrong_question_status','','warning','Y','0','admin','2026-10-01 00:00:00','',NULL,'错题状态：wrong','0'),
+	 (2,'已掌握','mastered','portal_wrong_question_status','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'错题状态：mastered','0');
+INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 		 (2,'首页-VIP推广位','home_vip_banner','portal_ad_slot_key','','primary','N','0','admin','2026-08-28 13:16:38','',NULL,'首页右侧/移动端下方的VIP推广位','0');
+-- v13.99：门户文章详情页实际渲染的两个广告位此前**未登记**到 portal_ad_slot_key 字典，
+-- 而后台广告管理的"广告位"下拉正是取自该字典 ⇒ 运营**无法为这两个位置投放广告**。
+-- 补登记（独立 INSERT 批次，不动既有 home_* 两行）。
+INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 (3,'文章详情-侧边栏','article_detail_sidebar','portal_ad_slot_key','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'文章详情页侧边栏广告位（门户 AdCard 实际使用）','0'),
+	 (4,'文章详情-正文下方','article_detail_bottom','portal_ad_slot_key','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'文章详情页正文下方广告位（门户 AdCard 实际使用）','0');
 INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 		 (1,'简单','easy','portal_question_difficulty','','success','Y','0','admin','2026-09-29 00:00:00','',NULL,'题库难度：easy','0'),
 		 (2,'中等','medium','portal_question_difficulty','','warning','N','0','admin','2026-09-29 00:00:00','',NULL,'题库难度：medium','0'),
@@ -701,6 +744,11 @@ INSERT INTO sys_dict_type (dict_name,dict_type,status,create_by,create_time,upda
 	 ('面试官风格','voice_interview_style','0','admin','2026-08-19 18:01:46','',NULL,'v10.1 面试官风格','0'),
 	 ('提示级别','voice_interview_hint_level','0','admin','2026-08-19 18:01:46','',NULL,'v10.1 提示级别','0'),
 	 ('练习模式','portal_practice_mode','0','admin','2026-08-20 10:56:17','',NULL,'题目练习模式：reading/choice/coding','0');
+
+-- v14.28：列表页/搜索页侧栏广告位登记（原为写死推广卡，改由广告位体系投放）
+INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,list_class,is_default,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 (5,'文章列表-侧边栏','article_list_sidebar','portal_ad_slot_key','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'广告位：列表页右侧栏','0'),
+	 (6,'搜索结果-侧边栏','search_sidebar','portal_ad_slot_key','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'广告位：搜索页右侧栏','0');
 INSERT INTO sys_dict_type (dict_name,dict_type,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('简历到岗时间','portal_available_time','0','admin','2026-08-25 00:00:00','',NULL,'v10.10 简历求职意向-到岗时间（值为中文文本，直接入库）','0'),
 	 ('记账-身份标签','ledger_identity_tag','0','admin','2026-09-04 11:03:26','',NULL,'AI 财务分析用户画像身份标签','0');

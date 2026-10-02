@@ -32,6 +32,10 @@ const page = ref(1);
 const pageSize = 20;
 const total = ref(0);
 const noMore = ref(false);
+/** 列表加载失败提示（清单 P2）：与"还没有成长记录"空态区分 */
+const loadError = ref<string | null>(null);
+/** 成长概览加载失败（清单 P2）：避免整块卡片无声消失 */
+const growthFailed = ref(false);
 const activeModule = ref<string>('all');
 const growthInfo = ref<UserGrowthVO | null>(null);
 
@@ -49,7 +53,11 @@ const iconMap: Record<string, any> = {
   'star': Star,
 };
 
+// 清单 P2：switchModule 直接 await load(true)，无序号/取消 ⇒ 上个模块的响应后到会覆盖当前模块列表。
+let loadSeq = 0;
+
 async function load(reset = false) {
+  const seq = ++loadSeq;
   if (reset) {
     page.value = 1;
     timeline.value = [];
@@ -60,15 +68,22 @@ async function load(reset = false) {
   if (reset) loading.value = true;
   else loadingMore.value = true;
 
+  loadError.value = null;
   try {
     const resp = await getTimeline({
       pageNum: page.value,
       pageSize,
       module: activeModule.value,
     });
+    if (resp.code !== 200) {
+      // 清单 P2：原先没有 else 分支，业务失败与"确实没有记录"都渲染成"还没有成长记录"
+      loadError.value = resp.message || '加载成长记录失败';
+      return;
+    }
     if (resp.code === 200 && resp.data) {
       const list = resp.data.list || [];
-      timeline.value = reset ? list : [...timeline.value, ...list];
+      if (seq !== loadSeq) return;   // 已切模块/已发起新请求：丢弃本次结果
+    timeline.value = reset ? list : [...timeline.value, ...list];
       total.value = resp.data.total || 0;
       if (list.length < pageSize) {
         noMore.value = true;
@@ -76,8 +91,10 @@ async function load(reset = false) {
         page.value += 1;
       }
     }
-  } catch {
-    // 静默失败
+  } catch (e) {
+    // 清单 P2：原先静默失败；失败后 page 不递增、noMore 保持 false，
+    // 滚动到底会反复重发同一个失败请求（下方 handleScroll 已在 loadError 时暂停）。
+    loadError.value = (e as { message?: string })?.message || '加载成长记录失败，请稍后重试';
   } finally {
     loading.value = false;
     loadingMore.value = false;
@@ -89,6 +106,18 @@ async function switchModule(mod: string) {
   await load(true);
 }
 
+/** 重新加载成长概览（概览失败重试用） */
+async function reloadGrowth() {
+  growthFailed.value = false;
+  try {
+    const res = await getMyGrowth();
+    if (res.code === 200) growthInfo.value = res.data;
+    else growthFailed.value = true;
+  } catch {
+    growthFailed.value = true;
+  }
+}
+
 function goTarget(item: GrowthTimelineItem) {
   if (item.targetUrl) {
     router.push(item.targetUrl);
@@ -96,7 +125,8 @@ function goTarget(item: GrowthTimelineItem) {
 }
 
 function handleScroll() {
-  if (loading.value || loadingMore.value || noMore.value) return;
+  // 清单 P2：失败后暂停触底加载，需用户显式重试，避免"滚到底就把同一个失败请求再发一遍"
+  if (loading.value || loadingMore.value || noMore.value || loadError.value) return;
   const scrollTop = window.scrollY;
   const clientHeight = window.innerHeight;
   const scrollHeight = document.documentElement.scrollHeight;
@@ -108,11 +138,15 @@ function handleScroll() {
 onMounted(async () => {
   load(true);
   window.addEventListener('scroll', handleScroll);
-  // 加载成长概览
+  // 加载成长概览（清单 P2：原先 catch {} 静默，失败时 growthInfo 保持 null，
+  // 整块概览卡片 v-if 直接消失，用户看不出是"没数据"还是"加载失败"）
   try {
     const res = await getMyGrowth();
     if (res.code === 200) growthInfo.value = res.data;
-  } catch {}
+    else growthFailed.value = true;
+  } catch {
+    growthFailed.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -129,13 +163,24 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- v1.1.3 修复：用户反馈"宽度还是小小的"。
+    <!-- 修复：用户反馈"宽度还是小小的"。
          原因：之前用 <main class="max-w-7xl ..."> 包裹所有内容，理论上等价于首页，
          但实际渲染时 main 的 max-w-7xl 会被内部 flex/grid 子元素继承失效。
          改为与首页完全一致的结构：外层 main 不限宽，每个子区块独立用 max-w-7xl mx-auto。
          这样无论怎么缩放浏览器，每个区块都与首页对齐。 -->
     <main class="flex-1 py-6 pb-20">
       <!-- 成长概览卡片 -->
+      <!-- 概览加载失败提示（清单 P2）：原失败时整块卡片静默消失 -->
+      <div
+        v-if="growthFailed && !growthInfo"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6"
+      >
+        <div class="rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);">
+          <span>成长概览加载失败</span>
+          <button class="font-medium" style="color: var(--theme-primary);" @click="reloadGrowth">重试</button>
+        </div>
+      </div>
+
       <div v-if="growthInfo" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
         <div class="rounded-xl p-6 border" style="background-color: var(--theme-primary-soft, var(--theme-surface)); border-color: var(--theme-border);">
           <div class="flex items-center justify-between">
@@ -154,7 +199,7 @@ onUnmounted(() => {
             <div
               class="h-full rounded-full transition-all duration-500"
               style="background-color: var(--theme-primary);"
-              :style="{ width: `${Math.min(100, ((growthInfo.growthValue || 0) % 100))}%` }"
+              :style="{ width: `${growthInfo.levelProgress ?? 0}%` }"
             />
           </div>
         </div>
@@ -183,6 +228,16 @@ onUnmounted(() => {
         <div v-if="loading && timeline.length === 0" class="text-center py-16" style="color: var(--theme-text-secondary);">
           加载中...
         </div>
+        <!-- 失败态（清单 P2）：必须排在空态之前 -->
+        <div v-else-if="loadError" class="text-center py-16 rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+          <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ loadError }}</p>
+          <button
+            class="px-5 py-2 rounded-xl text-sm font-medium"
+            style="background-color: var(--theme-primary); color: white;"
+            @click="load(true)"
+          >重试</button>
+        </div>
+
         <div v-else-if="timeline.length === 0">
           <Empty description="还没有成长记录，去阅读题目、刷题或读书吧，学习行为都会记录在这里" />
         </div>

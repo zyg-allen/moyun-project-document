@@ -15,7 +15,7 @@ import java.util.Map;
  * 工具调用日志写入器（{@code @Async} 必须在本类——独立 Bean 里才能生效）
  *
  * <h3>为什么单独一个类</h3>
- * <p>该写入原先位于 {@code ToolRegistry#logToolCallAsync}，并被 {@code ToolRegistry.executeTool}
+ * <p>若 {@code @Async} 方法由同类方法（如 {@code ToolRegistry.executeTool}）调用，则属于
  * **同类内部调用**。Spring 的 {@code @Async} 依赖 AOP 代理，同类自调用会绕过代理 →
  * 方法**退化为同步执行**（不报错、无日志，只是默默把一次 DB 插入放回请求线程），
  * 而类头注释、方法名与 {@code AsyncConfig}/{@code AsyncTaskConfig} 的说明都宣称它是异步的。</p>

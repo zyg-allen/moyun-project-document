@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 编程题做题页（v10.6 阶段3 → v10.7 接入真实 OJ 判题）
+ * 编程题做题页
  *
  * 布局：左右分栏（左题目描述 | 右代码编辑器 + 判题结果）
  * 判题：服务端权威评测（POST /portal/judge/submit，ProcessJudgeEngine 真实执行）
@@ -18,14 +18,16 @@ import {
   FileText, BookOpen, History, Terminal, ChevronLeft, ChevronRight,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import { useAuth } from '@/composables/useAuth';
 import CodeEditor from '@/components/CodeEditor.vue';
 import { generateSeo } from '@/utils/seo';
 import { getQuestionDetail, getQuestionNeighbor } from '@/api/interview';
-import { submitJudge, getSampleTestCases } from '@/api/judge';
+import { submitJudge, getJudgeResult, getSampleTestCases } from '@/api/judge';
 import type { InterviewQuestionDetailVO, InterviewQuestionNeighborVO, JudgeResultVO, TestCaseVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
+const { isAuthenticated } = useAuth();
 const router = useRouter();
 const toast = useToast();
 
@@ -75,6 +77,12 @@ for (let i = 0; i < nums.length; i++) {
 }
 console.log(JSON.stringify([]));`,
   typescript: `// ACM 模式：从标准输入读取，向标准输出写结果
+// 判题机用 tsc 编译（--target ES2020 --module CommonJS --skipLibCheck），镜像内**未安装 @types/node**，
+// 直接用 require/process 会报 TS2580（Cannot find name 'require'）⇒ 模板本身就跑不起来。
+// 这里给出最小环境声明，让模板在不装 @types/node 的环境下也能编译通过。
+declare const require: (id: string) => { readFileSync: (fd: number, enc: string) => string };
+declare const process: { exit: (code?: number) => void };
+
 const lines = require('fs').readFileSync(0, 'utf8').split('\\n');
 const nums: number[] = JSON.parse(lines[0]);
 const target: number = Number(lines[1]);
@@ -296,14 +304,40 @@ const resultBadge = computed(() => {
   };
 });
 
+/**
+ * 提交记录（清单 P2）。
+ *
+ * <p>原先 `submissionHistory` 只是组件内 ref，仅 `handleSubmit` 时 unshift ⇒
+ * **刷新页面或切题就清空**，用户看不到历史提交。而题目详情接口已返回当前用户最近 10 条
+ * `mySubmissions`（含状态/用时/内存），故在 `loadQuestion` 拿到详情后回填进去。</p>
+ */
+function syncSubmissionHistoryFromDetail(detail: any) {
+  const list: any[] = detail?.mySubmissions || [];
+  if (!Array.isArray(list) || list.length === 0) return;
+  submissionHistory.value = list.map((s) => ({
+    submissionId: s.id ?? '-',
+    // 后端返回的是创建时间，这里做本地化展示（与 handleSubmit 的会话内记录口径一致）
+    time: s.createTime ? new Date(String(s.createTime).replace(' ', 'T')).toLocaleString('zh-CN', { hour12: false }) : '-',
+    language: s.language || '-',
+    status: s.status || '',
+    statusName: s.statusName || statusMeta(s.status).label,
+    passedCount: s.passedCount ?? 0,
+    totalCount: s.totalCount ?? 0,
+    maxRuntime: s.runtime,
+    maxMemory: s.memoryUsage,
+  }));
+}
+
 /** 结果面板用例明细（样例回填输入/期望，隐藏用例仅状态） */
 const caseDisplays = computed(() => {
   const r = judgeResult.value;
   if (!r?.caseResults?.length) return [];
   return r.caseResults.map((cr) => {
-    // 样例用例：按 orderNum 匹配回填 input/expectedOutput
+    // 清单 P2：caseIndex 是判题引擎按用例列表生成的**1 起执行序号**（ProcessJudgeEngine 用 i+1），
+    // 而 orderNum 是用例表自身的排序字段，两者口径不同 —— 原按 orderNum 匹配会**回填错样例**。
+    // 改为按执行序号在样例数组中的**位置**对齐（样例按 orderNum 升序返回）。
     const matched = cr.isSample
-      ? sampleCases.value.find((tc) => tc.orderNum === cr.caseIndex)
+      ? sampleCases.value[cr.caseIndex - 1]
       : undefined;
     return {
       caseNum: cr.caseIndex,
@@ -357,30 +391,46 @@ const DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
 };
 
 // ========== 加载题目 + 真实样例用例 ==========
+/**
+ * 请求序号（清单 P2）。
+ *
+ * <p>原先 loadQuestion / loadNeighbor / loadSampleCases 都没有请求序号或取消机制，
+ * 快速连点「上一题／下一题」或浏览器前进后退时多个请求并行，**先发的慢响应会覆盖新题**
+ *（题面、样例用例、相邻导航互相错配）。</p>
+ */
+let loadSeq = 0;
+
 async function loadQuestion() {
+  const seq = ++loadSeq;
   loading.value = true;
   error.value = null;
   try {
     const id = route.params.id;
     const res = await getQuestionDetail(id as string | number);
+    if (seq !== loadSeq) return;   // 已切题：丢弃过期响应
     if (res.code === 200 && res.data) {
       question.value = res.data;
+      // 清单 P2：用详情接口自带的历史提交回填"提交记录"Tab（跨刷新/切题保留）
+      syncSubmissionHistoryFromDetail(res.data);
       // 真实样例用例（判题数据，权威来源）
       await loadSampleCases(id as string | number);
+      if (seq !== loadSeq) return;
     } else {
       error.value = res.message || '加载题目失败';
     }
   } catch (err: any) {
+    if (seq !== loadSeq) return;
     error.value = err?.message || '加载题目失败，请稍后重试';
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
-  loadNeighbor();
+  if (seq === loadSeq) loadNeighbor();
 }
 
 /** 相邻题目导航：与来源列表页同源筛选（difficulty/keyword 由列表页跳转时透传） */
 async function loadNeighbor() {
   neighbor.value = null;
+  const requestedId = String(route.params.id ?? '');
   try {
     const params: { practiceMode: string; difficulty?: string; keyword?: string } = {
       practiceMode: 'coding',
@@ -388,7 +438,8 @@ async function loadNeighbor() {
     const q = route.query;
     if (typeof q.difficulty === 'string' && q.difficulty) params.difficulty = q.difficulty;
     if (typeof q.keyword === 'string' && q.keyword) params.keyword = q.keyword;
-    const res = await getQuestionNeighbor(route.params.id as string | number, params);
+    const res = await getQuestionNeighbor(requestedId, params);
+    if (String(route.params.id ?? '') !== requestedId) return;   // 已切题：丢弃
     if (res.code === 200 && res.data) {
       neighbor.value = res.data;
     }
@@ -463,12 +514,55 @@ async function executeJudge(mode: 'run' | 'submit'): Promise<JudgeResultVO | nul
   }
 }
 
+/** 异步判题"进行中"状态码（后端 moyun.judge.async-enabled=true 时首包即返回 PENDING） */
+const JUDGE_IN_PROGRESS = new Set(['PENDING', 'QUEUED', 'JUDGING', 'RUNNING', 'COMPILING']);
+const JUDGE_POLL_INTERVAL_MS = 1200;
+const JUDGE_POLL_MAX_TRIES = 60; // ≈72s 上限
+/** 轮询代次：切题/重跑/卸载时自增即可让在途轮询自行退出 */
+const judgeGeneration = ref(0);
+
+function isJudgeInProgress(status?: string): boolean {
+  return JUDGE_IN_PROGRESS.has((status || '').toUpperCase());
+}
+
+/**
+ * 等待判题终态。
+ *
+ * <p>后端在开启异步判题时，submitJudge 首包返回 {@code status=PENDING} + submissionId，
+ * 必须轮询 {@code GET /portal/judge/result/{submissionId}} 才能拿到终态。
+ * 原实现直接把首包当结果展示 ⇒ 用户永远停在"判题中"，既看不到 WA/AC 也看不到失败用例。</p>
+ */
+async function awaitJudgeResult(initial: JudgeResultVO): Promise<JudgeResultVO> {
+  let current = initial;
+  if (!isJudgeInProgress(current.status) || current.submissionId == null) {
+    return current;
+  }
+  const generation = ++judgeGeneration.value;
+  for (let i = 0; i < JUDGE_POLL_MAX_TRIES; i++) {
+    await new Promise((r) => setTimeout(r, JUDGE_POLL_INTERVAL_MS));
+    // 已切题/重跑/卸载：立刻停止，避免把过期结果写回 UI
+    if (generation !== judgeGeneration.value) return current;
+    try {
+      const res = await getJudgeResult(current.submissionId!);
+      if (res.code === 200 && res.data) {
+        current = res.data;
+        if (!isJudgeInProgress(current.status)) return current;
+      }
+    } catch {
+      // 单次轮询失败不终止：判题仍在进行，继续重试
+    }
+  }
+  error.value = '判题超时，请稍后在「提交记录」中查看结果';
+  return current;
+}
+
 async function handleRun() {
   if (isRunning.value || isSubmitting.value) return;
   isRunning.value = true;
   try {
-    const result = await executeJudge('run');
-    if (result) {
+    const raw = await executeJudge('run');
+    if (raw) {
+      const result = await awaitJudgeResult(raw);
       judgeResult.value = result;
       resultMode.value = 'run';
     }
@@ -478,10 +572,19 @@ async function handleRun() {
 }
 
 async function handleSubmit() {
+  // 清单 P2：路由标了 isPublic（游客可浏览题目），但**判题接口要求登录**
+  //（PortalJudgeServiceImpl 在 userId 为空时抛"请登录后提交"）。原页面没有任何登录判断，
+  // 游客可以写完代码再被后端拒绝 —— 这里提前引导登录并保留返回地址。
+  if (!isAuthenticated()) {
+    toast.warning('登录后才能提交判题');
+    router.push({ path: '/login', query: { redirect: route.fullPath } });
+    return;
+  }
   if (isRunning.value || isSubmitting.value) return;
   isSubmitting.value = true;
   try {
-    const result = await executeJudge('submit');
+    const raw = await executeJudge('submit');
+    const result = raw ? await awaitJudgeResult(raw) : null;
     if (result) {
       judgeResult.value = result;
       resultMode.value = 'submit';
@@ -533,6 +636,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopTimer();
+  // 让在途的判题轮询自行退出（避免组件销毁后仍写状态）
+  judgeGeneration.value++;
 });
 
 // 同页面切题（上一题/下一题）：路由参数变化时重置做题状态并加载新题
@@ -609,9 +714,9 @@ watch(() => route.params.id, (newId, oldId) => {
     </div>
 
     <!-- 主体：左右分栏 -->
-    <div v-else-if="question" class="flex-1 flex overflow-hidden">
+    <div v-else-if="question" class="coding-split flex-1 flex overflow-hidden">
       <!-- 左侧：题目描述 -->
-      <section class="w-1/2 flex flex-col border-r" style="border-color: var(--theme-border); background-color: var(--theme-card-bg); min-width: 320px;">
+      <section class="coding-pane-left w-1/2 flex flex-col border-r" style="border-color: var(--theme-border); background-color: var(--theme-card-bg); min-width: 320px;">
         <!-- 题头 -->
         <div class="px-5 py-3 border-b" style="border-color: var(--theme-border);">
           <div class="flex items-center gap-2 mb-1">
@@ -762,7 +867,7 @@ watch(() => route.params.id, (newId, oldId) => {
       </section>
 
       <!-- 右侧：代码编辑器 + 判题结果 -->
-      <section class="flex-1 flex flex-col" style="background-color: #1E1E2E; min-width: 400px;">
+      <section class="coding-pane-right flex-1 flex flex-col" style="background-color: #1E1E2E; min-width: 400px;">
         <!-- 工具栏 -->
         <div class="flex items-center gap-2 px-3 py-2 border-b" style="background-color: #252538; border-color: #313244;">
           <select v-model="selectedLanguage" @change="changeLanguage(($event.target as HTMLSelectElement).value)"
@@ -905,6 +1010,29 @@ watch(() => route.params.id, (newId, oldId) => {
 <style scoped>
 .coding-practice-page {
   overflow: hidden;
+}
+
+/*
+ * 清单 P2：窄屏/移动端适配。
+ * 原实现：根容器固定 height: calc(100vh - 56px) + overflow:hidden，左右两栏分别 min-width:320px/400px，
+ * 既没有横向滚动也没有上下堆叠 ⇒ 小屏下右侧编辑器被裁掉、页面也无法滚动。
+ * 现改为 <1024px 时：解除固定高度与裁切，两栏纵向堆叠且宽度自适应。
+ */
+@media (max-width: 1023px) {
+  .coding-practice-page {
+    height: auto !important;
+    overflow: visible;
+  }
+  .coding-split {
+    flex-direction: column;
+    overflow: visible;
+  }
+  .coding-pane-left,
+  .coding-pane-right {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+  }
 }
 
 /* 滚动条美化 */

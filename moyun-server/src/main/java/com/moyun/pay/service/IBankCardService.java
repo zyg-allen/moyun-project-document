@@ -31,4 +31,16 @@ public interface IBankCardService {
 
     /** 设默认卡（限本人） */
     void setDefault(Long userId, Long cardId);
+
+    /**
+     * 后台人工核实银行卡（把四要素通道无法判定的 PENDING 卡落到终态）。
+     *
+     * <p>此前后台只有 list/detail 两个只读接口，PENDING 卡**永远无法变为 VERIFIED**
+     * ⇒ 用户绑卡后卡在"审核中"，提现路径实际不可用（清单 #52）。</p>
+     *
+     * @param cardId       银行卡ID
+     * @param verifyStatus 目标状态：仅接受 VERIFIED（人工确认通过）/ REJECTED（人工判定不通过）
+     * @return 是否更新成功
+     */
+    boolean verifyByAdmin(Long cardId, String verifyStatus);
 }

@@ -126,7 +126,7 @@
       @pagination="getList"
     />
 
-    <!-- AI 生成话题弹窗（v11.57 P0-3：daily_topic 场景经统一网关生成，确认后以官方账号发布） -->
+    <!-- AI 生成话题弹窗（daily_topic 场景经统一网关生成，确认后以官方账号发布） -->
     <el-dialog v-model="aiDialogVisible" title="AI 生成今日话题" width="640px" :close-on-click-modal="false">
       <el-form label-width="90px">
         <el-form-item label="领域（可选）">
@@ -187,7 +187,7 @@ const queryParams = reactive({
 const ids = ref<number[]>([]);
 const multiple = computed(() => ids.value.length === 0);
 
-// ===== AI 生成话题（v11.57 P0-3：daily_topic 场景走统一网关） =====
+// ===== AI 生成话题（daily_topic 场景走统一网关） =====
 const aiDialogVisible = ref(false);
 const aiGenerating = ref(false);
 const aiPublishing = ref(false);

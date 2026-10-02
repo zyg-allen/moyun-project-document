@@ -104,13 +104,15 @@ class ModuleDependencyGuardTest {
                 + "v13.22 防腐层适配器 AuditContentAdapter 调用 CMS 4 个业务服务，78→82；"
                 + "v13.38 PortalUserResumeController 改用 ResumeParseService.extractFromUpload（纯内存抽取）→83，"
                 + "再引入 ResumePreviewVO（解析预览 VO）→84");
-        FROZEN_EDGES.put("ext.cms -> portal", 280);
+        FROZEN_EDGES.put("ext.cms -> portal", 277);
         FROZEN_REASONS.put("ext.cms -> portal", "同上（反向）；v13.61 抽 InterviewSessionSupport 引用 PortalVoiceInterview/"
                 + "PortalVoiceInterviewQA 后为 280（原为 278）；"
                 + "v13.16 删掉 CmsInterviewController 两个已失效的 portal 依赖（PortalUserStatsMapper/IPortalGrowthService）后降至 278，"
                 + "v13.33 删除 portal_interview_position（并入 portal_job_template）后再降至 275，"
                 + "v13.38 新增 CmsResumeParseConfigController（简历解析配置后台管理）引入 portal 实体与服务 2 处 import →277，"
-                + "ResumeParseService 聚合岗位必备技能再引入 PortalJobTemplate →278");
+                + "ResumeParseService 聚合岗位必备技能再引入 PortalJobTemplate →278；"
+                + "v13.67/v13.68 清理（未使用 import + 死声明）删除 ext.cms 侧 3 处已无引用的 portal 依赖 import"
+                + "（PortalInterviewQuestion / PortalArticle / PortalUser）→277（债务偿还，按守卫要求同步下调）");
 
         // pay / vip / ledger 三者咬合：记账权威实体寄居 pay（LedgerEntry），VIP 依赖支付网关。
         FROZEN_EDGES.put("ledger -> pay", 12);

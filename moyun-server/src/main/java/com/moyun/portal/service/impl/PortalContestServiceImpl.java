@@ -1,7 +1,6 @@
 package com.moyun.portal.service.impl;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.portal.domain.entity.PortalContestSubmission;
 import com.moyun.portal.domain.entity.PortalContestVote;
@@ -146,6 +146,23 @@ public class PortalContestServiceImpl extends ServiceImpl<PortalWritingContestMa
         PortalContestSubmission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             throw new RuntimeException("投稿不存在");
+        }
+        // 投票门禁：活动须处于"投票中"且未过投票截止时间。
+        // 此前只校验登录 ⇒ draft（未开始）与 ended（已结束）的活动同样可投**也可取消票**，
+        // 而详情页却在展示"投票截止"时间——门禁与展示口径不一致，可刷票、可在结束后改结果。
+        //
+        // 注：本类其余分支抛的是裸 RuntimeException，其 message **不会**透给前端
+        // （全局处理器只对 ServiceException/BusinessException 透出），故门禁这类
+        // 需要用户看懂的提示一律用 ServiceException。
+        PortalWritingContest contest = contestMapper.selectById(submission.getContestId());
+        if (contest == null) {
+            throw new ServiceException("活动不存在");
+        }
+        if (!"voting".equals(contest.getStatus())) {
+            throw new ServiceException("当前不在投票阶段，无法投票");
+        }
+        if (contest.getVoteEndTime() != null && LocalDateTime.now().isAfter(contest.getVoteEndTime())) {
+            throw new ServiceException("投票已截止，无法投票");
         }
 
         Map<String, Object> result = new HashMap<>();

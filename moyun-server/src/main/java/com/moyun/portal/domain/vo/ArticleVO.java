@@ -137,6 +137,15 @@ public class ArticleVO implements Serializable {
     private String remark;
 
     /**
+     * 审核意见（驳回原因）。
+     *
+     * <p>审核链路统一写入 {@code audit_remark}（见 CmsArticleServiceImpl「审核意见统一写入 audit_remark，
+     * 独立字段，不再复用通用 remark」），而详情 VO 原先只暴露了通用 {@code remark} ⇒ 前端取不到审核意见，
+     * 被驳回的文章**看不到驳回原因**。此处按实体字段补齐（ArticleConvertUtil 用 BeanUtils 自动映射）。</p>
+     */
+    private String auditRemark;
+
+    /**
      * 是否精选
      */
     @Schema(description = "是否精选", example = "true")
@@ -270,4 +279,23 @@ public class ArticleVO implements Serializable {
      */
     @Schema(description = "当前用户是否已收藏", example = "false")
     private Boolean isBookmarked;
+
+    /**
+     * 付费阅读是否已开通（非持久化；来自 {@code moyun.pay.article-paid-enabled}）。
+     *
+     * <p>未开通时前端应把「解锁全文」按钮置灰并提示"即将开放"，而不是让用户走完确认弹窗再收到报错
+     * —— 后端 {@code PortalTipServiceImpl} 对 target_type=article_paid 目前直接抛
+     * "付费阅读功能正在接入支付通道，暂不可用"。</p>
+     */
+    @Schema(description = "付费阅读是否已开通", example = "false")
+    private Boolean paidPurchaseEnabled;
+
+    /** SEO 自定义标题（留空回退文章标题） */
+    private String seoTitle;
+
+    /** SEO 自定义描述（留空回退摘要） */
+    private String seoDescription;
+
+    /** SEO 关键词（逗号分隔） */
+    private String seoKeywords;
 }

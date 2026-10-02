@@ -15,7 +15,7 @@ public interface IPortalTipService {
 
     /**
      * 发起打赏（积分支付：直接置 status='paid'，打赏者扣积分、作者加积分）
-     * 单钱包：余额/分账统一走 pay_user_account + pay_ledger_entry（社区钱包 portal_wallet 已废弃删除）
+     * 单钱包：余额/分账统一走 pay_user_account + pay_ledger_entry
      *
      * @param order 打赏订单（需含 targetType/targetId/amount，user_id/author_id 由调用方填充）
      * @return 创建后的打赏订单

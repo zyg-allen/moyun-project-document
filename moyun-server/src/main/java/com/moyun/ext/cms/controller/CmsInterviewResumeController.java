@@ -27,7 +27,7 @@ import com.moyun.util.bean.PageUtils;
  * CMS简历模板管理Controller
  * <p>
  * 物理拆分自原 CmsInterviewController，共享类级 @RequestMapping("/cms/interview")，
- * 仅承载简历模板与用户简历只读查看接口，方法级路径与原实现完全一致。
+ * 仅承载简历模板与用户简历只读查看接口。
  *
  * @author moyun
  */

@@ -55,6 +55,9 @@
         <Eye class="w-3.5 h-3.5" />
         {{ showPreview ? '关闭预览' : '预览' }}
       </button>
+      <span v-if="limitActive" class="char-counter" :class="{ over: overLimit }">
+        {{ content.length }} / {{ props.maxlength }}
+      </span>
     </div>
     <!-- 编辑 + 预览分栏 -->
     <div class="editor-body" :class="{ 'split-mode': showPreview }">
@@ -63,6 +66,8 @@
         v-model="content"
         class="markdown-textarea"
         :placeholder="placeholder"
+        :maxlength="limitActive ? props.maxlength : undefined"
+        :class="{ 'over-limit': overLimit }"
         @input="handleInput"
         @focus="handleFocus"
         @blur="handleBlur"
@@ -88,12 +93,22 @@ const promptModal = usePromptModal();
 interface Props {
   modelValue?: string;
   placeholder?: string;
+  /**
+   * 最大字符数（0/未传 = 不限制）。
+   * 用于对齐后端列宽（如 portal_topic.description 为 varchar(500)）：
+   * 此前组件不支持长度上限，超长内容会在落库时被截断或报错。
+   */
+  maxlength?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
-  placeholder: '开始写作...'
+  placeholder: '开始写作...',
+  maxlength: 0
 });
+
+const limitActive = computed(() => props.maxlength > 0);
+const overLimit = computed(() => limitActive.value && content.value.length > props.maxlength);
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
@@ -364,6 +379,24 @@ defineExpose({
   width: 1px;
   background-color: var(--theme-border);
   margin: 0 0.5rem;
+}
+
+/* 字数计数器（仅在传入 maxlength 时展示；超限标红，与后端列宽对齐避免落库截断） */
+.char-counter {
+  margin-left: auto;
+  padding-right: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--theme-text-secondary);
+  white-space: nowrap;
+}
+
+.char-counter.over {
+  color: var(--theme-danger, #ef4444);
+  font-weight: 600;
+}
+
+.markdown-textarea.over-limit {
+  border-color: var(--theme-danger, #ef4444);
 }
 
 /* 编辑器主体 */

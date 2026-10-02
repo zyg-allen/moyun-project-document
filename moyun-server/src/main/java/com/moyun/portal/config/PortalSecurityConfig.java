@@ -29,7 +29,7 @@ import com.moyun.portal.security.filter.PortalJwtAuthenticationTokenFilter;
 /**
  * 门户spring security配置（独立认证）
  *
- * <p><b>链顺序（v13.6 修正）</b>：{@code @Order} 必须标在 {@code @Bean} 方法上。
+ * <p><b>链顺序</b>：{@code @Order} 必须标在 {@code @Bean} 方法上。
  * 历史写法是把 {@code @Order(1)} 标在本 {@code @Configuration} 类上——**实测不生效**：
  * 遍历 {@code FilterChainProxy.getFilterChains()} 得到的顺序是"核心链在前、门户链在后"，
  * 与注册顺序一致，而非类上声明的 1。两条链对 {@code /portal/admin/**} 同时匹配，
@@ -197,8 +197,6 @@ public class PortalSecurityConfig {
                         // 后台管理接口（/portal/admin/**）：**由核心链处理**（admin token，
                         // 见 SecurityConfig#shouldApplyTo 对该前缀的显式包含 + 核心链 @Order(1)），
                         // 本链正常不会接管它。
-                        // v13.6 修正：此处原为 permitAll()——它从未生效（核心链优先），
-                        // 但一旦链顺序被改动就会**静默变成匿名放行后台接口**。
                         // 现改为 authenticated()：无论哪条链生效，该前缀都 fail-closed。
                         .requestMatchers("/portal/admin/**").authenticated()
                         // 其他门户请求需要认证

@@ -8,7 +8,6 @@ import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.entity.PortalVoiceInterview;
 import com.moyun.portal.mapper.PortalUserMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

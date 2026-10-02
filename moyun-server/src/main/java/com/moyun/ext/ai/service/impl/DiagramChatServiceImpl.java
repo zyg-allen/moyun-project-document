@@ -41,7 +41,7 @@ public class DiagramChatServiceImpl implements DiagramChatService {
     /**
      * SSE 长任务执行器（core 模块统一管理）。
      *
-     * <p>v13.5 前此处是 {@code CompletableFuture.runAsync(task)}——未指定执行器即落在
+     * <p>此处曾用 {@code CompletableFuture.runAsync(task)}——未指定执行器即落在
      * {@code ForkJoinPool.commonPool()}（并行度 = CPU-1）。而本任务会 {@code latch.await(5, MINUTES)}
      * 阻塞到流式结束，几个并发的架构图对话就能把公共池占满，导致全站并行流/并行任务饿死。
      * 现改走 {@code sseStreamExecutor}（长任务专用、满即拒绝，见 {@code AsyncTaskConfig}）。</p>

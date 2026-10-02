@@ -198,20 +198,6 @@ public class ChatContextBuilderImpl implements ChatContextBuilderService {
         return builder.toString();
     }
 
-    /**
-     * 添加图片引用指令到消息（内部辅助方法）
-     *
-     * @param message    原始消息
-     * @param imageCount 图片数量
-     * @return 添加图片指令后的消息
-     */
-    private String appendImageInstruction(String message, int imageCount) {
-        if (imageCount > 0) {
-            log.info("✅ 已发送 {} 张图片给AI，添加图片引用指令", imageCount);
-            return message + "4. 图片引用：如有相关图片写 [[IMAGE_1]]、[[IMAGE_2]] 等";
-        }
-        return message;
-    }
 
     /**
      * 构建无RAG内容时的提示消息

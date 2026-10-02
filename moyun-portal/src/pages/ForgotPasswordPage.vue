@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
-import {
-  Mail, Lock, ArrowRight, AlertCircle, ShieldCheck, Eye, EyeOff, ArrowLeft, KeyRound, RefreshCw, X, Smartphone
-} from 'lucide-vue-next';
+import { Mail, Lock, AlertCircle, ShieldCheck, Eye, EyeOff, ArrowLeft, KeyRound, RefreshCw, X, Smartphone } from 'lucide-vue-next';
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
 import { useToast } from '@/composables/useToast';
@@ -19,10 +17,16 @@ const method = ref<'email' | 'phone'>('email');
 function switchMethod(m: 'email' | 'phone') {
   if (method.value === m) return;
   method.value = m;
-  // 切换时清空校验错误与服务端提示，验证码/密码字段保留
   errors.value = {};
   serverError.value = '';
   serverSuccess.value = '';
+  // 清单 P2：原先"验证码/密码字段保留"，但两种通道的验证码在后端是**独立生成、独立限流**的，
+  // 保留会让用户把邮箱验证码直接提交给短信重置接口（必然失败且浪费一次校验）。
+  // 这里切换即清空验证码，并把倒计时复位 —— 另一个通道有自己的限流窗口，
+  // 沿用上一个通道的剩余秒数会让用户误以为"还没到重发时间"。
+  form.value.code = '';
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  countdown.value = 0;
 }
 
 // 找回密码表单：邮箱/手机号 → 验证码 → 新密码
@@ -45,6 +49,8 @@ const serverSuccess = ref('');
 const isSendingCode = ref(false);
 const countdown = ref(0);
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
+/** 重置成功后的跳转定时器（清单 P2：需受管，避免卸载后仍跳转） */
+let redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function startCountdown(seconds: number) {
   countdown.value = seconds;
@@ -60,6 +66,7 @@ function startCountdown(seconds: number) {
 
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer);
+  if (redirectTimer) { clearTimeout(redirectTimer); redirectTimer = null; }
 });
 
 // 图形验证码（发送邮箱验证码前弹窗人机校验，受 sys.account.captchaEnabled 开关控制）
@@ -165,9 +172,15 @@ async function doSendCode(captcha?: { code: string; uuid: string }) {
       startCountdown(60);
       captchaModal.value.visible = false;
     } else {
-      // 发送失败：留在弹窗内刷新图形码重新输入
-      captchaModal.value.error = message || '验证码发送失败，请重新输入图形验证码';
-      loadModalCaptcha();
+      const msg = message || '验证码发送失败，请稍后重试';
+      if (captchaModal.value.visible) {
+        // 发送失败：留在弹窗内刷新图形码重新输入
+        captchaModal.value.error = msg;
+        loadModalCaptcha();
+      } else {
+        // 弹窗不可见（captchaEnabled=false 直接发送）：写弹窗等于静默失败，改走 toast
+        toast.error(msg);
+      }
     }
   } finally {
     isSendingCode.value = false;
@@ -265,7 +278,13 @@ async function handleReset() {
     if (success) {
       serverSuccess.value = message || '密码重置成功';
       toast.success('密码重置成功，请使用新密码登录');
-      setTimeout(() => router.push('/login'), 1500);
+      // 清单 P2：原为裸 setTimeout，未保存句柄也未在卸载时清理 ——
+      // 用户 1.5s 内主动离开也会被强制跳转。这里受管 + 卸载清理。
+      if (redirectTimer) clearTimeout(redirectTimer);
+      redirectTimer = setTimeout(() => {
+        redirectTimer = null;
+        router.push('/login');
+      }, 1500);
     } else {
       serverError.value = message || '重置失败，请稍后重试';
     }

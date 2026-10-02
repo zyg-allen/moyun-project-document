@@ -25,11 +25,10 @@ import com.moyun.system.service.ISensitiveWordService;
 /**
  * 门户评论 Controller
  *
- * 清理说明：本类已删除前端未使用的死接口，仅保留在用的三个方法：
+ * 本类仅提供以下三个接口：
  *   - getArticleComments（获取文章评论列表，含回复）
  *   - add（新增评论）
  *   - toggleLike（评论点赞/取消点赞，阶段五新增）
- * 已删除的死接口：list / export / getInfo / edit / remove。
  * 对应的 Service / Mapper / XML 实现保留不动，便于后续管理后台复用。
  */
 @Tag(name = "门户评论", description = "门户评论的增删改查操作接口")

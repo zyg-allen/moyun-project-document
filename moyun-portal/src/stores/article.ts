@@ -4,7 +4,7 @@ import type { Article } from '@/types/api'
 import * as articleApi from '@/api/article'
 
 /**
- * 文章 Store（v5.9 重构）
+ * 文章 Store
  *
  * 设计变更：
  * 不再用 localStorage 缓存点赞 / 收藏的 articleId 数组。

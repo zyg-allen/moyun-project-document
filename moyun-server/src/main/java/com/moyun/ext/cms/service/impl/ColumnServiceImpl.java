@@ -215,6 +215,39 @@ public class ColumnServiceImpl implements IColumnService {
     }
 
     // ========================================================================
+    // 主动送审
+    // ========================================================================
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ColumnVO submitForAudit(Long id, Long userId) {
+        PortalColumn entity = columnMapper.selectById(id);
+        if (entity == null) {
+            throw new ServiceException("专栏不存在");
+        }
+        if (userId == null || !userId.equals(entity.getUserId())) {
+            throw new ServiceException("仅专栏作者可提交审核");
+        }
+        String status = entity.getStatus() == null ? "" : entity.getStatus();
+        // 只允许从"未送审 / 被驳回"进入待审核；pending 重复提交直接拒绝（避免审核中心重复待办），
+        // published 更不允许借此绕过状态机。
+        if ("pending".equals(status)) {
+            throw new ServiceException("该专栏已在审核中，请耐心等待");
+        }
+        if ("published".equals(status)) {
+            throw new ServiceException("该专栏已发布，无需重复送审");
+        }
+        if (!"draft".equals(status) && !"rejected".equals(status)) {
+            throw new ServiceException("当前状态不支持提交审核：" + status);
+        }
+        columnMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalColumn>()
+                .eq(PortalColumn::getId, id)
+                .set(PortalColumn::getStatus, "pending"));
+        entity.setStatus("pending");
+        submitColumnAuditTask(entity, userId);
+        return getColumnDetail(id, userId);
+    }
+
+    // ========================================================================
     // 完结 / 恢复连载
     // ========================================================================
     @Override

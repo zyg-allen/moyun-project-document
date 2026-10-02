@@ -1,0 +1,132 @@
+# 旭林知行 持续集成
+#
+# 为什么必须要有它：本仓库用 **21 个守卫测试类**（模块依赖方向、`${}` 信任契约、DDL 口径、
+# 事务边界与回滚口径、执行器治理、异步自调用、LLM 输出解析、前端模板结构、权限收口…）来承载
+# "开发铁律"。在加入本流水线之前，这些守卫**没有任何自动执行点** —— 约束力取决于
+# "开发者是否记得在本机手动跑"，等于没有约束。
+#
+# 本流水线把三件事变成合并门禁：
+#   1) 后端全量测试（含全部守卫）
+#   2) 门户类型检查 + ESLint + 生产构建
+#   3) 后台构建、记账 App 构建（含"接口地址构建期守卫"不误报的验证）
+#
+# 说明：后端测试需要真实 MySQL 与 Redis（8 个 @SpringBootTest 硬绑定库名 `moyun-db`），
+# 故用 service 容器起库，并在测试前按部署指南顺序导入 init-sql 四件套。
+name: CI
+
+on:
+  push:
+    branches: [main, moyun-dev-kouzi]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端 · 编译 + 全量测试（含守卫）
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: "123456"
+          MYSQL_DATABASE: moyun-db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -uroot -p123456"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 mysql 客户端
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mysql-client
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: 初始化数据库（init-sql 四件套，按部署指南顺序）
+        working-directory: moyun-server/src/main/resources/init-sql
+        run: |
+          set -e
+          for f in moyun-db-ddl.sql moyun-db-dml-init.sql moyun-menu-redo.sql moyun-portal-category-redo.sql; do
+            echo "== 导入 $f"
+            mysql -h127.0.0.1 -uroot -p123456 moyun-db < "$f"
+          done
+          mysql -h127.0.0.1 -uroot -p123456 -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='moyun-db';"
+
+      - name: 编译
+        working-directory: moyun-server
+        run: mvn -B -q compile
+
+      - name: 全量测试（469 例，含 21 个守卫类）
+        working-directory: moyun-server
+        run: mvn -B test
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: moyun-server/target/surefire-reports/
+          if-no-files-found: ignore
+
+  frontend:
+    name: 前端 · 门户类型检查/lint/构建 + 后台 + 记账
+    runs-on: ubuntu-latest
+    env:
+      # CI 专用占位域名：仅用于验证"构建期守卫不会误报 + 产物可生成"。
+      # 真实部署必须在各自 .env.production 填真实域名（守卫会拒绝占位/本地域名）。
+      VITE_SITE_URL: https://ci.moyun.cn
+      VITE_API_BASE_URL: https://ci.moyun.cn
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 门户 · 安装依赖
+        working-directory: moyun-portal
+        run: npm ci --no-audit --no-fund
+
+      - name: 门户 · 类型检查
+        working-directory: moyun-portal
+        run: npx vue-tsc -b --force
+
+      - name: 门户 · ESLint（error 级必须为 0）
+        working-directory: moyun-portal
+        run: npx eslint . --ext .ts,.vue
+
+      - name: 门户 · 生产构建（VITE_SITE_URL 由 env 注入）
+        working-directory: moyun-portal
+        run: npm run build
+
+      - name: 后台 · 安装依赖并构建
+        working-directory: moyun-admin-vue
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:prod
+
+      - name: 记账 App · 安装依赖并构建
+        working-directory: moyun-ledger-app
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:h5

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * per-agent 模型路由（迁移自 InterviewAgentClientImpl，网关侧公共能力收口）
+ * per-agent 模型路由（网关侧公共能力）
  *
  * <p>路由链：agent.modelConfigId → 默认 chat 配置。流式额外自动路由：
  * 绑定模型不支持流式时，自动挑选「启用 + chat + 支持流式」的配置（默认优先，其余按 id 升序）。</p>

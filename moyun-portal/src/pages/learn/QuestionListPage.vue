@@ -8,7 +8,6 @@ import {
   Sparkles, Target, TrendingUp, RefreshCw, FileText,
   Layers, Cpu, GitBranch, FolderKanban, Users,
 } from 'lucide-vue-next';
-import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo.ts';
@@ -47,13 +46,13 @@ const error = ref<string | null>(null);
 const questions = ref<InterviewQuestionVO[]>([]);
 const categories = ref<InterviewCategoryVO[]>([]);
 
-// ========== 画像推荐（v5.9 阶段1） ==========
+// ========== 画像推荐 ==========
 const recoLoading = ref(false);
 const recoQuestions = ref<InterviewQuestionVO[]>([]);
 const profile = ref<UserProfileSnapshotVO | null>(null);
 const showRecommend = computed(() => isAuthenticated() && recoQuestions.value.length > 0);
 
-// ========== 难度/题型配置（v6.3 题目结构化；字典驱动，本地默认兜底） ==========
+// ========== 难度/题型配置（字典驱动，本地默认兜底） ==========
 const dictMap = useDictData(['portal_question_difficulty', 'portal_question_type']);
 
 // 本地默认（字典未加载/加载失败时兜底）
@@ -204,7 +203,14 @@ async function loadCategories() {
   }
 }
 
+/**
+ * 请求序号：快速切换筛选/翻页时，**先发出的响应可能后到达**；
+ * 无守卫时旧响应会覆盖新结果（列表与筛选条件不一致）。只接受最后一次请求的响应（清单 P2）。
+ */
+let loadSeq = 0;
+
 async function loadQuestions() {
+  const seq = ++loadSeq;
   try {
     loading.value = true;
     error.value = null;
@@ -217,6 +223,8 @@ async function loadQuestions() {
     if (activeQuestionType.value) params.questionType = activeQuestionType.value;
     if (keyword.value) params.keyword = keyword.value;
     const res = await getQuestionList(params);
+    // 过期响应直接丢弃：只认最后一次请求的结果
+    if (seq !== loadSeq) return;
     if (res.code === 200 && res.data) {
       questions.value = res.data.list || [];
       total.value = res.data.total || 0;
@@ -343,7 +351,7 @@ function gotoPage(p: number) {
           </div>
         </div>
 
-        <!-- 为你推荐（v5.9 阶段1：基于用户画像推荐，浅色柔和风格） -->
+        <!-- 为你推荐（基于用户画像推荐，浅色柔和风格） -->
         <section
           v-if="showRecommend"
           class="mb-6 rounded-2xl overflow-hidden border"
@@ -563,7 +571,7 @@ function gotoPage(p: number) {
               </div>
             </div>
 
-            <!-- 题型筛选（v6.3 题目结构化） -->
+            <!-- 题型筛选 -->
             <div
               class="rounded-xl shadow-sm p-4"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"

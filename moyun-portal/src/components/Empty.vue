@@ -7,7 +7,7 @@ interface Props {
   size?: 'sm' | 'md' | 'lg';
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: '暂无数据',
   description: '',
   size: 'md',

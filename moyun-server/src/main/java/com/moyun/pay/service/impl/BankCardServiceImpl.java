@@ -3,6 +3,7 @@ package com.moyun.pay.service.impl;
 import com.moyun.util.crypto.AesGcmUtils;
 import com.moyun.util.string.IdCardUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.pay.config.PayProperties;
 import com.moyun.pay.domain.entity.UserBankCard;
 import com.moyun.pay.mapper.UserBankCardMapper;
@@ -134,6 +135,33 @@ public class BankCardServiceImpl implements IBankCardService {
         log.info("[bank-card] 绑卡成功 userId={} cardId={} masked={} verify={}",
                 userId, card.getId(), card.getCardNoMasked(), card.getVerifyStatus());
         return card;
+    }
+
+    @Override
+    public boolean verifyByAdmin(Long cardId, String verifyStatus) {
+        if (cardId == null) {
+            throw new ServiceException("银行卡ID不能为空");
+        }
+        // 只接受人工可判定的两个终态：不允许把卡"核实"回 PENDING，
+        // 也不允许写入任意字符串（状态机收口）。
+        String target = verifyStatus == null ? "" : verifyStatus.trim().toUpperCase();
+        if (!"VERIFIED".equals(target) && !"REJECTED".equals(target)) {
+            throw new ServiceException("核实结果不合法（仅支持 VERIFIED / REJECTED）");
+        }
+        UserBankCard card = bankCardMapper.selectById(cardId);
+        if (card == null) {
+            throw new ServiceException("银行卡不存在");
+        }
+        UserBankCard update = new UserBankCard();
+        update.setId(cardId);
+        update.setVerifyStatus(target);
+        update.setUpdateTime(LocalDateTime.now());
+        boolean ok = bankCardMapper.updateById(update) > 0;
+        if (ok) {
+            log.info("[bank-card] 后台人工核实 userId={} cardId={} 由 {} 置为 {}",
+                    card.getUserId(), cardId, card.getVerifyStatus(), target);
+        }
+        return ok;
     }
 
     @Override

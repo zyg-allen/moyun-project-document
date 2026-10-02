@@ -9,7 +9,8 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Pagination from '@/components/Pagination.vue';
 import Empty from '@/components/Empty.vue';
 import { generateSeo } from '@/utils/seo';
-import { getMyBookshelf, removeFromBookshelf, getBookDetail } from '@/api/reading';
+import { useConfirmModal } from '@/composables/useConfirmModal';
+import { getMyBookshelf, removeFromBookshelf } from '@/api/reading';
 import { useAuth } from '@/composables/useAuth';
 import { useToast } from '@/composables/useToast';
 import type { BookshelfItem, Book } from '@/types/api';
@@ -32,6 +33,9 @@ useHead(
     description: '旭林知行读书空间 - 我的书架，收藏的好书都在这里',
     type: 'article',
     canonicalPath: '/reading/bookshelf',
+    // 清单 P2：私有页必须显式输出 robots —— 路由 meta 里的 robots 全站**无消费方**
+    //（守卫只读 requiresAuth/title），只有 generateSeo 的 robots 参数才会真正渲染。
+    robots: 'noindex,nofollow',
   }))
 );
 
@@ -41,8 +45,26 @@ const breadcrumbs = computed(() => [
   { label: '我的书架' },
 ]);
 
+/**
+ * 加载书架。
+ *
+ * <p>清单 P2 两处修复：</p>
+ * <ol>
+ *   <li><b>消除 N+1 与"虚增阅读量"</b>：原先对当前页每条记录再调一次
+ *       `GET /portal/reading/books/{id}` —— 既造成 N+1，又会**虚增每本书的阅读量**
+ *       （该接口内部 incrementReadingCount 并落库）。后端现已随列表批量下发
+ *       `bookTitle/bookCover/bookAuthor`，前端直接使用。</li>
+ *   <li><b>区分失败态与空态</b>：原先 catch 里把列表与 total 一起清零，
+ *       失败会被渲染成「书架空空如也」，用户以为收藏全丢了。</li>
+ * </ol>
+ */
+/** 加载失败提示（清单 P2：失败不再冒充"书架空空如也"） */
+const loadError = ref<string | null>(null);
+const confirmModal = useConfirmModal();
+
 async function loadBookshelf() {
   loading.value = true;
+  loadError.value = null;
   try {
     const resp = await getMyBookshelf({
       pageNum: pageNum.value,
@@ -52,24 +74,29 @@ async function loadBookshelf() {
     if (resp.code === 200 && resp.data) {
       const items = resp.data.records || [];
       total.value = resp.data.total || 0;
-      // 批量加载书籍详情（简化方案：逐个加载，缓存避免重复）
-      bookshelfList.value = await Promise.all(items.map(async (item) => {
-        try {
-          const bookResp = await getBookDetail(item.bookId);
-          if (bookResp.code === 200 && bookResp.data) {
-            return { ...item, book: bookResp.data.book };
-          }
-        } catch (err) {
-          // 静默忽略
-        }
-        return { ...item, book: undefined };
+      bookshelfList.value = items.map((item) => ({
+        ...item,
+        book: {
+          ...(item as unknown as { book?: Book }).book,
+          title: item.bookTitle || (item as unknown as { book?: Book }).book?.title,
+          cover: item.bookCover || (item as unknown as { book?: Book }).book?.cover,
+          author: item.bookAuthor || (item as unknown as { book?: Book }).book?.author,
+        } as Book,
       }));
+      // 移出后若当前页已被清空（末页最后一条），回退一页（清单 P2）
+      if (bookshelfList.value.length === 0 && pageNum.value > 1 && total.value > 0) {
+        pageNum.value -= 1;
+        await loadBookshelf();
+        return;
+      }
     } else {
+      loadError.value = resp.message || '加载书架失败';
       bookshelfList.value = [];
       total.value = 0;
     }
   } catch (err) {
     console.error('加载书架失败:', err);
+    loadError.value = (err as Error)?.message || '加载书架失败，请稍后重试';
     bookshelfList.value = [];
     total.value = 0;
   } finally {
@@ -78,12 +105,23 @@ async function loadBookshelf() {
 }
 
 async function handleRemove(item: BookshelfItem & { book?: Book }) {
-  if (!confirm(`确认将《${item.book?.title || '未知书籍'}》移出书架？`)) return;
+  // 清单 P2/P3：统一使用全局确认弹窗（与 ColumnDetailPage/MyResumesPage 等处一致），
+  // 不再用原生 window.confirm（样式与无障碍不一致）。
+  const ok = await confirmModal.confirm(`确认将《${item.book?.title || '未知书籍'}》移出书架？`, {
+    title: '移出书架',
+    confirmText: '确认移出',
+    danger: true,
+  });
+  if (!ok) return;
   try {
     const resp = await removeFromBookshelf(item.bookId);
     if (resp.code === 200) {
       toast.success('已移出书架');
-      // 重新加载当前页
+      // 清单 P2：删掉末页最后一条时 pageNum 仍指向越界页 ⇒ 后端返回空页并被当成"书架为空"。
+      // 这里先按"本页可能已空"回退一页，再重新加载（loadBookshelf 内还有兜底校正）。
+      if (pageNum.value > 1 && bookshelfList.value.length <= 1) {
+        pageNum.value -= 1;
+      }
       loadBookshelf();
     }
   } catch (err) {
@@ -173,13 +211,38 @@ onMounted(() => {
         </div>
 
         <!-- 空状态 -->
+        <div
+          v-if="loadError && !loading"
+          class="py-16 text-center rounded-2xl mb-6"
+          style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+        >
+          <p class="mb-4" style="color: var(--theme-text);">{{ loadError }}</p>
+          <button
+            class="px-5 py-2 rounded-xl text-sm font-medium text-white"
+            style="background-color: var(--theme-primary);"
+            @click="loadBookshelf()"
+          >重试</button>
+        </div>
+
+        <!--
+          清单 P2：原写法 `<Empty action-text="去发现" @action="..." />` 属**组件 API 误用** ——
+          Empty.vue 只声明 title/description/size 三个 props，动作区是名为 action 的**插槽**，
+          既无 actionText 属性也无 action 事件 ⇒ CTA 永远不会渲染、点击也永远不触发。
+        -->
         <Empty
-          v-else-if="bookshelfList.length === 0"
+          v-else-if="bookshelfList.length === 0 && !loadError"
           title="书架空空如也"
           description="去读书空间发现更多好书吧"
-          action-text="去发现"
-          @action="router.push('/reading')"
-        />
+        >
+          <!-- 清单 P2：动作区必须用 Empty 的 action **插槽**（组件没有 actionText/action 事件） -->
+          <template #action>
+            <button
+              class="px-5 py-2 rounded-xl text-sm font-medium text-white"
+              style="background-color: var(--theme-primary);"
+              @click="router.push('/reading')"
+            >去发现</button>
+          </template>
+        </Empty>
 
         <!-- 书架网格 -->
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">

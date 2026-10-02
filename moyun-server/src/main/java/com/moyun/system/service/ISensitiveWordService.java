@@ -5,7 +5,6 @@ import java.util.List;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.moyun.system.domain.entity.SysSensitiveWord;
-import com.moyun.system.domain.entity.SysSensitiveWordLog;
 
 /**
  * 敏感词服务层

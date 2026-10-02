@@ -32,6 +32,9 @@ public class WrongQuestionServiceImpl implements IWrongQuestionService {
 
     @Autowired private PortalWrongQuestionMapper wrongQuestionMapper;
 
+    /** 题库 Mapper（清单 P2：最近错题需要批量补齐题目标题/难度） */
+    @Autowired private com.moyun.portal.mapper.PortalInterviewQuestionMapper questionMapper;
+
     // ========================================================================
     // 错题列表（分页）
     // ========================================================================
@@ -63,7 +66,10 @@ public class WrongQuestionServiceImpl implements IWrongQuestionService {
     @Override
     public List<WrongQuestionVO> listTodayReview(Long userId) {
         WrongQuestionQuery query = new WrongQuestionQuery();
-        query.setStatus("reviewing");
+        // 时间口径：status != mastered 且 next_review_time <= now（与 countTodayReview 的 SQL 判据完全一致）。
+        // 原实现设 status='reviewing'，而该状态在全仓**没有任何写入点**（只有 wrong → mastered），
+        // 故本方法恒返回空列表 —— "今日待复习"永远看不到题。
+        query.setReviewOnly(true);
         // 今日待复习按 next_review_time <= now 过滤，复用列表查询后内存过滤
         Page<WrongQuestionVO> page = PageUtils.buildPage(1, 100);
         Page<WrongQuestionVO> result = wrongQuestionMapper.selectWrongQuestionPage(page, userId, query);
@@ -157,6 +163,20 @@ public class WrongQuestionServiceImpl implements IWrongQuestionService {
     public List<WrongQuestionVO> listRecentWrong(Long userId, int limit) {
         List<PortalWrongQuestion> entities = wrongQuestionMapper.selectRecentWrong(userId, limit);
         List<WrongQuestionVO> list = new ArrayList<>(entities == null ? 0 : entities.size());
+        // 清单 P2：selectRecentWrong 只取 portal_wrong_question 自身字段（未 JOIN 题库），
+        // 而这里原先也只手工映射实体字段 ⇒ questionTitle 恒为 null，
+        // 前端只能回退显示"题目 #id"。改为一次性批量取题库后按 questionId 关联。
+        java.util.Set<Long> questionIds = entities == null ? java.util.Collections.emptySet()
+                : entities.stream()
+                        .map(PortalWrongQuestion::getQuestionId)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toSet());
+        final java.util.Map<Long, com.moyun.portal.domain.entity.PortalInterviewQuestion> questionMap =
+                questionIds.isEmpty()
+                        ? java.util.Collections.emptyMap()
+                        : questionMapper.selectBatchIds(questionIds).stream()
+                                .collect(java.util.stream.Collectors.toMap(
+                                        com.moyun.portal.domain.entity.PortalInterviewQuestion::getId, q -> q, (a, b) -> a));
         if (entities != null) {
             for (PortalWrongQuestion wq : entities) {
                 WrongQuestionVO vo = new WrongQuestionVO();
@@ -169,6 +189,12 @@ public class WrongQuestionServiceImpl implements IWrongQuestionService {
                 vo.setLastWrongTime(wq.getLastWrongTime());
                 vo.setNextReviewTime(wq.getNextReviewTime());
                 vo.setCreatedTime(wq.getCreatedTime());
+                // 题目标题与难度（批量结果；取不到时前端回退显示"题目 #id"）
+                com.moyun.portal.domain.entity.PortalInterviewQuestion q = questionMap.get(wq.getQuestionId());
+                if (q != null) {
+                    vo.setQuestionTitle(q.getTitle());
+                    vo.setQuestionDifficulty(q.getDifficulty());
+                }
                 list.add(vo);
             }
         }

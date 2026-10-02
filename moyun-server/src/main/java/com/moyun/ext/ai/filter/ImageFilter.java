@@ -34,10 +34,6 @@ public class ImageFilter {
 
     /**
      * 图片过滤配置（前缀 {@code image.filter}）。
-     *
-     * <p>此前本类完全未消费该配置：positionWeight/sizeWeight/complexityWeight/
-     * comprehensiveScoreThreshold 在 {@code passComprehensiveScore} 里是硬编码常量，
-     * 配置类另有同值默认值，运维调整不生效。现已接线。</p>
      */
     @Autowired
     private ImageFilterConfig filterConfig;
@@ -230,8 +226,7 @@ public class ImageFilter {
      *
      * <p>综合位置、尺寸、复杂度三个维度计算加权评分。
      * 权重与阈值来自 {@link ImageFilterConfig}（配置前缀 {@code image.filter}），
-     * <b>不再硬编码</b>——此前该配置类的 positionWeight/sizeWeight/complexityWeight/
-     * comprehensiveScoreThreshold 三个字段从未被本类读取，运维改配置不生效。</p>
+     * 不在代码中硬编码。</p>
      *
      * @param context 过滤上下文
      * @return true-通过，false-过滤

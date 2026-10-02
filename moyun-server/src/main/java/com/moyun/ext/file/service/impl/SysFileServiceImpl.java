@@ -65,11 +65,11 @@ public class SysFileServiceImpl implements ISysFileService {
     private ServerConfig serverConfig;
 
     /**
-     * 事务模板（v13.14 引入）
+     * 事务模板
      * <p>
      * 本类所有写方法都同时涉及「存储 IO」与「DB 写」：MinIO 上传/删除、本地磁盘读写是秒级远程/磁盘 IO，
      * 必须放在事务外，否则上传期间一直占着 DB 连接与连接池额度（并发上传会打满连接池）。
-     * 语义保持不变：DB 写仍包在事务里，写失败照样整体回滚（存储侧产物与旧实现一致，不做补偿删除）。
+     * DB 写包在事务里，写失败照样整体回滚（存储侧产物不做补偿删除）。
      * </p>
      */
     @Autowired
@@ -198,7 +198,7 @@ public class SysFileServiceImpl implements ISysFileService {
 
     /**
      * 上传文件（后台用户）
-     * <p><b>事务边界（v13.14 收窄）</b>：本方法不再 {@code @Transactional}，
+     * <p><b>事务边界</b>：本方法不加 {@code @Transactional}，
      * 存储写入（MinIO/本地磁盘）在事务外完成，仅 {@code sysFileMapper.insert} 包在
      * {@link #transactionTemplate} 内（见私有重载 {@code uploadFile(...,boolean)}）。</p>
      */
@@ -209,7 +209,7 @@ public class SysFileServiceImpl implements ISysFileService {
 
     /**
      * 上传文件（支持前台用户）
-     * <p><b>事务边界（v13.14 收窄）</b>：同 {@link #uploadFile}，事务只包 DB 写入。</p>
+     * <p><b>事务边界</b>：同 {@link #uploadFile}，事务只包 DB 写入。</p>
      */
     @Override
     public SysFile uploadFileForPortal(MultipartFile file, String businessType, String businessId) {
@@ -299,7 +299,7 @@ public class SysFileServiceImpl implements ISysFileService {
                 }
             }
 
-            // v13.14：存储 IO 已完成，事务只包 DB 写入（避免 MinIO/磁盘 IO 占着事务与连接）
+            // 存储 IO 已完成，事务只包 DB 写入（避免 MinIO/磁盘 IO 占着事务与连接）
             transactionTemplate.executeWithoutResult(status -> sysFileMapper.insert(sysFile));
         } catch (Exception e) {
             throw new RuntimeException("文件上传失败", e);
@@ -308,7 +308,7 @@ public class SysFileServiceImpl implements ISysFileService {
     }
 
     /**
-     * 按字节上传（v13.14 事务收窄：存储 IO 在事务外，仅 insert 在事务内）
+     * 按字节上传（存储 IO 在事务外，仅 insert 在事务内）
      */
     @Override
     public SysFile uploadBytes(byte[] bytes, String fileName, String contentType, String businessType, String businessId) {
@@ -365,7 +365,7 @@ public class SysFileServiceImpl implements ISysFileService {
                 }
             }
 
-            // v13.14：存储 IO 已完成，事务只包 DB 写入
+            // 存储 IO 已完成，事务只包 DB 写入
             transactionTemplate.executeWithoutResult(status -> sysFileMapper.insert(sysFile));
         } catch (Exception e) {
             throw new RuntimeException("文件上传失败", e);
@@ -375,9 +375,9 @@ public class SysFileServiceImpl implements ISysFileService {
 
     /**
      * 删除文件记录 + 存储对象。
-     * <p><b>事务边界（v13.14 收窄）</b>：存储删除（MinIO removeObject / 本地磁盘 delete）在事务外先执行，
-     * 之后仅 {@code deleteById} 包在事务内。异常语义与旧实现一致：存储删除抛错则 DB 不变；
-     * 存储删除成功而 DB 删除失败时，旧实现同样会因回滚留下「记录在、对象已删」的状态。</p>
+     * <p><b>事务边界</b>：存储删除（MinIO removeObject / 本地磁盘 delete）在事务外先执行，
+     * 之后仅 {@code deleteById} 包在事务内。异常语义：存储删除抛错则 DB 不变；
+     * 存储删除成功而 DB 删除失败时，仍会因回滚留下「记录在、对象已删」的状态。</p>
      */
     @Override
     public int deleteFileById(Long id) {
@@ -391,8 +391,8 @@ public class SysFileServiceImpl implements ISysFileService {
 
     /**
      * 批量删除。
-     * <p><b>事务边界（v13.14 收窄）</b>：本方法不再 {@code @Transactional}。
-     * 注意：旧实现依赖本方法自身事务，内部 {@code deleteFileById(id)} 属自调用、其注解本就不生效；
+     * <p><b>事务边界</b>：本方法不加 {@code @Transactional}。
+     * 注意：内部 {@code deleteFileById(id)} 属自调用、其事务注解本就不生效；
      * 现在每个 id 各自成事务（存储 IO 逐条在事务外），失败项不影响已成功项。</p>
      */
     @Override
@@ -444,7 +444,7 @@ public class SysFileServiceImpl implements ISysFileService {
      * 兼容前端组件只持有访问 URL 的场景：上传后组件存的是 url，删除时只有 url 可用。
      * 校验逻辑：expectUploadUserId 非空时，必须与记录 uploadUserId 一致，防止越权删他人文件。
      * 未找到记录返回 false（不抛异常），便于前端幂等调用（重复删除静默成功）。
-     * <p><b>事务边界（v13.14 收窄）</b>：查询与越权校验在事务外进行，存储删除（远程/磁盘 IO）同样在事务外，
+     * <p><b>事务边界</b>：查询与越权校验在事务外进行，存储删除（远程/磁盘 IO）同样在事务外，
      * 仅最后一行 {@code deleteById} 包在 {@link #transactionTemplate} 内。</p>
      */
     @Override

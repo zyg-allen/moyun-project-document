@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 我的文章选择器（v1.1.3 新增）
+ * 我的文章选择器
  *
  * 业务背景：
  *   - 专栏编辑页（/column/edit/:id）：创建/编辑专栏时勾选文章
@@ -25,7 +25,7 @@ import { getMyArticles } from '@/api/article';
 import type { Article } from '@/types/api';
 
 const props = withDefaults(defineProps<{
-  // v1.1.3 修复：允许 string 和 number 混合（Article.id 是 string，ArticleSimpleVO.id 是 string|number）
+  // 允许 string 和 number 混合（Article.id 是 string，ArticleSimpleVO.id 是 string|number）
   modelValue: Array<string | number>;
   // 候选列表排除的 articleId（已在专栏中的文章）
   excludeIds?: Array<string | number>;

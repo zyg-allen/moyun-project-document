@@ -23,6 +23,7 @@ import {
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
+import { validateIdCard } from '@/utils/idCard';
 import {
   getAccountOverview,
   getMyLedger,
@@ -35,6 +36,7 @@ import {
 } from '@/api/pay';
 import { sendSmsCode } from '@/api/sms';
 import type { PayAccountOverview, PayLedgerEntry, UserBankCard, PayWithdrawOrder } from '@/types/api';
+import { useDictData } from '@/composables/useDictData';
 
 useHead(
   generateSeo({
@@ -68,18 +70,27 @@ const bankCards = ref<UserBankCard[]>([]);
 const cardLoading = ref(false);
 const showBindForm = ref(false);
 const bindSubmitting = ref(false);
-const bindForm = ref({ holderName: '', cardNo: '', phone: '', bankName: '', smsCode: '' });
-// 短信验证码（V11.1）
+const bindForm = ref({ holderName: '', cardNo: '', certNo: '', phone: '', bankName: '', smsCode: '' });
+// 短信验证码
 const smsSending = ref(false);
 const smsCooldown = ref(0);
 let smsTimer: ReturnType<typeof setInterval> | null = null;
 
-// 提现（v11.79 提现闭环）
+// 提现
 const withdrawList = ref<PayWithdrawOrder[]>([]);
 const withdrawLoading = ref(false);
 const withdrawCurrent = ref(1);
 const withdrawTotal = ref(0);
 const withdrawSubmitting = ref(false);
+/**
+ * 提现额度提示文案（清单 P2）：额度来自后端配置（账户总览下发），前后端同源。
+ */
+const withdrawRangeText = computed(() => {
+  const min = Number(overview.value?.withdrawMin ?? 1);
+  const max = Number(overview.value?.withdrawMax ?? 50000);
+  return `单笔 ${min} ~ ${max} 元`;
+});
+
 const withdrawForm = ref<{ amount: string; bankCardId: number | string | null }>({ amount: '', bankCardId: null });
 
 const hasMoreWithdraw = computed(() => withdrawList.value.length < withdrawTotal.value);
@@ -108,15 +119,22 @@ const switchTab = (key: 'ledger' | 'withdraw' | 'bankcard') => {
   }
 };
 
+// 流水类型：字典 portal_wallet_txn_type 驱动（v13.92，该字典此前有类型无数据，已同期补齐）
+//
+// ⚠ 同时修正一个**从未命中的分支**：原映射写的是 member（会员），
+//   而后端 VIP 记账实际写入的 bizType 是 **vip** ⇒ "会员"从未显示，流水里一直显示原始英文 vip。
+const BIZ_TYPE_LABEL_FALLBACK: Record<string, string> = { tip: '打赏', withdraw: '提现', vip: '会员' };
+const walletDict = useDictData(['portal_wallet_txn_type']);
 const bizTypeLabel = (bizType?: string) => {
-  const map: Record<string, string> = { tip: '打赏', withdraw: '提现', member: '会员' };
-  return map[bizType || ''] || bizType || '-';
+  const fromDict = (walletDict['portal_wallet_txn_type'] || [])
+    .find(i => i.dictValue === bizType)?.dictLabel;
+  return fromDict || BIZ_TYPE_LABEL_FALLBACK[bizType || ''] || bizType || '-';
 };
 
-// ===== 提现（v11.79） =====
+// ===== 提现 =====
 
 const withdrawStatusLabel = (status?: string) => {
-  const map: Record<string, string> = { auditing: '审核中', paid: '已打款', rejected: '已驳回' };
+  const map: Record<string, string> = { auditing: '审核中', paying: '打款中', paid: '已打款', rejected: '已驳回' };
   return map[status || ''] || status || '-';
 };
 
@@ -132,6 +150,8 @@ const loadWithdrawals = async (append = false) => {
       withdrawList.value = records;
     }
   } catch {
+    // 页码已在 loadMoreWithdraw 里 +1：失败必须回滚，否则用户再点一次会**跳过一页**（清单 P2）
+    if (append) withdrawCurrent.value = Math.max(1, withdrawCurrent.value - 1);
     toast.error('提现记录加载失败');
   } finally {
     withdrawLoading.value = false;
@@ -149,8 +169,23 @@ const handleWithdraw = async () => {
     toast.error('请填写提现金额');
     return;
   }
-  if (amount > Number(overview.value?.balance ?? 0)) {
-    toast.error('提现金额不能超过可用余额');
+  // 清单 P2：可用余额 = balance - frozen（后端 apply 的校验口径）；
+  // 原先拿 balance 当上限 ⇒ 前端放行的金额后端会拒（或让用户以为能提冻结部分）。
+  const availableBalance = Number(overview.value?.availableBalance ?? overview.value?.balance ?? 0);
+  if (amount > availableBalance) {
+    toast.error(`提现金额不能超过可用余额 ¥${availableBalance.toFixed(2)}`);
+    return;
+  }
+  // 清单 P2：单笔额度原先只存在于后端硬编码常量里，前端既不校验也不提示。
+  // 现额度随账户总览下发（withdrawMin/withdrawMax），这里做前置校验（与后端同源），避免"填完才被拒"。
+  const withdrawMin = Number(overview.value?.withdrawMin ?? 1);
+  const withdrawMax = Number(overview.value?.withdrawMax ?? 50000);
+  if (amount < withdrawMin) {
+    toast.error(`单笔提现不可低于 ${withdrawMin} 元`);
+    return;
+  }
+  if (amount > withdrawMax) {
+    toast.error(`单笔提现不可超过 ${withdrawMax} 元`);
     return;
   }
   if (!withdrawForm.value.bankCardId) {
@@ -220,6 +255,8 @@ const loadLedger = async (append = false) => {
       ledgerEntries.value = records;
     }
   } catch {
+    // 同 loadWithdrawals：失败回滚页码，避免"加载更多"跳页（清单 P2）
+    if (append) ledgerCurrent.value = Math.max(1, ledgerCurrent.value - 1);
     toast.error('流水加载失败');
   } finally {
     ledgerLoading.value = false;
@@ -257,6 +294,12 @@ const handleBind = async () => {
     toast.error('手机号格式不正确');
     return;
   }
+  // 身份证号是银行卡四要素核验的必需项：不传则后端不发起核验，卡会永久停在 PENDING
+  const certErr = validateIdCard(f.certNo);
+  if (certErr) {
+    toast.error(certErr);
+    return;
+  }
   if (!/^\d{6}$/.test(f.smsCode || '')) {
     toast.error('请填写 6 位短信验证码');
     return;
@@ -266,13 +309,14 @@ const handleBind = async () => {
     await bindBankCard({
       holderName: f.holderName.trim(),
       cardNo: f.cardNo,
+      certNo: f.certNo.trim(),
       phone: f.phone,
       bankName: f.bankName.trim() || undefined,
       smsCode: f.smsCode,
     });
     toast.success('绑定成功');
     showBindForm.value = false;
-    bindForm.value = { holderName: '', cardNo: '', phone: '', bankName: '', smsCode: '' };
+    bindForm.value = { holderName: '', cardNo: '', certNo: '', phone: '', bankName: '', smsCode: '' };
     await loadCards();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : '绑定失败');
@@ -303,7 +347,10 @@ const handleDeleteCard = async (card: UserBankCard) => {
 };
 
 onMounted(async () => {
-  await Promise.all([loadOverview(), loadLedger()]);
+  // 清单 P2：原先只拉 overview+ledger，而统计卡「绑定银行卡」与 Tab 角标直接渲染
+  // bankCards.length（仅切到「银行卡/提现」Tab 时才加载）⇒ 首屏恒显示 0 张、角标也不出现。
+  // 这里首屏一并加载银行卡列表。
+  await Promise.all([loadOverview(), loadLedger(), loadCards()]);
 });
 </script>
 
@@ -351,8 +398,13 @@ onMounted(async () => {
                 <Wallet class="w-4 h-4" />
                 可用余额（元）
               </div>
+              <!-- 清单 P2：展示"可用余额"（= balance - frozen），而不是总余额；
+                   冻结/审核中占用单独说明，避免用户以为可全额提现。 -->
               <p class="text-4xl sm:text-5xl font-bold tracking-tight tabular-nums" style="color: #fff;">
-                ¥{{ overview?.balance?.toFixed(2) ?? '0.00' }}
+                ¥{{ (overview?.availableBalance ?? overview?.balance ?? 0).toFixed(2) }}
+              </p>
+              <p v-if="(overview?.frozenAmount ?? 0) > 0" class="text-xs mt-2" style="color: rgba(255,255,255,0.85);">
+                其中审核中占用 ¥{{ overview?.frozenAmount?.toFixed(2) }}（余额合计 ¥{{ overview?.balance?.toFixed(2) }}）
               </p>
               <p class="text-xs mt-4 leading-relaxed max-w-sm" style="color: rgba(255,255,255,0.75);">
                 收到的打赏在支付成功后自动分账入账，扣除平台服务费后的部分进入余额
@@ -555,12 +607,14 @@ onMounted(async () => {
           </template>
         </div>
 
-        <!-- 提现（v11.79 提现闭环） -->
+        <!-- 提现 -->
         <div v-if="activeTab === 'withdraw'" class="space-y-4">
           <!-- 申请表单 -->
           <div class="rounded-2xl border p-6" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
             <h3 class="text-base font-semibold mb-1" style="color: var(--theme-text);">申请提现</h3>
-            <p class="text-xs mb-5" style="color: var(--theme-text-secondary);">可用余额 ¥{{ overview?.balance?.toFixed(2) ?? '0.00' }}，提交后平台审核打款，打款到绑定银行卡</p>
+            <p class="text-xs mb-5" style="color: var(--theme-text-secondary);">
+              可用余额 ¥{{ (overview?.availableBalance ?? overview?.balance ?? 0).toFixed(2) }}<span v-if="(overview?.frozenAmount ?? 0) > 0">（另有审核中占用 ¥{{ overview?.frozenAmount?.toFixed(2) }}）</span>，提交后平台审核打款，打款到绑定银行卡
+            </p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">打款银行卡</label>
@@ -580,9 +634,11 @@ onMounted(async () => {
               </div>
               <div>
                 <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">提现金额（元）</label>
-                <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" placeholder="不超过可用余额"
+                <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" :placeholder="withdrawRangeText"
                        class="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-colors focus:border-[var(--theme-primary)]"
                        style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);" />
+                <!-- 清单 P2：额度来自后端配置（账户总览下发），此处明确提示，避免用户填超了才被拒 -->
+                <p class="mt-1 text-xs" style="color: var(--theme-text-secondary);">{{ withdrawRangeText }}（不超过可用余额）</p>
               </div>
             </div>
             <button
@@ -641,7 +697,9 @@ onMounted(async () => {
                       </span>
                     </td>
                     <td class="px-5 py-3.5 text-xs max-w-xs truncate" style="color: var(--theme-text-secondary);" :title="w.rejectReason || ''">
-                      {{ w.status === 'rejected' ? (w.rejectReason || '已驳回') : (w.status === 'paid' ? '打款至绑定银行卡' : '等待平台审核') }}
+                      {{ w.status === 'rejected' ? (w.rejectReason || '已驳回')
+                        : (w.status === 'paid' ? '打款至绑定银行卡'
+                          : (w.status === 'paying' ? '已提交代付通道，请留意到账通知' : '等待平台审核')) }}
                     </td>
                   </tr>
                 </tbody>
@@ -718,6 +776,12 @@ onMounted(async () => {
                          style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);" />
                 </div>
                 <div>
+                  <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">持卡人身份证号</label>
+                  <input v-model="bindForm.certNo" type="text" maxlength="18" placeholder="用于银行四要素核验，不落库"
+                         class="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-colors focus:border-[var(--theme-primary)]"
+                         style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);" />
+                </div>
+                <div>
                   <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">预留手机号</label>
                   <input v-model="bindForm.phone" type="text" maxlength="11" placeholder="银行预留手机号"
                          class="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-colors focus:border-[var(--theme-primary)]"
@@ -774,7 +838,8 @@ onMounted(async () => {
               <CreditCard class="w-7 h-7" style="color: var(--theme-text-secondary);" />
             </div>
             <p class="text-sm" style="color: var(--theme-text-secondary);">暂未绑定银行卡</p>
-            <p class="text-xs" style="color: var(--theme-text-secondary);">绑定后可发起余额提现（打款功能即将开放）</p>
+            <!-- 清单 P2：原文案称"打款功能即将开放"，与同页已上线的提现表单/提现记录/后台提现审核自相矛盾 -->
+          <p class="text-xs" style="color: var(--theme-text-secondary);">绑定并完成核验后，即可发起余额提现</p>
           </div>
           <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div
@@ -810,11 +875,18 @@ onMounted(async () => {
               <!-- 卡信息 + 操作 -->
               <div class="p-4 flex items-center justify-between">
                 <div class="flex items-center gap-2 text-xs" style="color: var(--theme-text-secondary);">
+                  <!--
+                    清单 P2：原先只区分 VERIFIED 与"其它"，于是 REJECTED（四要素核验不一致）
+                    也被渲染成"待核实"，用户会一直等一个不会到来的结果。
+                    这里按三态展示：已核实 / 核验未通过（需重新绑定或联系客服）/ 待核实。
+                  -->
                   <span class="px-2 py-0.5 rounded font-medium"
                         :style="card.verifyStatus === 'VERIFIED'
                           ? 'background-color: var(--theme-success-bg); color: var(--theme-success);'
-                          : 'background-color: var(--theme-warning-bg); color: var(--theme-warning);'">
-                    {{ card.verifyStatus === 'VERIFIED' ? '已核实' : '待核实' }}
+                          : card.verifyStatus === 'REJECTED'
+                            ? 'background-color: var(--theme-danger-bg, #fee2e2); color: var(--theme-danger, #dc2626);'
+                            : 'background-color: var(--theme-warning-bg); color: var(--theme-warning);'">
+                    {{ card.verifyStatus === 'VERIFIED' ? '已核实' : (card.verifyStatus === 'REJECTED' ? '核验未通过' : '待核实') }}
                   </span>
                   <span>仅用于提现打款</span>
                 </div>

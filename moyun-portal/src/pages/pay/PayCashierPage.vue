@@ -93,9 +93,21 @@
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background-color: var(--theme-primary);"></span>
             正在等待支付结果…（{{ pollCountdown }}s）
           </p>
+          <!-- 清单 P2：原文案让用户"手动查询"却没有入口；而订单有效期（默认 30 分钟，见
+               moyun.pay.order-expire-minutes）远长于轮询上限（100×3s=5 分钟），
+               所以超时后仍应允许主动查询。这里给出明确的按钮入口。 -->
           <p v-else class="text-xs mt-3" style="color: var(--theme-danger);">
-            轮询超时，请刷新页面或手动查询支付结果
+            自动轮询已停止（订单有效期 {{ expireMinutes }} 分钟，仍可点下方按钮查询最新结果）
           </p>
+          <button
+            v-if="!pollingActive && !paid"
+            class="mt-3 w-full py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+            style="background-color: var(--theme-accent); color: var(--theme-text);"
+            :disabled="manualQuerying"
+            @click="manualQuery()"
+          >
+            {{ manualQuerying ? '查询中…' : '手动查询支付结果' }}
+          </button>
 
           <!-- mock 模拟支付按钮 -->
           <button
@@ -114,7 +126,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, CheckCircle, AlertCircle, QrCode, Clock } from 'lucide-vue-next';
 import QRCode from 'qrcode';
@@ -140,6 +152,8 @@ const settled = ref(false);
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pollCount = 0;
+/** 轮询连续失败次数（清单 P2）：成功一次即复位，连续失败则停止轮询并提示 */
+let pollFailureCount = 0;
 const MAX_POLL_COUNT = 100; // 最多轮询 100 次（约 5 分钟）
 const pollCountdown = ref(MAX_POLL_COUNT * 3);
 const pollingActive = ref(true);
@@ -161,6 +175,44 @@ const renderQr = async (text: string) => {
   });
 };
 
+/** 手动查询中（清单 P2：超时后用户需要主动查询入口） */
+const manualQuerying = ref(false);
+
+/**
+ * 手动查询支付结果（清单 P2）。
+ *
+ * <p>后端 `GET /portal/pay/status/{payNo}` 本就以网关为准返回最新状态并校验订单归属，
+ * 完全可以作为主动查询源；订单有效期由 `moyun.pay.order-expire-minutes` 决定（默认 30 分钟），
+ * 远长于前端 5 分钟的轮询上限，因此超时后仍应允许查询。</p>
+ */
+const manualQuery = async () => {
+  if (manualQuerying.value || !payNo.value) return;
+  manualQuerying.value = true;
+  try {
+    const res = await getPayStatus(payNo.value);
+    const data = res.data;
+    if (!data) {
+      toast.error('查询失败，请稍后重试');
+      return;
+    }
+    if (data.status === 'PAID' || data.status === 'SETTLED') {
+      paid.value = true;
+      if (data.status === 'SETTLED') settled.value = true;
+      toast.success('支付成功');
+      return;
+    }
+    if (data.status === 'CLOSED') {
+      error.value = '订单已关闭（超时未支付或已手动关单）';
+      return;
+    }
+    toast.info('尚未收到支付结果，请完成支付后再查询');
+  } catch (e) {
+    toast.error((e as { message?: string })?.message || '查询失败，请稍后重试');
+  } finally {
+    manualQuerying.value = false;
+  }
+};
+
 const pollStatus = async () => {
   if (!payNo.value) return;
   pollCount++;
@@ -173,7 +225,17 @@ const pollStatus = async () => {
   try {
     const res = await getPayStatus(payNo.value);
     const data = res.data;
+    pollFailureCount = 0;   // 本次成功：复位连续失败计数
     if (!data) return;
+    // 清单 P2：关单时间原先只用 URL 里写死的 expireMinutes（默认 30）显示，
+    // 而状态响应本就带 expireTime。这里以服务端时间为准计算剩余分钟，避免前端估算与后端不一致。
+    if (data.expireTime) {
+      const expireAt = new Date(String(data.expireTime).replace(' ', 'T')).getTime();
+      if (!Number.isNaN(expireAt)) {
+        const remainMs = expireAt - Date.now();
+        expireMinutes.value = remainMs > 0 ? Math.ceil(remainMs / 60000) : 0;
+      }
+    }
     mockEnabled.value = !!data.mockEnabled;
     if (data.status === 'PAID') {
       paid.value = true;
@@ -188,8 +250,24 @@ const pollStatus = async () => {
       stopPolling();
       error.value = '订单已关闭（超时未支付或已手动关单）';
     }
-  } catch {
-    // 轮询失败静默重试
+  } catch (e) {
+    // 清单 P2：原先 catch {} 吞掉全部异常 —— 后端 403「订单不存在或无权操作」、401 登录过期、
+    // 网络中断都静默重试到 100 次（约 5 分钟），用户既不知道失败原因也看不到任何提示。
+    // 区分处理：鉴权/权限类错误立即停止轮询并提示；其余（网络抖动等）保留重试但计数。
+    const msg = (e as { message?: string })?.message || '';
+    const fatal = /登录|过期|未授权|无权|不存在|403|401/.test(msg);
+    if (fatal) {
+      stopPolling();
+      pollingActive.value = false;
+      error.value = msg || '无法查询支付状态，请刷新页面后重试';
+      return;
+    }
+    if (++pollFailureCount >= 3) {
+      // 连续失败：停止轮询并提示，避免无声空转 5 分钟
+      stopPolling();
+      pollingActive.value = false;
+      error.value = '网络异常，暂时无法获取支付结果，请稍后刷新页面确认';
+    }
   }
 };
 

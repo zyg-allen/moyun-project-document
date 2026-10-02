@@ -54,6 +54,14 @@ public class PortalBookRecommend extends BaseEntity {
     @TableField(exist = false)
     private String bookTitle;
 
+    /**
+     * 书籍封面（**JOIN portal_book 查询返回，非本表字段**）。
+     *
+     * <p>前台限免/推荐位需要展示封面；此前只查了书名，前端只能传空 src。与 bookTitle 一样：
+     * 只出现在 select 的 resultMap 中，不参与 insert/update。</p>
+     */
+    private String bookCover;
+
     public PortalBookRecommend() {
     }
 

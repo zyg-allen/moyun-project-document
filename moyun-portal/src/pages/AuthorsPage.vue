@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { formatDate } from '@/utils/date';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -18,7 +19,7 @@ import { useToast } from '@/composables/useToast';
 import * as followApi from '@/api/follow';
 
 const router = useRouter();
-const { requireAuth } = useAuth();
+const { requireAuth, isAuthenticated } = useAuth();
 const toast = useToast();
 
 const searchQuery = ref('');
@@ -33,6 +34,12 @@ const followingLoading = ref<Record<string, boolean>>({});
 
 // 分页：服务端一次拉取后前端分页，避免每次排序都重新计算
 const currentPage = ref(1);
+
+// 搜索词/排序变化必须回到第 1 页：否则在已翻到第 N 页时过滤结果变短，
+// pagedUsers 会切片出空数组 → 误显"没有找到作者"，且分页控件因 totalPages<=1 被隐藏。
+watch([searchQuery, sortBy], () => {
+  currentPage.value = 1;
+});
 const pageSize = 12;
 
 const sortOptions = [
@@ -85,7 +92,7 @@ const filteredUsers = computed(() => {
 
   switch (sortBy.value) {
     case 'newest':
-      return result.sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime());
+      return result.sort((a, b) => new Date(b.createTime ?? 0).getTime() - new Date(a.createTime ?? 0).getTime());
     case 'works':
       return result.sort((a, b) => b._stats.articles - a._stats.articles);
     case 'fans':
@@ -136,12 +143,37 @@ async function loadUsers() {
   }
 }
 
+/**
+ * 批量加载作者关注状态。
+ *
+ * <p>原实现是**空壳**：只把每位作者写成 false，从未调用早已存在的
+ * {@code GET /portal/follow/check/{userId}} ⇒ 已关注的作者在列表里仍显示"关注"，
+ * 用户点击后由后端按"已关注"处理，观感上像"点了没用"（清单 P1）。</p>
+ *
+ * <p>实现要点：未登录直接跳过（关注状态按当前登录用户判定，游客无意义）；
+ * 分批并发（每批 FOLLOW_CHECK_BATCH 个）控制瞬时请求数；
+ * 单个作者查询失败不影响其它项（保持 false）。</p>
+ */
+const FOLLOW_CHECK_BATCH = 8;
+
 async function loadFollowingStates() {
-  // 未登录则跳过
-  // 这里假设关注状态通过 followApi.checkFollowing 获取，如果不存在则跳过
-  // 为避免大量并发请求，这里默认 false，用户实际关注操作时由接口返回结果回填
-  for (const u of users.value) {
-    followingMap.value[u.id] = false;
+  if (!isAuthenticated()) {
+    // 未登录：保持全 false（模板此时不展示关注按钮）
+    return;
+  }
+  const ids = users.value.map(u => String(u.id)).filter(Boolean);
+  for (let i = 0; i < ids.length; i += FOLLOW_CHECK_BATCH) {
+    const batch = ids.slice(i, i + FOLLOW_CHECK_BATCH);
+    await Promise.all(batch.map(async (id) => {
+      try {
+        const res = await followApi.checkFollow({ userId: id });
+        if (res.code === 200 && res.data) {
+          followingMap.value[id] = !!res.data.following;
+        }
+      } catch {
+        // 单个作者查询失败：保持默认 false，不影响列表其它项
+      }
+    }));
   }
 }
 
@@ -156,9 +188,18 @@ async function handleToggleFollow(userId: string) {
       followingMap.value[userId] = false;
       toast.success('已取消关注');
     } else {
-      await followApi.followUser({ userId });
-      followingMap.value[userId] = true;
-      toast.success('关注成功');
+      // 以**服务端返回**为准（清单 P2）：后端对"关注自己"等情形返回 code=200 + data.followed=false
+      // （不抛异常），原实现忽略返回值直接置 true ⇒ 界面显示"已关注"但实际没关注上。
+      const resp = await followApi.followUser({ userId });
+      const followed = (resp.data as { followed?: boolean } | null)?.followed;
+      const msg = (resp.data as { message?: string } | null)?.message;
+      if (followed === false) {
+        followingMap.value[userId] = false;
+        toast.warning(msg || '未能关注该用户');
+      } else {
+        followingMap.value[userId] = true;
+        toast.success('关注成功');
+      }
     }
   } catch (error) {
     const e = error as { message?: string };
@@ -286,7 +327,7 @@ useHead(
               </p>
               <p class="text-xs" style="color: var(--theme-text-secondary);">
                 <Calendar class="w-3 h-3 inline mr-1" />
-                加入于 {{ user.createTime }}
+                加入于 {{ formatDate(user.createTime, 'YYYY-MM-DD') }}
               </p>
             </div>
           </div>

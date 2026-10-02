@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -11,6 +11,7 @@ import LazyImage from '@/components/LazyImage.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { generateSeo } from '@/utils/seo';
 import { createTopic } from '@/api/topic';
+import { onBeforeRouteLeave } from 'vue-router';
 import { uploadPortalFile, deletePortalFile } from '@/api/file';
 import { useToast } from '@/composables/useToast';
 
@@ -18,6 +19,8 @@ const router = useRouter();
 const toast = useToast();
 
 const title = ref('');
+/** 与 portal_topic.description varchar(500) 对齐的长度上限 */
+const TOPIC_DESCRIPTION_MAX = 500;
 const description = ref('');
 const cover = ref('');
 const submitting = ref(false);
@@ -73,6 +76,37 @@ async function handleRemoveCover() {
   }
 }
 
+/**
+ * 已上传但未随话题提交的封面（清单 P2）。
+ *
+ * <p>封面是"先上传拿到 fileUrl、再随话题提交"的两步流程，而原先**只在用户手动点 × 时**
+ * 才调用 deletePortalFile —— 用户上传后直接离开页面（不点取消、不点 ×）时**没有任何清理**，
+ * 文件成为孤儿。这里记录"尚未随话题提交的封面"，在离开页面/组件卸载时回收。</p>
+ */
+const pendingUploadedCover = ref('');
+
+/** 回收未提交的封面上传（提交成功或已手动移除时不处理） */
+async function cleanupPendingCover() {
+  const url = pendingUploadedCover.value;
+  if (!url) return;
+  pendingUploadedCover.value = '';
+  try {
+    await deletePortalFile(url);
+  } catch (e) {
+    console.warn('清理未提交封面失败:', e);
+  }
+}
+
+onBeforeRouteLeave(async () => {
+  await cleanupPendingCover();
+  return true;
+});
+
+onUnmounted(() => {
+  // 组件卸载（含直接关标签前的 SPA 卸载）兜底；beforeunload 场景无法异步删除，属已知限制
+  void cleanupPendingCover();
+});
+
 async function handleSubmit() {
   const t = title.value.trim();
   if (!t) {
@@ -81,6 +115,11 @@ async function handleSubmit() {
   }
   if (t.length < 2) {
     toast.warning('标题至少 2 个字符');
+    return;
+  }
+  // 与后端列宽（varchar(500)）同口径；编辑器 maxlength 只是 UI 约束，提交口必须再拦一次
+  if (description.value.trim().length > TOPIC_DESCRIPTION_MAX) {
+    toast.warning(`话题描述不能超过 ${TOPIC_DESCRIPTION_MAX} 个字符`);
     return;
   }
   if (submitting.value) return;
@@ -92,6 +131,8 @@ async function handleSubmit() {
       cover: cover.value || undefined,
     });
     if (res.code === 200 && res.data) {
+      // 封面已随话题入库 ⇒ 不再是"未提交上传"，不要回收（清单 P2）
+      pendingUploadedCover.value = '';
       // 新话题默认 pending 待审核，审核通过后才会在话题广场曝光
       // 此处明确告知用户审核状态，避免误以为已发布
       toast.success('话题已提交，等待审核通过后将在话题广场展示');
@@ -154,9 +195,24 @@ function goBack() {
             <p class="font-medium mb-1" style="color: #d97706;">审核流程</p>
             <ul class="text-xs leading-relaxed space-y-1" style="color: var(--theme-text-secondary);">
               <li>· 提交后话题进入「待审核」状态，不会立即在话题广场展示</li>
-              <li>· 系统将进行敏感词轻量扫描，命中内容会转人工重点审核</li>
+              <!--
+              清单 P2：原文案写"命中内容会转人工重点审核"，与后端实际行为**相反** ——
+              Controller 在写库前用同一敏感词表直接 return error **拒绝创建**
+              （Service 里"命中仍保持 pending、不阻断创建"的分支因前置拦截而永不命中）。
+              这里按真实行为改写。
+            -->
+            <li>· 提交时会做敏感词校验，命中将直接拒绝创建，请修改后重试</li>
               <li>· 审核通过后话题自动发布到广场，并通过站内信通知你</li>
-              <li>· 审核驳回会附驳回原因，可在「我的话题」查看并修改后重新提交</li>
+              <li>
+              · 审核驳回会附驳回原因，可在「我的话题」查看并修改后重新提交
+              <!-- 清单 P2：原文案让用户去「我的话题」，而全站当时没有任何入口，这里给出直达链接 -->
+              <button
+                type="button"
+                class="ml-1 underline"
+                style="color: var(--theme-primary);"
+                @click="router.push('/topic/my/topics')"
+              >前往我的话题</button>
+            </li>
             </ul>
           </div>
         </div>
@@ -229,6 +285,7 @@ function goBack() {
             </label>
             <MarkdownEditor
               v-model="description"
+              :maxlength="TOPIC_DESCRIPTION_MAX"
               placeholder="补充话题背景、讨论方向、参与规则等..."
             />
           </div>

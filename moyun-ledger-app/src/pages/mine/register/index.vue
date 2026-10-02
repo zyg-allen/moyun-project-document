@@ -146,7 +146,7 @@ export default {
       if (this.smsCountdown > 0) return;
       const phone = this.form.phone.trim();
       if (!/^1[3-9]\d{9}$/.test(phone)) { uni.showToast({ title: '手机号格式不正确', icon: 'none' }); return; }
-      // v11.42：图形码开关开启时，先弹窗人机校验再发送
+      // 图形码开关开启时，先弹窗人机校验再发送
       if (this.captchaEnabled) {
         this.openCaptchaDialog();
         return;
@@ -195,7 +195,7 @@ export default {
       if (this.emailCountdown > 0) return;
       const email = this.form.email.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { uni.showToast({ title: '邮箱格式不正确', icon: 'none' }); return; }
-      // v11.42：图形码开关开启时，先弹窗人机校验再发送
+      // 图形码开关开启时，先弹窗人机校验再发送
       if (this.captchaEnabled) {
         this.openCaptchaDialog();
         return;

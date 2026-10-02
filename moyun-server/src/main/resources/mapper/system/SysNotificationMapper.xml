@@ -173,6 +173,18 @@
             (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
             or n.scope = 'all'
         )
+        <!--
+          类型过滤（v14.02 补齐）：
+          此前 selectAllByUserId **完全没有类型条件**，导致：
+            · 「通知」Tab 里混入 type='todo' 的待办（而未读数统计却已排除 todo，两者口径不一致）；
+            · 前台按 type 筛选/取待办时后端直接忽略该参数（筛选"看起来生效、其实没生效"）。
+        -->
+        <if test="type != null and type != ''">
+            and n.type = #{type}
+        </if>
+        <if test="excludeTodo != null and excludeTodo == true">
+            and n.type != 'todo'
+        </if>
         order by n.create_time desc
     </select>
 

@@ -18,14 +18,6 @@ import java.util.concurrent.TimeUnit;
 /**
  * 分布式锁工具（Redis + Lua，owner 校验 + 可选看门狗续期）
  *
- * <p><b>存在意义</b>：项目此前只有一处手写 Redis 锁
- * （{@code KnowledgeProcessProgressServiceImpl}），其实现为
- * {@code setIfAbsent(key, value, ttl)} 加锁 + {@code delete(key)} 解锁。
- * 后者<b>不校验持有者</b>：若 A 的锁已因 TTL 过期，B 随后获得同名锁，
- * A 结束时仍会 {@code delete} 掉 <b>B 的锁</b>，导致互斥彻底失效
- * （A 与 C 同时进入临界区）。此外 {@code @Scheduled} 定时任务（如记账定时生成流水）
- * 在多实例部署下完全没有分布式协调。</p>
- *
  * <p>本工具把正确用法收口为唯一入口，避免各处重复手写：</p>
  * <ol>
  *   <li><b>加锁</b>：{@code SET key token NX PX ttl}，token 为进程内唯一值
@@ -211,7 +203,7 @@ public class DistributedLockUtil {
     /**
      * 解锁：仅当锁仍归本 token 所有时才删除。
      *
-     * <p>这是与历史实现的关键差异——即便因为 GC 停顿 / 业务超时导致锁已过期并被他人获取，
+     * <p>即便因为 GC 停顿 / 业务超时导致锁已过期并被他人获取，
      * 本次解锁也不会误删他人的锁。</p>
      *
      * @return true=确实释放了本持有者的锁；false=锁已不属于本持有者（已过期或被他人获取）

@@ -17,10 +17,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 /**
  * 系统级异步任务与线程池统一配置
  *
- * <p>本类是项目线程池的<strong>唯一权威定义点</strong>，取代历史上分散在
- * {@code com.moyun.core.config.ThreadPoolConfig}（RuoYi 风格）与
- * {@code com.moyun.ext.ai.config.AsyncConfig}（AI 模块越界注册
- * {@code applicationTaskExecutor}）两处的配置。</p>
+ * <p>本类是项目线程池的<strong>唯一权威定义点</strong>，系统级线程池集中在此定义。</p>
  *
  * <p>设计原则：</p>
  * <ul>
@@ -97,7 +94,7 @@ public class AsyncTaskConfig {
      * 与 {@code applicationTaskExecutor}（短任务、队列 500）语义不同，故单独成池，
      * 避免长任务把短任务队列拖垮。</p>
      *
-     * <p><strong>为什么必须有执行器</strong>（v13.5 前的问题）：这些调用点原先直接
+     * <p><strong>为什么必须有执行器</strong>：这些调用点若不指定执行器而直接
      * {@code CompletableFuture.runAsync(task)} 或 {@code new Thread(task)}——
      * 前者落在 {@code ForkJoinPool.commonPool()}（并行度仅 CPU-1），
      * 被 5 分钟长任务占满后，全站并行流与并行任务一起饿死；后者是脱离容器的裸线程，

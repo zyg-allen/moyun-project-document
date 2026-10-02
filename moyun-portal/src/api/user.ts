@@ -1,6 +1,7 @@
 import { httpGet, httpPost, httpPut, httpUpload } from './client';
 import type {
   User,
+  UserProfileVO,
   LoginParams,
   LoginResponse,
   RegisterParams,
@@ -50,11 +51,20 @@ export const resetPasswordBySms = (params: { phone: string; code: string; newPas
 export const getCaptchaImage = async (): Promise<CaptchaImage> => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
   const response = await fetch(`${API_BASE_URL}/captchaImage`, { method: 'GET' });
-  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`验证码接口异常 (${response.status})`);
+  }
+  const data = await response.json().catch(() => null);
+  const enabled = data?.captchaEnabled ?? true;
+  // 开关为开时 uuid/img 必须齐备：缺一即为不可用，抛错交给页面展示"重试"，
+  // 而不是用 ?? 兜底出一个"看似成功但实际不可用"的对象（那会让登录必然失败且无提示）。
+  if (enabled && (!data?.uuid || !data?.img)) {
+    throw new Error('验证码数据不完整，请重试');
+  }
   return {
-    captchaEnabled: data.captchaEnabled ?? true,
-    uuid: data.uuid || '',
-    img: data.img ? `data:image/jpeg;base64,${data.img}` : ''
+    captchaEnabled: enabled,
+    uuid: data?.uuid || '',
+    img: data?.img ? `data:image/jpeg;base64,${data.img}` : ''
   };
 };
 
@@ -98,9 +108,9 @@ export const getMyDashboard = () => {
   return httpGet<UserDashboard>('/portal/user/me/dashboard');
 };
 
-// 获取用户详情
+// 获取用户详情（**公开**资料：后端返回 UserProfileVO 白名单，不含邮箱/手机/登录信息）
 export const getUserById = (userId: string) => {
-  return httpGet<User>(`/portal/user/${userId}`);
+  return httpGet<UserProfileVO>(`/portal/user/${userId}`);
 };
 
 // 获取名家列表

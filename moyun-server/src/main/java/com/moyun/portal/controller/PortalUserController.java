@@ -1,16 +1,7 @@
 /**
  * PortalUserController - 门户用户接口
  *
- * 清理说明（2026-06-28）：
- * 已删除以下 5 个未被前端调用的死接口，仅移除 Controller 方法，
- * Service / Mapper / XML 层实现予以保留，不影响其他调用方：
- *   - GET    /portal/user/list     → list      （改由后台管理或聚合接口承担）
- *   - POST   /portal/user/export   → export    （无导出场景）
- *   - POST   /portal/user          → add       （注册走专用接口）
- *   - PUT    /portal/user          → edit      （后台管理专用 Controller 负责）
- *   - DELETE /portal/user/{ids}    → remove    （后台管理专用 Controller 负责）
- *
- * 保留的 7 个接口：getInfo / getCurrentUserInfo / updateProfile /
+ * 提供的 7 个接口：getInfo / getCurrentUserInfo / updateProfile /
  * updatePassword / uploadAvatar / getUserStats / getAuthors。
  */
 package com.moyun.portal.controller;
@@ -38,7 +29,7 @@ import com.moyun.ext.cms.service.IUserDashboardService;
 import com.moyun.ext.file.domain.entity.SysFile;
 import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.domain.entity.PortalUser;
-import com.moyun.portal.domain.query.UserQuery;
+import com.moyun.portal.domain.vo.UserProfileVO;
 import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalCommentMapper;
@@ -74,12 +65,38 @@ public class PortalUserController extends BaseController {
     @Autowired
     private IUserDashboardService userDashboardService;
 
+    /** 注销前的资金校验需要读用户资金账户（pay 模块） */
+    @Autowired
+    private com.moyun.pay.service.IUserAccountService userAccountService;
+
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    @Operation(summary = "获取用户详情", description = "根据用户ID获取用户详细信息")
+    @Operation(summary = "获取用户详情", description = "根据用户ID获取用户**公开**资料（他人主页可见字段白名单）")
     @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "用户ID") @PathVariable Long id) {
-        return success(portalUserService.selectPortalUserById(id));
+        PortalUser user = portalUserService.selectPortalUserById(id);
+        if (user == null) {
+            return AjaxResult.error("用户不存在");
+        }
+        // 白名单映射：绝不直接下发实体（原实现会带出 email/phone/wechat/loginIp/loginDate/
+        // maritalStatus/hasMortgage/hasSideIncome/incomeTypes 等隐私与画像字段）。
+        UserProfileVO vo = new UserProfileVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        vo.setAvatar(user.getAvatar());
+        vo.setBio(user.getBio());
+        vo.setPosition(user.getPosition());
+        vo.setCompany(user.getCompany());
+        vo.setSchool(user.getSchool());
+        vo.setLocation(user.getLocation());
+        vo.setWebsite(user.getWebsite());
+        vo.setGithub(user.getGithub());
+        vo.setIdentityTag(user.getIdentityTag());
+        vo.setGender(user.getGender());
+        vo.setCertifiedCreator(user.getIsCertifiedCreator() != null && user.getIsCertifiedCreator() == 1);
+        vo.setCreateTime(user.getCreateTime());
+        return success(vo);
     }
 
     @Operation(summary = "获取当前登录用户信息", description = "获取当前登录的门户用户信息，未登录返回null")
@@ -149,7 +166,17 @@ public class PortalUserController extends BaseController {
             user.setGender(String.valueOf(params.get("gender")));
         }
         if (params.containsKey("birthday") && params.get("birthday") != null) {
-            user.setBirthday(String.valueOf(params.get("birthday")));
+            // portal_user.birthday 是 date 列（v13.23 由 varchar 改 date）：
+            // 空串必须归一为 null，否则会写入 '' 触发严格模式报错或产生 0000-00-00；
+            // 非法格式同样按"清空"处理，避免把脏值写进日期列（与 LedgerAiAnalysisServiceImpl 同口径）。
+            String birthday = String.valueOf(params.get("birthday")).trim();
+            if (birthday.isEmpty() || "null".equalsIgnoreCase(birthday)) {
+                user.setBirthday(null);
+            } else if (!birthday.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return AjaxResult.error("生日格式不正确，应为 yyyy-MM-dd");
+            } else {
+                user.setBirthday(birthday);
+            }
         }
         if (params.containsKey("location") && params.get("location") != null) {
             user.setLocation(String.valueOf(params.get("location")));
@@ -278,6 +305,21 @@ public class PortalUserController extends BaseController {
         if (!"注销账号".equals(confirmText)) {
             return error("请输入\"注销账号\"以确认");
         }
+        // ── 资金校验（fail-closed）──
+        // 原先只做软删：账户里还有余额/在途提现时，用户一点就把钱"注销没了"——
+        // 既无提示也无申诉入口，属资损风险。非 0 一律阻断并给出可操作指引。
+        // 注：getOrCreate 对从未有过资金往来的用户会建一条 0 余额账户，属正常"开户"语义。
+        com.moyun.pay.domain.entity.UserAccount account = userAccountService.getOrCreate(currentUser.getId());
+        java.math.BigDecimal balance = account == null || account.getBalance() == null
+                ? java.math.BigDecimal.ZERO : account.getBalance();
+        java.math.BigDecimal frozen = account == null || account.getFrozenAmount() == null
+                ? java.math.BigDecimal.ZERO : account.getFrozenAmount();
+        if (balance.compareTo(java.math.BigDecimal.ZERO) > 0
+                || frozen.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            return error(String.format(
+                    "账户资金未结清，暂不能注销：可用余额 ¥%s、冻结中（提现处理中）¥%s（单位：元）。请先在「钱包」提现并等待到账后重试。",
+                    balance.toPlainString(), frozen.toPlainString()));
+        }
         // 软删除：设置 del_flag=2, status=1（停用）
         // 注意：MyBatis-Plus @TableLogic 不影响自定义 XML 的 updatePortalUser
         PortalUser update = new PortalUser();
@@ -371,7 +413,8 @@ public class PortalUserController extends BaseController {
         //   2. is_certified_creator=1（创作者认证审核通过）
         //   3. 至少 1 篇已发布文章（EXISTS portal_article status='published'）
         // 详见 PortalUserMapper.selectAuthors
-        List<PortalUser> limited = portalUserService.selectAuthors(limit);
+        // 排除当前登录用户：登录用户不应出现在自己的名家录里
+        List<PortalUser> limited = portalUserService.selectAuthors(limit, PortalSecurityUtils.getUserId());
         if (limited.isEmpty()) {
             return success(limited);
         }

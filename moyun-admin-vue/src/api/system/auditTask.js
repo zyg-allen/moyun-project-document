@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 
 /**
- * 统一审核任务 API（v8.1）
+ * 统一审核任务 API
  *
  * 后端入口：/system/audit-task
  * - pending        待办列表（审核中心 / 首页「更多」）

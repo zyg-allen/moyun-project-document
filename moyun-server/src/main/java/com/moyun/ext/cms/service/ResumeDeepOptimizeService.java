@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import com.moyun.ext.ai.enums.AiSceneEnum;
@@ -40,8 +39,7 @@ import com.moyun.ext.ai.enums.AiSceneTasks;
  * fillOriginal/safe）和 LLM 相关依赖已迁到 {@link ResumeDeepOptimizeGenerator}，本类仅保留
  * 对外门面方法（generate/applyAndSave 等），通过 generator 委托调用。</p>
  *
- * <p><strong>异步任务切换</strong>：旧 {@code submitTask}/{@code getTaskStatus}
- * （直接操作 portal_resume_optimize_task）已删除，异步任务统一走
+ * <p><strong>异步任务</strong>：统一走
  * {@link AiTaskService}（portal_ai_task 表 + {@code DeepOptimizeTaskHandler} 执行）；
  * 提交前校验抽为 {@link #validateDeepOptimizeSubmit} 供 Controller 复用。</p>
  *

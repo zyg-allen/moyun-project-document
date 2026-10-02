@@ -43,7 +43,7 @@ public class WorkflowController {
 
     /**
      * SSE 长任务执行器（core 模块统一管理，见 {@code AsyncTaskConfig#sseStreamExecutor}）。
-     * <p>v13.5 前工作流流式执行直接 {@code new Thread(...).start()}：裸线程、无命名、
+     * <p>此前工作流流式执行直接 {@code new Thread(...).start()}：裸线程、无命名、
      * 无队列上限、无优雅停机，且并发数完全不受控。</p>
      */
     @Autowired
@@ -270,8 +270,7 @@ public class WorkflowController {
             }
         };
 
-        // v13.5：原先这里是裸 new Thread(...).start()——线程无命名、无队列上限、无优雅停机。
-        // 现提交到 SSE 长任务池；池满即拒绝，并给客户端一个明确错误（不降级到请求线程）。
+        // 提交到 SSE 长任务池；池满即拒绝，并给客户端一个明确错误（不降级到请求线程）。
         try {
             sseStreamExecutor.execute(streamTask);
         } catch (RejectedExecutionException ree) {

@@ -92,6 +92,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <when test="query.orderBy == 'word_count'">
                 order by word_count desc, id desc
             </when>
+            <!-- 清单 P2：新增按"最后更新时间"排序，"最近更新"榜不再用 create_time 冒充 -->
+            <when test="query.orderBy == 'update'">
+                order by last_update_time desc, id desc
+            </when>
             <otherwise>
                 order by reading_count desc, id desc
             </otherwise>

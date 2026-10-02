@@ -15,6 +15,7 @@ const AuthorsPage = () => import('@/pages/AuthorsPage.vue')
 const HelpCenterPage = () => import('@/pages/HelpCenter.vue')
 const AboutUsPage = () => import('@/pages/AboutUs.vue')
 const UserAgreementPage = () => import('@/pages/UserAgreement.vue')
+const PrivacyPolicyPage = () => import('@/pages/PrivacyPolicy.vue')
 const ReportFeedbackPage = () => import('@/pages/ReportFeedback.vue')
 const MyReportsPage = () => import('@/pages/MyReportsPage.vue')
 const MyFeedbackPage = () => import('@/pages/MyFeedbackPage.vue')
@@ -236,7 +237,7 @@ const routes: RouteRecordRaw[] = [
     path: '/interview/questions',
     redirect: '/learn/questions'
   },
-  // 学习中心「面试题库」主路由（与 portal_category.nav_route_path 对齐；v11.13 归属学习中心）
+  // 学习中心「面试题库」主路由（与 portal_category.nav_route_path 对齐）
   {
     path: '/learn/questions',
     name: 'interview-questions',
@@ -328,28 +329,28 @@ const routes: RouteRecordRaw[] = [
     component: CompanyPage,
     meta: { title: '公司主页', isPublic: true }
   },
-  // ============ 语音引擎验证页（V10.0 临时验证） ============
+  // ============ 语音引擎验证页（临时验证） ============
   {
     path: '/interview/voice-demo',
     name: 'interview-voice-demo',
     component: VoiceEngineDemoPage,
     meta: { requiresAuth: true, title: '语音引擎验证', robots: 'noindex,nofollow' }
   },
-  // ============ 语音面试官（V10.1 MVP） ============
+  // ============ 语音面试官 ============
   {
     path: '/interview/voice',
     name: 'interview-voice',
     component: VoiceInterviewPage,
     meta: { requiresAuth: true, title: 'AI 语音面试官', robots: 'noindex,nofollow' }
   },
-  // ============ 面试报告分享页（v11.30.5，免登录公开） ============
+  // ============ 面试报告分享页（免登录公开） ============
   {
     path: '/interview/share/:token',
     name: 'interview-share',
     component: SharedReportPage,
     meta: { requiresAuth: false, title: '面试报告分享', robots: 'noindex,nofollow' }
   },
-  // ============ 我的面试记录（V10.3） ============
+  // ============ 我的面试记录 ============
   {
     path: '/interview/voice/history',
     name: 'interview-voice-history',
@@ -363,7 +364,7 @@ const routes: RouteRecordRaw[] = [
     component: CodeRunnerPage,
     meta: { requiresAuth: true, title: '在线代码运行', robots: 'noindex,nofollow' }
   },
-  // ============ 会员中心（v12.0 统一会员，替代旧面试/简历优化两套订阅页） ============
+  // ============ 会员中心 ============
   {
     path: '/membership',
     name: 'membership',
@@ -563,6 +564,14 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '用户协议', isPublic: true }
   },
   {
+    // v13.87：此前站内并无隐私政策页（页脚/注册页的「隐私政策」都指向 /agreement），
+    // 而协议 5.3 又引用《隐私政策》—— 本页补齐该文档（清单 #11）
+    path: '/privacy',
+    name: 'privacy',
+    component: PrivacyPolicyPage,
+    meta: { title: '隐私政策', isPublic: true }
+  },
+  {
     path: '/report',
     name: 'report',
     component: ReportFeedbackPage,
@@ -644,7 +653,7 @@ const routes: RouteRecordRaw[] = [
     component: MessagesPage,
     meta: { requiresAuth: true, title: '私信', robots: 'noindex,nofollow' }
   },
-  // ============ V11.0 支付中心 ============
+  // ============ 支付中心 ============
   {
     path: '/pay/cashier',
     name: 'pay-cashier',
@@ -657,7 +666,6 @@ const routes: RouteRecordRaw[] = [
     component: WalletPage,
     meta: { requiresAuth: true, title: '我的钱包', robots: 'noindex,nofollow' }
   },
-  // V11.3：支付通知整合进 /messages 消息中心（?tab=pay），独立页面已移除
   // ============ 404 页面 ============
   {
     path: '/:pathMatch(.*)*',
@@ -727,7 +735,7 @@ router.beforeEach(async (to, _from, next) => {
   next()
 })
 
-// ============ v10.23：AI 慢请求离开确认 ============
+// ============ AI 慢请求离开确认 ============
 // 仅拦截页面间跳转（首次进入 from.name 为空不拦）；
 // AI 慢请求（附件解析上传、字段辅助、草稿/匹配/深度优化同步接口、语音面试 LLM 调用等）
 // 进行中时离开将中断当前生成，需用户确认。

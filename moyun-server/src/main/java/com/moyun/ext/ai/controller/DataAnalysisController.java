@@ -60,8 +60,7 @@ public class DataAnalysisController {
 
         dataSourceService.save(config);
 
-        // v13.5：原先为裸 new Thread(...).start()（无命名、无队列、无优雅停机、并发不受控），
-        // 现改走系统级通用执行器 applicationTaskExecutor。
+        // 走系统级通用执行器 applicationTaskExecutor，避免裸线程（无命名、无队列、无优雅停机、并发不受控）
         applicationTaskExecutor.execute(() -> {
             try {
                 dataSourceService.syncTableMetadata(config.getId());

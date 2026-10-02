@@ -35,6 +35,9 @@
         <result property="isPaid" column="is_paid"/>
         <result property="paidContent" column="paid_content"/>
         <result property="previewLength" column="preview_length"/>
+        <result property="seoTitle" column="seo_title"/>
+        <result property="seoDescription" column="seo_description"/>
+        <result property="seoKeywords" column="seo_keywords"/>
         <result property="price" column="price"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
@@ -102,6 +105,7 @@
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.session_token, pa.content_markdown,
                pa.is_paid, pa.paid_content, pa.preview_length, pa.price,
+               pa.seo_title, pa.seo_description, pa.seo_keywords,
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
@@ -419,6 +423,9 @@
             <if test="isPaid != null">is_paid,</if>
             <if test="paidContent != null">paid_content,</if>
             <if test="previewLength != null">preview_length,</if>
+            <if test="seoTitle != null">seo_title,</if>
+            <if test="seoDescription != null">seo_description,</if>
+            <if test="seoKeywords != null">seo_keywords,</if>
             <if test="price != null">price,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
@@ -450,6 +457,9 @@
             <if test="isPaid != null">#{isPaid},</if>
             <if test="paidContent != null">#{paidContent},</if>
             <if test="previewLength != null">#{previewLength},</if>
+            <if test="seoTitle != null">#{seoTitle},</if>
+            <if test="seoDescription != null">#{seoDescription},</if>
+            <if test="seoKeywords != null">#{seoKeywords},</if>
             <if test="price != null">#{price},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
@@ -490,6 +500,9 @@
             <if test="isPaid != null">is_paid = #{isPaid},</if>
             <if test="paidContent != null">paid_content = #{paidContent},</if>
             <if test="previewLength != null">preview_length = #{previewLength},</if>
+            <if test="seoTitle != null">seo_title = #{seoTitle},</if>
+            <if test="seoDescription != null">seo_description = #{seoDescription},</if>
+            <if test="seoKeywords != null">seo_keywords = #{seoKeywords},</if>
             <if test="price != null">price = #{price},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>

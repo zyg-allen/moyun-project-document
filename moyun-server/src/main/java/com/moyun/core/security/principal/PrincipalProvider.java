@@ -1,7 +1,7 @@
 package com.moyun.core.security.principal;
 
 /**
- * 主体信息提供者：由 {@code core} 定义、业务模块的登录主体实现（依赖倒置，v13.11）
+ * 主体信息提供者：由 {@code core} 定义、业务模块的登录主体实现（依赖倒置）
  *
  * <p>实现方：{@code com.moyun.core.base.model.LoginUser}（后台）、
  * {@code com.moyun.portal.domain.model.PortalLoginUser}（门户）。</p>

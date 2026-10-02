@@ -50,11 +50,16 @@ watch(page, () => {
   loadTopics();
 });
 
+// 请求序号（清单 P2）：快速翻页/切筛选时，先发的慢响应可能后到并覆盖新列表
+let loadSeq = 0;
+
 async function loadTopics() {
+  const seq = ++loadSeq;
   loading.value = true;
   error.value = null;
   try {
     const res = await getMyTopics({ pageNum: page.value, pageSize });
+    if (seq !== loadSeq) return;
     if (res.code === 200 && res.data) {
       topics.value = res.data.list || [];
       total.value = res.data.total || 0;
@@ -62,10 +67,11 @@ async function loadTopics() {
       error.value = res.message || '加载失败';
     }
   } catch (err) {
+    if (seq !== loadSeq) return;
     const e = err as { message?: string };
     error.value = e?.message || '加载失败，请稍后重试';
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -250,13 +256,13 @@ function gotoPage(p: number) {
                 <!-- 发起人 -->
                 <div class="flex items-center mb-3">
                   <img
-                    :src="getSafeAvatar(t.creator?.avatar, String(t.creatorId))"
-                    :alt="t.creator?.nickname || '发起人'"
+                    :src="getSafeAvatar(t.creatorAvatar, String(t.creatorId))"
+                    :alt="t.creatorNickname || '发起人'"
                     class="w-5 h-5 rounded-full object-cover mr-2 flex-shrink-0"
                     loading="lazy"
                   />
                   <span class="text-xs truncate flex-1" style="color: var(--theme-text);">
-                    {{ t.creator?.nickname || '匿名用户' }}
+                    {{ t.creatorNickname || '匿名用户' }}
                   </span>
                   <span
                     v-if="t.lastPostTime"

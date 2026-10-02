@@ -142,6 +142,9 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
             vo.setCreatorUsername(creator.getUsername());
             vo.setCreatorNickname(creator.getNickname());
             vo.setCreatorAvatar(creator.getAvatar());
+            // 认证徽章：门户详情页一直在判 `creator.isCertifiedCreator`，但 VO 从未下发该字段 ⇒ 徽章永不显示。
+            // 此处 creator 已查出，补一个扁平布尔即可（无额外查询）。
+            vo.setCreatorCertified(creator.getIsCertifiedCreator() != null && creator.getIsCertifiedCreator() == 1);
         }
 
         // 当前用户的互动状态
@@ -165,6 +168,9 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         if (topic.getTitle() == null || topic.getTitle().trim().isEmpty()) {
             throw new ServiceException("话题标题不能为空");
         }
+        // 描述长度与列宽对齐（portal_topic.description 为 varchar(500)）：
+        // 不校验时超长内容会落库报错或被静默截断，用户只看到含糊失败。
+        validateDescriptionLength(topic.getDescription());
         // 话题属低门槛互动，登录用户即可发起（内容仍走敏感词 + 待审核）
 
         topic.setCreatorId(userId);
@@ -224,13 +230,49 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         if (!userId.equals(exist.getCreatorId())) {
             throw new ServiceException("仅话题发起人可编辑");
         }
+        // ── 内容安全：编辑路径此前**完全绕过**敏感词扫描（创建路径有）──
+        // 这等于"先发正常内容过审、再改成违规内容"的通道；且命中也不写审计日志。
+        // 长度同样与列宽对齐
+        validateDescriptionLength(topic.getDescription());
+        // 扫描"生效后"的内容（仅改封面时也要覆盖原有标题/描述），与创建侧同口径阻断。
+        PortalTopic effective = new PortalTopic();
+        effective.setTitle(topic.getTitle() != null ? topic.getTitle() : exist.getTitle());
+        effective.setDescription(topic.getDescription() != null ? topic.getDescription() : exist.getDescription());
+        String scanText = buildTopicScanText(effective);
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog("topic", id, userId, scanText, "block");
+            throw new ServiceException("内容包含敏感词：" + hitWords);
+        }
+
         // 仅允许更新部分字段
         LambdaUpdateWrapper<PortalTopic> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(PortalTopic::getId, id);
         if (topic.getTitle() != null) updateWrapper.set(PortalTopic::getTitle, topic.getTitle());
         if (topic.getDescription() != null) updateWrapper.set(PortalTopic::getDescription, topic.getDescription());
         if (topic.getCover() != null) updateWrapper.set(PortalTopic::getCover, topic.getCover());
+
+        // ── 重新送审：被驳回/待审核的话题编辑后必须回到待审核并重建审核任务 ──
+        // 否则状态仍是 rejected/pending，用户改完了却没有任何"再次送审"的路径
+        // （对比 createTopic 会 submit 审核任务）。
+        boolean needReaudit = "rejected".equals(exist.getStatus()) || "pending".equals(exist.getStatus());
+        if (needReaudit) {
+            updateWrapper.set(PortalTopic::getStatus, "pending");
+        }
         baseMapper.update(null, updateWrapper);
+
+        if (needReaudit) {
+            AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
+            dto.setTaskType("topic");
+            dto.setBizId(id);
+            dto.setTitle(effective.getTitle());
+            dto.setDescription(effective.getDescription());
+            dto.setSubmitterId(userId);
+            PortalUser portalUser = portalUserMapper.selectPortalUserById(userId);
+            if (portalUser != null) {
+                dto.setSubmitterName(portalUser.getUsername());
+            }
+            auditTaskService.submit(dto);
+        }
         return baseMapper.selectById(id);
     }
 
@@ -562,6 +604,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         if (topic.getTitle() == null || topic.getTitle().trim().isEmpty()) {
             throw new ServiceException("话题标题不能为空");
         }
+        validateDescriptionLength(topic.getDescription());
         PortalUser official = portalUserMapper.selectOne(new LambdaQueryWrapper<PortalUser>()
                 .eq(PortalUser::getUsername, OFFICIAL_USERNAME));
         if (official == null) {
@@ -588,6 +631,20 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     /**
      * 构建话题敏感词扫描文本（标题+描述拼接）
      */
+    /** 描述长度上限：与 portal_topic.description varchar(500) 对齐（DEV 与门户共用同一数值） */
+    private static final int DESCRIPTION_MAX_LENGTH = 500;
+
+    /**
+     * 校验话题描述长度。
+     *
+     * <p>为 null（表示"不修改"）时跳过；超限抛可读异常，避免把列宽错误暴露成 500。</p>
+     */
+    private void validateDescriptionLength(String description) {
+        if (description != null && description.length() > DESCRIPTION_MAX_LENGTH) {
+            throw new ServiceException("话题描述不能超过 " + DESCRIPTION_MAX_LENGTH + " 个字符");
+        }
+    }
+
     private String buildTopicScanText(PortalTopic topic) {
         StringBuilder sb = new StringBuilder();
         if (topic.getTitle() != null) {

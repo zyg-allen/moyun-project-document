@@ -28,7 +28,7 @@
       </el-col>
     </el-row>
 
-    <!-- 第二行指标：退款 / 提现 / 钱包 / 守恒（v11.79） -->
+    <!-- 第二行指标：退款 / 提现 / 钱包 / 守恒 -->
     <el-row :gutter="16" class="mb8">
       <el-col :span="6">
         <el-card shadow="never">

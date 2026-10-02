@@ -22,8 +22,16 @@
         SELECT dt AS date, SUM(cnt) AS count FROM (   SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS dt, COUNT(*) AS cnt FROM portal_article   WHERE author_id = #{userId} AND create_time >= #{startTime}   GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')   UNION ALL   SELECT DATE_FORMAT(update_time, '%Y-%m-%d') AS dt, COUNT(*) AS cnt FROM portal_article   WHERE author_id = #{userId} AND update_time >= #{startTime}   GROUP BY DATE_FORMAT(update_time, '%Y-%m-%d') ) t GROUP BY dt ORDER BY date
     </select>
 
+    <!--
+      清单 P2：原先 SQL 先 `GROUP BY v.ip ... LIMIT 10`（取访问量最大的 10 个 IP），
+      再由 Controller 把这 10 个 IP 归并成省份 —— 于是前端「全 34 省份热力 + Top10 排行」
+      实际基于**被截断的数据**（只覆盖 10 个 IP 所属省份）。
+      这里去掉 LIMIT/ORDER BY，让 Controller 基于**全部 IP** 归并省份。
+      注：返回行数 = 该时间段内的不同 IP 数；若某作者体量极大导致该查询变慢，
+      应把"IP→省份"的映射下沉到 SQL（或落一张维表）后再 GROUP BY 省份，而不是截断 IP。
+    -->
     <select id="readerRegionTop10" resultType="java.util.Map">
-        SELECT COALESCE(v.ip, '未知') AS region, COUNT(*) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} GROUP BY v.ip ORDER BY value DESC LIMIT 10
+        SELECT COALESCE(v.ip, '未知') AS region, COUNT(*) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} GROUP BY v.ip
     </select>
 
     <select id="readerHourDistribution" resultType="java.util.Map">

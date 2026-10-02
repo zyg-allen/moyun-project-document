@@ -116,12 +116,16 @@ onMounted(() => {
 });
 
 watch(topicId, () => {
+  // 切换话题必须回到第 1 页：组件实例被复用（/topic/:id 参数变化），
+  // 原先只调 loadAll()，会**按上一个话题的页码**去请求新话题 ⇒ 列表空白（清单 P2）。
+  postsPage.value = 1;
   loadAll();
 });
 
-watch(postsPage, () => {
-  loadPosts();
-});
+// 说明（P2 修复）：原先这里有一个 watch(postsPage) → loadPosts() 的隐式触发，
+// 导致"改页码"这件事有两套入口（直接改 ref / 显式调用），
+// 且切话题时无法安全重置页码（重置会与 loadAll 重复请求）。
+// 现改为**显式加载**：下面 3 处改页码的地方各自调用 loadPosts()，行为可读可控。
 
 async function loadAll() {
   await Promise.all([loadTopic(), loadPosts()]);
@@ -132,6 +136,14 @@ async function loadAll() {
 }
 
 async function loadTopic() {
+  // 清单 P2：topicId 直接取 route.params.id 未校验格式，后端映射为 /{id:[0-9]+}，
+  // 非数字 id（如 /topic/abc）会一路拼进请求，最终由后端抛参数转换异常。
+  // 这里前置判定：非数字一律按"不存在"处理，不发无意义请求。
+  if (!/^\d+$/.test(topicId.value)) {
+    loading.value = false;
+    error.value = '话题不存在或已被删除';
+    return;
+  }
   loading.value = true;
   error.value = null;
   try {
@@ -210,12 +222,9 @@ async function handleSubmitPost() {
       // 关键修复：先更新总数，再计算最后一页
       postsTotal.value += 1;
       const newLastPage = Math.ceil(postsTotal.value / postsPageSize);
-      const oldPage = postsPage.value;
       postsPage.value = newLastPage;
-      // 如果页码没变（比如当前就在最后一页），手动加载；否则 watch(postsPage) 会自动触发 loadPosts
-      if (oldPage === newLastPage) {
-        await loadPosts();
-      }
+      // 显式加载到最后一页（新观点即在该页），不再依赖 watch(postsPage)
+      await loadPosts();
       // 话题统计 +1
       topic.value.postCount = (topic.value.postCount || 0) + 1;
     } else {
@@ -261,9 +270,12 @@ async function handleDeletePost(post: TopicPost) {
       if (topic.value) {
         topic.value.postCount = Math.max(0, (topic.value.postCount || 0) - 1);
       }
-      // 修复：如果当前页已空且不是第 1 页，回退到上一页（watch 会自动触发 loadPosts）
-      if (posts.value.length === 0 && postsPage.value > 1) {
-        postsPage.value -= 1;
+      // 当前页被删空：不是第 1 页则回退一页，然后显式重新加载（不再依赖 watch）
+      if (posts.value.length === 0) {
+        if (postsPage.value > 1) {
+          postsPage.value -= 1;
+        }
+        await loadPosts();
       }
     } else {
       toast.error(res.message || '删除失败');
@@ -284,6 +296,7 @@ function gotoEdit() {
 function gotoPostsPage(p: number) {
   if (p < 1 || p > postsTotalPages.value) return;
   postsPage.value = p;
+  loadPosts();
   // 平滑滚动到观点区
   const el = document.getElementById('topic-posts');
   if (el) {
@@ -345,15 +358,15 @@ function canDeleteComment(comment: TopicComment): boolean {
 }
 
 function getCommentAuthorName(comment: TopicComment): string {
-  return comment.author?.nickname || '匿名用户';
+  return comment.authorNickname || '匿名用户';
 }
 
 function getCommentAuthorAvatar(comment: TopicComment): string {
-  return getSafeAvatar(comment.author?.avatar, String(comment.authorId));
+  return getSafeAvatar(comment.authorAvatar, String(comment.authorId));
 }
 
 function getReplyToName(comment: TopicComment): string {
-  return comment.replyToUser?.nickname || '';
+  return comment.replyToNickname || '';
 }
 
 async function loadComments(targetType: string, targetId: number | string) {
@@ -393,14 +406,30 @@ function toggleComments(targetType: string, targetId: number | string) {
   }
 }
 
+/**
+ * 评论/回复在途互斥（清单 P2）。
+ *
+ * <p>原先提交全程没有"提交中"状态，按钮只按内容非空禁用 ⇒ **连点会重复提交**，
+ * 仅靠后端 @RepeatSubmit(3s) 兜底（3 秒窗口外仍会重复入库）。按 targetType:targetId 维度记录，
+ * 不同评论框之间互不影响。</p>
+ */
+const commentSubmitting = ref<Record<string, boolean>>({});
+
+function isCommentSubmitting(targetType: string, targetId: number | string): boolean {
+  return !!commentSubmitting.value[`${targetType}:${targetId}`];
+}
+
 async function handleSubmitComment(targetType: string, targetId: number | string) {
   if (!requireAuth(route.fullPath)) return;
+  const key = `${targetType}:${targetId}`;
+  if (commentSubmitting.value[key]) return;   // 在途：忽略连点
   const state = getCommentState(targetType, targetId);
   const content = state.newContent.trim();
   if (!content) {
     toast.warning('请输入评论内容');
     return;
   }
+  commentSubmitting.value[key] = true;
   try {
     const res = await createTopicComment({ targetType, targetId, content });
     if (res.code === 200) {
@@ -419,6 +448,8 @@ async function handleSubmitComment(targetType: string, targetId: number | string
   } catch (err) {
     const e = err as { message?: string };
     toast.error(e?.message || '评论失败');
+  } finally {
+    commentSubmitting.value[key] = false;
   }
 }
 
@@ -444,6 +475,8 @@ async function cancelReply(targetType: string, targetId: number | string) {
 
 async function handleSubmitReply(targetType: string, targetId: number | string) {
   if (!requireAuth(route.fullPath)) return;
+  const key = `${targetType}:${targetId}`;
+  if (commentSubmitting.value[key]) return;   // 在途：忽略连点（清单 P2 同上）
   const state = getCommentState(targetType, targetId);
   const content = state.replyContent.trim();
   if (!content) {
@@ -451,6 +484,7 @@ async function handleSubmitReply(targetType: string, targetId: number | string) 
     return;
   }
   if (!state.replyingRoot) return;
+  commentSubmitting.value[key] = true;
   try {
     const res = await createTopicComment({
       targetType,
@@ -471,6 +505,8 @@ async function handleSubmitReply(targetType: string, targetId: number | string) 
   } catch (err) {
     const e = err as { message?: string };
     toast.error(e?.message || '回复失败');
+  } finally {
+    commentSubmitting.value[key] = false;
   }
 }
 
@@ -660,16 +696,16 @@ async function handleDeleteComment(
               <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <div class="flex items-center">
                   <img
-                    :src="getSafeAvatar(topic.creator?.avatar, String(topic.creatorId))"
-                    :alt="topic.creator?.nickname || '发起人'"
+                    :src="getSafeAvatar(topic.creatorAvatar, String(topic.creatorId))"
+                    :alt="topic.creatorNickname || '发起人'"
                     class="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0"
                     loading="lazy"
                   />
                   <div>
                     <div class="flex items-center text-sm" style="color: var(--theme-text);">
-                      <span>{{ topic.creator?.nickname || '匿名用户' }}</span>
+                      <span>{{ topic.creatorNickname || '匿名用户' }}</span>
                       <BadgeCheck
-                        v-if="topic.creator?.isCertifiedCreator"
+                        v-if="topic.creatorCertified"
                         class="w-3.5 h-3.5 ml-1"
                         style="color: var(--theme-primary);"
                       />
@@ -865,14 +901,14 @@ async function handleDeleteComment(
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center">
                       <img
-                        :src="getSafeAvatar(post.user?.avatar, String(post.userId))"
-                        :alt="post.user?.nickname || '用户'"
+                        :src="getSafeAvatar(post.avatar, String(post.userId))"
+                        :alt="post.nickname || '用户'"
                         class="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0"
                         loading="lazy"
                       />
                       <div>
                         <div class="flex items-center text-sm" style="color: var(--theme-text);">
-                          <span>{{ post.user?.nickname || '匿名用户' }}</span>
+                          <span>{{ post.nickname || '匿名用户' }}</span>
                           <span
                             v-if="topic && String(post.userId) === String(topic.creatorId)"
                             class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs"
@@ -896,11 +932,11 @@ async function handleDeleteComment(
 
                   <!-- 回复提示 -->
                   <div
-                    v-if="post.replyToUser"
+                    v-if="post.replyToNickname"
                     class="text-xs mb-2 px-2 py-1 rounded"
                     style="color: var(--theme-text-secondary); background-color: var(--theme-accent);"
                   >
-                    回复 @{{ post.replyToUser.nickname }}
+                    回复 @{{ post.replyToNickname }}
                   </div>
 
                   <!-- 观点内容（统一用 markdown 模式渲染，支持图片/格式化） -->
@@ -1211,8 +1247,8 @@ async function handleDeleteComment(
                           ></textarea>
                           <div class="flex justify-end mt-1">
                             <button
-                              @click="handleSubmitComment('post', post.id)"
-                              :disabled="!postCommentState(post).newContent.trim()"
+              @click="handleSubmitComment('post', post.id)"
+                              :disabled="isCommentSubmitting('post', post.id) || !postCommentState(post).newContent.trim()"
                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs text-white transition hover:opacity-90 disabled:opacity-50"
                               style="background-color: var(--theme-primary);"
                             >
@@ -1503,8 +1539,8 @@ async function handleDeleteComment(
                   ></textarea>
                   <div class="flex justify-end mt-2">
                     <button
-                      @click="handleSubmitComment('topic', topic.id)"
-                      :disabled="!topicCommentState().newContent.trim()"
+              @click="handleSubmitComment('topic', topic.id)"
+                      :disabled="isCommentSubmitting('topic', topic.id) || !topicCommentState().newContent.trim()"
                       class="inline-flex items-center px-4 py-1.5 rounded-lg text-sm text-white transition hover:opacity-90 disabled:opacity-50"
                       style="background-color: var(--theme-primary);"
                     >

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { RouterLink as Link, useRouter } from 'vue-router';
+import { ICP_LICENSE, SITE_NAME } from '@/constants/site';
+import { RouterLink as Link, useRoute, useRouter } from 'vue-router';
 import {
   Eye, EyeOff, Lock, User, ArrowRight, AlertCircle, Mail, ShieldCheck, RefreshCw, X
 } from 'lucide-vue-next';
@@ -10,7 +11,8 @@ import { registerSchema, validateForm } from '@/utils/validation';
 import { useToast } from '@/composables/useToast';
 import { getCaptchaImage } from '@/api/user';
 
-const router = useRouter();
+const router = useRouter();
+const route = useRoute();   // 读取 ?redirect=，注册成功后就近跳转
 const userStore = useUserStore();
 const toast = useToast();
 
@@ -155,9 +157,16 @@ async function doSendEmailCode(captcha?: { code: string; uuid: string }) {
       startCountdown(60);
       captchaModal.value.visible = false;
     } else {
-      // 发送失败：留在弹窗内刷新图形码重新输入（"否则重来，重新修改图形验证码"）
-      captchaModal.value.error = message || '验证码发送失败，请重新输入图形验证码';
-      loadModalCaptcha();
+      const msg = message || '验证码发送失败，请稍后重试';
+      if (captchaModal.value.visible) {
+        // 弹窗可见：留在弹窗内刷新图形码重新输入（"否则重来，重新修改图形验证码"）
+        captchaModal.value.error = msg;
+        loadModalCaptcha();
+      } else {
+        // captchaEnabled=false 时是**直接发送**、弹窗不可见：
+        // 此时把错误写进弹窗等于静默失败（用户看不到任何提示），必须走 toast。
+        toast.error(msg);
+      }
     }
   } finally {
     isSendingCode.value = false;
@@ -243,9 +252,13 @@ async function handleRegister() {
       uuid: captchaEnabled.value ? captchaUuid.value : undefined
     });
     if (success) {
-      toast.success('注册成功，请使用新账户登录');
-      // 注册成功后跳转到登录页（不自动登录，更符合常见注册流程）
-      router.push('/login');
+      // 清单 P2：store 的 registerWithApi 成功后**已经 setToken 并写入 user**（即自动登录），
+      // 而这里原先却提示"请使用新账户登录"并 push('/login') —— 用户带着登录态看到登录表单，
+      // 且 LoginPage 对已登录用户不做跳转，容易以为是"注册失败/没生效"。
+      // 现按实际登录态跳转：有 redirect 就回来源页，否则回首页。
+      toast.success('注册成功，已自动登录');
+      const redirect = (route.query.redirect as string) || '/';
+      router.push(redirect);
     } else {
       serverError.value = message || '注册失败，请稍后重试';
       // 验证码为一次性凭证，失败后刷新
@@ -559,7 +572,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
                     我已阅读并同意
                     <Link to="/agreement" class="text-amber-600 hover:text-amber-700 font-medium transition-colors">服务条款</Link>
                     和
-                    <Link to="/agreement" class="text-amber-600 hover:text-amber-700 font-medium transition-colors">隐私政策</Link>
+                    <Link to="/privacy" class="text-amber-600 hover:text-amber-700 font-medium transition-colors">隐私政策</Link>
                   </span>
                 </label>
               </div>
@@ -602,7 +615,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
 
       <!-- 版权提示 -->
       <div class="mt-8 text-center text-xs text-white/50">
-        Copyright © {{ copyrightYear }} 旭林知行 · 京ICP备xxxxxxxx号-2
+        Copyright © {{ copyrightYear }} {{ SITE_NAME }} · {{ ICP_LICENSE }}
       </div>
     </div>
 

@@ -366,16 +366,6 @@ const getCategoryLabel = (category) => {
   return map[category] || category
 }
 
-const getCategoryType = (category) => {
-  const map = {
-    'utility': 'info',
-    'information': 'success',
-    'action': 'warning',
-    'data': 'danger',
-    'general': ''
-  }
-  return map[category] || ''
-}
 
 const getToolTypeLabel = (type) => {
   const map = {

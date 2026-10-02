@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * 用户画像快照 Service 实现（阶段0）
  * <p>
  * 数据来源：
- *  - portal_job_template：岗位必备技能（原 portal_interview_position 已并入，v13.37）
+ *  - portal_job_template：岗位必备技能
  *  - portal_interview_submission（经 PortalEntityTagMapper.selectKnowledgeMastery）：薄弱点
  *  - portal_user_stats：面试统计
  *
@@ -85,8 +85,8 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
             String json = toJson(weakTags);
             // 确保统计行存在
             userStatsMapper.insertIfNotExists(userId);
-            // v13.16：本方法按设计是"最佳努力"（失败只告警不回滚主流程），但 0 行同样必须**可见**，
-            // 否则薄弱点画像会静默不落库（历史实现只捕获异常，静默 0 行无任何痕迹）
+            // 本方法按设计是"最佳努力"（失败只告警不回滚主流程），但 0 行同样必须**可见**，
+            // 否则薄弱点画像会静默不落库
             int updated = userStatsMapper.updateWeakTags(userId, json);
             if (updated == 0) {
                 log.error("[WeakTags] 用户统计行缺失，薄弱点未落库：userId={}", userId);

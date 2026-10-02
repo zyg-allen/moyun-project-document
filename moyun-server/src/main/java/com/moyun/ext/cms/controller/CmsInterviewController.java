@@ -368,8 +368,8 @@ public class CmsInterviewController extends BaseController {
     @PutMapping("/submission/featured")
     public AjaxResult featureSubmission(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
-        // v13.16：收敛到 Service 的 adoptSubmission —— 精选状态 + 精选笔记数 + 成长事件在同一事务内，
-        // 且只在状态真正翻转时计数（历史实现：控制器直接改 mapper + 再 +1，与 updateStats 双重计数、重复采纳持续累加）
+        // 收敛到 Service 的 adoptSubmission —— 精选状态 + 精选笔记数 + 成长事件在同一事务内，
+        // 且只在状态真正翻转时计数
         Map<String, Object> result = portalInterviewService.adoptSubmission(id, true);
         return toAjax(((Number) result.get("affected")).intValue());
     }

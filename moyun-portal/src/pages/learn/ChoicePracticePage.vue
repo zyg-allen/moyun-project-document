@@ -70,7 +70,11 @@ const breadcrumbs = computed(() => [
 ]);
 
 // 是否有选择题选项数据
-const hasOptions = computed(() => options.value.length > 0);
+// 清单 P2：原先只用 options.length 判断"是否选择题"。若某题配了 options 但 practiceMode
+// 为 reading，后端走主观题分支（读 content），而本页提交的是 answer ⇒ 必然判失败。
+// 这里补 practiceMode 校验，把"非选择题"与"无选项"区分开。
+const isChoiceQuestion = computed(() => (question.value?.practiceMode ?? 'choice') === 'choice');
+const hasOptions = computed(() => isChoiceQuestion.value && options.value.length > 0);
 
 const DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
@@ -78,12 +82,23 @@ const DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
 
+// 请求序号（清单 P2）：切上一题/下一题会复用组件实例并触发多次加载，
+// 先发的慢响应后到会覆盖新题内容（题干与选项错配）。
+let loadSeq = 0;
+
 async function loadQuestion() {
+  const seq = ++loadSeq;
   loading.value = true;
   error.value = null;
   try {
+    // 清单 P2：route.params.id 未校验格式，非数字会拼进后端 Long 路径变量触发转换异常
     const id = route.params.id;
+    if (!/^\d+$/.test(String(id ?? ''))) {
+      error.value = '题目不存在或已被删除';
+      return;
+    }
     const res = await getQuestionDetail(id as string | number);
+    if (seq !== loadSeq) return;
     if (res.code === 200 && res.data) {
       question.value = res.data;
       // 解析 options JSON

@@ -57,21 +57,34 @@ watch(page, () => {
   loadSubmissions();
 });
 
+// 请求序号（清单 P2）：快速翻页时先发的慢响应可能后到并覆盖新列表
+let loadSeq = 0;
+
 async function loadSubmissions() {
+  const seq = ++loadSeq;
   try {
     loading.value = true;
     error.value = null;
     const res = await getMySubmissionList({ pageNum: page.value, pageSize });
+    if (seq !== loadSeq) return;
     if (res.code === 200 && res.data) {
       submissions.value = res.data.list || [];
       total.value = res.data.total || 0;
+      // 清单 P2：数据减少/新增提交后 total 可能变小，停留在旧页码会返回空页。
+      // 返回后校正页码并重新加载一次（避免"空列表"被误解为没有记录）。
+      if (page.value > totalPages.value) {
+        page.value = totalPages.value;
+        await loadSubmissions();
+        return;
+      }
     } else {
       error.value = res.message || '加载答题记录失败';
     }
   } catch (err: any) {
+    if (seq !== loadSeq) return;
     error.value = err?.message || '加载答题记录失败，请稍后重试';
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
@@ -93,7 +106,10 @@ function questionTitle(sub: any): string {
 }
 
 function questionDifficulty(sub: any): string {
-  const d = sub.question?.difficulty || sub.difficulty;
+  // 清单 P2：后端 InterviewSubmissionVO 的字段名是 **questionDifficulty**
+  //（selectMySubmissionList 显式 setQuestionDifficulty），VO 里既没有 difficulty 也没有 question 嵌套对象，
+  // 原取值路径永远拿不到难度，徽章恒显示"未知"。
+  const d = sub.questionDifficulty || sub.question?.difficulty || sub.difficulty;
   return d || '';
 }
 
@@ -118,6 +134,9 @@ function answerTypeIcon(sub: InterviewSubmissionVO) {
 }
 
 function isPass(sub: InterviewSubmissionVO) {
+  // 清单 P2：后端已下发服务端权威字段 passed（InterviewSubmissionVO），应优先采用；
+  // 原先只认 isSuccess/status，且 isSuccess 为 null 时一律判"未通过"。
+  if (typeof (sub as any).passed === 'boolean') return (sub as any).passed;
   // 兼容 isSuccess 布尔与 status 字符串两种情况
   if (typeof sub.isSuccess === 'boolean') return sub.isSuccess;
   const st = (sub.status || '').toLowerCase();
@@ -171,7 +190,7 @@ function passLabel(sub: InterviewSubmissionVO) {
       </div>
     </div>
 
-    <!-- V10.1 AI 语音面试官导流 Banner -->
+    <!-- AI 语音面试官导流 Banner -->
     <div
       class="border-b"
       style="background: linear-gradient(90deg, #ecfdf5, #ede9fe); border-color: var(--theme-border);"

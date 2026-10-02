@@ -1,7 +1,6 @@
 package com.moyun.ext.ai.prompt;
 
 import java.util.*;
-import java.util.regex.Pattern;
 
 /**
  * 架构感知层

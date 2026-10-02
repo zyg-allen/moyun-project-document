@@ -55,7 +55,6 @@ const subscribeCount = ref(0);
 const showManage = ref(false);
 const managing = ref(false);
 const sortDirty = ref(false);
-const articleToAdd = ref('');
 const addingArticle = ref(false);
 
 const isOwner = computed(() => {
@@ -121,7 +120,9 @@ async function handleSubscribe() {
   try {
     const res = await toggleSubscribe(column.value.id);
     if (res.code === 200 && res.data) {
-      isSubscribed.value = !!res.data.subscribed;
+      // 后端返回切换后的专栏详情：isSubscribed / subscribeCount 取权威值
+      column.value = res.data;
+      isSubscribed.value = !!res.data.isSubscribed;
       subscribeCount.value = res.data.subscribeCount || 0;
       toast.success(isSubscribed.value ? '订阅成功' : '已取消订阅');
     } else {
@@ -192,27 +193,36 @@ function toggleManage() {
   if (!showManage.value) sortDirty.value = false;
 }
 
-function moveUp(index: number) {
-  if (index <= 0) return;
+/**
+ * 交换"显示顺序"中的两项（清单 P2，**真 bug**）。
+ *
+ * <p>原先 `moveUp/moveDown` 直接交换 `column.value.articles`（**源数组，未排序**）中
+ * 与显示索引相同的两个元素 —— 而模板遍历的是 {@link sortedArticles}（按 sortOrder 排序的**副本**）。
+ * 只要源数组顺序与排序后顺序不一致（这是常态：后台新增文章 append 到末尾、sortOrder 又非连续），
+ * 上移/下移就会**改错元素**，随后 `reassignSortOrder` 又按源数组顺序重排 sortOrder，
+ * 导致"点了上移但顺序不对/别的文章被换位"。</p>
+ *
+ * <p>现改为：以**显示顺序**为基准交换，再把新顺序整体写回源数组并重排 sortOrder，
+ * 保证"所见即所改"。</p>
+ */
+function moveItem(from: number, to: number) {
   const arr = column.value?.articles;
   if (!arr) return;
-  const tmp = arr[index];
-  arr[index] = arr[index - 1];
-  arr[index - 1] = tmp;
-  // 重新分配 sortOrder
-  reassignSortOrder();
+  const ordered = [...sortedArticles.value];   // 以显示顺序为基准
+  if (from < 0 || from >= ordered.length || to < 0 || to >= ordered.length) return;
+  [ordered[from], ordered[to]] = [ordered[to], ordered[from]];
+  // 写回源数组（元素引用不变，仅顺序变化），并按新顺序重排 sortOrder
+  column.value!.articles = ordered;
+  ordered.forEach((item, idx) => { item.sortOrder = idx; });
   sortDirty.value = true;
 }
 
+function moveUp(index: number) {
+  moveItem(index, index - 1);
+}
+
 function moveDown(index: number) {
-  const arr = column.value?.articles;
-  if (!arr) return;
-  if (index >= arr.length - 1) return;
-  const tmp = arr[index];
-  arr[index] = arr[index + 1];
-  arr[index + 1] = tmp;
-  reassignSortOrder();
-  sortDirty.value = true;
+  moveItem(index, index + 1);
 }
 
 async function reassignSortOrder() {
@@ -273,32 +283,8 @@ async function handleSaveSort() {
   }
 }
 
-async function handleAddArticle() {
-  if (!column.value) return;
-  const aid = articleToAdd.value.trim();
-  if (!aid) {
-    toast.error('请输入文章ID');
-    return;
-  }
-  addingArticle.value = true;
-  try {
-    const res = await addArticle(column.value.id, aid);
-    if (res.code === 200) {
-      articleToAdd.value = '';
-      toast.success('加入成功');
-      await loadDetail();
-    } else {
-      toast.error(res.message || '加入失败');
-    }
-  } catch (err) {
-    const e = err as { message?: string };
-    toast.error(e?.message || '加入失败，请稍后重试');
-  } finally {
-    addingArticle.value = false;
-  }
-}
 
-// v1.1.3 新增：从 MyArticlePicker 选择文章后增量加入（替代旧的"输入文章ID"）
+// 从 MyArticlePicker 选择文章后增量加入
 async function handleSelectArticle(article: Article) {
   if (!column.value) return;
   addingArticle.value = true;
@@ -318,7 +304,7 @@ async function handleSelectArticle(article: Article) {
   }
 }
 
-// v1.1.3 新增：候选文章列表中要排除已在专栏中的文章 ID
+// 候选文章列表中要排除已在专栏中的文章 ID
 const existingArticleIds = computed(() => {
   return (column.value?.articles || []).map(a => a.id);
 });
@@ -499,6 +485,19 @@ function formatNumber(n?: number) {
             <FileText class="w-4 h-4 mr-1.5" style="color: var(--theme-primary);" />
             {{ formatNumber(column.articleCount) }} 篇文章
           </span>
+          <!--
+            清单 P2：ColumnVO.price（BigDecimal 单价）后端已下发，但页面原先**完全不渲染** ——
+            既无价格标签也无付费动作，付费专栏对用户等同免费订阅。
+            这里先如实展示价格（订阅/购买链路属独立产品需求，见对账"不做/需求"）。
+          -->
+          <span
+            v-if="column.price != null && Number(column.price) > 0"
+            class="flex items-center text-sm font-medium"
+            style="color: #f59e0b;"
+          >
+            <Coins class="w-4 h-4 mr-1.5" />
+            ¥{{ Number(column.price).toFixed(2) }}
+          </span>
           <span class="flex items-center text-sm" style="color: var(--theme-text-secondary);">
             <Users class="w-4 h-4 mr-1.5" style="color: var(--theme-primary);" />
             {{ formatNumber(subscribeCount) }} 订阅
@@ -552,7 +551,7 @@ function formatNumber(n?: number) {
               </div>
             </div>
 
-            <!-- v1.1.3 改造：从"输入文章ID"升级为"我的文章选择器"，与编辑页统一组件 -->
+            <!-- 我的文章选择器，与编辑页统一组件 -->
             <div class="mb-4 p-3 rounded-lg" style="background-color: var(--theme-bg);">
               <div class="flex items-center gap-2 mb-2">
                 <Plus class="w-4 h-4 flex-shrink-0" style="color: var(--theme-text-secondary);" />

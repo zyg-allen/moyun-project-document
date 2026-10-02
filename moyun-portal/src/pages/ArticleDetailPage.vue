@@ -17,7 +17,7 @@ import {useUserStore} from '@/stores/user';
 import {useAuth} from '@/composables/useAuth';
 import {useToast} from '@/composables/useToast';
 import {generateSeo, generateArticleJsonLd} from '@/utils/seo';
-import {sanitizeHTML} from '@/utils/security';
+/* 已移除未使用导入：sanitizeHTML（v14.00 清理） */
 import {formatShortDate} from '@/utils/date';
 import {getSafeAvatar} from '@/utils/avatar';
 import * as growthApi from '@/api/growth';
@@ -47,6 +47,11 @@ const loading = ref(false);
 const commentsLoading = ref(false); // 评论加载状态
 const commentsPageNum = ref(1); // 当前页码
 const commentsHasMore = ref(false); // 是否有更多评论
+/**
+ * 评论总数（**后端权威值**：分页查询返回的 total，仅统计一级评论，与分页口径一致）。
+ * 原实现用前端已加载的评论+回复条数当总数 ⇒ 只加载首页时数字偏小、加载更多后数字又跳变。
+ */
+const commentsTotal = ref<number | null>(null);
 const submitting = ref(false);
 const error = ref<string | null>(null);
 const isShareMenuOpen = ref(false); // 分享菜单是否展开
@@ -139,9 +144,6 @@ const breadcrumbs = computed(() => {
   ];
 });
 
-const sanitizedContent = computed(() =>
-    article.value ? sanitizeHTML(article.value.content) : ''
-);
 
 const articleDate = computed(() => {
   if (!article.value) return '';
@@ -149,11 +151,6 @@ const articleDate = computed(() => {
   return dateStr ? formatShortDate(dateStr) : '';
 });
 
-const articleUpdateDate = computed(() => {
-  if (!article.value) return '';
-  const dateStr = article.value.updatedAt || article.value.createTime;
-  return dateStr ? formatShortDate(dateStr) : '';
-});
 
 const displayedComments = computed(() => comments.value); // 后端已分页，直接使用所有评论
 const hasMoreComments = computed(() => commentsHasMore.value); // 使用后端返回的 hasMore
@@ -190,6 +187,10 @@ const auditStatusBarStyle = computed(() => {
 });
 
 const totalCommentsCount = computed(() => {
+  // 后端给了权威总数就直接用（分页口径一致）；后端未返回该字段时才退回本地统计
+  if (typeof commentsTotal.value === 'number') {
+    return commentsTotal.value;
+  }
   let count = 0;
   const countReplies = (cmts: Comment[]) => {
     cmts.forEach(c => {
@@ -287,8 +288,11 @@ async function loadComments(articleId: string) {
         }
         return comment;
       });
-      // 更新分页信息
+      // 更新分页信息与总数（total 为后端权威口径，与后端 pages 计算一致）
       commentsHasMore.value = result.hasMore || false;
+      if (typeof result.total === 'number') {
+        commentsTotal.value = result.total;
+      }
     }
   } catch (error) {
     console.error('加载评论失败:', error);
@@ -393,8 +397,13 @@ async function handleLike() {
   if (!article.value) return;
   // 使用 withAuthConfirm 包装，未登录时弹出确认框
   await withAuthConfirm(async () => {
-    // store 内部用 API 返回值更新 article.isLiked / likes，详情页 computed 自动响应
-    await articleStore.likeArticleWithApi(article.value);
+    // store 内部用 API 返回值更新 article.isLiked / likes，详情页 computed 自动响应。
+    // 注意：store **不抛异常**，而是返回 { success, message } —— 原先直接丢弃返回值，
+    // 点赞失败（限流/被禁言/网络异常）时界面毫无反馈，用户以为"点了没反应"（清单 P2）。
+    const res = await articleStore.likeArticleWithApi(article.value!);
+    if (!res.success) {
+      toast.error(res.message || '点赞失败，请稍后重试');
+    }
   }, '点赞');
 }
 
@@ -402,8 +411,11 @@ async function handleBookmark() {
   if (!article.value) return;
   // 使用 withAuthConfirm 包装，未登录时弹出确认框
   await withAuthConfirm(async () => {
-    // store 内部用 API 返回值更新 article.isBookmarked
-    await articleStore.bookmarkArticleWithApi(article.value);
+    // 同上：收藏失败必须给出反馈，不能静默
+    const res = await articleStore.bookmarkArticleWithApi(article.value!);
+    if (!res.success) {
+      toast.error(res.message || '收藏失败，请稍后重试');
+    }
   }, '收藏');
 }
 
@@ -476,7 +488,7 @@ function isWechatBrowser(): boolean {
 }
 
 // 复制链接并提示分享到指定平台
-function copyLinkAndNotify(platform: string) {
+async function copyLinkAndNotify(platform: string) {
   const url = getShareUrl();
   try {
     navigator.clipboard.writeText(url);
@@ -527,7 +539,7 @@ async function nativeShare() {
   if (supportsNativeShare.value) {
     try {
       await navigator.share({
-        title: article.value.title,
+        title: article.value!.title,
         text: articleExcerpt.value,
         url: getShareUrl(),
       });
@@ -560,7 +572,7 @@ async function handleSubmitComment() {
     submitting.value = true;
     try {
       const response = await commentApi.addComment({
-        articleId: article.value.id,
+        articleId: article.value!.id,
         content: newComment.value
       });
 
@@ -568,7 +580,7 @@ async function handleSubmitComment() {
         // 发表评论成功后，重新加载评论列表（重置到第一页）
         commentsPageNum.value = 1;
         comments.value = []; // 清空旧评论
-        await loadComments(article.value.id);
+        await loadComments(article.value!.id);
         newComment.value = '';
         toast.success('评论发表成功');
       } else {
@@ -688,8 +700,11 @@ async function loadMoreComments() {
         return comment;
       });
       comments.value = [...comments.value, ...processedComments];
-      // 更新分页信息
+      // 更新分页信息与总数
       commentsHasMore.value = result.hasMore || false;
+      if (typeof result.total === 'number') {
+        commentsTotal.value = result.total;
+      }
     }
   } catch (error) {
     console.error('加载更多评论失败:', error);
@@ -755,10 +770,15 @@ function onTipError(message: string) {
 
 async function handlePurchase() {
   if (!article.value) return;
+  // 未开通付费通道：直接给出明确提示，不发无意义的请求、也不弹确认框
+  if (article.value.paidPurchaseEnabled === false) {
+    toast.info('付费阅读功能即将开放，敬请期待');
+    return;
+  }
   await withAuthConfirm(async () => {
     purchasing.value = true;
     try {
-      const res = await purchaseArticle(article.value.id);
+      const res = await purchaseArticle(article.value!.id);
       if (res.code === 200) {
         toast.success('购买成功，已解锁全文');
         await loadArticle();
@@ -774,7 +794,7 @@ async function handlePurchase() {
   }, '购买付费阅读');
 }
 
-const head = useHead(
+useHead(
     computed(() => {
       if (!article.value) {
         return generateSeo({
@@ -787,22 +807,22 @@ const head = useHead(
       const canonicalPath = `/article/${article.value.id}`
       return generateSeo({
         title: article.value.title,
-        description: article.value.excerpt,
+        description: article.value!.excerpt || '',
         image: article.value.cover,
         type: 'article',
         keywords: article.value.tags,
         author: article.value.author?.username || article.value.authorUsername || '',
         publishedTime: article.value.createdAt,
-        modifiedTime: article.value.updatedAt,
+        modifiedTime: article.value.updateTime,
         canonicalPath,
         jsonLd: generateArticleJsonLd({
           title: article.value.title,
-          description: article.value.excerpt,
+          description: article.value!.excerpt || '',
           image: article.value.cover,
           url: canonicalPath,
           author: article.value.author?.username || article.value.authorUsername || '',
-          publishedTime: article.value.createdAt,
-          modifiedTime: article.value.updatedAt
+          publishedTime: article.value!.createdAt || '',
+          modifiedTime: article.value.updateTime
         })
       })
     })
@@ -883,8 +903,12 @@ const head = useHead(
                     <span :style="{ color: auditStep >= 3 ? 'var(--theme-text)' : 'var(--theme-text-secondary)' }">已发布</span>
                   </div>
                 </div>
-                <p v-if="article.status === 'rejected' && article.remark" class="mt-3 text-sm" style="color: var(--theme-text-secondary);">
-                  审核意见：{{ article.remark }}
+                <p
+                  v-if="article.status === 'rejected' && (article.auditRemark || article.remark)"
+                  class="mt-3 text-sm"
+                  style="color: var(--theme-text-secondary);"
+                >
+                  审核意见：{{ article.auditRemark || article.remark }}
                 </p>
                 <p v-if="article.status === 'rejected'" class="mt-2">
                   <Link to="/publish" class="text-sm font-medium" style="color: var(--theme-primary);">去修改并重新提交 →</Link>
@@ -916,7 +940,7 @@ const head = useHead(
                       :alt="articleAuthor.username"
                       class="w-8 h-8 rounded-full"
                       loading="lazy"
-                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
+                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(articleAuthor?.id ?? ''))"
                     />
                     <span class="font-medium meta-text text-theme-text">
                       {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
@@ -975,10 +999,19 @@ const head = useHead(
                     支付 <span class="font-bold text-theme-primary">¥{{ Number(article.price || 0).toFixed(2) }}</span> 解锁全文
                     <span v-if="article.previewLength">（当前为试读部分）</span>
                   </p>
+                  <!-- 未开通付费通道时置灰并说明（配置驱动，接入后改配置即恢复可点） -->
+                  <p
+                    v-if="article.paidPurchaseEnabled === false"
+                    class="text-xs mb-2"
+                    style="color: var(--theme-text-secondary);"
+                  >
+                    付费阅读功能即将开放，敬请期待
+                  </p>
                   <button
                     @click="handlePurchase"
-                    :disabled="purchasing"
-                    class="theme-btn theme-btn-primary px-6 py-2.5 rounded-full text-sm disabled:opacity-50"
+                    :disabled="purchasing || article.paidPurchaseEnabled === false"
+                    :title="article.paidPurchaseEnabled === false ? '付费阅读功能即将开放' : '解锁全文'"
+                    class="theme-btn theme-btn-primary px-6 py-2.5 rounded-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Lock v-if="!purchasing" class="w-4 h-4" aria-hidden="true" />
                     <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -1129,7 +1162,7 @@ const head = useHead(
                     :alt="articleAuthor.username"
                     class="w-16 h-16 sm:w-20 sm:h-20 rounded-full ring-2 ring-theme-accent"
                     loading="lazy"
-                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(articleAuthor?.id ?? ''))"
                   />
                 </Link>
                 <img

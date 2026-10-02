@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useHead } from '@vueuse/head';
-import { Search, ChevronDown, BookOpen, HelpCircle, MessageSquare, Shield, User, Settings, CreditCard, Lock, FileText, Zap, Award, Globe, LayoutGrid, Loader2 } from 'lucide-vue-next';
+import { Search, ChevronDown, BookOpen, HelpCircle, MessageSquare, Shield, User, Settings, CreditCard, Lock, FileText, AlertCircle, Zap, Award, Globe, LayoutGrid, Loader2 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 import { getHelpHome, getHelpArticlesByCategory, searchHelpArticles, type HelpCategory, type HelpArticle } from '@/api/help';
 
 // 图标映射（lucide 图标名 → 组件，与后台分类管理图标下拉保持同源）
@@ -25,6 +28,13 @@ const iconMap: Record<string, any> = {
 
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+/**
+ * 列表区失败态（清单 P2）：搜索/分类请求原先只 console.error，失败后结果为空 ⇒
+ * 模板落到「没有找到相关问题 / 该分类下暂无问题」，把"请求失败"说成"确实没有"。
+ * 与页面级 error 分开，避免搜索失败把整页替换成错误页。
+ */
+const helpError = ref<string | null>(null);
 const searchQuery = ref('');
 const searchLoading = ref(false);
 const expandedFaq = ref<number | null>(null);
@@ -38,6 +48,8 @@ const categoryArticles = ref<HelpArticle[]>([]);
 
 // 搜索防抖定时器
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+/** 搜索请求序号（清单 P2：丢弃过期响应，避免旧关键词结果覆盖新结果） */
+let searchSeq = 0;
 
 onMounted(() => {
   loadHome();
@@ -68,20 +80,26 @@ async function loadHome() {
 
 // 搜索（300ms 防抖）
 function handleSearch() {
+  helpError.value = null;
   if (searchTimer) clearTimeout(searchTimer);
   if (!searchQuery.value.trim()) {
     searchResults.value = [];
     return;
   }
+  // 清单 P2：防抖只减少请求次数，不做取消/序号校验 ⇒ 慢的旧关键词响应会覆盖新关键词结果。
+  // 这里加请求序号，迟到响应直接丢弃。
+  const seq = ++searchSeq;
   searchTimer = setTimeout(async () => {
     try {
       searchLoading.value = true;
       const res = await searchHelpArticles(searchQuery.value);
       if (res.code === 200) {
-        searchResults.value = res.data || [];
+        if (seq !== searchSeq) return;   // 已发起更新的搜索：丢弃本次结果
+      searchResults.value = res.data || [];
       }
     } catch (err) {
       console.error('搜索失败:', err);
+      helpError.value = (err as { message?: string })?.message || '搜索失败，请稍后重试';
     } finally {
       searchLoading.value = false;
     }
@@ -90,6 +108,7 @@ function handleSearch() {
 
 // 点击分类卡片：加载该分类下文章（清空搜索）
 async function handleCategoryClick(category: HelpCategory) {
+  helpError.value = null;
   searchQuery.value = '';
   searchResults.value = [];
   if (activeCategoryId.value === category.id) return;
@@ -102,6 +121,7 @@ async function handleCategoryClick(category: HelpCategory) {
     }
   } catch (err) {
     console.error('加载分类文章失败:', err);
+    helpError.value = (err as { message?: string })?.message || '加载分类文章失败，请稍后重试';
   } finally {
     categoryLoading.value = false;
   }
@@ -256,6 +276,21 @@ useHead(
             <p class="mt-3 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
           </div>
 
+          <!-- 失败态（清单 P2）：必须排在空态之前 -->
+          <div
+            v-else-if="helpError"
+            class="py-8 sm:py-12 text-center rounded-2xl"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          >
+            <AlertCircle class="w-10 h-10 mx-auto mb-3" style="color: #ef4444;" />
+            <p class="text-sm mb-4" style="color: var(--theme-text);">{{ helpError }}</p>
+            <button
+              class="px-4 py-2 rounded-xl text-sm font-medium"
+              style="background-color: var(--theme-primary); color: white;"
+              @click="searchQuery.trim() ? handleSearch() : loadHome()"
+            >重试</button>
+          </div>
+
           <div v-else-if="displayArticles.length > 0" class="space-y-3 sm:space-y-4">
             <div
               v-for="article in displayArticles"
@@ -299,6 +334,7 @@ useHead(
           <button
             class="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all hover:opacity-90"
             style="background-color: var(--theme-primary); color: white;"
+            @click="router.push('/report')"
           >
             <MessageSquare class="w-4 h-4 sm:w-5 sm:h-5" />
             联系客服

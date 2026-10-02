@@ -15,8 +15,7 @@ import org.springframework.stereotype.Component;
  *   <li>{@code cacheCleanupTask.cleanupRateLimiter()}    - 每2分钟清理限流器过期数据</li>
  * </ul>
  *
- * <p>历史：原为 Spring @Scheduled(fixedRate=...) 注解触发，现统一由 sys_job 调度，
- * 便于后台「监控 - 定时任务」可视化管控（暂停/立即执行/调整 cron）。
+ * <p>由 sys_job 调度，便于后台「监控 - 定时任务」可视化管控（暂停/立即执行/调整 cron）。</p>
  */
 @Slf4j
 @Component
@@ -27,7 +26,7 @@ public class CacheCleanupTask {
 
     /**
      * 清理过期的表结构缓存
-     * <p>调度：sys_job 每5分钟执行一次（cron 见 sys_job.cron_expression）
+     * <p>调度：sys_job 每5分钟执行一次（cron 见 sys_job.cron_expression）</p>
      */
     public void cleanupExpiredCache() {
         try {
@@ -40,7 +39,7 @@ public class CacheCleanupTask {
 
     /**
      * 清理限流器过期数据
-     * <p>调度：sys_job 每2分钟执行一次（cron 见 sys_job.cron_expression）
+     * <p>调度：sys_job 每2分钟执行一次（cron 见 sys_job.cron_expression）</p>
      */
     public void cleanupRateLimiter() {
         try {

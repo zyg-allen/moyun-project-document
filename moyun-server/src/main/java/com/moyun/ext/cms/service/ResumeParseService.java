@@ -43,7 +43,7 @@ import com.moyun.ext.ai.enums.AiSceneEnum;
 /**
  * 简历附件解析服务（<b>纯内存解析，不落盘、不进对象存储</b>）
  *
- * <h3>为什么不做文件持久化（v13.38 架构修正）</h3>
+ * <h3>为什么不做文件持久化</h3>
  * <p>简历附件是<b>客户端一次性输入</b>：用户上传只为"让系统读出内容"，用完即弃。
  * 平台无法限制用户上传次数与体积，一旦落盘/进 MinIO，就会持续占用服务器空间且没有回收时机
  * （实测：同一份 400KB 简历被重复上传 4 次 → 存了 4 份副本 = 1.6MB 纯浪费）。
@@ -57,7 +57,7 @@ import com.moyun.ext.ai.enums.AiSceneEnum;
  * <p>流程：附件字节 → 抽取纯文本 → LLM 结构化抽取（字段语义对齐在线简历表单）；
  * LLM 未启用/调用失败时回退到正则规则粗解析（仅邮箱/电话/技能等高置信字段）。</p>
  *
- * <p><b>历史实现的两个缺陷（已消除）</b>：① 解析时按 {@code fileUrl} 回读文件——
+ * <p><b>要规避的两个缺陷</b>：① 解析时按 {@code fileUrl} 回读文件——
  * local 模式下 fileUrl 是 {@code http://host/profile/...} 全 URL，既进不了 MinIO 分支
  * （连接失败），又因不以 {@code /profile} 开头被磁盘分支拒绝 → <b>必然解析失败</b>；
  * ② 上传接口<b>先建草稿再解析</b>，解析失败不回滚 → 每次失败都留一条空简历（脏数据）。
@@ -163,7 +163,7 @@ public class ResumeParseService {
         return new ParseHandle(text, originalFileName);
     }
 
-    // ==================== v13.38：预览 → 确认 两步式解析 ====================
+    // ==================== 预览 → 确认 两步式解析 ====================
 
     /** 预览令牌有效期（毫秒）：10 分钟。超时后需重新上传（避免内存长期驻留原文） */
     private static final long PREVIEW_TTL_MS = 10 * 60 * 1000L;
@@ -422,7 +422,7 @@ public class ResumeParseService {
     /**
      * 【异步】对已抽取文本做 LLM 结构化解析，并在<b>成功后才创建</b>简历记录。
      *
-     * <p>与历史实现的关键差异：不再有「先建草稿再解析」——
+     * <p>不再有「先建草稿再解析」——
      * 解析失败（异常抛出）时<b>不产生任何记录</b>，杜绝空简历脏数据。</p>
      *
      * @param userId   当前用户
@@ -491,7 +491,7 @@ public class ResumeParseService {
 
         Long resumeId = upd.getId();
         vo.setAttachmentResumeId(resumeId);
-        // 源文件未持久化：不回传 URL（前端不再依赖附件下载）
+        // 源文件未持久化：不回传 URL
         vo.setSourceFileUrl(null);
         vo.setSourceFileName(safeFileName);
         log.info("[ResumeParse] 解析成功并落库 resumeId={} aiPowered={} textLength={}",
@@ -519,7 +519,7 @@ public class ResumeParseService {
         try {
             if (filename.endsWith(".pdf")) {
                 try (PDDocument doc = Loader.loadPDF(bytes)) {
-                    // v13.38：必须按位置排序抽取。
+                    // 必须按位置排序抽取。
                     // 默认模式下 PDFBox 按内容流顺序输出，**双栏/表格简历会文字交错**
                     // （左右栏内容互相穿插），下游无论规则还是 LLM 都会拿到脏文本。
                     PDFTextStripper stripper = new PDFTextStripper();
@@ -530,7 +530,7 @@ public class ResumeParseService {
             }
             if (filename.endsWith(".docx")) {
                 try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-                    // v13.38：改为遍历 body 元素，**保留表格的行结构**。
+                    // 遍历 body 元素，**保留表格的行结构**。
                     // XWPFWordExtractor 会把表格拍平为无分隔文本，
                     // 而简历大量使用表格排版（如「公司 | 时间」），拍平后行/列关系丢失，
                     // 章节与日期锚点都会失效。此处表格单元格用 TAB 连接成一行。

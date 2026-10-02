@@ -102,9 +102,9 @@ public final class AesGcmUtils {
      * 口令 → 256 位 AES 密钥（SHA-256 派生）
      *
      * <p><b>安全策略：fail-fast</b>。口令为空时直接抛异常，绝不回落到固定的默认口令。
-     * 历史实现曾在口令为空时使用常量 {@code "moyun-default"} 派生密钥，导致生产环境一旦
+     * 否则生产环境一旦
      * 漏配 {@code moyun.pay.security.bank-card-encrypt-key} / {@code moyun.security.cert-no-encrypt-key}，
-     * 就会用公开常量加密银行卡号与证件号（等于未加密）。此处改为拒绝服务，
+     * 就会用公开常量加密银行卡号与证件号（等于未加密）。
      * 与 {@code TokenService.getEffectiveSecret()} 的 fail-fast 口径对齐。</p>
      */
     private static SecretKeySpec deriveKey(String keyMaterial) throws Exception {

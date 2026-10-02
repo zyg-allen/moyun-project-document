@@ -48,12 +48,21 @@ export const toggleBookListBookmark = (listId: string | number) => {
 };
 
 // 查询书单收藏状态
+/**
+ * 批量查询"当前用户已收藏的书单 id 集合"（清单 P2：替代逐个书单 check，避免 N+1 请求）。
+ * 未登录时后端返回空集合。
+ */
+export const getBookListBookmarkIds = (ids: Array<string | number>) => {
+  const q = ids.map(String).join(',');
+  return httpGet<{ bookmarkedIds: Array<number | string> }>(`/portal/reading/book-lists/bookmarks?ids=${encodeURIComponent(q)}`);
+};
+
 export const checkBookListBookmark = (listId: string | number) => {
   return httpGet<{ bookmarked: boolean }>(`/portal/reading/book-lists/${listId}/bookmark`);
 };
 
 // =====================================================
-// 读书空间 - 章节（v1.0 新增）
+// 读书空间 - 章节
 // =====================================================
 
 // 获取书籍的章节目录（仅已发布，不含正文）
@@ -72,7 +81,7 @@ export const getBookChapterNav = (chapterId: string | number) => {
 };
 
 // =====================================================
-// 读书空间 - 阅读进度（v1.0 第二阶段新增）
+// 读书空间 - 阅读进度
 // =====================================================
 
 // 上报章节级阅读进度（前端节流 30s 上报，章节切换时强制上报）
@@ -91,7 +100,7 @@ export const getRecentReading = (limit = 10) => {
 };
 
 // =====================================================
-// 读书空间 - 书架（v1.0 第二阶段新增）
+// 读书空间 - 书架
 // =====================================================
 
 // 加入书架（toggle，已收藏则取消）
@@ -129,7 +138,7 @@ export const updateBookshelfLastChapter = (
 };
 
 // =====================================================
-// 读书空间 - 阅读偏好（v1.0 第二阶段新增）
+// 读书空间 - 阅读偏好
 // =====================================================
 
 // 查询我的阅读偏好
@@ -143,7 +152,7 @@ export const saveReadingPreference = (data: Partial<ReadingPreference>) => {
 };
 
 // =====================================================
-// 读书空间 - 发现与运营（v1.0 第三阶段新增）
+// 读书空间 - 发现与运营
 // =====================================================
 
 // 发现页聚合数据（单次请求返回 Banner + 热门排行 + 限免 + 最近更新）
@@ -152,7 +161,7 @@ export const getDiscoverData = () => {
 };
 
 // 排行榜（type: hot/new/completed/word_count，limit: 返回条数）
-export const getRanking = (type: 'hot' | 'new' | 'completed' | 'word_count' = 'hot', limit = 10) => {
+export const getRanking = (type: 'hot' | 'new' | 'updated' | 'completed' | 'word_count' | 'ongoing' = 'hot', limit = 10) => {
   return httpGet<RankingResult>(`/portal/reading/ranking?type=${type}&limit=${limit}`);
 };
 
@@ -184,7 +193,7 @@ export const getQuoteDetail = (quoteId: string | number) => {
 };
 
 // =====================================================
-// 读书空间 - 点赞（金句 / 书单） v4.4 补齐
+// 读书空间 - 点赞（金句 / 书单）
 // =====================================================
 
 // 切换金句点赞（toggle，返回最新 liked 与 likeCount）

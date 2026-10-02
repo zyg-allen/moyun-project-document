@@ -60,4 +60,14 @@ public class UserStatsVO {
     private Integer checkinStreak;
     /** 最后签到日期（前端据此判断今日是否已签到，刷新后状态不丢失） */
     private LocalDate lastCheckinDate;
+
+    /**
+     * 今日是否已签到（**服务端判定**）。
+     *
+     * <p>为什么必须由后端给：签到日期是服务器本地日期（{@code LocalDate.now()}），
+     * 前端原先用 {@code new Date().toISOString().slice(0,10)}（**UTC** 日期）与之比较 ——
+     * 在东八区，本地 00:00–08:00 期间 UTC 日期还是"昨天"，导致**已签到却显示未签到**
+     * （按钮可点、点了又被后端以"今日已签到"拒绝）。客户端时区不可信，故把判断移到服务端。</p>
+     */
+    private Boolean checkedInToday;
 }

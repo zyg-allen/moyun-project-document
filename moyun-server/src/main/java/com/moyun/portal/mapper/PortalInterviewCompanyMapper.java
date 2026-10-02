@@ -25,4 +25,12 @@ public interface PortalInterviewCompanyMapper extends BaseMapper<PortalInterview
      * 根据题目ID查询关联的公司标签
      */
     public List<PortalInterviewCompany> selectCompaniesByQuestionId(@Param("questionId") Long questionId);
+
+    /**
+     * 按公司ID查询关联的题目ID集合。
+     *
+     * <p>公司页「公司题目」筛选使用：返回 id 集合供上层做 IN，**不用 JOIN** ——
+     * 分页查询用 JOIN 会放大行数、影响 count 语义。</p>
+     */
+    public List<Long> selectQuestionIdsByCompanyId(@Param("companyId") Long companyId);
 }

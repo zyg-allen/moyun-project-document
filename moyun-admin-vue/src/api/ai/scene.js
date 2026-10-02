@@ -72,17 +72,16 @@ export function testScene(id) {
     method: 'post'
   })
 }
-// 场景注册表（v11.38）：场景代码/名称/核心能力/输入/输出（来自后端 AiSceneEnum）
+// 场景注册表：场景代码/名称/核心能力/输入/输出（来自后端 AiSceneEnum）
 export function sceneRegistry() {
   return request({ url: '/cms/ai/scene/registry', method: 'get' });
 }
 
 /**
- * 子任务白名单 + 主场景清单（v13.51 批次 4：场景代码双下拉数据源）
+ * 子任务白名单 + 主场景清单（场景代码双下拉数据源）
  *
  * 场景代码支持两段式 `主场景:子任务`（如 voice_interview:warmup）。
- * 原先只有一个整串下拉，用户无法组合出合法子场景 —— 本接口暴露 task 白名单后，
- * 表单可用「主场景 + 子任务」两级下拉拼出完整代码。
+ * 本接口暴露 task 白名单后，表单可用「主场景 + 子任务」两级下拉拼出完整代码。
  *
  * @returns { tasks: string[], scenes: { [code]: name } }
  */

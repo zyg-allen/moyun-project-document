@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,6 @@ import com.moyun.portal.domain.entity.PortalBookChapter;
 import com.moyun.portal.domain.entity.PortalBookList;
 import com.moyun.portal.domain.entity.PortalBookListBookmark;
 import com.moyun.portal.domain.entity.PortalBookListItem;
-import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.vo.BookQuoteVO;
 import com.moyun.portal.domain.entity.PortalBookRecommend;
 import com.moyun.portal.domain.query.BookChapterQuery;
@@ -91,6 +91,10 @@ public class PortalReadingController extends BaseController {
     @Autowired
     private PortalBookMapper portalBookMapper;
 
+    /** VIP 章节访问控制：以会员卡（vip_user_card）为准，而非登录态里的静态角色 */
+    @Autowired
+    private com.moyun.vip.service.IVipService vipService;
+
     /**
      * 获取读书空间首页数据
      */
@@ -159,11 +163,26 @@ public class PortalReadingController extends BaseController {
     @GetMapping("/book-lists/{id}")
     @Anonymous
     public AjaxResult getBookListById(@Parameter(description = "书单ID") @PathVariable Long id) {
-        portalBookListService.incrementViewCount(id);
         PortalBookList bookList = portalBookListService.selectPortalBookListById(id);
         if (bookList == null) {
             return AjaxResult.error("书单不存在");
         }
+        // ── 可见性校验（清单 P2：未公开书单可被任意人按 id 读取）──
+        // 本接口是 @Anonymous 公开接口，而 selectPortalBookListById 只按主键查询，
+        // 后台设置的「是否公开(is_public)」与「状态(active/inactive)」**完全未生效**
+        // ⇒ 私密书单（及其书单内书籍）只要猜到 id 就能被未登录访客读取。
+        // 口径（fail-closed）：仅 is_public=1 且 status=active 的书单对所有人可见；
+        // 其余仅**创建者本人**可见（游客一律不可见），且返回与"不存在"相同的文案，避免泄露存在性。
+        boolean publiclyVisible = Boolean.TRUE.equals(bookList.getIsPublic())
+                && "active".equals(bookList.getStatus());
+        if (!publiclyVisible) {
+            Long viewerId = PortalSecurityUtils.getUserId();
+            if (viewerId == null || !viewerId.equals(bookList.getUserId())) {
+                return AjaxResult.error("书单不存在或未公开");
+            }
+        }
+        // 浏览计数放在可见性校验之后：未公开书单被"偷偷访问"不应产生浏览量
+        portalBookListService.incrementViewCount(id);
         List<PortalBookListItem> items = portalBookListService.selectBookListItems(id);
         // 批量查询书籍详情，避免 N+1（书单 N 本书原本 N 次查询 → 现在 1 次）
         List<Long> bookIds = items.stream()
@@ -187,9 +206,27 @@ public class PortalReadingController extends BaseController {
                 }
             }
         }
+        // ── 访问级别门禁（清单 P2）──
+        // 书单实体有 accessLevel（后台上架时可选 free/vip/preview，配 portal_access_type 字典），
+        // 但前台**从未使用**：详情接口无门禁、模板无 VIP 标识 ⇒ 付费/会员书单等同公开。
+        // 口径：
+        //   · vip     —— 非会员不下发书籍列表（仅返回书单元信息 + 锁定标记，由前端引导开通会员）；
+        //   · preview —— 语义（"部分可见"取前几本）需产品定义，当前**放行但打标**，不臆造规则；
+        //   · free/空 —— 正常返回。
+        String accessLevel = bookList.getAccessLevel();
+        boolean vipRequired = "vip".equalsIgnoreCase(accessLevel);
+        boolean isVip = false;
+        if (vipRequired) {
+            Long viewerId = PortalSecurityUtils.getUserId();
+            isVip = viewerId != null && vipService.isVip(viewerId, "portal");
+        }
+        boolean locked = vipRequired && !isVip;
+
         Map<String, Object> result = new HashMap<>();
         result.put("bookList", bookList);
-        result.put("books", books);
+        result.put("books", locked ? java.util.Collections.emptyList() : books);
+        result.put("accessLevel", accessLevel == null ? "free" : accessLevel);
+        result.put("accessLevelLocked", locked);
         return AjaxResult.success(result);
     }
 
@@ -251,6 +288,33 @@ public class PortalReadingController extends BaseController {
             result.put("bookmarked", existing != null);
         }
         result.put("bookmarkCount", bookListBookmarkMapper.countByBooklist(id));
+        return AjaxResult.success(result);
+    }
+
+    /**
+     * **批量**检查当前用户对一组书单的收藏状态（清单 P2：阅读首页原先逐个书单发一次请求，N 个书单 N 次往返）。
+     *
+     * <p>语义：只返回"已收藏"的书单 id 集合；未登录返回空集合（前端据此全部显示未收藏）。
+     * 不返回 bookmarkCount（列表页不展示单条收藏数），避免再次 N+1。</p>
+     *
+     * @param ids 书单ID列表（逗号分隔，Spring 自动绑定为 List）
+     * @return {bookmarkedIds: number[]}
+     */
+    @Operation(summary = "批量检查书单收藏状态", description = "一次返回当前用户已收藏的书单ID集合，替代逐个书单查询")
+    @GetMapping("/book-lists/bookmarks")
+    public AjaxResult checkBookListsBookmark(
+            @Parameter(description = "书单ID列表（逗号分隔）") @RequestParam(value = "ids", required = false) List<Long> ids) {
+        Map<String, Object> result = new HashMap<>();
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null || ids == null || ids.isEmpty()) {
+            result.put("bookmarkedIds", Collections.emptyList());
+            return AjaxResult.success(result);
+        }
+        // 去重 + 过滤空值，避免无效 SQL 参数与重复 id
+        List<Long> distinctIds = ids.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        result.put("bookmarkedIds", distinctIds.isEmpty()
+                ? Collections.emptyList()
+                : bookListBookmarkMapper.selectBookmarkedIds(userId, distinctIds));
         return AjaxResult.success(result);
     }
 
@@ -357,6 +421,28 @@ public class PortalReadingController extends BaseController {
         if (!Boolean.TRUE.equals(chapter.getIsPublished())) {
             return AjaxResult.error("章节未发布");
         }
+        // ── VIP 访问控制（内容付费墙）──
+        // 本接口是 @Anonymous 且此前**不做任何访问级别校验**：未登录/非会员都能拿到 VIP 章节全文，
+        // 而页面同时在展示"本章为 VIP 章节当前为预览模式，完整内容需开通 VIP"的横幅
+        // ⇒ 门禁与展示口径不一致，付费内容可被直接绕过（清单 #55/#56）。
+        //
+        // 口径：章节 is_free=false 即受限；is_free 未设置（null）时继承书籍 access_level=vip。
+        // 显式的 is_free=true 优先于书籍级设置（单章免费是有意为之）。
+        PortalBook chapterBook = portalBookMapper.selectById(chapter.getBookId());
+        boolean bookVip = chapterBook != null && "vip".equalsIgnoreCase(chapterBook.getAccessLevel());
+        boolean restricted = Boolean.FALSE.equals(chapter.getIsFree())
+                || (chapter.getIsFree() == null && bookVip);
+        if (restricted) {
+            Long readerId = PortalSecurityUtils.getUserId();
+            boolean vipReader = readerId != null && vipService.isVip(readerId, "portal");
+            if (!vipReader) {
+                applyVipPreview(chapter);
+            } else {
+                chapter.setPreview(false);
+            }
+        } else {
+            chapter.setPreview(false);
+        }
         // 浏览量 +1（异步容错）
         // 说明：书籍阅读数 incrementReadingCount 已在 getBookById 接口中计入，
         // 此处仅累加章节浏览量，避免 ChapterReaderPage 同时调用两个接口时书籍阅读数 +2
@@ -365,6 +451,33 @@ public class PortalReadingController extends BaseController {
         } catch (Exception ignored) {
         }
         return AjaxResult.success(chapter);
+    }
+
+    /** 试读字数上限（VIP 章节未开通时下发的正文字数） */
+    private static final int VIP_PREVIEW_CHARS = 500;
+
+    /**
+     * 把章节正文裁剪为**试读片段**并置 {@code preview=true}。
+     *
+     * <p>富文本走"先剥标签再截断"：直接截断 HTML 会把标签截成半截、破坏页面结构甚至造成 XSS 面。
+     * 试读文本再经 {@link com.moyun.util.html.EscapeUtil#escape} 转义后包一层 {@code <p>} 返回。</p>
+     */
+    private void applyVipPreview(PortalBookChapter chapter) {
+        String markdown = chapter.getContentMarkdown();
+        if (markdown != null && !markdown.isBlank()) {
+            String clipped = markdown.length() <= VIP_PREVIEW_CHARS
+                    ? markdown : markdown.substring(0, VIP_PREVIEW_CHARS);
+            chapter.setContentMarkdown(clipped
+                    + "\n\n> 试读结束，开通 VIP 后可阅读全文。");
+            chapter.setContent(null);
+        } else {
+            String html = chapter.getContent() == null ? "" : chapter.getContent();
+            String text = html.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+            String clipped = text.length() <= VIP_PREVIEW_CHARS ? text : text.substring(0, VIP_PREVIEW_CHARS);
+            chapter.setContent("<p>" + com.moyun.util.html.EscapeUtil.escape(clipped)
+                    + "…</p><p><em>试读结束，开通 VIP 后可阅读全文。</em></p>");
+        }
+        chapter.setPreview(true);
     }
 
     /**
@@ -496,7 +609,14 @@ public class PortalReadingController extends BaseController {
 
     /**
      * 排行榜
-     * @param type 排行类型：hot=热门(reading_count)/new=新书(create_time)/completed=完结(is_finished=1)/word_count=字数榜
+     *
+     * <p>清单 P2：原先只有 hot/new/completed/word_count 四型，导致前端两个区块"名不副实"——
+     * 「最近更新」只能用 new（=create_time，其实是**新书上架**），
+     * 「连载中」只能用 word_count（=字数榜，**未过滤连载状态**，已完结长书会混入）。
+     * 现补两型：updated=最后更新时间倒序、ongoing=连载中（serial_status=ongoing）。</p>
+     *
+     * @param type 排行类型：hot=热门(reading_count)/new=新书(create_time)/updated=最近更新(last_update_time)
+     *             /completed=完结(is_finished=1)/word_count=字数榜/ongoing=连载中(serial_status=ongoing)
      */
     @Operation(summary = "排行榜", description = "按类型返回书籍排行")
     @GetMapping("/ranking")
@@ -510,12 +630,18 @@ public class PortalReadingController extends BaseController {
         if ("completed".equals(type)) {
             query.setIsFinished(true);
         }
-        if ("novel".equals(type) || "word_count".equals(type)) {
+        if ("novel".equals(type) || "word_count".equals(type) || "ongoing".equals(type)) {
             query.setType("novel");
         }
-        // 设置排序方式：hot/默认→阅读数；new→创建时间；word_count→字数
+        // 清单 P2：连载中榜必须真的过滤连载状态，否则已完结长书会排进"连载中"
+        if ("ongoing".equals(type)) {
+            query.setSerialStatus("ongoing");
+        }
+        // 设置排序方式：hot/默认→阅读数；new→创建时间；update→最后更新时间；word_count→字数
         if ("new".equals(type)) {
             query.setOrderBy("new");
+        } else if ("update".equals(type) || "ongoing".equals(type)) {
+            query.setOrderBy("update");
         } else if ("word_count".equals(type)) {
             query.setOrderBy("word_count");
         } else {

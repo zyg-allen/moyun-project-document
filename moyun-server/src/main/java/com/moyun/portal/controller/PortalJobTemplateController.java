@@ -20,9 +20,7 @@ import java.util.Map;
 /**
  * 岗位模板 Controller（门户端，只读公开）
  *
- * <p><b>全 portal 岗位配置的唯一读取入口</b>（v13.37 起）。原
- * {@code PortalInterviewPositionController}（面试岗位字典）已删除——它与
- * {@code portal_job_template} 职责重复，且没有后台管理入口，导致"两套岗位数据、配置分散"。</p>
+ * <p><b>全 portal 岗位配置的唯一读取入口</b>。</p>
  *
  * <p>消费场景：语音面试准备页岗位下拉（选中后回填「岗位要求」JD / 难度 / 题量）、
  * 用户档案目标岗位选择、简历岗位匹配评分、画像抽题。</p>

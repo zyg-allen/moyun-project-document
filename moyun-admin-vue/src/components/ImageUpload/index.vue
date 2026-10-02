@@ -71,7 +71,7 @@ const props = defineProps({
     type: Boolean,
     default: true
   },
-  // v1.1.2 新增：上传地址（可由外部配置覆盖，默认走 /common/upload）
+  // 上传地址（可由外部配置覆盖，默认走 /common/upload）
   // 生产环境建议改为 /portal/file/upload（统一入口，享受 MinIO 自动降级）
   uploadUrl: {
     type: String,
@@ -86,7 +86,7 @@ const uploadList = ref([]);
 const dialogImageUrl = ref("");
 const dialogVisible = ref(false);
 const baseUrl = import.meta.env.VITE_APP_BASE_API;
-// v1.1.2 改为 computed，外部动态切换 uploadUrl 时也能响应
+// 用 computed，外部动态切换 uploadUrl 时也能响应
 const uploadImgUrl = computed(() => import.meta.env.VITE_APP_BASE_API + props.uploadUrl);
 const headers = ref({ Authorization: "Bearer " + getToken() });
 const fileList = ref([]);
@@ -158,7 +158,7 @@ function handleExceed() {
 }
 
 // 上传成功回调
-// v1.1.2 修复：兼容两种后端响应结构——
+// 兼容两种后端响应结构——
 //   /common/upload：{ code, msg, fileName, fileId, ...}（字段在根层）
 //   /portal/file/upload：{ code, msg, data: { id, fileName, fileUrl, ... } }（SysFile 在 data 字段下）
 function handleUploadSuccess(res, file) {

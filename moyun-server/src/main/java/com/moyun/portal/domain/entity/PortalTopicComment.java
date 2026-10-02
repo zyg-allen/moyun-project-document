@@ -72,6 +72,6 @@ public class PortalTopicComment extends BaseEntity {
     private LocalDateTime updateTime;
     @TableField(exist = false)
     private String remark;
-    // delFlag 不再覆盖：v13.13 起本表软删列已统一为 del_flag(char '0'/'2')，
+    // 不覆盖 delFlag：本表软删列为 del_flag(char '0'/'2')，
     // 直接继承 BaseEntity 的 delFlag + 全局 logic-delete-field 配置（由 MyBatis-Plus 自动过滤/置删）
 }

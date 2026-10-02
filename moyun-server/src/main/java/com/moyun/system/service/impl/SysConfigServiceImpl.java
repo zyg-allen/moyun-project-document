@@ -137,7 +137,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     public int insertConfig(SysConfig config) {
         int rows = baseMapper.insert(config);
         if (rows > 0 && StringUtils.isNotEmpty(config.getConfigKey())) {
-            // 修复：原实现未清缓存，导致新增配置后 selectConfigByKey 仍读不到最新值
+            // 写库成功后同步写入缓存，保证 selectConfigByKey 立即读到最新值
             redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey(), config.getConfigValue(), CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         }
         return rows;
@@ -156,7 +156,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         SysConfig before = config.getConfigId() == null ? null : baseMapper.selectById(config.getConfigId());
         int rows = baseMapper.updateById(config);
         if (rows > 0) {
-            // 修复：原实现只更新 DB 不清缓存，selectConfigByKey 仍返回旧值。
+            // 更新成功后同步刷新该 key 的缓存，避免 selectConfigByKey 返回旧值。
             // 此处针对单 key 删除（比 clearConfigCache 全清更精细，不影响其他配置缓存），
             // 下次读取时回源 DB 并回填新值。若 update 只改了部分字段未带 configKey，
             // 由调用方（Controller）保证触发 refreshCache。

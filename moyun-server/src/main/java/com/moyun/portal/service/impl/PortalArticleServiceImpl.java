@@ -17,7 +17,6 @@ import com.moyun.portal.domain.entity.PortalArticleVersion;
 import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.domain.entity.PortalLike;
-import com.moyun.portal.domain.entity.PortalTipOrder;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
@@ -25,7 +24,6 @@ import com.moyun.portal.mapper.PortalArticleVersionMapper;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.mapper.PortalCommentMapper;
 import com.moyun.portal.mapper.PortalLikeMapper;
-import com.moyun.portal.mapper.PortalTipOrderMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalArticleService;
@@ -84,8 +82,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Autowired
     private PortalArticleVersionMapper portalArticleVersionMapper;
 
-    @Autowired
-    private PortalTipOrderMapper portalTipOrderMapper;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
@@ -630,10 +626,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         // 删除关联版本
         portalArticleVersionMapper.delete(new LambdaQueryWrapper<PortalArticleVersion>()
                 .eq(PortalArticleVersion::getArticleId, articleId));
-        // 删除关联打赏订单（article 与 article_paid 两种 targetType）
-        portalTipOrderMapper.delete(new LambdaQueryWrapper<PortalTipOrder>()
-                .eq(PortalTipOrder::getTargetId, articleId)
-                .in(PortalTipOrder::getTargetType, "article", "article_paid"));
+        // 【合规改造 2026-10】打赏功能已下线，删除文章时不再需要清理打赏订单
     }
 
     /**

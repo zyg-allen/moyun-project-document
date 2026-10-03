@@ -21,7 +21,6 @@ import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
-import { getAccountOverview } from '@/api/pay';
 import type { UpdatePasswordParams, UpdateUserProfileParams } from '@/types/api';
 
 const router = useRouter();
@@ -122,20 +121,8 @@ onMounted(async () => {
     };
   }
 
-  // 注销区需展示"实时余额"：与后端注销门禁同口径（余额/冻结非 0 会被阻断）。
-  // 拉取失败不影响页面其它功能，仅不展示余额提示。
-  try {
-    const overview = await getAccountOverview();
-    if (overview.code === 200 && overview.data) {
-      accountBalance.value = Number(overview.data.balance ?? 0);
-    }
-  } catch {
-    accountBalance.value = null;
-  }
 });
 
-/** 注销区展示的实时可用余额（null=未知/未登录）；>0 时提示先提现 */
-const accountBalance = ref<number | null>(null);
 
 // 菜单项目
 const menuItems = [
@@ -674,12 +661,8 @@ async function confirmDelete() {
                         </ul>
                         <!-- 实时余额：后端注销门禁会在余额/冻结金额非 0 时阻断，
                              这里提前告知并给出提现入口，避免用户填完确认文案才被拒。 -->
-                        <p v-if="accountBalance !== null && accountBalance > 0" class="text-xs text-red-700 mt-3">
-                          当前可用余额 <span class="font-semibold">¥{{ accountBalance.toFixed(2) }}</span>，
-                          注销会被拒绝；请先
-                          <router-link to="/pay/wallet" class="underline hover:no-underline">前往钱包提现</router-link>
-                          并等待到账。
-                        </p>
+                        <!-- 合规改造（2026-10）：平台已下线「钱包余额 / 提现」， -->
+                             站内不再产生可提现余额；历史余额请通过客服工单处理。
                       </div>
 
                       <div v-if="!showDeleteConfirm">
@@ -691,7 +674,6 @@ async function confirmDelete() {
                         </button>
                       </div>
 
-                      <!-- 确认对话框 -->
                       <div v-else class="p-4 rounded-xl border" style="border-color: #fca5a5; background-color: white;">
                         <p class="text-sm font-medium mb-3" style="color: var(--theme-text);">
                           为防止误操作，请在下方输入框中输入 "注销账号" 以确认：

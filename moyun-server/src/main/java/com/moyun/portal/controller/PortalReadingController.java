@@ -92,8 +92,6 @@ public class PortalReadingController extends BaseController {
     private PortalBookMapper portalBookMapper;
 
     /** VIP 章节访问控制：以会员卡（vip_user_card）为准，而非登录态里的静态角色 */
-    @Autowired
-    private com.moyun.vip.service.IVipService vipService;
 
     /**
      * 获取读书空间首页数据
@@ -214,13 +212,8 @@ public class PortalReadingController extends BaseController {
         //   · preview —— 语义（"部分可见"取前几本）需产品定义，当前**放行但打标**，不臆造规则；
         //   · free/空 —— 正常返回。
         String accessLevel = bookList.getAccessLevel();
-        boolean vipRequired = "vip".equalsIgnoreCase(accessLevel);
-        boolean isVip = false;
-        if (vipRequired) {
-            Long viewerId = PortalSecurityUtils.getUserId();
-            isVip = viewerId != null && vipService.isVip(viewerId, "portal");
-        }
-        boolean locked = vipRequired && !isVip;
+        // 【合规改造 2026-10】全站免费化：会员书单门禁取消，所有书单均可查看
+        boolean locked = false;
 
         Map<String, Object> result = new HashMap<>();
         result.put("bookList", bookList);
@@ -430,19 +423,8 @@ public class PortalReadingController extends BaseController {
         // 显式的 is_free=true 优先于书籍级设置（单章免费是有意为之）。
         PortalBook chapterBook = portalBookMapper.selectById(chapter.getBookId());
         boolean bookVip = chapterBook != null && "vip".equalsIgnoreCase(chapterBook.getAccessLevel());
-        boolean restricted = Boolean.FALSE.equals(chapter.getIsFree())
-                || (chapter.getIsFree() == null && bookVip);
-        if (restricted) {
-            Long readerId = PortalSecurityUtils.getUserId();
-            boolean vipReader = readerId != null && vipService.isVip(readerId, "portal");
-            if (!vipReader) {
-                applyVipPreview(chapter);
-            } else {
-                chapter.setPreview(false);
-            }
-        } else {
-            chapter.setPreview(false);
-        }
+        // 【合规改造 2026-10】全站免费化：章节不再区分 VIP，正文全部可读
+        chapter.setPreview(false);
         // 浏览量 +1（异步容错）
         // 说明：书籍阅读数 incrementReadingCount 已在 getBookById 接口中计入，
         // 此处仅累加章节浏览量，避免 ChapterReaderPage 同时调用两个接口时书籍阅读数 +2

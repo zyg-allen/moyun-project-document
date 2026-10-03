@@ -12,7 +12,6 @@ import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.ext.cms.service.IWrongQuestionService;
 import com.moyun.ext.cms.service.VoiceAsrService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import com.moyun.vip.annotation.VipOnly;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -67,7 +66,6 @@ public class PortalVoiceInterviewController extends BaseController {
      * 用完返回 402 引导开通）
      */
     @Operation(summary = "开始语音面试", description = "创建会话并生成 agent 开场白首问（会员不限次，免费额度用完引导开通）")
-    @VipOnly(platform = "portal", benefit = "interview_unlimited", message = "免费面试次数已用完，语音面试为会员专属功能，请开通会员")
     @PostMapping("/start")
     @RateLimiter(key = "voice:start", time = 3600, count = 20)
     public AjaxResult start(@Valid @RequestBody VoiceStartConfig config) {

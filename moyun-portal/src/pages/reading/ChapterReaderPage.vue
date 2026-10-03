@@ -844,25 +844,6 @@ watch(
                 </h1>
               </div>
 
-              <!-- VIP 试读提示：以服务端 preview 为准（后端已把正文裁成试读片段）。
-                   此前判 chapter.isFree === false，而正文却是**全文** ⇒ 横幅与内容自相矛盾。 -->
-              <div
-                  v-if="chapter.preview === true"
-                  class="mb-4 p-3 rounded-lg flex flex-wrap items-center gap-2 text-sm"
-                  style="background-color: var(--theme-accent); color: var(--theme-primary);"
-              >
-                <span class="px-2 py-0.5 rounded text-xs font-bold" style="background-color: var(--theme-primary); color: white;">
-                  VIP
-                </span>
-                <span>本章为 VIP 章节，当前仅展示试读段落，开通会员后可阅读全文</span>
-                <router-link
-                  to="/membership"
-                  class="ml-auto shrink-0 px-3 py-1 rounded-lg text-xs font-medium text-white hover:opacity-90"
-                  style="background-color: var(--theme-primary);"
-                >
-                  开通 VIP
-                </router-link>
-              </div>
 
               <!-- 正文 -->
               <!-- 滚动模式：原整章 v-html 渲染，window 滚动，移动端支持左右滑动翻屏 -->

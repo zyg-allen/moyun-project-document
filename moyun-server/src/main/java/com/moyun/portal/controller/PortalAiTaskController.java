@@ -36,8 +36,6 @@ public class PortalAiTaskController extends BaseController {
     @Autowired
     private AiTaskService aiTaskService;
 
-    @Autowired
-    private com.moyun.vip.service.IVipService vipService;
 
     /**
      * **会员权益门禁登记表**：taskType → {platform, benefit, consume, 错误文案}。
@@ -76,18 +74,6 @@ public class PortalAiTaskController extends BaseController {
         }
         try {
             String taskType = params.get("taskType") == null ? null : String.valueOf(params.get("taskType")).trim();
-            // ── 会员权益门禁（与专用入口同口径）──
-            // 通用入口若不校验，deep_optimize 可绕过 @VipOnly 直接提交 ⇒ 付费能力被白嫖。
-            VipGate gate = taskType == null ? null : VIP_GATED_TASKS.get(taskType);
-            if (gate != null) {
-                boolean pass = gate.consume()
-                        ? vipService.consumeBenefit(userId, gate.platform(), gate.benefit())
-                        : vipService.hasBenefit(userId, gate.platform(), gate.benefit());
-                if (!pass) {
-                    // 与 @VipOnly 一致：402 语义（前端据此弹开通引导）
-                    return AjaxResult.error(402, gate.message());
-                }
-            }
             @SuppressWarnings("unchecked")
             Map<String, Object> bizRef = (Map<String, Object>) params.get("bizRef");
             Long taskId = aiTaskService.submitTask(userId, taskType, bizRef);

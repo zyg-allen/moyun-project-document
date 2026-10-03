@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import * as notificationApi from '@/api/notification';
 import * as messageApi from '@/api/message';
-import * as payApi from '@/api/pay';
 
 /**
  * 消息中心状态存储
@@ -54,10 +53,7 @@ export const useMessageStore = defineStore('message', () => {
   /** 加载支付通知未读数（从后端同步，游客静默忽略） */
   async function loadPayUnread() {
     try {
-      const resp = await payApi.getUnreadNotificationCount();
-      if (resp.code === 200) {
-        payUnreadCount.value = resp.data || 0;
-      }
+      payUnreadCount.value = 0;   // 支付通知已随收费功能下线，恒为 0
     } catch {
       /* 未登录或接口不可用时静默 */
     }

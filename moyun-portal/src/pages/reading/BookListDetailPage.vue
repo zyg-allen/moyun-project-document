@@ -347,25 +347,12 @@ watch(listId, (newId, oldId) => {
           </div>
 
           <!-- 空数据状态 -->
-          <!-- 清单 P2：会员书单对非会员不下发书籍列表，这里给开通引导而不是"空书单" -->
-        <div
-          v-if="accessLevelLocked"
-          class="text-center py-16 rounded-2xl"
-          style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border);"
-        >
-          <p class="text-base font-medium mb-1" style="color: var(--theme-text);">该书籍列表为会员专属</p>
-          <p class="text-sm mb-5" style="color: var(--theme-text-secondary);">开通会员后可查看本清单内的全部书籍</p>
-          <Link
-            to="/membership"
-            class="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-medium text-white"
-            style="background-color: var(--theme-primary);"
-          >前往开通会员</Link>
-        </div>
-        <div
-          v-else-if="accessLevel === 'preview'"
-          class="mb-4 px-4 py-2.5 rounded-xl text-xs"
-          style="background-color: var(--theme-accent); color: var(--theme-text-secondary);"
-        >该清单为「可预览」级别</div>
+          <!-- 空数据状态 -->
+          <div
+            v-if="accessLevel === 'preview'"
+            class="mb-4 px-4 py-2.5 rounded-xl text-xs"
+            style="background-color: var(--theme-accent); color: var(--theme-text-secondary);"
+          >该清单为「可预览」级别</div>
 
         <div v-if="books.length === 0 && !accessLevelLocked" class="text-center py-16">
             <BookOpen class="w-12 h-12 mx-auto mb-4" style="color: var(--theme-text-secondary); opacity: 0.5;" />

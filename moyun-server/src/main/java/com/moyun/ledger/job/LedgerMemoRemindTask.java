@@ -15,7 +15,7 @@ import java.time.Duration;
  *
  * <p>每 5 分钟扫描一次开启提醒且未完成、未发送的事项，
  * 按 remind_rule（准时/提前30分钟/1小时/2小时/1天/前一天9点）计算提醒时刻，
- * 到达即发送站内通知（pay 模块 INotificationService），reminded 标记防重。</p>
+ * 到达即触发提醒（原 pay 模块 INotificationService 已随收费功能下线），reminded 标记防重。</p>
  *
  * <p><b>并发保护</b>：{@code @Scheduled} 在每个 JVM 实例都会触发，
  * 而"扫描 → 判定到期 → 置 reminded → 发通知"之间存在读未提交窗口，

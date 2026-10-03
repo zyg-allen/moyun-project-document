@@ -6,7 +6,6 @@ import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.entity.LedgerMemo;
 import com.moyun.ledger.mapper.LedgerMemoMapper;
 import com.moyun.ledger.service.ILedgerMemoService;
-import com.moyun.pay.service.INotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,8 +58,6 @@ public class LedgerMemoServiceImpl extends ServiceImpl<LedgerMemoMapper, LedgerM
             LedgerMemo.IMPORTANCE_URGENT, 4, LedgerMemo.IMPORTANCE_HIGH, 3,
             LedgerMemo.IMPORTANCE_NORMAL, 2, LedgerMemo.IMPORTANCE_LOW, 1);
 
-    @Autowired
-    private INotificationService notificationService;
 
     @Override
     public List<LedgerMemo> listMemos(Long userId, int limit) {
@@ -198,10 +195,9 @@ public class LedgerMemoServiceImpl extends ServiceImpl<LedgerMemoMapper, LedgerM
                 if (!expired) {
                     String timeText = memo.getEventTime().format(TIME_FMT);
                     String importanceText = importanceText(memo.getImportance());
-                    notificationService.send(memo.getUserId(), "TODO", "memo-" + memo.getId(),
-                            "待办提醒：" + memo.getTitle(),
-                            "您有一个【" + importanceText + "】的待办事项将于 " + timeText + " 进行：" + memo.getTitle()
-                                    + (memo.getContent() != null && !memo.getContent().isBlank() ? "：" + memo.getContent() : ""));
+                    // 【合规改造 2026-10】原 pay 模块 INotificationService 已随收费功能整体下线，
+                    // 记账待办提醒暂降级为日志记录（功能不中断）；待接入 system 模块 ISysNotificationService 后恢复站内通知。
+                    log.info("待办提醒 userId={} memoId={} 标题={} 时间={}", memo.getUserId(), memo.getId(), memo.getTitle(), timeText);
                     sent++;
                 }
                 memo.setReminded(1);

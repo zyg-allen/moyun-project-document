@@ -8,7 +8,7 @@
 
 ## 项目简介
 
-**旭林知行**是一个以优质内容优先吸引流量、再驱动用户成长的平台——游客首页即可浏览丰富的文章信息流（精选/热门/分类/作者榜/读书与面试导流），登录后解锁学习、刷题、面试、阅读、写作整合的成长时间线，并通过付费阅读/VIP/打赏实现内容变现。
+**旭林知行**是一个以优质内容优先吸引流量、再驱动用户成长的平台——游客首页即可浏览丰富的文章信息流（精选/热门/分类/作者榜/读书与面试导流），登录后解锁学习、刷题、面试、阅读、写作整合的成长时间线，全站**免费开放**；平台不提供任何有偿信息服务（会员/订阅/付费阅读/打赏/提现/分账已于 2026-10 整体下线，见 devlog v14.68~v14.70）。
 
 **品牌口号**：知行合一，助你上岸。
 
@@ -27,7 +27,7 @@
 
 | 模块 | 定位 | 说明 |
 |------|------|------|
-| 文章系统 | **核心（引流）** | 原创/转载/专栏/付费阅读/版本管理，首页信息流主体 |
+| 文章系统 | **核心（引流）** | 原创/转载/专栏/版本管理，首页信息流主体 |
 | 面试指南 | **核心** | 题库 + OJ判题 + 面经复盘 + AI模拟面试 |
 | 简历模块 | **核心** | 上传解析 + 岗位匹配 + 深度优化（异步任务/采纳 diff 回放）+ AI 建议 |
 | 学习工具 | **核心** | 刷题日历 + 知识图谱 + 排行榜 + 错题本 |
@@ -36,7 +36,7 @@
 | 读书空间 | **内容** | 书籍/书单/金句/书架（版权待处理） |
 | 个人记账 | **核心（App）** | moyun-ledger-app：记一笔/资产负债/报表/预算/备忘录 + AI 财务分析 |
 | AI 模块 | **赋能** | 统一网关（场景配置/限流/熔断/注入防护/执行日志）+ 知识库RAG + 图表分析 + 工作流 + Agent |
-| 商业化 | **变现** | 公共支付通道（微信/mock）+ 单钱包公账体系 + 打赏流水 + VIP（面试/简历/记账）+ 提现闭环 |
+| 商业化 | **已下线（合规）** | 会员/订阅/支付/打赏/提现/分账**已整体移除**（个体工商户主体无法取得增值电信业务经营许可证，依《互联网信息服务管理办法》第 11 条非经营性不得从事有偿服务）；变现改由**人工服务**与 **B 端技术服务**承担 |
 
 ### 已移除模块（保持删除，勿回引）
 
@@ -164,7 +164,6 @@ mysql -u root -p moyun-db < init-sql/moyun-menu-redo.sql
 # 4. 存量库增量补丁（仅在**已有库**升级时使用，按文件名日期顺序执行，幂等）
 mysql -u root -p moyun-db < increment-sql/20260925-01-portal_user唯一索引升级与存量清洗.sql
 mysql -u root -p moyun-db < increment-sql/20260925-02-portal_user画像扩展字段-AI财务分析.sql
-mysql -u root -p moyun-db < increment-sql/20260927-01-vip_user_card唯一键与发卡原子化.sql
 mysql -u root -p moyun-db < increment-sql/20260927-02-ai_execute_log-token估算标记.sql
 mysql -u root -p moyun-db < increment-sql/20260927-03-数据库规范统一（金额精度+collation）.sql
 mysql -u root -p moyun-db < increment-sql/20260927-04-话题模块软删列统一.sql
@@ -179,7 +178,6 @@ mysql -u root -p moyun-db < increment-sql/20260928-07-系统监控菜单归并�
 mysql -u root -p moyun-db < increment-sql/20260928-08-补建漏建表sys_config_log.sql
 mysql -u root -p moyun-db < increment-sql/20260928-09-清理死表（无实体或无引用）.sql
 mysql -u root -p moyun-db < increment-sql/20260928-10-记账幂等唯一键对齐（uk_user_client与uk_task_date）.sql
-mysql -u root -p moyun-db < increment-sql/20260928-11-支付金额列类型对齐（bigint转decimal）.sql
 mysql -u root -p moyun-db < increment-sql/20260928-12-岗位配置统一（并portal_interview_position入portal_job_template）.sql
 mysql -u root -p moyun-db < increment-sql/20260928-13-岗位模板数据补齐（Java三档合并与迁入行补JD）.sql
 mysql -u root -p moyun-db < increment-sql/20260928-14-portal_ai_task增列payload.sql
@@ -291,7 +289,7 @@ moyun-project-document/
 ├── moyun-server/               # 后端 Spring Boot 服务
 │   ├── src/main/java/com/moyun/
 │   │   ├── portal/             # 门户前台（Controller/Service/Mapper/Judge）
-│   │   ├── ext/cms/            # 后台内容管理（文章/面试/简历/支付/记账…）
+│   │   ├── ext/cms/            # 后台内容管理（文章/面试/简历/记账…）
 │   │   ├── ext/ai/             # AI 模块（知识库/工作流/Agent/场景解析/全局开关）
 │   │   ├── ext/aigateway/            # AI 统一网关（场景配置/限流/熔断/执行日志/Handler）
 │   │   ├── system/             # 系统基础

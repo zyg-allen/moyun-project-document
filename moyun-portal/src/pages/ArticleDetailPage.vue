@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import {computed, onMounted, onBeforeUnmount, ref, watch} from 'vue';
-import {RouterLink as Link, useRoute, useRouter} from 'vue-router';
+import {RouterLink as Link, useRoute} from 'vue-router';
 import {useHead} from '@vueuse/head';
-import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2, UserPlus, UserCheck, FileText, ThumbsUp, Users} from 'lucide-vue-next';
+import {Bookmark, Clock, Heart, Lock, MessageSquare, Reply, Send, Share2, UserPlus, UserCheck, FileText, ThumbsUp, Users} from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import BackToTop from '@/components/BackToTop.vue';
 import TagList from '@/components/TagList.vue';
-import TipModal from '@/components/TipModal.vue';
 import RelatedArticleCard from '@/components/RelatedArticleCard.vue';
 import AdCard from '@/components/AdCard.vue';
 import {useArticleStore} from '@/stores/article';
@@ -25,13 +24,11 @@ import * as followApi from '@/api/follow';
 import type {Article, Comment, User, UserStatsVO} from '@/types/api';
 import * as articleApi from '@/api/article';
 import * as commentApi from '@/api/comment';
-import {purchaseArticle} from '@/api/tip';
 
 const route = useRoute();
-const router = useRouter();
 const articleStore = useArticleStore();
 const userStore = useUserStore();
-const {requireAuth, withAuthConfirm} = useAuth();
+const { withAuthConfirm } = useAuth();  // 【合规改造】打赏/付费阅读下线后 requireAuth 已无引用
 const toast = useToast();
 const article = ref<Article | null>(null);
 const comments = ref<Comment[]>([]);
@@ -735,9 +732,7 @@ function getCommentLikeButtonStyle(isLiked: boolean) {
   return {color: 'var(--theme-text-secondary)'};
 }
 
-// ============ 打赏 & 付费阅读 ============
-const showTipModal = ref(false);
-const purchasing = ref(false);
+// 【合规改造】打赏与付费阅读已全部下线（平台不提供有偿信息服务），相关分支见 devlog v14.68/v14.69
 
 // 是否为当前文章作者（作者本人访问自己的文章）
 const isArticleOwner = computed(() => {
@@ -753,46 +748,9 @@ const needPurchase = computed(() =>
   isPaidArticle.value && !article.value?.isPurchased && !isArticleOwner.value
 );
 
-// 打赏快捷金额
-function openTipModal() {
-  if (!requireAuth(router.currentRoute.value.fullPath)) return;
-  showTipModal.value = true;
-}
 
-function onTipSuccess() {
-  toast.success('鼓励成功，感谢支持创作者！');
-  showTipModal.value = false;
-}
 
-function onTipError(message: string) {
-  toast.error(message || '鼓励失败');
-}
 
-async function handlePurchase() {
-  if (!article.value) return;
-  // 未开通付费通道：直接给出明确提示，不发无意义的请求、也不弹确认框
-  if (article.value.paidPurchaseEnabled === false) {
-    toast.info('付费阅读功能即将开放，敬请期待');
-    return;
-  }
-  await withAuthConfirm(async () => {
-    purchasing.value = true;
-    try {
-      const res = await purchaseArticle(article.value!.id);
-      if (res.code === 200) {
-        toast.success('购买成功，已解锁全文');
-        await loadArticle();
-      } else {
-        toast.error(res.message || '购买失败');
-      }
-    } catch (err) {
-      const e = err as {message?: string};
-      toast.error(e?.message || '购买失败，请稍后重试');
-    } finally {
-      purchasing.value = false;
-    }
-  }, '购买付费阅读');
-}
 
 useHead(
     computed(() => {
@@ -999,27 +957,6 @@ useHead(
                     支付 <span class="font-bold text-theme-primary">¥{{ Number(article.price || 0).toFixed(2) }}</span> 解锁全文
                     <span v-if="article.previewLength">（当前为试读部分）</span>
                   </p>
-                  <!-- 未开通付费通道时置灰并说明（配置驱动，接入后改配置即恢复可点） -->
-                  <p
-                    v-if="article.paidPurchaseEnabled === false"
-                    class="text-xs mb-2"
-                    style="color: var(--theme-text-secondary);"
-                  >
-                    付费阅读功能即将开放，敬请期待
-                  </p>
-                  <button
-                    @click="handlePurchase"
-                    :disabled="purchasing || article.paidPurchaseEnabled === false"
-                    :title="article.paidPurchaseEnabled === false ? '付费阅读功能即将开放' : '解锁全文'"
-                    class="theme-btn theme-btn-primary px-6 py-2.5 rounded-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Lock v-if="!purchasing" class="w-4 h-4" aria-hidden="true" />
-                    <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    {{ purchasing ? '处理中...' : '付费解锁全文' }}
-                  </button>
                 </div>
               </div>
 
@@ -1053,15 +990,6 @@ useHead(
                   >
                     <Bookmark class="w-5 h-5 transition-transform" :class="{ 'fill-current': isBookmarked }" aria-hidden="true"/>
                     <span>收藏</span>
-                  </button>
-                  <button
-                    v-if="!isArticleOwner"
-                    @click="openTipModal"
-                    class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none text-sm font-medium bg-theme-surface text-theme-text-secondary"
-                    :aria-label="'打赏作者'"
-                  >
-                    <Gift class="w-5 h-5 transition-transform" aria-hidden="true"/>
-                    <span>打赏</span>
                   </button>
                   <button
                     @click="handleShare"
@@ -1516,18 +1444,7 @@ useHead(
     </div>
 
     <!-- 打赏弹窗（积分打赏 MVP） -->
-    <TipModal
-      :show="showTipModal"
-      target-type="article"
-      :target-id="article?.id || ''"
-      :author-avatar="articleAuthor?.avatar"
-      :author-name="articleAuthor?.nickname || articleAuthor?.username"
-      :target-title="article?.title"
-      @close="showTipModal = false"
-      @success="onTipSuccess"
-      @error="onTipError"
-    />
-
+    
     <!-- 公共Footer组件 -->
     <SiteFooter />
 

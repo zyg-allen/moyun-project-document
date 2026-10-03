@@ -156,44 +156,7 @@ moyun:
   # 支付网关配置（V11.0 公共支付通道）：
   # - enabled=false 拒绝下单；mock-enabled=true 走模拟器（验签/回调/分账链路全真演练）
   # - platform-fee-rate 为兜底费率，运行时可用 sys_config(pay.platform.fee-rate) 覆盖
-  pay:
-    enabled: true
-    order-expire-minutes: 30  # 订单有效期（分钟），过期未支付自动关单
-    platform-fee-rate: 0.10  # 平台抽成兜底费率（0.10 = 10%）
-    # 代付通道（提现出金，与上方 wechat 收款方向对称）：
-    # mock-enabled=true → 装配 MockPayoutChannel（日志显式标注"资金未实际划出"，仅联调）。
-    # 这样"申请→审核通过→出金→已打款"整条提现链路可在 dev 端到端跑通；
-    # 生产由 PayProperties.init() 强制 mock-enabled=false → mock 渠道不装配，
-    # 未接入真实代付通道时审核通过会**明确拒绝出金**（不假打款）。
-    # 接入真实通道：新增 PayoutChannel 实现，在 mock-enabled=false 时装配即可，业务代码零改动。
-    payout:
-      mock-enabled: true
-    security:
-      # 银行卡卡号/手机号 AES-GCM 加密口令。
-      # ⚠ 消费点：PayProperties.Security → BankCardServiceImpl:125,127,190 → AesGcmUtils.encrypt/decrypt
-      #   AesGcmUtils 已改为口令为空即抛异常（不再回落公开常量密钥）。
-      #   ConfigWiringValidator 在 prod 会拒绝空值/开发默认口令；非 prod 允许本默认值。
-      #   生产注入：MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY（勿用 . 分隔的环境变量名写法）
-      bank-card-encrypt-key: ${MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY:moyun-dev-pay-bank-card-key-2026}
-      bank-card-max-count: 5  # 每用户最多绑定银行卡数
-      bank-card-sms-verify: true  # 绑定银行卡强制短信验证码（V11.1 企业级默认开启）
-    wechat:
-      # ⚠ 开发环境必须为 true：下方商户参数全是 todo 占位，属"未配置"。
-      #   自 2026-09-27 起 WechatPayChannel 的 prepay/query/close/verifyNotify 四处统一
-      #   **fail-closed**（mock 关闭且商户参数缺失即拒绝执行，不再静默降级为 mock）。
-      #   若此处改为 false，本地下单会直接报"商户参数未配置"——本地联调请保持 true。
-      mock-enabled: true  # true=模拟支付（本地联调）；生产由 PayProperties.init() 强制 false
-      # mock 回调验签密钥（HMAC-SHA256）：请求头 X-Mock-Signature = hex(HMAC-SHA256(该密钥, 原始body))
-      # 留空则 mock 回调一律拒绝（fail-closed）。此默认值仅用于本地联调；
-      # 生产 mock 恒为 false，且该值已被 ConfigWiringValidator 列为开发占位凭据。
-      mock-signature-secret: ${PAY_MOCK_SIGNATURE_SECRET:moyun-dev-mock-pay-secret}
-      # 微信支付商户参数（真实接入时替换，TODO 保留配置位）
-      app-id: todo-wx-appid
-      mch-id: todo-mch-id
-      merchant-serial: todo-merchant-serial  # 商户 API 证书序列号
-      private-key-path: todo/private/key/path  # 商户 API 私钥文件路径（apiclient_key.pem）
-      api-v3-key: todo-apiv3-key
-      notify-url: https://todo-domain/api/pay/callback/wechat  # 支付回调地址（公网可达，免登录 + 验签）
+  # 【合规改造 2026-10】moyun.pay.* 支付配置已随收费功能整体下线
   # 短信验证码配置（V11.1）：
   # - mock-enabled=true 验证码写入服务日志，频控/存储/校验/防枚举全流程与真实通道一致
   # - 生产接入：环境变量注入 MOYUN_SMS_ALIYUN_ACCESSKEYID / ACCESSKEYSECRET，补全 AliyunSmsSender TODO

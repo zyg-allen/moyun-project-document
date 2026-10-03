@@ -127,10 +127,7 @@ moyun:
   # （MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY / MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY）。
   security:
     cert-no-encrypt-key: ${MOYUN_SECURITY_CERT_NO_ENCRYPT_KEY:moyun-dev-cert-key-2026}
-  pay:
-    security:
-      bank-card-encrypt-key: ${MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY:moyun-dev-pay-bank-card-key-2026}
-
+  # 【合规改造 2026-10】moyun.pay.* 支付配置已随收费功能整体下线
 # =============================================
 # MyBatis-Plus 配置
 # =============================================

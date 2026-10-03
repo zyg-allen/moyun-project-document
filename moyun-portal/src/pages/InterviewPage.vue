@@ -13,7 +13,6 @@ import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getInterviewHome } from '@/api/interview';
-import { getVipStatus, benefitLeft } from '@/api/vip';
 import { useToast } from '@/composables/useToast';
 import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import { useAuth } from '@/composables/useAuth';
@@ -38,7 +37,6 @@ const totalSubmissionCount = ref<number>(0);
 onMounted(() => {
   loadInterviewHome();
   // 徽标需要会员状态（免费剩余次数），与主页数据并行加载、互不阻塞
-  loadVipStatus();
 });
 
 async function loadInterviewHome() {
@@ -135,34 +133,9 @@ function goMyAttempts() {
 // 「立即开始面试」原先挂死一个 FREE 徽标，但语音面试后端是
 // @VipOnly(benefit = "interview_unlimited")：free 档仅有限次数，用完返回 402 引导开通。
 // 「FREE」会让人以为不限次。改为查 /portal/vip/status（额度来自 vip_tier_benefit 表，非前端写死）。
-const vipStatus = ref<{ isVip?: boolean } | null>(null);
-const freeInterviewLeft = computed(() => {
-  const left = benefitLeft(vipStatus.value as never, 'interview_unlimited');
-  return left;
-});
-/** 徽标文案：会员→「会员不限次」；免费有额度→「免费剩余 N 次」；用完→「需开通会员」 */
-const interviewBadge = computed(() => {
-  if (vipStatus.value?.isVip) return '会员不限次';
-  const left = freeInterviewLeft.value;
-  if (left == null) return '';        // 状态未知：不显示徽标（宁可不显示也不误导）
-  return left > 0 ? `免费剩余 ${left} 次` : '需开通会员';
-});
-
-async function loadVipStatus() {
-  try {
-    const res = await getVipStatus();
-    if (res.code === 200 && res.data) {
-      vipStatus.value = res.data;
-    }
-  } catch {
-    // 会员状态获取失败：徽标置空，不影响页面其它内容
-    vipStatus.value = null;
-  }
-}
-
+const interviewBadge = computed(() => '免费不限次');  // 【合规改造】全站免费化：不再有会员徽标与开通入口
 function goVip() {
-  if (!requireAuth('/membership')) return;
-  router.push('/membership');
+  router.push('/interview/voice');
 }
 
 function formatNumber(n: number) {

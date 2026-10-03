@@ -66,8 +66,6 @@ public class PortalUserController extends BaseController {
     private IUserDashboardService userDashboardService;
 
     /** 注销前的资金校验需要读用户资金账户（pay 模块） */
-    @Autowired
-    private com.moyun.pay.service.IUserAccountService userAccountService;
 
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -305,21 +303,7 @@ public class PortalUserController extends BaseController {
         if (!"注销账号".equals(confirmText)) {
             return error("请输入\"注销账号\"以确认");
         }
-        // ── 资金校验（fail-closed）──
-        // 原先只做软删：账户里还有余额/在途提现时，用户一点就把钱"注销没了"——
-        // 既无提示也无申诉入口，属资损风险。非 0 一律阻断并给出可操作指引。
-        // 注：getOrCreate 对从未有过资金往来的用户会建一条 0 余额账户，属正常"开户"语义。
-        com.moyun.pay.domain.entity.UserAccount account = userAccountService.getOrCreate(currentUser.getId());
-        java.math.BigDecimal balance = account == null || account.getBalance() == null
-                ? java.math.BigDecimal.ZERO : account.getBalance();
-        java.math.BigDecimal frozen = account == null || account.getFrozenAmount() == null
-                ? java.math.BigDecimal.ZERO : account.getFrozenAmount();
-        if (balance.compareTo(java.math.BigDecimal.ZERO) > 0
-                || frozen.compareTo(java.math.BigDecimal.ZERO) > 0) {
-            return error(String.format(
-                    "账户资金未结清，暂不能注销：可用余额 ¥%s、冻结中（提现处理中）¥%s（单位：元）。请先在「钱包」提现并等待到账后重试。",
-                    balance.toPlainString(), frozen.toPlainString()));
-        }
+        // 【合规改造 2026-10】资金账户/提现已随收费功能下线，注销不再做资金校验
         // 软删除：设置 del_flag=2, status=1（停用）
         // 注意：MyBatis-Plus @TableLogic 不影响自定义 XML 的 updatePortalUser
         PortalUser update = new PortalUser();

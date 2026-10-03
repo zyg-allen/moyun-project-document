@@ -18,7 +18,6 @@ import com.moyun.portal.domain.entity.PortalResumeScoreReport;
 import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
 import com.moyun.portal.mapper.PortalResumeScoreReportMapper;
 import com.moyun.portal.util.PortalSecurityUtils;
-import com.moyun.vip.annotation.VipOnly;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -196,7 +195,6 @@ public class PortalResumeOptimizeController extends BaseController {
     // ==================== 深度优化 ====================
 
     @Operation(summary = "生成深度优化建议（同步，兼容旧版）", description = "LLM 基于JD逐项生成优化建议（需 AI 模型）。注意：长耗时场景建议改用 /deep/{resumeId}/{jobTargetId}/async 异步接口")
-    @VipOnly(platform = "portal", benefit = "resume_optimize", message = "简历深度优化次数已用完，请开通会员")
     @PostMapping("/deep/{resumeId}/{jobTargetId}")
     public AjaxResult deepOptimize(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
@@ -219,7 +217,6 @@ public class PortalResumeOptimizeController extends BaseController {
             description = "立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 GET /deep/task/{taskId} 轮询任务状态，"
                     + "status=success 时 result 字段为优化结果（ResumeDeepOptimizeVO）。"
                     + "解决大模型调用超时问题，支持关闭页面后回来查看。")
-    @VipOnly(platform = "portal", benefit = "resume_optimize", message = "简历深度优化次数已用完，请开通会员")
     @PostMapping("/deep/{resumeId}/{jobTargetId}/async")
     public AjaxResult deepOptimizeAsync(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();

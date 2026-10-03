@@ -39,12 +39,10 @@ import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTagService;
-import com.moyun.portal.service.IPortalTipService;
 import com.moyun.portal.util.ArticleConvertUtil;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 
-import com.moyun.portal.domain.entity.PortalTipOrder;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.system.service.ISysNotificationService;
@@ -91,8 +89,6 @@ public class PortalArticleController extends BaseController {
     @Autowired
     private IPortalTagService portalTagService;
 
-    @Autowired
-    private IPortalTipService portalTipService;
 
     @Autowired
     private ISysNotificationService notificationService;
@@ -101,8 +97,6 @@ public class PortalArticleController extends BaseController {
     private ISensitiveWordService sensitiveWordService;
 
     /** 付费阅读开关（moyun.pay.article-paid-enabled） */
-    @Autowired
-    private com.moyun.pay.config.PayProperties payProperties;
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
@@ -167,31 +161,11 @@ public class PortalArticleController extends BaseController {
             vo.setIsBookmarked(portalBookmarkMapper.selectOne(bookmarkWrapper) != null);
         }
 
-        // 付费阅读是否已开通（配置驱动，供前端决定按钮可点/置灰，避免"点了才知道不可用"）
-        vo.setPaidPurchaseEnabled(payProperties.isArticlePaidEnabled());
-        // 付费阅读：未购买用户只返回 preview_length 字数的试读部分，并隐藏付费内容
-        if (vo.getIsPaid() != null && vo.getIsPaid() == 1) {
-            boolean canReadFull = false;
-            // 作者本人可阅读全文
-            if (currentUserId != null && article != null && currentUserId.equals(article.getAuthorId())) {
-                canReadFull = true;
-            }
-            // 已购买可阅读全文
-            if (!canReadFull && currentUserId != null
-                    && portalTipService.hasPaid(currentUserId, "article_paid", id)) {
-                canReadFull = true;
-            }
-            vo.setIsPurchased(canReadFull);
-            if (!canReadFull) {
-                // 试读截断：仅保留 preview_length 字数
-                int previewLength = vo.getPreviewLength() == null ? 0 : vo.getPreviewLength();
-                if (previewLength > 0 && vo.getContent() != null && vo.getContent().length() > previewLength) {
-                    vo.setContent(vo.getContent().substring(0, previewLength));
-                }
-                // 隐藏付费内容
-                vo.setPaidContent(null);
-            }
-        }
+        // 【合规改造（2026-10）】全站免费化：付费阅读下线，**所有文章全文免费下发**。
+        // 原逻辑对 is_paid=1 的文章做试读截断 + 隐藏 paid_content，而未购买用户又无购买入口
+        // （付费开关默认关闭）⇒ 内容被永久锁死。现统一按"可读全文"处理，不再截断。
+        vo.setPaidPurchaseEnabled(false);
+        vo.setIsPurchased(true);
         return success(vo);
     }
 
@@ -199,44 +173,14 @@ public class PortalArticleController extends BaseController {
      * 购买付费阅读（需登录）
      * 复用打赏订单表 portal_tip_order，target_type='article_paid'，amount=文章价格
      */
-    @Operation(summary = "购买付费阅读", description = "购买付费文章阅读权限，复用打赏订单表")
+    @Operation(summary = "购买付费阅读（已下线）", description = "全站免费化：付费阅读已下线，所有文章免费阅读")
     @PostMapping("/{id:[0-9]+}/purchase")
-    @Transactional(rollbackFor = Exception.class)
     public AjaxResult purchase(@Parameter(description = "文章ID") @PathVariable Long id) {
-        Long userId = PortalSecurityUtils.getUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
-        }
-
-        PortalArticle article = portalArticleService.selectPortalArticleById(id);
-        if (article == null) {
-            return error("文章不存在");
-        }
-        if (article.getIsPaid() == null || article.getIsPaid() != 1) {
-            return error("该文章非付费文章");
-        }
-        if (article.getAuthorId() != null && article.getAuthorId().equals(userId)) {
-            return error("作者无需购买自己的文章");
-        }
-        if (portalTipService.hasPaid(userId, "article_paid", id)) {
-            return error("您已购买该文章，无需重复购买");
-        }
-        if (article.getPrice() == null || article.getPrice().doubleValue() <= 0) {
-            return error("付费文章价格异常");
-        }
-
-        PortalTipOrder order = new PortalTipOrder();
-        order.setTargetType("article_paid");
-        order.setTargetId(id);
-        order.setAmount(article.getPrice());
-        PortalTipOrder created = portalTipService.toggleTipOrList(order);
-
-        Map<String, Object> data = new HashMap<>();
-        data.put("id", created.getId());
-        data.put("status", created.getStatus());
-        data.put("message", "购买成功");
-        return success(data);
+        // 【合规改造（2026-10）】平台不提供有偿信息服务 → 付费阅读整体下线。
+        // 直接返回明确提示，不创建任何订单，避免"能下单却无法支付"的悬挂状态。
+        return AjaxResult.error("付费阅读已下线，本站内容全部免费开放");
     }
+
 
     /**
      * 我购买的文章（需登录）

@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
  *
  * <p>增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
  * 提醒由 LedgerMemoRemindTask 定时扫描 event_time - 提前量 到达的事项，
- * 经 INotificationService 发送站内通知，reminded 防重。
+ * 经站内通知发送提醒（原 pay 模块 INotificationService 已下线，见 devlog v14.70），reminded 防重。
  *
  * @author moyun
  */

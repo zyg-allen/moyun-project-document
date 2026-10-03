@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
-import { Search, LogOut, Menu, X, Palette, Sun, Moon, Eye, ChevronDown, ChevronRight, Settings, UserCircle, BookMarked, HelpCircle, Lock, Bell, Flag, MessageSquare, FileText, Wallet } from 'lucide-vue-next';
+import { Search, LogOut, Menu, X, Palette, Sun, Moon, Eye, ChevronDown, ChevronRight, Settings, UserCircle, BookMarked, HelpCircle, Lock, Bell, Flag, MessageSquare, FileText } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
 import { useMessageStore } from '@/stores/message';
@@ -265,14 +265,6 @@ function handleGoToSettings() {
     return;
   }
   router.push('/user/settings');
-}
-
-function handleGoToWallet() {
-  closeUserMenu();
-  if (!requireAuth('/pay/wallet')) {
-    return;
-  }
-  router.push('/pay/wallet');
 }
 
 function handleGoToBookshelf() {
@@ -621,14 +613,6 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   >
                     <BookMarked class="w-4 h-4 text-theme-text-secondary" />
                     <span>我的书架</span>
-                  </button>
-
-                  <button
-                      @click="handleGoToWallet"
-                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
-                  >
-                    <Wallet class="w-4 h-4 text-theme-text-secondary" />
-                    <span>我的钱包</span>
                   </button>
 
                   <button

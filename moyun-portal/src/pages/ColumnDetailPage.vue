@@ -7,13 +7,11 @@ import {
   BookOpen, Users, Eye, FileText, Heart, Clock,
   Plus, Trash2, ArrowUp, ArrowDown, Save, CheckCircle2,
   Bell, BellOff, Pencil, Loader2, ChevronRight,
-  Gift,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
-import TipModal from '@/components/TipModal.vue';
 import MyArticlePicker from '@/components/MyArticlePicker.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
@@ -310,22 +308,9 @@ const existingArticleIds = computed(() => {
 });
 
 // ============ 打赏 ============
-const showTipModal = ref(false);
 
-function openTipModal() {
-  if (!requireAuth(router.currentRoute.value.fullPath)) return;
-  if (!column.value) return;
-  showTipModal.value = true;
-}
 
-function onTipSuccess() {
-  toast.success('鼓励成功，感谢支持创作者！');
-  showTipModal.value = false;
-}
 
-function onTipError(message: string) {
-  toast.error(message || '鼓励失败');
-}
 
 function formatNumber(n?: number) {
   const v = n || 0;
@@ -441,15 +426,6 @@ function formatNumber(n?: number) {
                 >
                   <component :is="isSubscribed ? BellOff : Bell" class="w-4 h-4 mr-1.5" />
                   {{ isSubscribed ? '已订阅' : '+ 订阅' }}
-                </button>
-                <button
-                  v-if="!isOwner"
-                  @click="openTipModal"
-                  class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
-                  style="background-color: rgba(255,255,255,0.2); color: #fff;"
-                >
-                  <Gift class="w-4 h-4 mr-1.5" />
-                  打赏
                 </button>
                 <button
                   v-if="isOwner"
@@ -684,18 +660,7 @@ function formatNumber(n?: number) {
     </template>
 
     <!-- 打赏弹窗（积分打赏 MVP） -->
-    <TipModal
-      :show="showTipModal"
-      target-type="column"
-      :target-id="column?.id || ''"
-      :author-avatar="column?.authorAvatar"
-      :author-name="column?.authorName"
-      :target-title="column?.title"
-      @close="showTipModal = false"
-      @success="onTipSuccess"
-      @error="onTipError"
-    />
-
+    
     <SiteFooter />
   </div>
 </template>

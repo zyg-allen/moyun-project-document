@@ -268,57 +268,9 @@ export interface Article {
 }
 
 // 打赏目标类型：article=文章打赏，column=专栏打赏，article_paid=付费阅读购买
-export type TipTargetType = 'article' | 'column' | 'article_paid';
 
-/**
- * 打赏/付费阅读购买订单
- * 复用 portal_tip_order 表，target_type='article_paid' 表示付费阅读购买记录
- */
-export interface PortalTipOrder {
-  id?: number | string;
-  /** 打赏者ID */
-  userId?: number | string;
-  /** 被打赏者（作者）ID */
-  authorId?: number | string;
-  /** 目标类型：article/column/article_paid */
-  targetType?: TipTargetType;
-  /** 目标ID（文章ID/专栏ID） */
-  targetId?: number | string;
-  /** 金额（元） */
-  amount?: number;
-  /** 留言（打赏时附带） */
-  message?: string;
-  /** 订单状态：pending/paid */
-  status?: string;
-  /** 支付方式（简化版固定 wallet） */
-  payMethod?: string;
-  /** 支付时间 */
-  paidTime?: string;
-  /** 创建时间 */
-  createdTime?: string;
-  /** 打赏者昵称（JOIN 填充） */
-  userNickname?: string;
-  /** 打赏者头像（JOIN 填充） */
-  userAvatar?: string;
-  /** 作者昵称（JOIN 填充） */
-  authorNickname?: string;
-  /** 作者头像（JOIN 填充） */
-  authorAvatar?: string;
-}
 
-/** 发起打赏请求体 */
-export interface TipTargetBody {
-  /** 金额（元） */
-  amount: number;
-  /** 留言 */
-  message?: string;
-}
 
-/** 打赏列表分页查询参数 */
-export interface TipQuery {
-  pageNum?: number;
-  pageSize?: number;
-}
 
 export interface ArticleListParams {
   page?: number;
@@ -711,22 +663,7 @@ export interface CreateOrderParams {
 }
 
 // VIP相关类型
-export interface VipPackage {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  duration: number; // 天数
-  description?: string;
-  features?: string[];
-  popular?: boolean;
-  sort?: number;
-  status: 'active' | 'inactive';
-}
 
-export interface VipPackageListParams {
-  status?: string;
-}
 
 // 充值金额选项
 export interface RechargeOption {
@@ -2359,154 +2296,13 @@ export interface TopicComment {
 
 // ==================== 支付中心类型 ====================
 
-/** 微信打赏下单返回（收银台参数） */
-export interface PayCashierResult {
-  /** 支付单号 */
-  payNo: string;
-  /** 微信 native 支付二维码链接 */
-  codeUrl: string;
-  /** 金额（元） */
-  amount: number;
-  /** 订单过期时间 */
-  expireTime?: string;
-  /** 打赏单ID */
-  tipOrderId?: number | string;
-  /** mock 模拟支付开关 */
-  mockEnabled?: boolean;
-}
 
-/** 支付状态轮询结果 */
-export interface PayStatusResult {
-  /** 商品名称（清单 P2：下单时写入，收银台展示"买的是什么"） */
-  subject?: string;
-  /** 业务类型 */
-  bizType?: string;
-  payNo: string;
-  /** CREATED/PAID/SETTLED/CLOSED */
-  status: string;
-  /** 金额（元） */
-  amount: number;
-  expireTime?: string;
-  codeUrl?: string;
-  mockEnabled?: boolean;
-}
 
-/** 账户总览 */
-export interface PayAccountOverview {
-  userId: number | string;
-  /** 余额（元） */
-  balance: number;
-  /** 可用余额（元，= balance - frozen，与后端提现校验同口径） */
-  availableBalance?: number;
-  /** 冻结金额（元，审核中提现单占用） */
-  frozenAmount?: number;
-  /** 累计收入（元） */
-  totalIncome: number;
-  /** 累计提现（元） */
-  totalWithdraw: number;
-  /** 单笔提现下限（元，来自后端配置） */
-  withdrawMin?: number;
-  /** 单笔提现上限（元，来自后端配置） */
-  withdrawMax?: number;
-}
 
-/** 资金流水条目 */
-export interface PayLedgerEntry {
-  id?: number | string;
-  payNo?: string;
-  bizType?: string;
-  bizNo?: string;
-  /** PLATFORM/USER */
-  accountRole?: string;
-  userId?: number | string;
-  /** credit=收入 debit=支出 */
-  direction?: string;
-  /** 金额（元） */
-  amount?: number;
-  /** 变动后余额（元） */
-  balanceAfter?: number;
-  summary?: string;
-  createTime?: string;
-}
 
-/** 资金流水分页结果 */
-export interface PayLedgerListResult {
-  records: PayLedgerEntry[];
-  total: number;
-  current: number;
-  size: number;
-}
 
-/** 银行卡（脱敏，密文从不下发） */
-export interface UserBankCard {
-  id: number | string;
-  holderName: string;
-  cardNoMasked: string;
-  bankCode?: string;
-  bankName?: string;
-  /** PENDING/VERIFIED/REJECTED */
-  verifyStatus?: string;
-  isDefault?: number;
-}
 
-/** 绑定银行卡表单 */
-export interface BankCardForm {
-  holderName: string;
-  cardNo: string;
-  /** 持卡人身份证号：银行卡四要素核验必需项；缺失则后端不发起核验、卡恒为 PENDING */
-  certNo: string;
-  phone: string;
-  bankCode?: string;
-  bankName?: string;
-  /** 短信验证码（银行卡绑定强校验） */
-  smsCode?: string;
-}
 
-/** 提现单（提现闭环） */
-export interface PayWithdrawOrder {
-  id?: number | string;
-  withdrawNo?: string;
-  userId?: number | string;
-  /** 提现金额（元） */
-  amount?: number;
-  /** 手续费（元） */
-  fee?: number;
-  bankCardId?: number | string;
-  /** auditing=审核中 paid=已打款 rejected=已驳回 */
-  status?: string;
-  auditTime?: string;
-  rejectReason?: string;
-  paidTime?: string;
-  createTime?: string;
-}
 
-/** 提现单分页结果 */
-export interface PayWithdrawListResult {
-  records: PayWithdrawOrder[];
-  total: number;
-  current: number;
-  size: number;
-}
 
-/** 支付站内通知 */
-export interface PayNotification {
-  id: number | string;
-  userId?: number | string;
-  /** pay/withdraw/account */
-  notifyType?: string;
-  refNo?: string;
-  title: string;
-  content?: string;
-  /** 0=未读 1=已读 */
-  readFlag?: number;
-  createTime?: string;
-}
 
-/** 支付通知分页结果 */
-export interface PayNotificationListResult {
-  records: PayNotification[];
-  total: number;
-  current: number;
-  size: number;
-  unreadCount?: number;
-}

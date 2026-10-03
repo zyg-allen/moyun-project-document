@@ -13,7 +13,6 @@ import OptimizeCompare from '@/components/resume/OptimizeCompare.vue';
 import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
 import FieldRegenerateDialog from '@/components/resume/FieldRegenerateDialog.vue';
 import { aiFieldAssist } from '@/api/resumeOptimize';
-import { getVipStatus, benefitLeft } from '@/api/vip';
 import { generateSeo } from '@/utils/seo';
 import { getMyResumeList, getResumeDetail } from '@/api/interview';
 import {
@@ -25,12 +24,10 @@ import {
 import { submitAiTask, pollAiTask } from '@/api/aiTask';
 import type { UserResumeVO, ResumeJobTarget, ResumeJobMatchReport, ResumeDeepOptimizeVO, ResumeOptimizeHistory, ResumeScoreReport } from '@/types/api';
 import { useToast } from '@/composables/useToast';
-import { useConfirmModal } from '@/composables/useConfirmModal';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
-const confirmModal = useConfirmModal();
 
 useHead(computed(() => generateSeo({
   title: 'AI 简历优化工作台',
@@ -585,25 +582,8 @@ async function generateOptimize() {
     toast.warning('请先选择目标岗位');
     return;
   }
-  // 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
-  try {
-    const vipRes = await getVipStatus();
-    if (!vipRes.data?.isVip) {
-      const left = benefitLeft(vipRes.data, 'resume_optimize') ?? 0;
-      if (left > 0) {
-        toast.info(`免费体验剩余 ${left} 次，开通会员不限次使用`);
-      } else {
-        const goBuy = await confirmModal.confirm(
-          '免费体验次数已用完，开通会员可不限次使用 AI 逐项优化建议。是否前往开通？',
-          { title: '墨韵会员', confirmText: '前往开通' },
-        );
-        if (goBuy) router.push('/membership');
-        return;
-      }
-    }
-  } catch {
-    // 状态查询失败不阻断，后端提交接口会兜底校验（@VipOnly 402）
-  }
+  // 【合规改造（2026-10）】全站免费化：AI 简历优化不再校验会员权益与免费次数，
+  // 也不再有"开通会员"引导（平台不提供有偿信息服务）。
   // 清理上一次的轮询（防止重复触发）
   stopOptimizePolling();
   optimizePollingActive = false;

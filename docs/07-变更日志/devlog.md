@@ -2,6 +2,257 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v14.71 (2026-10-03) 收费功能下线 **W5–W6**：数据库归档 + 后台/文档清理（收口）
+
+### 一、数据库归档脚本（归档而非删除）
+
+新增 `moyun-server/src/main/resources/init-sql/moyun-archive-20261003-pay-vip.sql`：
+
+| 段 | 内容 |
+|---|---|
+| 一 | **16 张表统一重命名** 加前缀 `archived_20261003_`（保留历史订单与资金流水，审计需要） |
+| 二 | 后台菜单与字典下线：`sys_menu`（`cms:pay%`/`cms:vip%`/`%:payWithdraw:%` 及 9 个菜单名）、`sys_dict_data`/`sys_dict_type`（6 类收费字典） |
+| 三 | 归档后**结构参考**（16 张表的原始建表语句，便于日后持牌恢复） |
+| 四 | 确认无需保留后的 `DROP TABLE` 备选语句（注释形式，需人工放开） |
+
+归档的 16 张表：`vip_tier`、`vip_tier_benefit`、`vip_benefit`、`vip_benefit_usage`、`vip_user_card`、`vip_api_registry`、
+`pay_order`、`pay_notify_log`、`pay_notification`、`pay_user_account`、`pay_user_bank_card`、`pay_withdraw_order`、
+`pay_ledger_entry`、`portal_tip_order`、`ledger_tip_order`、`portal_creator_settlement`。
+
+### 二、主线 DDL/DML 清干净
+
+| 文件 | 处理 |
+|---|---|
+| `moyun-db-ddl.sql` | **摘除 16 个建表块**（含上方注释），4434 → 4163 行 |
+| `moyun-db-dml-init.sql` | 删除收费相关初始化行 **12 行**（855 → 843） |
+| `moyun-menu-redo.sql` | 删除收费相关菜单行 **34 行**（452 → 418） |
+
+### 三、后台管理端（moyun-admin-vue）清理
+
+**删除 16 个文件**：`api/cms/pay.js`、`api/system/vip.js`、`views/cms/pay/`（bankcard/config/income-order/order/revenue/wallet/withdraw 共 7 个）、
+`views/system/vip/`（benefit/card/registry/tier/tierBenefit/usage 共 6 个）、`assets/images/pay.png`；空目录一并清理。
+
+### 四、门户类型清理
+
+`types/api.ts` 删除收费相关类型 **17 个**（`VipPackage*`、`PayCashierResult`、`PayStatusResult`、`PayAccountOverview`、
+`PayLedgerEntry`、`PayLedgerListResult`、`UserBankCard`、`BankCardForm`、`PayWithdrawOrder`、`PayWithdrawListResult`、
+`PayNotification*`、`PortalTipOrder`、`TipTargetType`、`TipTargetBody`、`TipQuery`），2513 → 2309 行。
+
+### 五、文档同步
+
+- `README.md`：修订平台定位（"付费阅读/VIP/打赏变现" → **全站免费 + 人工服务/B 端技术服务变现**）、
+  文章系统与商业化模块表、目录树说明；删除已失效的 vip/pay 增量 SQL 升级步骤与支付渠道环境变量行（6 处）
+- 4 份文档加**【已下线 · 2026-10-03】横幅**：VIP 体系设计方案、技术架构、项目介绍、项目现状总结
+- **保留** README 的版本历史表：那是历史记录（含本次下线事件），不做篡改
+
+**验证**：后端 `mvn -o -B clean test` **438/438 通过** · 门户 `vue-tsc` 0 / `eslint` 0 problems / `build` ✓（54.42s）
+
+---
+
+### 收费功能下线总体收口（v14.68 → v14.71）
+
+| 层 | 结果 |
+|---|---|
+| 后端代码 | 删除 **约 81 个类** + 6 个测试 + 6 个 mapper XML；**0 处** `com.moyun.pay/vip` 残留 |
+| 门户前端 | 删除页面/组件/API/类型，**0 处**收费引用、**0 处**死链 |
+| 后台管理端 | 删除 16 个付费视图与 API |
+| 配置 | `moyun.pay.*` 全段删除（dev 38 行 / local 4 行） |
+| 数据库 | 16 张表**归档脚本就绪**（待执行）+ 菜单/字典下线 SQL |
+| 文档 | README 现状修订 + 4 份设计文档加已下线横幅 |
+## v14.70 (2026-10-03) 收费功能下线 **W2–W4（后端波次）**：vip/pay 全链路删除
+
+**目标**：后端彻底移除一切"有偿信息服务"能力（会员/订阅/支付/打赏/分账/提现/结算），
+使平台以纯免费形态合规上线。清单见 `docs/09-临时报告/收费功能下线清单与表结构-20261003.md`。
+
+### 一、删除的代码（约 81 个 Java 类 + 6 个测试 + 6 个 mapper XML）
+
+| 范围 | 内容 |
+|---|---|
+| `com.moyun.vip.*`（20） | `VipOnly` 注解、`VipOnlyAspect` 切面、`VipAdminController`、6 实体、6 Mapper、`VipApiScanner`、`IVipService`/`VipServiceImpl`、`VipPayCallbackHandler` |
+| `com.moyun.pay.*`（38） | channel(8)、`PayProperties`、3 Controller、7 实体、3 gateway、7 Mapper、10 Service（含 `ILedgerService`、`IWithdrawOrderService`、`IBankCardService`、`INotificationService`） |
+| 门户打赏/结算/账户（9） | `PortalTipController`、`IPortalTipService`/Impl、`PortalTipOrder`(+Mapper)、`TipPayCallbackHandler`、`PortalCreatorSettlement`(+Mapper)、`PortalVipController`、`PaymentChannel`/`PaymentStatus`、`UserAccount` 家族 |
+| 记账侧打赏（3） | `PortalLedgerTipController`、`PortalLedgerVipController`、`LedgerTipPayCallbackHandler` |
+| 后台支付（6） | `CmsPayConfig/IncomeOrder/Ledger/Order/Revenue/WalletController` |
+| 定时任务（1） | `PayCloseTimeoutOrderTask` |
+| 测试（6） | `PortalPayControllerOwnershipTest`、`PortalTipServiceTest`、`TipPayCallbackHandlerTest`、`VipServiceImplGrantCardTest`、`VipGrantCardDbTest`、`ModuleDependencyGuardTest` |
+| mapper XML（6） | `pay/UserAccountMapper`、`vip/VipApiRegistry|VipBenefitUsage|VipUserCardMapper`、`portal/PortalCreatorSettlement|PortalTipOrderMapper`（含空目录清理） |
+
+### 二、引用点改造（15 处，保主体功能不受影响）
+
+| 文件 | 改造 |
+|---|---|
+| `PortalResumeOptimizeController` / `PortalVoiceInterviewController` / `PortalLedgerAiController` | 删除 `@VipOnly` 注解与导入 → 能力**免费不限次** |
+| `PortalAiTaskController` | 删除通用入口的会员门禁块 + `IVipService` |
+| `PortalArticleController` | 删除 `PayProperties`/`IPortalTipService` 依赖与遗留 `purchaseLegacy`；购买端点保留明确提示 |
+| `PortalArticleServiceImpl` | 删除文章时不再级联清理打赏订单 |
+| `PortalReadingController` | **书单 accessLevel 门禁 → 全部放行**；**章节试读限制 → 全文免费** |
+| `PortalUserController` | 注销流程删除资金（余额/在途）校验 |
+| `LedgerMemoServiceImpl` | 原 `INotificationService`（随 pay 包删除）→ 降级为日志；记账待办提醒功能不中断，**待接入 system 模块 `ISysNotificationService` 后恢复站内通知** |
+| `LedgerMemo` / `LedgerMemoRemindTask` | javadoc 同步 |
+
+### 三、配置与资源清理
+
+- `application-dev.yaml`：删除 `moyun.pay.*` 段 **38 行**（收银台/订单有效期/mock/提现上下限/渠道）
+- `application-local.yaml`：删除 `moyun.pay.*` 段 **4 行**
+- 遗留 mapper XML 清理（含 `target/classes` 陈旧副本导致的上下文加载失败，已用 `clean` 消除）
+
+**验证**：`mvn -o -B clean compile` **BUILD SUCCESS** · `mvn -o -B clean test` **438/438 通过（0 失败 0 错误）**
+（原 481 项，减少 43 项＝随收费功能一并删除的测试）
+
+### 四、剩余（W5 数据库 / W6 文档）
+
+| 项 | 说明 |
+|---|---|
+| 16 张表归档 | `vip_*`(6)、`pay_*`(7)、`portal_tip_order`、`ledger_tip_order`、`portal_creator_settlement` → 建议 `RENAME TABLE` 归档（含资金流水，勿直接 DROP） |
+| 后台菜单/字典 | `cms:pay*`、VIP 管理、创作者结算等 `sys_menu` 与相关 `sys_dict_*` 记录下线 SQL |
+| 文档同步 | `README.md` 商业化模块描述、架构/部署文档中的支付与会员章节 |
+## v14.69 (2026-10-03) 收费功能下线 **W1（门户前端波次）**
+
+**目标**：彻底下线订阅/会员/支付/打赏/提现/分账等全部有偿能力（个体工商户主体无法取得
+增值电信业务经营许可证，依《互联网信息服务管理办法》第 11 条非经营性不得从事有偿服务）。
+完整清单见 `docs/09-临时报告/收费功能下线清单与表结构-20261003.md`。
+
+### 本波次（前端）改动
+
+**删除文件**：`pages/membership/MembershipPage.vue`、`pages/pay/PayCashierPage.vue`、
+`components/TipModal.vue`、`api/vip.ts`、`api/pay.ts`、`api/tip.ts`
+
+**删除路由**：`/membership`、`/pay/cashier`（含懒加载导入）
+
+**调用点下线（保持结构完整、不改下游逻辑）**：
+
+| 文件 | 处理 |
+|---|---|
+| `ArticleDetailPage.vue` | 删除打赏按钮与打赏逻辑；付费阅读调用点改为明确提示（不再下单） |
+| `ColumnDetailPage.vue` | 删除打赏按钮与 `onTipSuccess/onTipError/openTipModal` |
+| `MessagesPage.vue` | `getPayNotifications`/`markNotificationRead`/`markAllNotificationsRead` 全部下线（空结果，不再请求后端） |
+| `stores/message.ts` | 支付通知未读数恒为 0 |
+| `UserSettingsPage.vue` | 删除账户余额查询与"前往钱包提现"提示（含注销门禁文案） |
+| `InterviewPage.vue` | 会员徽标改为"免费不限次"，`goVip` 改为直达语音面试 |
+| `ResumeOptimizePage.vue` / `VoiceInterviewPage.vue` | 删除会员前置校验（见 v14.68） |
+
+### 追加：消息页「支付」Tab 彻底摘除（1271 → 1062 行）
+
+| 项 | 处理 |
+|---|---|
+| `TabKey` / `VALID_TABS` | 去掉 `pay`（Tab 不再出现在标签栏） |
+| 声明与函数 | 删除 `payNotifs`/`payLoading`/`payCurrent`/`payTotal`/`payHasMore`/`payUnreadCount`、`loadPayNotifs`、`loadPayUnread`、`openPayDetail`、`closePayDetail`、`markPayRead`、`markAllPayRead`、`getPayIcon`、`getPayIconColor` |
+| 逻辑 | `switchTab` 的 pay 分支、初始化 `tasks.push` 的支付加载一并删除 |
+| 模板 | 「支付」Tab 按钮（含未读角标）、支付 Tab 内容（63 行）、支付通知详情弹窗（50 行）全部删除 |
+| 类型/图标 | `types/api` 的 `PayNotification` 引用与 `Wallet`/`Coins`/`BadgeCheck` 图标导入清理 |
+
+**结果**：全文件 **0 处**支付残留引用；`vue-tsc` **0** · `eslint` **0 problems** · `build` ✓（53.69s）
+
+### 追加二：残留收口（发现并修复 2 个真残留 + 死链）
+
+| 问题 | 处理 |
+|---|---|
+| `reading/ChapterReaderPage.vue` 仍有 **VIP 试读遮罩**，并链向已删除的 `/membership`（**死链**） | 删除整个遮罩块；章节正文全部免费可读 |
+| `ArticleDetailPage.vue` 仍有**付费购买按钮**与 `handlePurchase` 流程（提示"付费阅读功能即将开放"，属虚假承诺） | 删除按钮区块与解锁流程，并清理残留注释与未使用 `purchasing` 声明 |
+
+**收口自检**：门户全量扫描 `to="/membership"`、`push('/membership')`、`api/vip`、`api/pay`、`api/tip`、`TipModal`、`pay/cashier`、`pay/wallet` → **0 命中**；`vue-tsc` **0** · `eslint` **0 problems** · `build` ✓（53.94s）
+**验证**：`vue-tsc`（strict）**0** · `eslint` **0 problems** · `npm run build` ✓（53.91s）
+
+### 后续波次（待执行）
+
+| 波次 | 内容 |
+|---|---|
+| W2 | `@VipOnly` 使用点去注解（`PortalResumeOptimizeController`/`PortalVoiceInterviewController`/`PortalLedgerAiController`/`PortalAiTaskController`）；`IVipService`、`IUserAccountService` 引用改造 |
+| W3 | 删除 `com.moyun.vip.*` 全包（20 个类） |
+| W4 | 删除 `com.moyun.pay.*` 全包（39 个类）+ 门户打赏/结算 + 记账侧打赏 + CMS 支付后台 6 个 + 关单任务 |
+| W5 | 配置清理（`moyun.pay.*` 全段）+ 16 张表归档 SQL + 后台菜单/字典下线 SQL |
+| W6 | 文档同步（README/架构/部署）与最终回归 |
+## v14.68 (2026-10-03) 合规改造：**全站免费化**（下线有偿信息服务）+ 使用记录清点
+
+**决策背景**：平台暂不具备经营性互联网信息服务许可条件（个体工商户无法申请增值电信业务经营许可证；
+《互联网信息服务管理办法》第 11 条明确"非经营性互联网信息服务提供者不得从事有偿服务"）。
+故近期上线策略调整为 **全免费运营**：去掉一切"向用户收费"的能力，同时**保留并补齐使用记录**，
+为日后取得许可后接入付费、以及当下运营统计留存数据基础。
+
+### 一、执行链路上的「二清」风险已阻断（上一批 + 本批）
+
+| 项 | 处理 |
+|---|---|
+| 打赏回调 `ledgerService.settle(...)`（平台抽成 + **作者所得入可提现余额**） | 改为 `settlePlatform` **全额归平台**，站内不再产生作者余额；创作者收益改为线下稿酬/劳务结算 |
+| 作者到账通知（"已计入钱包余额"） | 改为"按《创作者收益结算规则》按月结算" |
+| `/portal/pay/account/overview`、`/account/ledger`、`/withdraw/apply`、`/withdraw/my` | **端点整体删除** |
+| 门户银行卡 Controller、后台银行卡 Controller、后台提现审核 Controller | **文件删除** |
+| 前端 `/pay/wallet` 路由、钱包页、导航入口、设置页提现链接、收银台"查看钱包"按钮 | **全部删除** |
+| `api/pay.ts` 提现/银行卡封装 | **删除** |
+
+### 二、本批：功能免费化（用户侧不再有任何付费点）
+
+| 项 | 改动 |
+|---|---|
+| `VipOnlyAspect` 权益校验 | **整体豁免**：所有 `@VipOnly` 能力（AI 语音面试、简历深度优化、记账 AI 分析等）**免费、不限次、不消耗权益**；仅保留登录态要求。注解与切面骨架保留，日后取得许可可恢复 |
+| 付费文章详情 | 取消试读截断与 `paid_content` 隐藏 → **全文免费下发**（原先 `is_paid=1` 且付费开关关闭时内容被永久锁死） |
+| `POST /portal/article/{id}/purchase` | **下线**（返回"付费阅读已下线"，不再创建任何订单；原逻辑保留为 `purchaseLegacy`） |
+| 简历优化 / 语音面试 前端 | 删除会员前置校验与"开通会员"引导（`getVipStatus`/`benefitLeft` 相关逻辑与导入一并清理） |
+| 书单会员门禁 | 删除"会员专属"遮罩与开通引导（仅保留"可预览"级别提示） |
+
+### 三、使用记录清点（为日后付费与运营统计留存数据）
+
+| 功能 | 记录表 | 写入 | 门户可查 | 后台可查 |
+|---|---|---|---|---|
+| 语音面试会话 | `portal_voice_interview` | ✔ | ✔ | ✔ |
+| 用户简历 | `portal_user_resume` | ✔ | ✔ | ✔ |
+| 题目提交/笔记 | `portal_interview_submission` | ✔ | ✘ | ✔ |
+| 举报 / 反馈 | `portal_report` / `portal_feedback` | ✔ | ✔ | ✔ |
+| 简历评分报告 | `portal_resume_score_report` | ✔ | ✔ | **✘** |
+| 简历优化历史 | `portal_resume_optimize_history` | ✔ | ✘ | **✘** |
+| 岗位目标 / 岗位匹配报告 | `portal_resume_job_target` / `portal_resume_job_match` | ✔ | ✔ | **✘** |
+| 答题记录 | `portal_interview_attempt` | ✔ | ✘ | **✘** |
+| 学习计划 | `portal_study_plan` | ✔ | ✔ | **✘** |
+| 阅读进度 / 文章浏览 | `portal_reading_progress` / `portal_article_view` | ✔ | ✔ | **✘** |
+| 成长事件日志 | `portal_growth_log` | ✔ | ✔ | **✘** |
+| 私信消息 | `portal_message` | ✔ | ✔ | **✘** |
+| AI 调用 / Token 用量 | `ai_execute_log` / `ai_token_usage_log` | ✔（AI 网关统一埋点） | ✘ | 后台有 AI 执行日志菜单 |
+
+**结论**：**记录侧基本齐全**（面试/简历/练习/阅读/成长/AI 全部落库并写入），
+**短板在"后台可见性"** —— 上述 10 类使用记录运营在后台看不到，无法做功能使用统计。
+后续建议：① 后台补"使用统计"菜单与只读查询接口（按用户/时间/功能维度）；② 或在数据看板统一出报表。
+
+**验证**：后端 `mvn -o -B test` **481/481** · 门户 `vue-tsc`（strict）0 / `eslint` **0 problems** / `npm run build` ✓（1m3s）
+## v14.67 (2026-10-03) 首页改版（据实修正位置）：**第一栏右侧改为「平台能力路线图」**，下方 5 个锚点卡保持原设计
+
+**背景与修正**：首屏第一栏存在**简历/模拟面试元素重复堆叠** —— 左侧「简历改 3 遍」+「免费简历诊断」，
+右侧又是整张「AI 简历诊断报告（示例 75/82/68/91）」+「生成我的诊断报告」，除简历外看不出平台还能做什么。
+（本轮先行误改了下方「五大主线锚点卡」，经确认原锚点设计**保留**，已回滚。）
+
+### 一、新增 `components/PlatformRoadmap.vue` —— 平台能力路线图（9 环旅程）
+
+按产品定位把用户旅程串成**可点、可悬停、带提示**的闭环，节点全部挂**真实路由**（逐条核对 `router/index.ts`）：
+
+| # | 环节 | 悬停提示 | 路由 | 门禁 |
+|---|---|---|---|---|
+| 1 | 学习成长 | 刷题、知识图谱与学习计划，进度自动记入成长时间线 | `/learn` | 游客可看 |
+| 2 | 简历优化 | 上传简历 → AI 诊断薄弱点 → 按目标岗位生成优化建议 | `/interview/resume/optimize` | 需登录 |
+| 3 | AI 面试 | 语音模拟面试：AI 面试官实时追问，边答边评分 | `/interview/voice` | 需登录 |
+| 4 | 面试复盘 | 回看每场对话与整场报告，定位答得最差的维度 | `/interview/voice/history` | 需登录 |
+| 5 | 错题复习 | 答错的题自动进错题本，按薄弱点定向重练 | `/learn/wrong` | 需登录 |
+| 6 | 社区互动 | 动态广场看同行动态，点赞评论互相打气 | `/feed` | 游客可看 |
+| 7 | 文章发布 | Markdown / 富文本写作，发布前可预览与版本回滚 | `/publish` | 需登录 |
+| 8 | 话题讨论 | 发起话题、发表观点，和同行就具体问题聊透 | `/topics` | 游客可看 |
+| 9 | 专栏创作 | 把系列文章做成专栏，持续连载积累个人品牌 | `/columns` | 游客可看 |
+
+**交互与观感**：鼠标划入/键盘聚焦 → 节点上浮 + 图标放大 + 主题色填充 + 阴影，并弹出**提示气泡**
+（含"需登录 / 游客可看"标签）；按序号逐环点亮形成"旅程进度"；节点错峰入场；
+支持 `cols`（卡片内固定 3 列）与 `compact`（紧凑），未指定列数时按视口自适应 3/5/9 列并在宽排绘制贯穿连线；
+**仅用主题变量**（0 硬编码色值），暗色主题安全；`prefers-reduced-motion` 下关闭全部动画；
+需登录节点点击统一走 `requireAuth`（带回跳），与全站行为一致。
+
+### 二、首页改动
+
+1. **第一栏右侧**：原「AI 简历诊断示例卡」整块（含写死的 75/82/68/91、`stroke-dashoffset` 手工对应、
+   「已完成」绿标、「生成我的诊断报告」重复 CTA）→ 替换为**路线图卡**（`<PlatformRoadmap :cols="3" compact />`）；
+2. **移除两张写死的悬浮卡**（"AI 模拟面试中 · 第 3 轮"、"成长 +15 · 连续打卡"）：无数据源的编造动态，
+   且加剧"简历/面试元素堆叠"，真实动态应来自接口、无数据不渲染；
+3. **核心数据行改混合策略**：真实指标 >= 2 条时照常展示，不足 2 条时改显示 3 个与定位强相关的固定价值点
+   （`3 分钟 / 出简历诊断报告`、`9 环 / 求职环节闭环`、`AI / 语音对练 · 实时评分`），
+   避免截图实测中"只剩一条《20+ 个 热门话题标签》"的孤立跑题指标；
+4. **下方「五大主线锚点卡」保持原设计**（锚点直达各区块）—— 本轮误改后已回滚，`mainLines` 与相关图标导入一并恢复。
+
+**验证**：门户 `vue-tsc`（strict）0 / `eslint` **0 problems** / `npm run build` ✓（55.14s）
 ## v14.66 (2026-10-01) 全端评审落地（第 107 批）：征文投稿列表**服务端分页**（附 hasSubmitted 口径修正）
 
 | 层 | 改动 |

@@ -71,8 +71,6 @@ const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
 const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
 const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
 const SharedReportPage = () => import('@/pages/interview/SharedReportPage.vue')
-const PayCashierPage = () => import('@/pages/pay/PayCashierPage.vue')
-const WalletPage = () => import('@/pages/pay/WalletPage.vue')
 const MyVoiceInterviewsPage = () => import('@/pages/interview/MyVoiceInterviewsPage.vue')
 
 // ============ 路由配置 ============
@@ -366,12 +364,6 @@ const routes: RouteRecordRaw[] = [
   },
   // ============ 会员中心 ============
   {
-    path: '/membership',
-    name: 'membership',
-    component: () => import('@/pages/membership/MembershipPage.vue'),
-    meta: { requiresAuth: true, title: '墨韵会员', robots: 'noindex,nofollow' }
-  },
-  {
     path: '/article/:id/:slug?',
     name: 'article',
     component: ArticleDetailPage,
@@ -654,18 +646,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '私信', robots: 'noindex,nofollow' }
   },
   // ============ 支付中心 ============
-  {
-    path: '/pay/cashier',
-    name: 'pay-cashier',
-    component: PayCashierPage,
-    meta: { requiresAuth: true, title: '收银台', robots: 'noindex,nofollow' }
-  },
-  {
-    path: '/pay/wallet',
-    name: 'pay-wallet',
-    component: WalletPage,
-    meta: { requiresAuth: true, title: '我的钱包', robots: 'noindex,nofollow' }
-  },
   // ============ 404 页面 ============
   {
     path: '/:pathMatch(.*)*',

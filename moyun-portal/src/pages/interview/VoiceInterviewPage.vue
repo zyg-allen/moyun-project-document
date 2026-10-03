@@ -30,7 +30,6 @@ import {
 } from '@/api/voiceInterview';
 import { getMyResumeList, getJobTemplates } from '@/api/interview';
 import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
-import { getVipStatus, benefitLeft } from '@/api/vip';
 import type { UserResumeVO, JobTemplateOptionVO, ResumePreviewVO } from '@/types/api';
 import { useUserStore } from '@/stores/user';
 import type {
@@ -1606,32 +1605,8 @@ async function handleStart() {
     toast.warning(`岗位名称不能超过 ${POSITION_MAX_LEN} 个字符`);
     return;
   }
-  // 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
-  try {
-    const vipRes = await getVipStatus();
-    if (!vipRes.data?.isVip) {
-      // 清单 P2：benefitLeft 在"权益未在 free 档配置"时返回 null，原先 `?? 0` 会把
-      // **未知**当成**已用完**，直接把用户拦到开通弹窗（与后端 @VipOnly 的真实额度判断不是同一事实来源）。
-      // 现改为：显式 0 才提示用完；null/undefined 视为"次数未配置"，交由后端门禁判定。
-      const left = benefitLeft(vipRes.data, 'interview_unlimited');
-      if (left == null) {
-        toast.info('免费体验次数以后端判定为准，开通会员可不限次开练');
-      } else if (left > 0) {
-        toast.info(`免费体验剩余 ${left} 次，开通会员可不限次开练`);
-      } else {
-        const goBuy = await confirmModal.confirm(
-          '免费体验次数已用完，开通会员可不限次语音开练',
-          { title: '墨韵会员', confirmText: '去开通', cancelText: '暂不' },
-        );
-        if (goBuy) {
-          router.push('/membership');
-          return;
-        }
-      }
-    }
-  } catch {
-    /* 会员状态查询失败不阻断面试（后端 @VipOnly 兜底） */
-  }
+  // 【合规改造（2026-10）】全站免费化：语音面试不再校验会员权益与免费次数，
+  // 也不再有"开通会员"引导（平台不提供有偿信息服务）。
   loading.value = true;
   // 5 步准备进度条（简历画像→岗位要求→会话上下文→题单→环境；请求返回即 100%）
   prepareState.value = { active: true, step: 0, progress: 6 };

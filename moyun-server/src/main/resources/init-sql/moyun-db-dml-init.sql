@@ -382,8 +382,6 @@ INSERT INTO portal_growth_rule (module,`action`,growth_delta,daily_limit,descrip
 	 ('all','daily_checkin',1,1,'每日签到','0',30,'','2026-07-28 15:48:22','','2026-07-28 15:48:22',NULL),
 	 ('all','daily_login',1,1,'每日登录','0',31,'','2026-07-28 15:48:22','','2026-07-28 15:48:22',NULL);
 INSERT INTO portal_growth_rule (module,`action`,growth_delta,daily_limit,description,status,sort,create_by,create_time,update_by,update_time,remark) VALUES
-	 ('article','receive_tip',3,0,'文章/专栏被打赏','0',7,'','2026-07-28 16:31:27','','2026-07-28 16:31:27',NULL),
-	 ('article','tip_others',1,3,'打赏他人','0',8,'','2026-07-28 16:31:27','','2026-07-28 16:31:27',NULL),
 	 ('topic','create_topic',10,0,'发起话题','0',0,'admin','2026-07-28 16:35:21','','2026-07-28 16:35:21',NULL),
 	 ('topic','post_opinion',2,10,'发表观点','0',0,'admin','2026-07-28 16:35:21','','2026-07-28 16:35:21',NULL),
 	 ('topic','receive_topic_like',2,0,'话题被点赞','0',0,'admin','2026-07-28 16:35:21','','2026-07-28 16:35:21',NULL),
@@ -683,8 +681,6 @@ INSERT INTO sys_dict_data (dict_sort,dict_label,dict_value,dict_type,css_class,l
 	 (1,'连载中','ongoing','portal_book_serial_status','','warning','Y','0','admin','2026-10-01 00:00:00','',NULL,'连载状态：ongoing','0'),
 	 (2,'已完结','completed','portal_book_serial_status','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'连载状态：completed','0'),
 	 (3,'暂停更新','hiatus','portal_book_serial_status','','info','N','0','admin','2026-10-01 00:00:00','',NULL,'连载状态：hiatus','0'),
-	 (1,'打赏','tip','portal_wallet_txn_type','','primary','N','0','admin','2026-10-01 00:00:00','',NULL,'流水类型：tip','0'),
-	 (2,'提现','withdraw','portal_wallet_txn_type','','warning','N','0','admin','2026-10-01 00:00:00','',NULL,'流水类型：withdraw','0'),
 	 (3,'会员','vip','portal_wallet_txn_type','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'流水类型：vip（后端实际写入值）','0'),
 	 (1,'待复习','wrong','portal_wrong_question_status','','warning','Y','0','admin','2026-10-01 00:00:00','',NULL,'错题状态：wrong','0'),
 	 (2,'已掌握','mastered','portal_wrong_question_status','','success','N','0','admin','2026-10-01 00:00:00','',NULL,'错题状态：mastered','0');
@@ -714,7 +710,6 @@ INSERT INTO sys_dict_type (dict_name,dict_type,status,create_by,create_time,upda
 INSERT INTO sys_dict_type (dict_name,dict_type,status,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
 	 ('支付状态','portal_pay_status','0','admin','2026-08-19 18:01:46','',NULL,'v9.6 支付状态','0'),
 	 ('支付渠道','portal_pay_channel','0','admin','2026-08-19 18:01:46','',NULL,'v9.6 支付渠道','0'),
-	 ('打赏目标类型','portal_tip_target_type','0','admin','2026-08-19 18:01:46','',NULL,'v9.6 打赏目标类型','0'),
 	 ('钱包交易类型','portal_wallet_txn_type','0','admin','2026-08-19 18:01:46','',NULL,'v9.6 钱包交易类型','0'),
 	 ('文章状态','cms_article_status','0','admin','2026-08-19 18:01:46','',NULL,'v9.6 文章状态','0'),
 	 ('专栏状态','cms_column_status','0','admin','2026-08-19 18:01:46','',NULL,'v9.6 专栏状态','0'),
@@ -802,13 +797,10 @@ INSERT INTO sys_user_post (user_id,post_id,create_by,create_time,update_by,updat
 INSERT INTO sys_user_role (user_id,role_id,create_by,create_time,update_by,update_time,remark) VALUES
 	 (1,1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL),
 	 (2,2,'',NULL,'',NULL,NULL);
-select * from vip_api_registry;
-INSERT INTO vip_api_registry (api_path,http_method,controller_class,method_name,platform_code,benefit_code,consume,message,api_desc,enabled,scan_time,create_time,update_time) VALUES
 	 ('/portal/interview/voice/start','POST','com.moyun.portal.controller.PortalVoiceInterviewController','start','portal','interview_unlimited',1,'免费面试次数已用完，语音面试为会员专属功能，请开通会员',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47'),
 	 ('/portal/ledger/ai/analysis/task','POST','com.moyun.ledger.controller.PortalLedgerAiController','submitTask','ledger','ai_analysis',1,'本月免费分析次数已用完，请开通记账VIP',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47'),
 	 ('/portal/resume/optimize/deep/{resumeId}/{jobTargetId}','POST','com.moyun.portal.controller.PortalResumeOptimizeController','deepOptimize','portal','resume_optimize',1,'简历深度优化次数已用完，请开通会员',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47'),
 	 ('/portal/resume/optimize/deep/{resumeId}/{jobTargetId}/async','POST','com.moyun.portal.controller.PortalResumeOptimizeController','deepOptimizeAsync','portal','resume_optimize',1,'简历深度优化次数已用完，请开通会员',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47');
-INSERT INTO vip_benefit (platform_code,benefit_code,benefit_name,description,sort_order,create_time) VALUES
 	 ('portal','interview_unlimited','语音面试','不限次 AI 语音面试',1,'2026-09-17 17:53:20'),
 	 ('portal','resume_optimize','简历深度优化','AI 逐项建议/前后对比/采纳保存',2,'2026-09-17 17:53:20'),
 	 ('portal','report_share','报告分享','面试报告分享导出',3,'2026-09-17 17:53:20'),
@@ -817,14 +809,12 @@ INSERT INTO vip_benefit (platform_code,benefit_code,benefit_name,description,sor
 	 ('portal','article_paid','付费文章','免费阅读付费文章',6,'2026-09-17 17:53:20'),
 	 ('ledger','bill_parse','账单识别','每月账单截图识别次数',1,'2026-09-17 17:53:20'),
 	 ('ledger','ai_analysis','AI 分析','AI 财务分析次数',2,'2026-09-17 17:53:20');
-INSERT INTO vip_tier (platform_code,tier_code,tier_name,duration_days,price,original_price,popular,description,sort_order,status,create_time) VALUES
 	 ('portal','free','免费版',0,0.00,NULL,0,'基础体验额度',1,1,'2026-09-17 17:53:20'),
 	 ('portal','monthly','月卡会员',30,49.00,69.00,0,'全功能月度畅用',2,1,'2026-09-17 17:53:20'),
 	 ('portal','yearly','年卡会员',365,399.00,588.00,1,'最受欢迎，全年畅用',3,1,'2026-09-17 17:53:20'),
 	 ('portal','permanent','永久会员',-1,1299.00,1999.00,0,'一次买断终身可用',4,1,'2026-09-17 17:53:20'),
 	 ('ledger','free','免费版',0,0.00,NULL,0,'基础记账体验',1,1,'2026-09-17 17:53:20'),
 	 ('ledger','yearly','年卡会员',365,199.00,299.00,1,'智能账单识别 + AI 分析',2,1,'2026-09-17 17:53:20');
-INSERT INTO vip_tier_benefit (platform_code,tier_code,benefit_code,benefit_value,period,create_time) VALUES
 	 ('portal','free','interview_unlimited','2','unlimited','2026-09-17 17:53:20'),
 	 ('portal','free','resume_optimize','1','month','2026-09-17 17:53:20'),
 	 ('portal','free','reading_unlimited','3','month','2026-09-17 17:53:20'),
@@ -835,7 +825,6 @@ INSERT INTO vip_tier_benefit (platform_code,tier_code,benefit_code,benefit_value
 	 ('portal','monthly','article_paid','unlimited','unlimited','2026-09-17 17:53:20'),
 	 ('portal','yearly','interview_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
 	 ('portal','yearly','resume_optimize','20','month','2026-09-17 17:53:20');
-INSERT INTO vip_tier_benefit (platform_code,tier_code,benefit_code,benefit_value,period,create_time) VALUES
 	 ('portal','yearly','report_share','unlimited','unlimited','2026-09-17 17:53:20'),
 	 ('portal','yearly','priority_queue','unlimited','unlimited','2026-09-17 17:53:20'),
 	 ('portal','yearly','reading_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
@@ -846,7 +835,6 @@ INSERT INTO vip_tier_benefit (platform_code,tier_code,benefit_code,benefit_value
 	 ('portal','permanent','priority_queue','unlimited','unlimited','2026-09-17 17:53:20'),
 	 ('portal','permanent','reading_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
 	 ('portal','permanent','article_paid','unlimited','unlimited','2026-09-17 17:53:20');
-INSERT INTO vip_tier_benefit (platform_code,tier_code,benefit_code,benefit_value,period,create_time) VALUES
 	 ('ledger','free','bill_parse','5','month','2026-09-17 17:53:21'),
 	 ('ledger','free','ai_analysis','3','month','2026-09-17 17:53:21'),
 	 ('ledger','yearly','bill_parse','100','month','2026-09-17 17:53:21'),

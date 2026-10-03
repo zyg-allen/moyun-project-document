@@ -3,13 +3,12 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar, ClipboardList, Wallet, Coins, BadgeCheck
+    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar, ClipboardList
 } from 'lucide-vue-next';
-import type { Notification, MessageSessionVO, PeerUser, PayNotification } from '@/types/api';
+import type { Notification, MessageSessionVO, PeerUser } from '@/types/api';
 import type { NotificationType } from '@/types';
 import * as notificationApi from '@/api/notification';
 import * as messageApi from '@/api/message';
-import * as payApi from '@/api/pay';
 import { useUserStore } from '@/stores/user';
 import { useMessageStore } from '@/stores/message';
 import { getSafeAvatar } from '@/utils/avatar';
@@ -44,12 +43,12 @@ const isBoundSysUser = computed(() => {
     const u = userStore.user;
     return !!(u && u.userId);
 });
-type TabKey = 'notification' | 'pay' | 'message' | 'announcement' | 'todo';
+type TabKey = 'notification' | 'message' | 'announcement' | 'todo';
 // 游客默认公告 Tab；登录用户默认通知 Tab；支持 ?tab= 深链
 // 清单 P2：原先直接把 route.query.tab 断言成 TabKey —— 非法取值（如 ?tab=xxx）
 // 不匹配模板里任何一个 v-if/v-else-if 分支，页面会渲染成"空白内容区"（Tab 高亮也没有）。
 // 这里收敛到合法集合，非法值落回默认 Tab。
-const VALID_TABS: TabKey[] = ['notification', 'pay', 'message', 'announcement', 'todo'];
+const VALID_TABS: TabKey[] = ['notification', 'message', 'announcement', 'todo'];
 const DEFAULT_TAB: TabKey = isAuthenticated.value ? 'notification' : 'announcement';
 const initialTab: TabKey = VALID_TABS.includes(route.query.tab as TabKey)
     ? (route.query.tab as TabKey)
@@ -192,114 +191,16 @@ async function markAllNotifRead() {
     }
 }
 
-// ============ 支付通知相关 ============
-const payNotifs = ref<PayNotification[]>([]);
-const payLoading = ref(false);
-const payCurrent = ref(1);
-const payTotal = ref(0);
-const payHasMore = computed(() => payNotifs.value.length < payTotal.value);
-// 支付通知未读数从消息 store 取，与 Navbar 头部铃铛跨组件同步
-const payUnreadCount = computed(() => messageStore.payUnreadCount);
 
-function getPayIcon(type?: string) {
-    switch (type) {
-        case 'withdraw':
-            return Coins;
-        case 'account':
-            return BadgeCheck;
-        default:
-            return Wallet;
-    }
-}
 
-function getPayIconColor(type?: string): string {
-    switch (type) {
-        case 'withdraw':
-            return '#f59e0b';
-        case 'account':
-            return '#10b981';
-        default:
-            return 'var(--theme-primary)';
-    }
-}
 
-async function loadPayNotifs(page = 1) {
-    payLoading.value = true;
-    try {
-        const resp = await payApi.getPayNotifications({ current: page, size: 20 });
-        if (resp.code === 200 && resp.data) {
-            const records = resp.data.records || [];
-            if (page === 1) {
-                payNotifs.value = records;
-            } else {
-                payNotifs.value.push(...records);
-            }
-            payTotal.value = Number(resp.data.total ?? 0);
-            payCurrent.value = page;
-        }
-    } catch (error) {
-        console.error('加载支付通知失败:', error);
-        toast.error((error as Error)?.message || '加载支付通知失败，请稍后重试');
-    } finally {
-        payLoading.value = false;
-    }
-}
 
-async function loadPayUnread() {
-    await messageStore.loadPayUnread();
-}
 
-// ============ 支付通知详情弹窗 ============
-//
-// 清单 P2：通知与公告点击后都有详情弹窗，**支付通知点击却只 markPayRead**、没有任何详情
-//（卡片内容还被 line-clamp-2 截断）⇒ 关键的金额/时间/关联订单信息看不到。
-const showPayModal = ref(false);
-const selectedPayNotif = ref<PayNotification | null>(null);
 
 /** 打开支付通知详情：同时标记已读（与通知/公告一致的行为） */
-async function openPayDetail(n: PayNotification) {
-    selectedPayNotif.value = n;
-    showPayModal.value = true;
-    await markPayRead(n);
-}
 
-function closePayDetail() {
-    showPayModal.value = false;
-    selectedPayNotif.value = null;
-}
 
-async function markPayRead(n: PayNotification) {
-    if (n.readFlag === 1) return;
-    try {
-        await payApi.markNotificationRead(n.id);
-        n.readFlag = 1;
-        // 本地未读数 -1（store 同步给 Navbar 头部铃铛）
-        messageStore.decPayUnread();
-    } catch (error) {
-        console.error('标记已读失败:', error);
-        toast.error((error as Error)?.message || '标记已读失败');
-    }
-}
 
-async function markAllPayRead() {
-    try {
-        // 走**服务端批量**接口：原先只对"已加载的那一页"逐条 markRead，
-        // 未加载的仍是未读，角标清完又回来（且客户端直接清零角标 = 对用户撒谎）。
-        const res = await payApi.markAllNotificationsRead();
-        if (res.code !== 200) {
-            toast.error(res.message || '操作失败');
-            return;
-        }
-        // 本地同步：把已加载的也置为已读，与服务端保持一致
-        payNotifs.value.forEach((n) => (n.readFlag = 1));
-        messageStore.clearPayUnread();
-        const affected = typeof res.data === 'number' ? res.data : 0;
-        toast.success(affected > 0 ? `已全部标记为已读（${affected} 条）` : '没有未读支付通知');
-    } catch (error) {
-        console.error('全部已读失败:', error);
-        toast.error((error as Error)?.message || '操作失败');
-    }
-}
 
 // ============ 待办通知相关 ============
 const todos = ref<Notification[]>([]);
@@ -637,9 +538,6 @@ function switchTab(tab: TabKey) {
     if (tab === 'todo' && todos.value.length === 0 && isBoundSysUser.value) {
         loadTodos();
     }
-    if (tab === 'pay' && payNotifs.value.length === 0 && isAuthenticated.value) {
-        loadPayNotifs(1);
-    }
 }
 
 // 面包屑
@@ -668,7 +566,6 @@ onMounted(async () => {
     if (isAuthenticated.value) {
         tasks.push(loadNotifications(), loadNotifUnread(), loadSessions(), loadMsgUnread());
         // 支付通知
-        tasks.push(loadPayNotifs(1), loadPayUnread());
         // 绑定系统用户的前台用户加载待办通知
         if (isBoundSysUser.value) {
             tasks.push(loadTodos());
@@ -743,20 +640,6 @@ watch(isChatMode, (isChat) => {
                 通知
                 <span v-if="notifUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
                   {{ notifUnreadCount > 99 ? '99+' : notifUnreadCount }}
-                </span>
-              </button>
-              <button
-                v-if="isAuthenticated"
-                @click="switchTab('pay')"
-                class="flex items-center gap-2 px-4 sm:px-6 py-3 text-sm sm:text-base font-medium border-b-2 transition-colors relative"
-                :style="activeTab === 'pay'
-                  ? 'border-color: var(--theme-primary); color: var(--theme-primary);'
-                  : 'border-color: transparent; color: var(--theme-text-secondary);'"
-              >
-                <Wallet class="w-4 h-4" />
-                支付
-                <span v-if="payUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
-                  {{ payUnreadCount > 99 ? '99+' : payUnreadCount }}
                 </span>
               </button>
               <button
@@ -878,69 +761,6 @@ watch(isChatMode, (isChat) => {
           </div>
 
           <!-- 支付通知 Tab -->
-          <div v-else-if="activeTab === 'pay'">
-            <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
-              <p class="text-sm" style="color: var(--theme-text-secondary);">打赏到账、支付结果与提现进度通知</p>
-              <button
-                @click="markAllPayRead"
-                class="flex items-center gap-1 text-xs sm:text-sm px-3 py-1.5 rounded-full transition-colors"
-                style="color: var(--theme-primary); background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-              >
-                <CheckCheck class="w-4 h-4" />
-                全部已读
-              </button>
-            </div>
-
-            <div v-if="payLoading && payNotifs.length === 0" class="text-center py-12">
-              <Loader2 class="w-8 h-8 mx-auto animate-spin" style="color: var(--theme-primary);" />
-            </div>
-            <div v-else-if="payNotifs.length === 0" class="py-16 text-center rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-              <Wallet class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary);" />
-              <p class="text-sm" style="color: var(--theme-text-secondary);">暂无支付通知</p>
-              <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">打赏到账与支付结果会第一时间通知你</p>
-            </div>
-            <div v-else class="space-y-2">
-              <button
-                v-for="n in payNotifs"
-                :key="'pay-' + String(n.id)"
-                @click="openPayDetail(n)"
-                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors hover:opacity-90"
-                :style="{
-                  backgroundColor: 'var(--theme-surface)',
-                  border: '1px solid var(--theme-border)',
-                  opacity: n.readFlag === 1 ? 0.7 : 1
-                }"
-              >
-                <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: 'var(--theme-accent)' }">
-                  <component :is="getPayIcon(n.notifyType)" class="w-4 h-4" :style="{ color: getPayIconColor(n.notifyType) }" />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span v-if="n.readFlag !== 1" class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #ef4444;"></span>
-                    <span class="font-medium text-sm truncate" style="color: var(--theme-text);">{{ n.title }}</span>
-                  </div>
-                  <p class="text-sm mt-1 line-clamp-2" style="color: var(--theme-text-secondary);">{{ n.content }}</p>
-                  <div class="flex items-center gap-3 mt-1.5 text-xs flex-wrap" style="color: var(--theme-text-secondary);">
-                    <span v-if="n.refNo">单号：{{ n.refNo }}</span>
-                    <span>{{ formatRelativeTime(n.createTime) }}</span>
-                  </div>
-                </div>
-              </button>
-              <!-- 加载更多 -->
-              <div v-if="payHasMore" class="text-center pt-2">
-                <button
-                  @click="loadPayNotifs(payCurrent + 1)"
-                  class="px-5 py-2 rounded-lg text-sm border transition-colors inline-flex items-center gap-1.5"
-                  style="color: var(--theme-text); border-color: var(--theme-border);"
-                  :disabled="payLoading"
-                >
-                  <Loader2 v-if="payLoading" class="w-3.5 h-3.5 animate-spin" />
-                  {{ payLoading ? '加载中…' : '加载更多' }}
-                </button>
-              </div>
-            </div>
-          </div>
-
           <!-- 待办 Tab -->
           <div v-else-if="activeTab === 'todo'">
             <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -1155,56 +975,6 @@ watch(isChatMode, (isChat) => {
           <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
             <Calendar class="w-3 h-3" />
             {{ formatRelativeTime(selectedAnnouncement?.createTime) }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 支付通知详情弹窗（清单 P2：此前点击无详情，关键金额信息看不到） -->
-    <div
-      v-if="showPayModal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="pay-modal-title"
-      @keydown.esc.prevent="closePayDetail"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4"
-    >
-      <div class="absolute inset-0 bg-black/50" @click="closePayDetail"></div>
-      <div class="relative rounded-lg shadow-xl w-full max-w-lg sm:max-w-2xl max-h-[85vh] overflow-y-auto" style="background-color: var(--theme-surface);">
-        <div class="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-          <div class="flex items-center gap-2 min-w-0">
-            <Wallet class="w-5 h-5 flex-shrink-0" style="color: var(--theme-primary);" />
-            <h3 id="pay-modal-title" class="font-bold text-lg sm:text-xl truncate" style="color: var(--theme-text);">
-              {{ selectedPayNotif?.title || '支付通知' }}
-            </h3>
-          </div>
-          <button
-            type="button"
-            @click="closePayDetail"
-            aria-label="关闭"
-            class="p-2 rounded-full transition-colors flex-shrink-0"
-            style="color: var(--theme-text-secondary);"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-        <div class="p-4 sm:p-6">
-          <p class="text-sm sm:text-base leading-relaxed whitespace-pre-wrap" style="color: var(--theme-text-secondary);">
-            {{ selectedPayNotif?.content }}
-          </p>
-          <dl class="mt-5 space-y-2 text-sm">
-            <div v-if="selectedPayNotif?.refNo" class="flex items-center gap-2">
-              <dt style="color: var(--theme-text-secondary);">关联单号</dt>
-              <dd class="font-mono" style="color: var(--theme-text);">{{ selectedPayNotif.refNo }}</dd>
-            </div>
-            <div v-if="selectedPayNotif?.notifyType" class="flex items-center gap-2">
-              <dt style="color: var(--theme-text-secondary);">类型</dt>
-              <dd style="color: var(--theme-text);">{{ selectedPayNotif.notifyType }}</dd>
-            </div>
-          </dl>
-          <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
-            <Calendar class="w-3 h-3" />
-            {{ formatRelativeTime(selectedPayNotif?.createTime) }}
           </p>
         </div>
       </div>

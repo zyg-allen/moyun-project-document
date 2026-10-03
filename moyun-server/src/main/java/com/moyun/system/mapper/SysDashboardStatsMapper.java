@@ -117,8 +117,8 @@ public interface SysDashboardStatsMapper {
 
     /**
      * 平台端：启用端列表（首页"分平台"骨架）
-     * <p>直接读表而非依赖 {@code com.moyun.vip.domain.entity.SysPlatform}，避免
-     * system → vip 这条非必要跨模块边（管理端展示平台清单不需要 vip 的实体类型）。
+     * <p>直接读表而非依赖实体类型，避免
+     * 跨模块依赖这条非必要边（管理端展示平台清单不需要对应实体类型）。
      *
      * @return [{platformCode, platformName, platformType, description, domain, icon, sortOrder}]
      */

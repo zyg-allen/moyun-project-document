@@ -6,18 +6,18 @@ import {
   Star, Flame,
   User, Tag, BookOpen,
   Quote, ArrowRight, Sparkles,
-  Briefcase,
   AlertCircle, RefreshCw,
-  Network, TrendingUp,
+  Network,
   MessageCircle, Activity, Crown, Target,
   Mic, PlayCircle, Clock,
   FileText, Zap, ClipboardList,
   PenLine, Trophy,
-  CalendarCheck, XCircle, GraduationCap, Flame as FlameIcon,
+  CalendarCheck, XCircle, GraduationCap,
   Code2, LayoutTemplate, Users
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import PlatformRoadmap from '@/components/PlatformRoadmap.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import { generateSeo } from '@/utils/seo'
 import { transformArticle } from '@/utils/articleTransform'
@@ -465,6 +465,19 @@ function countText(len: number, limit: number): string {
   return len >= limit ? `${len}+` : `${len}`
 }
 
+/**
+ * Hero 核心数据行。
+ *
+ * 原来完全由真实数据驱动且"取不到就不 push"：冷启动时题库/模板/名家/书籍均为 0，
+ * 只剩一条「热门话题标签」——孤零零一行，且指标与"简历优化 + 语音面试"主题无关（截图实测）。
+ * 现改为混合策略：真实指标 >= 2 条时照常展示；不足 2 条时改用 3 个与定位强相关的固定价值点。
+ */
+const heroFallbackHighlights: Array<{ label: string; value: string; suffix: string }> = [
+  { label: '出简历诊断报告', value: '3 分钟', suffix: '' },
+  { label: '求职环节闭环', value: '9 环', suffix: '' },
+  { label: '语音对练 · 实时评分', value: 'AI', suffix: '' },
+]
+
 const heroStats = computed(() => {
   const stats: Array<{ label: string; value: string; suffix: string }> = []
   // 清单 P2：原先把"面试题库"无条件放进数组 ⇒ 接口失败/冷启动时渲染出「0+ 道」。
@@ -488,10 +501,11 @@ const heroStats = computed(() => {
   if (tags.value.length > 0) {
     stats.push({ label: '热门话题标签', value: countText(tags.value.length, TAGS_FETCH_LIMIT), suffix: '个' })
   }
-  return stats
+  // 不足 2 条时改用固定价值点：避免"孤零零一条跑题指标"
+  return stats.length >= 2 ? stats.slice(0, 3) : heroFallbackHighlights
 })
 
-// ============ 五大主线锚点导航（Hero → 各区块平滑滚动） ============
+// ============ 五大主线锚点导航（Hero → 各区块平滑滚动；保留原设计） ============
 const mainLines = [
   { id: 'home-learn', label: '学习', desc: '刷题备战 · 薄弱点强化', icon: GraduationCap },
   { id: 'home-resume', label: '简历', desc: 'AI 诊断 · 3 分钟出报告', icon: FileText },
@@ -652,110 +666,27 @@ useHead(
                 </div>
               </div>
 
-              <!-- 右侧：AI 简历诊断示例卡 -->
+              <!--
+                第一栏右侧：平台能力路线图（替代原「AI 简历诊断示例卡」）
+                原来这里又是一整张"AI 简历诊断报告 + 生成我的诊断报告"，与左侧
+                「简历改 3 遍 / 免费简历诊断」重复堆叠，且看不出平台除简历外还能做什么。
+                改为按产品定位展示 9 环旅程（节点全部挂真实路由，悬停出提示）。
+              -->
               <div class="relative lg:pl-6">
-                <div class="relative z-10 rounded-2xl p-5 sm:p-6 shadow-theme-xl border border-theme-border bg-theme-surface home-float">
-                  <div class="flex items-center justify-between mb-4 sm:mb-5">
-                    <div class="flex items-center gap-3">
-                      <div class="w-10 h-10 rounded-xl bg-theme-primary flex items-center justify-center">
-                        <FileText class="w-5 h-5 text-theme-on-primary" />
-                      </div>
-                      <div>
-                        <div class="card-title">AI 简历诊断报告</div>
-                        <div class="meta-text">多维度智能分析 · 示例</div>
-                      </div>
-                    </div>
-                    <span class="px-2.5 py-1 bg-green-50 text-green-700 meta-text font-medium rounded-full">已完成</span>
-                  </div>
-
-                  <!-- 评分圆环 + 维度条 -->
-                  <div class="flex items-center gap-5 sm:gap-6 mb-4 sm:mb-5">
-                    <div class="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
-                      <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="42" fill="none" class="stroke-theme-border" stroke-width="8"/>
-                        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--theme-primary)" stroke-width="8" stroke-linecap="round"
-                          stroke-dasharray="264" stroke-dashoffset="66" class="progress-ring" />
-                      </svg>
-                      <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-xl sm:text-2xl font-black text-theme-text">75</span>
-                        <span class="caption-text text-theme-text-tertiary">综合评分</span>
-                      </div>
-                    </div>
-                    <div class="flex-1 space-y-2.5">
-                      <div>
-                        <div class="flex justify-between caption-text mb-1">
-                          <span class="text-theme-text-secondary">内容匹配度</span>
-                          <span class="text-theme-text font-medium">82%</span>
-                        </div>
-                        <div class="h-1.5 bg-theme-accent rounded-full overflow-hidden">
-                          <div class="h-full bg-theme-primary rounded-full" style="width: 82%"></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div class="flex justify-between caption-text mb-1">
-                          <span class="text-theme-text-secondary">关键词优化</span>
-                          <span class="text-theme-text font-medium">68%</span>
-                        </div>
-                        <div class="h-1.5 bg-theme-accent rounded-full overflow-hidden">
-                          <div class="h-full bg-amber-500 rounded-full" style="width: 68%"></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div class="flex justify-between caption-text mb-1">
-                          <span class="text-theme-text-secondary">排版规范性</span>
-                          <span class="text-theme-text font-medium">91%</span>
-                        </div>
-                        <div class="h-1.5 bg-theme-accent rounded-full overflow-hidden">
-                          <div class="h-full bg-green-500 rounded-full" style="width: 91%"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 优化建议 -->
-                  <div class="space-y-2">
-                    <div class="flex items-start gap-2 caption-text">
-                      <Sparkles class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <span class="text-theme-text-secondary">建议补充项目成果量化数据，使用 STAR 法则描述经历</span>
-                    </div>
-                    <div class="flex items-start gap-2 caption-text">
-                      <TrendingUp class="w-4 h-4 text-theme-primary flex-shrink-0 mt-0.5" />
-                      <span class="text-theme-text-secondary">技术栈关键词与目标岗位匹配度可进一步提升</span>
-                    </div>
-                  </div>
-
-                  <button @click="goResumeOptimize" class="w-full mt-4 sm:mt-5 py-2.5 bg-theme-primary-soft hover:bg-theme-primary hover:text-theme-on-primary text-theme-primary meta-text font-medium rounded-lg transition-colors">
-                    生成我的诊断报告
-                  </button>
-                </div>
-
-                <!-- 浮动小卡片 -->
-                <div class="hidden sm:block absolute -bottom-4 -left-3 z-20 rounded-xl p-3 shadow-theme-lg border border-theme-border bg-theme-surface home-float-delayed">
-                  <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                      <Briefcase class="w-4 h-4 text-green-600" />
-                    </div>
+                <div class="relative z-10 rounded-2xl p-5 sm:p-6 shadow-theme-xl border border-theme-border bg-theme-surface">
+                  <div class="flex items-start justify-between gap-3 mb-4">
                     <div>
-                      <div class="caption-text font-semibold text-theme-text">AI 模拟面试中</div>
-                      <div class="text-[10px] text-theme-text-tertiary">第 3 轮 · 技术深度</div>
+                      <div class="card-title">从学习到上岸 · 平台能力路线</div>
+                      <div class="meta-text mt-0.5">9 个环节闭环：学习 → 简历 → 面试 → 复盘 → 复习 → 社区 → 创作</div>
                     </div>
+                    <span class="caption-text text-theme-text-tertiary hidden sm:inline flex-shrink-0">鼠标划入查看</span>
                   </div>
-                </div>
-                <div class="hidden sm:block absolute -top-3 -right-3 z-20 rounded-xl p-3 shadow-theme-lg border border-theme-border bg-theme-surface home-float">
-                  <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                      <FlameIcon class="w-4 h-4 text-orange-600" />
-                    </div>
-                    <div>
-                      <div class="caption-text font-semibold text-theme-text">成长 +15</div>
-                      <div class="text-[10px] text-theme-text-tertiary">连续打卡 · 天天可见</div>
-                    </div>
-                  </div>
+                  <PlatformRoadmap :cols="3" compact />
                 </div>
               </div>
             </div>
 
-            <!-- 五大主线导航（锚点直达，图标卡片带悬浮特效） -->
+            <!-- 五大主线导航（锚点直达，图标卡片带悬浮特效）· 保留原设计 -->
             <div class="relative mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-theme-border/60">
               <div class="grid grid-cols-5 gap-2 sm:gap-3">
                 <a

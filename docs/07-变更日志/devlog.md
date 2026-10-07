@@ -2,6 +2,165 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v14.73 (2026-10-05) v14.72 遗留 P2 三项收尾：意图规则库扩充 + 降级可观测（degraded 列）+ agent 通道流式化
+
+**背景**：v14.72 遗留与后续规划（P2）三项全部闭环——意图路由安全开启前置、降级调用落库可统计、
+会话流式通道接入三选一分派（agent 自主规划场景原先在会话流式下静默绕过工具能力）。
+
+### 一、P2-3：IntentClassifier 规则库扩充（支撑 enable_intent_routing 安全开启）
+
+- **规则库**：通用对话控制（问候/感谢/继续/结束）+ 业务域路由（简历优化/解析、智能出题、
+  财务分析，命中建议切场景由网关校验存在后切换）+ 求职/学习咨询（职业建议/代码/泛攻略），
+  正则预编译（旧版每轮 `matches()` 全量重编译）；
+- **置信度分级**：每条规则独立置信度（强信号 0.9+，弱信号 0.75+），阈值常量
+  `CLARIFICATION_THRESHOLD=0.6` 与网关口径一致；
+- **兜底语义修正（根因）**：旧版未命中一律 UNKNOWN(0.3) < 追问阈值(0.6)，任何带自由文本的
+  结构化场景开启意图路由即被误追问——现正常长度自由文本判 `GENERAL(0.65)` 维持原场景，
+  仅过短（<4 字符）或纯标点输入低置信触发追问；
+- 新增 `IntentClassifierTest`（16 例：规则命中/建议场景/泛化顺序/场景特定/兜底语义）。
+
+### 二、降级可观测：ai_execute_log 加 degraded 列 + 看板降级占比
+
+- **DDL 双轨**：`moyun-db-ddl.sql` 末尾注释块 + 增量脚本 `20261005-03`（PREPARE 守卫式，
+  已执行到开发库并重跑验证幂等）；
+- 实体 `AiExecuteLog` 加 `degraded`；`AiExecuteLogService.record` 落库
+  `metadata.degraded → degraded`（1/0）；历史行 NULL 语义一致；
+- `/scene-executor-stats` 聚合接口加 `degradedCount`/`degradedRate`；
+- admin 执行日志页：成本看板加「降级占比」列（danger 标签），详情抽屉状态项补降级标记。
+
+### 三、P2-2：AgentPlanExecutor 会话流式化（三选一分派覆盖流式通道）
+
+- **网关分派**：`executeConversationStream` 第 4.5 步——场景 `supports()`（agent +
+  autonomousPlanning + 绑定工具）时走 `AgentPlanExecutor.executeConversationStream`，
+  限流/Token 熔断/执行日志/记忆写回/成本累计仍由网关在回调中收口（handler_name=
+  AgentPlanExecutor，与成本看板执行通道口径一致）；
+- **READY 协议**：规划循环同步执行（双硬顶与同步通道一致，工具轮输出不转发前端），
+  约定模型信息足够时仅输出 `[READY]`，系统追加终答指令后改用流式模型增量下发（真流式）；
+- **降级路径**：模型不守约直接给出完整答案 → 按终答接受一次性转发（不二次调用，成本不翻倍）；
+  预算触顶收口复用该轮已生成文本（与同步通道语义一致）；
+- **计量**：规划轮逐轮累计（真实 usage 优先/本地估算打标）+ 终答流式回调合并计量，
+  Token 全量进场景日配额；
+- 新增 `AgentPlanExecutorStreamTest`（3 例：READY 协议/直答降级/未启用报错）。
+
+### 验证
+
+- 后端 `mvn compile` ✓；全量测试 **457 个全通过**（438 + 新增 19，0 Failures / 0 Errors）；
+- `IncrementSqlIdempotencyGuardTest`（42 脚本扫描，违规 0）✓；增量脚本 `20261005-03`
+  已落库（moyun-db@localhost）并重跑验证幂等；
+- admin 前端 `npm run build:prod` ✓。
+
+### v14.72「遗留与后续规划」状态更新
+
+2/3/4 之 degraded 部分全部闭环：`enable_intent_routing` 具备安全开启前置（仍默认关闭，
+按需在场景行开启）；降级占比已上线成本看板；会话流式支持 agent 自主规划。
+SSE emitter 端点（/api/ai/execute/stream）无场景声明流式支持，维持现状（该端点本就拒绝）。
+
+---
+
+## v14.72 (2026-10-05) AI统一收口治理：admin直连/工作流Agent节点收编 + 三选一调度（agent自主规划/工作流/模型直连）+ RAG参数运行时化
+
+**背景**：AI 模块全面评审发现三类缺口——admin 直连与工作流 Agent 节点绕过统一网关（治理盲区）、
+agent 与 workflow 调度未收口（缺互斥与成本约束）、RAG 参数固化 yaml 无法在线止血。
+本次按批次 B1–B7 整改，原则：**统一收口、渐进双通道（不破坏存量链路）、成本硬约束**。
+
+### 一、B1（P0-2）意图分类场景级开关 `enable_intent_routing`
+
+| 层 | 改动 |
+|---|---|
+| DDL | `ai_scene_config` 新列 `enable_intent_routing tinyint(1) DEFAULT 0`（DDL 末尾注释块 + 增量脚本 `20261005-01`） |
+| 网关 | `AiGatewayService` 意图分类门控：仅开关开启 + userInput 非空 + 非会话模式才进 IntentClassifier——**结构化场景零误伤**（消除"带 userInput 即被追问"地雷），存量场景默认关闭 |
+| 实体/版本 | `AiSceneConfig` 加字段；`AiSceneConfigVersionService.fullColumnUpdate` 补列——顺带修复存量遗漏（`max_input_tokens`/`max_output_tokens`/`truncate_strategy` 此前回滚会静默丢配置） |
+| 前端 | admin `views/ai/scene/index.vue`：执行配置 Tab 加「意图路由」开关（默认表单/回显映射/提交三处同步） |
+
+### 二、B2（P1-1）降级链可观测 + 瞬时异常重试
+
+- `AbstractAiSceneHandler`（chatDetailed）：绑定模型瞬时异常 **500ms 退避重试 1 次**；仍失败回落默认模型并打 `degraded=true`；
+  `ChatOutcome`/`AiMetadata` 新增 `degraded`/`retryCount`（code 保持 SUCCESS 兼容存量，消费方按标记区分质量）。
+- 网关 catch 兜底响应统一标 `metadata.degraded=true`，执行日志 fail 原因留痕。
+
+### 三、B3（P0-1）工作流 Agent 节点收编网关（渐进双通道）
+
+- 新场景 `workflow_agent_node`（枚举 + `defaultSceneExecutor` text 行，增量脚本 `20261005-01`）；
+  `AgentNodeExecutor` **优先经网关**执行（人设经 `input.agentPersona` 注入，与网关 mergePersona 契约一致）。
+- **治理生效不绕行**：场景已配置时限流/Token 熔断判定对节点生效（节点失败）；仅 `SCENE_NOT_FOUND`（未配置/停用）兜底直连并**补计量**
+  （TokenMeter 估算 + TokenCostGuard 累计 + ai_execute_log，消除成本盲区）。存量工作流零破坏。
+- `AiSceneJsonClient` 新增 `executeForText` 文本通道 + `TextOutcome`（sceneMissing 语义区分"未配置"与"被治理拒绝"）。
+
+### 四、B4（P1-2）admin 直连 LLMService 补计量记账
+
+- `LLMService` 接口增 `meterScene` 维度（默认 `admin.direct`；**网关内部传 null 免计**，防同一次调用双行记账）；
+  `LLMServiceImpl` 真实 usage 优先、缺失 TokenMeter 估算打标，`ai_execute_log` 落库——admin 直连从"成本黑洞"变可观测。
+
+### 五、B6（架构）agent/workflow/模型 三选一调度统一收口 ⭐
+
+用户核心诉求："把 agent 和 workflow 放到统一收口，场景可选其中一种调度——固定路线用 workflow、
+固定输出用模型直连（成本可预算）；开放任务才用 agent 自主规划，但自主规划不可靠需限损"。
+
+| 通道 | 执行器 | 适用 | 成本约束 |
+|---|---|---|---|
+| 模型直连 | Handler（DefaultSceneExecutor 配置驱动） | 固定输出格式/单步 | 单次调用，最省 |
+| 工作流 | `WorkflowSceneExecutor`（新增） | 固定执行路线 | 节点数固定，可预算；外层信封估算计量（tokenEstimated=true） |
+| agent 自主规划 | `AgentPlanExecutor`（新增） | 开放任务 | **双硬顶**：maxIterations（默认3/硬顶8）+ tokenBudget（默认12000/下限1000），超限强制综合收口 |
+
+- **接线**：`AiGatewayService` step6 三通道分派（优先级 agent > workflow，与 resolveBindType 一致）；两类替代通道
+  跳过 Handler.validate/execute，各自校验自身契约；执行日志记真实 executor 名。
+- **互斥**：`AiSceneConfigController.validate` 保存时强制 agentId/modelConfigId/workflowId 三选一；
+  admin 表单同步前置校验 + 绑定区提示文案。
+- **Bean 循环防护**：`WorkflowSceneExecutor`→`ObjectProvider<WorkflowService>`、`AgentPlanExecutor`→`ObjectProvider<ToolCallingService>`
+  延迟解析（引擎节点依赖链含网关，防环）。
+- 自主规划循环复用既有 `[TOOL_CALL]` 文本协议（ToolCallingService），工具结果回喂、无标记即终答、终答清洗工具标记。
+
+### 六、B5（P1-3）RAG 参数运行时化（sys_config 优先 + yaml 兜底）
+
+- 新增 `RagSettingsService`：`ai.rag.*` sys_config 键优先（管理台改参即时生效），缺失/非法/仓储异常静默回落
+  `RagConfig`（yaml）默认——RAG 主链路不因配置读取故障中断。
+- 消费方改造 **17 处**：`DynamicChatServiceImpl`（意图/滑窗/摘要/Self-RAG 装配）、`RagRetrievalServiceImpl`
+  （改写/扩展/召回/混合检索/权重）、`SelfRagServiceImpl`（验证批量）；相关测试 mock 同步。
+- 增量脚本 `20261005-02` + DML 初始化：预置 **6 个布尔开关**（混合检索/查询扩展/查询改写/Self-RAG验证/对话摘要/意图识别），
+  数值阈值走 yaml 默认。
+
+### 七、B7（P2）ParallelNodeExecutor 真并发——复核已闭环，零代码
+
+复核结论：`WorkflowEngine` 并行分支已使用**受管** `workflowParallelExecutor`（AsyncConfig 容器线程池）真并行，
+`ParallelNodeExecutor` 仅作标记节点——历史批次已闭环，本批仅登记确认，不重复改码。
+
+### 八、P2 收尾（2026-10-05 追加）：输出过滤开关同步 + 场景×执行器成本看板
+
+- **P2-1（遗留项1）**：admin 场景表单执行配置 Tab 补「输出过滤」开关（`enableOutputFilter`，
+  默认表单/回显/提交三处同步）——后端列与网关 DFA 脱敏逻辑早已存在，补齐前后端同步缺口，
+  涉敏场景（简历/证件/联系方式输出）可在线开启。
+- **P2-4（遗留项4）**：成本可视化落地（handler_name 即执行器维度）：
+  - 后端 `AiExecuteLogController` 新增 `/scene-executor-stats` 聚合接口：scene_code × handler_name
+    分组，调用量/成功率/Token/成本/平均耗时/本地估算占比（token_estimated），Java 侧 Token 降序；
+  - admin 执行日志页（`views/ai/execute-log/index.vue`）加**同页视图切换**（执行日志 ⇄ 成本看板，
+    不新建路由）：执行通道标签化（AgentPlanExecutor=智能体自主规划/WorkflowSceneExecutor=
+    工作流固定路线/其余=Handler 直连），随日期范围联动，复用汇总卡口径的成功率着色（≥99绿/≥90黄/其余红）。
+
+### 遗留与后续规划（P2）
+
+1. ~~`enable_output_filter` admin 表单未暴露开关~~ **已闭环（本批 P2-1）**；
+2. `AgentPlanExecutor` 目前仅同步通道（会话流式不支持自主规划，需求出现再评估）；
+3. `IntentClassifier` 规则库覆盖有限——开启 `enable_intent_routing` 的场景需先扩充规则（当前默认关闭影响面 0）；
+4. ~~ai_execute_log 成本报表按「场景 × executor」维度可视化~~ **已闭环（本批 P2-4）**；
+   degraded 占比需 DDL 加列（当前表无该列），estimated 占比已上线，degraded 归后续表结构变更批次。
+
+### 脚本幂等性修复（增量脚本守卫 §6.4）
+
+全量回归暴露 `IncrementSqlIdempotencyGuardTest` 失败：`20261005-01` 的 `ADD COLUMN`
+无 information_schema 前置判断（已有库重跑报 1060 中断）。已按项目规范重写：
+
+- `20261005-01`：`ADD COLUMN` 改 PREPARE 守卫式（列存在则 `DO 0` 跳过）；场景行改
+  `INSERT ... SELECT ... WHERE NOT EXISTS`（按 scene_code 判存）；末尾补复核 SELECT；
+- `20261005-02`：6 个 sys_config 键改 `INSERT ... SELECT ... WHERE NOT EXISTS`（按 config_key
+  判存，重复执行只补缺失键）；顺带修复 `--（` 注释缺空格导致 MySQL 解析失败。
+- 两个脚本已执行到开发库（moyun-db@localhost），`@SpringBootTest` 全量恢复可跑。
+
+**验证**：后端 `mvn compile` ✓；全量测试 **438 个全通过**（0 Failures / 0 Errors，含此前因
+增量脚本未执行+Redis 未启动而环境性失败的 @SpringBootTest DB 测试）；admin 前端
+`npm run build:prod` ✓；`IncrementSqlIdempotencyGuardTest`（含自检）✓。
+
+---
+
 ## v14.71 (2026-10-03) 收费功能下线 **W5–W6**：数据库归档 + 后台/文档清理（收口）
 
 ### 一、数据库归档脚本（归档而非删除）

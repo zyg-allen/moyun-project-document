@@ -1,6 +1,6 @@
 package com.moyun.ext.ai.service.impl.chat;
 
-import com.moyun.ext.ai.config.RagConfig;
+import com.moyun.ext.ai.config.RagSettingsService;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.model.RerankModel;
@@ -60,7 +60,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     private RerankModel rerankModel;
 
     @Autowired
-    private RagConfig ragConfig;
+    private RagSettingsService ragSettings;
 
     @Autowired
     private ModelConfigService modelConfigService;
@@ -429,7 +429,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
         try {
             // 0. 查询改写（LLM优化查询）
             String rewrittenQuery = query;
-            boolean enableQueryRewriting = ragConfig.isEnableQueryRewriting();
+            boolean enableQueryRewriting = ragSettings.enableQueryRewriting();
             
             if (enableQueryRewriting && queryRewritingService.shouldRewrite(query)) {
                 try {
@@ -446,7 +446,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             // 1. 查询扩展（优先使用Agent配置，null时使用全局兜底配置）
             boolean enableQueryExpansion = agent.getRagEnableQueryExpansion() != null
                     ? agent.getRagEnableQueryExpansion()
-                    : ragConfig.isEnableQueryExpansion();
+                    : ragSettings.enableQueryExpansion();
 
             log.info("混合检索配置（来源：{}）:",
                     agent.getRagEnableQueryExpansion() != null ? "智能体" : "全局默认");
@@ -476,7 +476,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             double recallMultiplier = agent.getRagRecallMultiplier();
 
             // 召回数量
-            int candidateCount = Math.max((int) (maxResults * recallMultiplier), ragConfig.getMinRecallCount());
+            int candidateCount = Math.max((int) (maxResults * recallMultiplier), ragSettings.minRecallCount());
             double initialMinScore = Math.max(minScore - 0.15, 0.3); // 降低阈值，增加召回
 
             log.info("检索参数 - 目标结果数: {}, 最低相似度: {}, 召回倍数: {}x",
@@ -532,7 +532,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
 
             // 3. BM25检索（使用扩展查询，可配置开关）
             boolean enableHybridSearch = agent.getRagEnableHybridSearch() != null ? agent.getRagEnableHybridSearch()
-                    : ragConfig.isEnableHybridSearch();
+                    : ragSettings.enableHybridSearch();
 
             log.info("  - 混合检索: {}", enableHybridSearch ? "启用" : "禁用");
 
@@ -568,9 +568,9 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             } else if (enableHybridSearch) {
                 // 降级：使用配置的固定权重
                 bm25Weight = agent.getRagBm25Weight() != null ? agent.getRagBm25Weight()
-                        : ragConfig.getBm25Weight();
+                        : ragSettings.bm25Weight();
                 vectorWeight = agent.getRagVectorWeight() != null ? agent.getRagVectorWeight()
-                        : ragConfig.getVectorWeight();
+                        : ragSettings.vectorWeight();
                 log.info("  - 权重来源: 固定配置");
                 log.info("  - 权重配置: 向量{}% : BM25{}%",
                         (int) (vectorWeight * 100), (int) (bm25Weight * 100));

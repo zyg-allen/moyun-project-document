@@ -176,6 +176,7 @@
               <el-select v-model="form.workflowId" placeholder="请选择工作流（可清空）" filterable clearable style="width: 100%;">
                 <el-option v-for="w in workflowOptions" :key="w.id" :label="w.name" :value="w.id" />
               </el-select>
+              <div class="form-tip">调度绑定三选一（互斥，保存时后端强制校验）：智能体=开放任务自主规划（需 config_json 开 autonomousPlanning）/ 模型=固定单发直连 / 工作流=固定执行路线（成本可预算）</div>
             </el-form-item>
             <el-form-item label="知识库ID列表">
               <el-input v-model="form.knowledgeLibraryIds" placeholder="JSON 数组字符串，如 [1,2,3]" />
@@ -280,6 +281,14 @@
             </el-form-item>
             <el-form-item label="策略配置JSON">
               <el-input v-model="form.configJson" type="textarea" :rows="3" placeholder='如 {"dynamicMode":true}' style="font-family: monospace;" />
+            </el-form-item>
+            <el-form-item label="意图路由">
+              <el-switch v-model="form.enableIntentRouting" />
+              <div class="form-tip" style="width: 100%;">网关五层编排的意图分类开关（默认关闭）：开启后顶层 userInput 参与意图分类——置信度不足触发追问、命中建议场景自动路由。仅对话收口类场景开启；结构化场景（带自由文本数据）保持关闭，避免被误追问</div>
+            </el-form-item>
+            <el-form-item label="输出过滤">
+              <el-switch v-model="form.enableOutputFilter" />
+              <div class="form-tip" style="width: 100%;">响应脱敏开关：开启后网关在缓存回写/日志留痕前，复用 DFA 敏感词树对响应 data 的全部文本节点脱敏；涉敏场景（含简历/证件/联系方式的输出）建议开启</div>
             </el-form-item>
           </el-tab-pane>
 
@@ -459,6 +468,10 @@ function makeDefaultForm() {
     knowledgeLibraryIds: '',
     toolIds: '',
     configJson: '',
+    // 网关编排：意图分类路由开关（v14.72，默认关闭——结构化场景零误伤）
+    enableIntentRouting: false,
+    // 输出内容脱敏开关（enable_output_filter，默认关闭）
+    enableOutputFilter: false,
     // 执行层
     handlerBeanName: '',
     handlerMethod: 'execute',
@@ -577,6 +590,8 @@ async function handleEdit(row) {
       knowledgeLibraryIds: data.knowledgeLibraryIds || '',
       toolIds: data.toolIds || '',
       configJson: data.configJson || '',
+      enableIntentRouting: !!data.enableIntentRouting,
+      enableOutputFilter: !!data.enableOutputFilter,
       // 执行层
       handlerBeanName: data.handlerBeanName || '',
       handlerMethod: data.handlerMethod || 'execute',
@@ -653,6 +668,13 @@ async function submitForm() {
   }
   if (!form.value.version || !form.value.version.trim()) {
     ElMessage.warning('请输入版本号');
+    return;
+  }
+  // 调度绑定三选一互斥（与后端 validate 同口径）：固定执行路线绑工作流 / 固定模型单发绑模型 / 开放任务绑智能体
+  const bindingCount = [form.value.agentId, form.value.modelConfigId, form.value.workflowId]
+    .filter(v => v != null).length;
+  if (bindingCount > 1) {
+    ElMessage.warning('调度绑定只能三选一（智能体/模型/工作流互斥）：固定执行路线请绑定工作流；固定模型直连请绑定模型；开放任务自主规划请绑定智能体');
     return;
   }
   const knowledgeLibraryIds = normalizeJsonArray(form.value.knowledgeLibraryIds, '知识库ID列表');

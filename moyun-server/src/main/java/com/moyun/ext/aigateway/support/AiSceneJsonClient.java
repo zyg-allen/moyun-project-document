@@ -91,4 +91,55 @@ public class AiSceneJsonClient {
         }
         return null;
     }
+
+    /**
+     * 文本执行结果（v14.72）：区分"场景未配置"（调用方走兜底直连）与
+     * "场景已配置但被治理拒绝/降级"（治理判定对调用方生效）。
+     */
+    public record TextOutcome(int code, String content, String msg) {
+        public static TextOutcome of(AiExecuteResponse<?> resp) {
+            return new TextOutcome(resp.getCode() != null ? resp.getCode() : -1,
+                    unwrapContent(resp.getData()), resp.getMsg());
+        }
+
+        private static String unwrapContent(Object data) {
+            if (data instanceof com.moyun.ext.aigateway.model.data.GenericSceneData generic
+                    && generic.getContent() != null && !generic.getContent().isBlank()) {
+                return generic.getContent();
+            }
+            return null;
+        }
+
+        public boolean sceneMissing() {
+            return code == AiErrorCodes.SCENE_NOT_FOUND;
+        }
+    }
+
+    /**
+     * 执行场景并返回自由文本结果（output_parser=text 类场景，如工作流 Agent 节点）。
+     *
+     * <p>与 {@link #executeForJson} 同一网关入口、同一治理链（限流/Token熔断/计量/日志），
+     * 仅解包口径不同：读 GenericSceneData.content。场景未配置时返回 code=SCENE_NOT_FOUND，
+     * 由调用方决定兜底策略（如工作流 Agent 节点的直连+计量兜底）。</p>
+     *
+     * @param sceneCode  场景代码（须配置 output_parser=text）
+     * @param input      结构化参数（如 agentPersona 人设注入）
+     * @param userInput  用户提示词（自由文本，网关 sanitize + 注入防护同契约）
+     * @param userId     归属用户（限流身份/日志，可空；系统触发传 null）
+     */
+    public TextOutcome executeForText(String sceneCode, Map<String, Object> input,
+                                      String userInput, Long userId) {
+        try {
+            AiExecuteRequest request = new AiExecuteRequest();
+            request.setSceneCode(sceneCode);
+            request.setInput(input != null ? input : new HashMap<>());
+            request.setUserInput(userInput);
+            request.setUserId(userId);
+            AiExecuteResponse<?> resp = gateway.execute(request);
+            return TextOutcome.of(resp);
+        } catch (Exception e) {
+            log.warn("[aigateway:JsonClient] 文本场景执行异常: scene={}, {}", sceneCode, e.getMessage());
+            return new TextOutcome(AiErrorCodes.UNKNOWN_ERROR, null, e.getMessage());
+        }
+    }
 }

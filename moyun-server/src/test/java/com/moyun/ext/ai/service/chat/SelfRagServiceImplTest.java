@@ -1,6 +1,6 @@
 package com.moyun.ext.ai.service.chat;
 
-import com.moyun.ext.ai.config.RagConfig;
+import com.moyun.ext.ai.config.RagSettingsService;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.ai.service.impl.chat.SelfRagServiceImpl;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
  * <p>测试策略：
  * <ul>
  *   <li>mock LLM 不可用 → 触发关键词估算 fallback 路径</li>
- *   <li>mock {@link RagConfig#getSelfRagMaxVerifyCount()} 控制验证数量限制</li>
+ *   <li>mock {@link RagSettingsService#selfRagMaxVerifyCount()} 控制验证数量限制</li>
  *   <li>覆盖 filterByRelevance 的边界条件（null / 空 / 全保留 / 全过滤）</li>
  *   <li>覆盖 canAnswerQuery 的边界条件</li>
  * </ul>
@@ -45,7 +45,7 @@ class SelfRagServiceImplTest {
     private ModelConfigService modelConfigService;
 
     @Mock
-    private RagConfig ragConfig;
+    private RagSettingsService ragSettings;
 
     @InjectMocks
     private SelfRagServiceImpl service;
@@ -56,7 +56,7 @@ class SelfRagServiceImplTest {
         lenient().when(modelConfigService.getDefaultChatConfig()).thenReturn(null);
         lenient().when(modelConfigService.createChatModel(anyLong())).thenReturn(null);
         // 默认允许验证 5 个
-        lenient().when(ragConfig.getSelfRagMaxVerifyCount()).thenReturn(5);
+        lenient().when(ragSettings.selfRagMaxVerifyCount()).thenReturn(5);
     }
 
     // ====================================================================
@@ -175,7 +175,7 @@ class SelfRagServiceImplTest {
         @Test
         @DisplayName("超过 maxVerifyCount → 后续走关键词估算")
         void shouldUseKeywordEstimationAfterMaxVerifyCount() {
-            when(ragConfig.getSelfRagMaxVerifyCount()).thenReturn(1);
+            when(ragSettings.selfRagMaxVerifyCount()).thenReturn(1);
             List<Content> contents = List.of(
                     createContent("RAG 检索相关内容一"),
                     createContent("RAG 检索相关内容二"),

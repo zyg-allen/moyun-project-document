@@ -1,7 +1,7 @@
 package com.moyun.ext.ai.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.ext.ai.config.RagConfig;
+import com.moyun.ext.ai.config.RagSettingsService;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.service.ToolCallingService;
@@ -61,7 +61,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
     private AgentService agentService;
 
     @Autowired
-    private RagConfig ragConfig;
+    private RagSettingsService ragSettings;
 
     @Autowired
     private ModelConfigService modelConfigService;
@@ -195,7 +195,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
             log.info("=".repeat(80));
 
             // ========== 意图识别（用于日志和后续智能路由） ==========
-            if (!isGreeting && ragConfig.isEnableIntentRecognition()) {
+            if (!isGreeting && ragSettings.enableIntentRecognition()) {
                 try {
                     var intentResult = intentRecognitionService.recognize(userMessage, agent);
                     log.info("🎯 意图识别: {} (置信度: {})", intentResult.getIntent(), 
@@ -251,7 +251,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
 
             // 使用智能体配置的历史轮数，如果没有配置则使用全局默认值
             int maxMessages = agent.getMaxHistoryTurns() != null ? agent.getMaxHistoryTurns() * 2
-                    : ragConfig.getMaxMessages();
+                    : ragSettings.maxMessages();
 
             MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
                     .id(finalConversationId)
@@ -266,11 +266,11 @@ public class DynamicChatServiceImpl implements DynamicChatService {
             log.info("历史消息数量: {}", messages.size());
 
             // 对话摘要：如果历史消息过多，压缩为摘要以节省Token
-            if (ragConfig.isEnableConversationSummary()) {
-                int summaryThreshold = ragConfig.getSummaryThreshold();
+            if (ragSettings.enableConversationSummary()) {
+                int summaryThreshold = ragSettings.summaryThreshold();
                 if (conversationSummaryService.needsSummary(messages, summaryThreshold)) {
                     try {
-                        int keepRecent = ragConfig.getSummaryKeepRecent();
+                        int keepRecent = ragSettings.summaryKeepRecent();
                         messages = conversationSummaryService.compressHistory(messages, keepRecent);
                         log.info("📦 对话历史已压缩: 保留最近 {} 条消息 + 摘要", keepRecent);
                     } catch (Exception e) {
@@ -311,10 +311,10 @@ public class DynamicChatServiceImpl implements DynamicChatService {
                     List<Content> contents = ragRetrievalService.retrieveContents(userMessage, documentIds, agent);
                     
                     // Self-RAG验证：过滤不相关的检索结果
-                    if (ragConfig.isEnableSelfRag() && contents != null && !contents.isEmpty()) {
+                    if (ragSettings.enableSelfRag() && contents != null && !contents.isEmpty()) {
                         try {
                             double minRelevance = agent.getRagMinScore() != null 
-                                    ? agent.getRagMinScore() : ragConfig.getSelfRagMinRelevance();
+                                    ? agent.getRagMinScore() : ragSettings.selfRagMinRelevance();
                             contents = selfRagService.filterByRelevance(contents, userMessage, minRelevance);
                             log.info("🔍 Self-RAG验证后保留 {} 个相关内容", contents.size());
                         } catch (Exception e) {

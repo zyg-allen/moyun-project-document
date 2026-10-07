@@ -99,44 +99,81 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     /**
      * 场景感知同步对话（结构化结果）：除文本外返回实际使用的模型与 token 消耗。
      * 需要 metadata 可观测的场景 Handler 用本方法，并通过 {@link #buildMetadata} 填充响应。
+     *
+     * <p>v14.72 降级链增强：绑定模型瞬时异常时退避 500ms 重试一次（网络抖动/供应商
+     * 限流毛刺自愈，避免直接跌落默认模型）；重试仍失败或返回空内容才回落默认模型并
+     * 标记 {@code degraded=true}（业务可区分降级结果）。中断类异常不重试。</p>
      */
     protected ChatOutcome chatDetailed(String sceneCode, String systemPrompt, String userPrompt) {
         ChatOutcome outcome = new ChatOutcome();
         // 1. 场景绑定模型（责任链：Agent绑定 → 直绑模型 → null）
         if (sceneResolver != null) {
+            ChatLanguageModel boundModel = null;
             try {
-                ChatLanguageModel boundModel = sceneResolver.resolveChatModel(sceneCode);
-                if (boundModel != null) {
-                    ChatResponse resp = boundModel.chat(List.of(
-                            new SystemMessage(systemPrompt),
-                            new UserMessage(userPrompt)));
-                    if (resp != null && resp.aiMessage() != null
-                            && resp.aiMessage().text() != null && !resp.aiMessage().text().isBlank()) {
-                        outcome.setText(resp.aiMessage().text());
-                        fillUsage(outcome, resp);
-                        return outcome;
-                    }
-                    // 绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
-                    // reasoning_content、或触发内容审查）。记录留痕并回落默认模型再试一次，
-                    // 不再静默失败。
-                    log.warn("[aigateway:{}] 绑定模型返回空内容，回落默认模型（疑似推理模型未产出final答案或内容审查）: model={}",
-                            sceneCode, resp == null || resp.metadata() == null ? "unknown" : resp.metadata().modelName());
-                }
+                boundModel = sceneResolver.resolveChatModel(sceneCode);
             } catch (Exception e) {
-                log.warn("[aigateway:{}] 场景绑定模型调用失败，回落默认模型: {}", sceneCode, e.getMessage());
+                log.warn("[aigateway:{}] 场景绑定模型解析失败: {}", sceneCode, e.getMessage());
+            }
+            if (boundModel != null) {
+                ChatResponse resp = invokeBoundModel(sceneCode, boundModel, systemPrompt, userPrompt, outcome);
+                if (resp != null && resp.aiMessage() != null
+                        && resp.aiMessage().text() != null && !resp.aiMessage().text().isBlank()) {
+                    outcome.setText(resp.aiMessage().text());
+                    fillUsage(outcome, resp);
+                    return outcome;
+                }
+                // 绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
+                // reasoning_content、或触发内容审查）。记录留痕并回落默认模型再试一次，
+                // 不再静默失败。
+                log.warn("[aigateway:{}] 绑定模型返回空内容，回落默认模型（疑似推理模型未产出final答案或内容审查）: model={}",
+                        sceneCode, resp == null || resp.metadata() == null ? "unknown" : resp.metadata().modelName());
             }
         }
 
-        // 2. 回落底座默认模型（无 token 统计，标记 default）
+        // 2. 回落底座默认模型（无 token 统计，标记 default）——走到此分支即属降级
         if (llmService != null) {
             try {
-                outcome.setText(llmService.generate(systemPrompt + "\n\n" + userPrompt));
+                outcome.setText(llmService.generate(systemPrompt + "\n\n" + userPrompt, (String) null));
                 outcome.setModelUsed("default");
+                outcome.setDegraded(true);
             } catch (Exception e) {
                 log.warn("[aigateway:{}] 默认模型调用失败: {}", sceneCode, e.getMessage());
             }
         }
         return outcome;
+    }
+
+    /** 瞬时异常退避间隔（ms） */
+    private static final long TRANSIENT_RETRY_BACKOFF_MS = 500;
+
+    /**
+     * 绑定模型调用（瞬时异常退避重试一次）。
+     *
+     * @return 成功的 ChatResponse（含空内容的情况，由调用方判断）；重试后仍失败返回 null
+     */
+    private ChatResponse invokeBoundModel(String sceneCode, ChatLanguageModel model,
+                                          String systemPrompt, String userPrompt, ChatOutcome outcome) {
+        try {
+            return model.chat(List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt)));
+        } catch (Exception first) {
+            log.warn("[aigateway:{}] 绑定模型调用异常，{}ms 后重试一次: {}", sceneCode,
+                    TRANSIENT_RETRY_BACKOFF_MS, first.getMessage());
+            try {
+                Thread.sleep(TRANSIENT_RETRY_BACKOFF_MS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+            try {
+                ChatResponse retry = model.chat(List.of(
+                        new SystemMessage(systemPrompt), new UserMessage(userPrompt)));
+                outcome.setRetryCount(1);
+                return retry;
+            } catch (Exception second) {
+                log.warn("[aigateway:{}] 绑定模型重试仍失败，回落默认模型: {}", sceneCode, second.getMessage());
+                return null;
+            }
+        }
     }
 
     /** 从 ChatResponse 提取模型名与 token 消耗（字段缺失时静默留空） */
@@ -176,12 +213,17 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
             metadata.setTokenUsed(outcome.getTokenUsed());
             metadata.setInputTokens(outcome.getInputTokens());
             metadata.setOutputTokens(outcome.getOutputTokens());
+            metadata.setRetryCount(outcome.getRetryCount());
+            if (outcome.isDegraded()) {
+                metadata.setDegraded(true);
+            }
         }
         return metadata;
     }
 
     /**
-     * 流式对话：底座 LLMService.generateStream（SSE逐token推送）
+     * 流式对话：底座 LLMService.generateStream（SSE逐token推送）。
+     * meterScene 传 null——网关流式路径已按场景落执行日志，此处免计量防双记。
      */
     protected void chatStream(String sceneCode, String systemPrompt, String userPrompt,
                               SseEmitter emitter, StringBuilder collected) {
@@ -190,6 +232,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
         }
         llmService.generateStream(
                 systemPrompt + "\n\n" + userPrompt,
+                null,
                 token -> {
                     if (collected != null) {
                         collected.append(token);

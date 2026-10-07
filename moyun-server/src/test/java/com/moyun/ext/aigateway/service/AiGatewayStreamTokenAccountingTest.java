@@ -4,6 +4,7 @@ import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.aigateway.model.ConversationStreamCommand;
 import com.moyun.ext.aigateway.registry.AiSceneRegistry;
 import com.moyun.ext.aigateway.support.AgentModelRouter;
+import com.moyun.ext.aigateway.support.AgentPlanExecutor;
 import com.moyun.ext.aigateway.support.AiExecuteLogService;
 import com.moyun.ext.aigateway.support.AiOutputFilter;
 import com.moyun.ext.aigateway.support.ContextManager;
@@ -82,6 +83,8 @@ class AiGatewayStreamTokenAccountingTest {
     @Mock private AgentModelRouter agentModelRouter;
     @Mock private AiSceneConfigVersionService sceneConfigVersionService;
     @Mock private RedisTemplate<String, String> redisTemplate;
+    @Mock private AgentPlanExecutor agentPlanExecutor;
+    @Mock private WorkflowSceneExecutor workflowSceneExecutor;
     @Mock private StreamingChatLanguageModel streamingModel;
 
     private AiGatewayService gateway;
@@ -89,9 +92,11 @@ class AiGatewayStreamTokenAccountingTest {
     @BeforeEach
     void setUp() {
         // 构造参数顺序须与 @RequiredArgsConstructor 的字段声明顺序一致
+        // （v14.72 末两位为三通道分派的规划/工作流执行器，会话流式路径不触及，mock 占位）
         gateway = new AiGatewayService(registry, intentClassifier, semanticCache, rateLimiter,
                 fallbackStrategy, executeLogService, tokenCostGuard, new TokenMeter(), outputFilter,
-                agentMapper, contextManager, agentModelRouter, sceneConfigVersionService, redisTemplate);
+                agentMapper, contextManager, agentModelRouter, sceneConfigVersionService, redisTemplate,
+                agentPlanExecutor, workflowSceneExecutor);
 
         AiSceneConfig config = new AiSceneConfig();
         config.setSceneCode(SCENE);

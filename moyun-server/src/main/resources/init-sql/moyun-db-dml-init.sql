@@ -840,3 +840,31 @@ INSERT INTO sys_user_role (user_id,role_id,create_by,create_time,update_by,updat
 	 ('ledger','yearly','bill_parse','100','month','2026-09-17 17:53:21'),
 	 ('ledger','yearly','ai_analysis','unlimited','unlimited','2026-09-17 17:53:21');
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- =====================================================================
+-- v14.72 AI统一收口治理批次1（2026-10-05）：工作流 Agent 节点网关治理场景行。
+-- AgentNodeExecutor 优先经本场景行走统一网关（限流/Token熔断/计量/执行日志）；
+-- 场景行缺失/停用时兜底直连并补计量（渐进双通道）。enable_intent_routing 列
+-- 由 DDL 增量提供，存量场景默认 0（意图分类完全跳过）。
+-- =====================================================================
+INSERT INTO `ai_scene_config`
+    (`scene_code`, `scene_name`, `description`, `scene_category`, `handler_bean_name`, `handler_method`,
+     `output_mode`, `output_parser`, `rate_limit_count`, `rate_limit_time`,
+     `version`, `config_version`, `weight`, `priority`, `is_default`, `enabled`, `open_api`)
+VALUES
+    ('workflow_agent_node', '工作流Agent节点', 'AI工作流 agent 节点的统一收口治理场景：AgentNodeExecutor 优先经本场景走网关（限流/Token熔断/计量/日志），未配置/停用时兜底直连并补计量', 'chat',
+     'defaultSceneExecutor', 'execute', 'sync', 'text', 600, 60, 'v1', 1, 100, 0, 1, 1, 0);
+
+-- =====================================================================
+-- v14.72 AI统一收口治理批次5（2026-10-05）：RAG 参数运行时化。
+-- RagSettingsService 双层配置：sys_config（ai.rag.*）优先、
+-- yaml（moyun-ai.rag.*）兜底——管理台改参即时生效，键缺失回落默认。
+-- 仅预置 6 个布尔开关（在线止血能力）；数值阈值走 yaml 默认。
+-- =====================================================================
+INSERT INTO sys_config (config_name, config_key, config_value, platform_code, config_type, create_by, create_time, update_by, update_time, remark, del_flag) VALUES
+	 ('RAG-混合检索开关',       'ai.rag.enableHybridSearch',       'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, 'RAG 混合检索（向量+BM25）总开关；true=开启（默认），false=仅向量检索；管理台修改即时生效（yaml 兜底）', '0'),
+	 ('RAG-查询扩展开关',       'ai.rag.enableQueryExpansion',     'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, 'RAG 查询扩展（同义词/关联词扩充召回）开关；Agent 级 ragEnableQueryExpansion 优先于本全局值', '0'),
+	 ('RAG-查询改写开关',       'ai.rag.enableQueryRewriting',     'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, 'RAG 查询改写（LLM 优化检索 query，额外消耗 Token）开关；故障/成本异常时可在线关闭', '0'),
+	 ('RAG-SelfRAG验证开关',    'ai.rag.enableSelfRag',            'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, 'Self-RAG 检索结果相关性 LLM 验证（过滤噪声召回，每条候选消耗 Token）开关；Agent 级 ragMinScore 阈值仍生效', '0'),
+	 ('RAG-对话摘要开关',       'ai.rag.enableConversationSummary','true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, '长对话历史滑窗摘要压缩开关（节省上下文 Token）；false=超窗直接丢弃最旧消息', '0'),
+	 ('RAG-意图识别开关',       'ai.rag.enableIntentRecognition',  'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, '动态对话链路意图识别（日志/智能路由用，额外一次轻量分类调用）开关', '0');

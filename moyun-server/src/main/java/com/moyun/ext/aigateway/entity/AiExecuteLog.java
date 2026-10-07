@@ -71,6 +71,13 @@ public class AiExecuteLog {
     @TableField("token_estimated")
     private Integer tokenEstimated;
 
+    /**
+     * 是否降级响应：1=降级（Handler 瞬时异常重试失败回落默认模型/网关兜底），
+     * 0/NULL=正常（v14.72 P2 收尾——降级调用落库可辨识，看板统计降级占比）。
+     */
+    @TableField("degraded")
+    private Integer degraded;
+
     /** 本次调用成本（元，metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
     @TableField("cost_yuan")
     private java.math.BigDecimal costYuan;

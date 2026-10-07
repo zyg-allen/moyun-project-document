@@ -145,6 +145,53 @@ public class AiExecuteLogController extends BaseController {
                 : rows.stream().map(r -> String.valueOf(r.get("scene_code"))).toList());
     }
 
+    /**
+     * 场景 × 执行器 成本聚合（v14.72 P2 可观测性补齐）。
+     *
+     * <p>按 scene_code + handler_name 分组（handler_name 即真实执行通道——v14.72 三通道分派后
+     * 记录 AgentPlanExecutor/WorkflowSceneExecutor/各 Handler 名），聚合调用量/成功率/
+     * Token/成本/平均耗时/本地估算占比（token_estimated）/降级占比（degraded），支持日期范围。
+     * 供管理端成本看板定位：哪个场景、哪条通道在烧钱、降级与估算占比多高。</p>
+     */
+    @Operation(summary = "场景×执行器成本聚合", description = "按 scene_code + handler_name 分组：调用量/成功率/Token/成本/平均耗时/估算占比/降级占比（成本看板）")
+    @PreAuthorize("@ss.hasPermi('cms:ai:execute-log:list')")
+    @GetMapping("/scene-executor-stats")
+    public AjaxResult sceneExecutorStats(
+            @RequestParam(required = false) String beginDate,
+            @RequestParam(required = false) String endDate) {
+        QueryWrapper<AiExecuteLog> wrapper = new QueryWrapper<>();
+        LocalDateTime begin = parseBegin(beginDate);
+        LocalDateTime end = parseEnd(endDate);
+        wrapper.ge(begin != null, "create_time", begin);
+        wrapper.le(end != null, "create_time", end);
+        wrapper.select(
+                "scene_code",
+                "handler_name",
+                "COUNT(*) AS totalCount",
+                "SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successCount",
+                "COALESCE(SUM(token_used), 0) AS totalTokens",
+                "COALESCE(SUM(cost_yuan), 0) AS totalCost",
+                "COALESCE(AVG(elapsed_ms), 0) AS avgElapsed",
+                "SUM(CASE WHEN token_estimated = 1 THEN 1 ELSE 0 END) AS estimatedCount",
+                "SUM(CASE WHEN degraded = 1 THEN 1 ELSE 0 END) AS degradedCount");
+        wrapper.groupBy("scene_code", "handler_name");
+        List<Map<String, Object>> rows = executeLogMapper.selectMaps(wrapper);
+        // 组装派生指标（成功率/估算占比/降级占比）+ Token 降序（行数=场景×通道组合，量级小，内存排序）
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                long total = toLong(row.get("totalCount"));
+                long success = toLong(row.get("successCount"));
+                long estimated = toLong(row.get("estimatedCount"));
+                long degraded = toLong(row.get("degradedCount"));
+                row.put("successRate", total > 0 ? Math.round(success * 1000.0 / total) / 10.0 : 0.0);
+                row.put("estimatedRate", total > 0 ? Math.round(estimated * 1000.0 / total) / 10.0 : 0.0);
+                row.put("degradedRate", total > 0 ? Math.round(degraded * 1000.0 / total) / 10.0 : 0.0);
+            }
+            rows.sort((a, b) -> Long.compare(toLong(b.get("totalTokens")), toLong(a.get("totalTokens"))));
+        }
+        return success(rows == null ? List.of() : rows);
+    }
+
     @Operation(summary = "执行日志详情", description = "含输入/输出摘要、错误信息、工具调用记录")
     @PreAuthorize("@ss.hasPermi('cms:ai:execute-log:query')")
     @GetMapping("/{id}")

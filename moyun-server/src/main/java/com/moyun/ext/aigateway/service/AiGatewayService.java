@@ -14,6 +14,7 @@ import com.moyun.ext.aigateway.model.AiMetadata;
 import com.moyun.ext.aigateway.model.ConversationStreamCommand;
 import com.moyun.ext.aigateway.registry.AiSceneRegistry;
 import com.moyun.ext.aigateway.support.AgentModelRouter;
+import com.moyun.ext.aigateway.support.AgentPlanExecutor;
 import com.moyun.ext.aigateway.support.AiExecuteLogService;
 import com.moyun.ext.aigateway.support.AiOutputFilter;
 import com.moyun.ext.aigateway.support.ContextManager;
@@ -79,6 +80,10 @@ public class AiGatewayService {
     private final AiSceneConfigVersionService sceneConfigVersionService;
     /** Redis（会话配置版本锁 chat:memory:session:{sessionId}） */
     private final RedisTemplate<String, String> redisTemplate;
+    /** agent 受限自主规划通道（v14.72 三选一调度：开放任务，双硬顶限损） */
+    private final AgentPlanExecutor agentPlanExecutor;
+    /** workflow 固定路线通道（v14.72 三选一调度：固定执行路线，成本可预算） */
+    private final WorkflowSceneExecutor workflowSceneExecutor;
 
     /**
      * 同步执行（统一入口核心编排）
@@ -137,11 +142,12 @@ public class AiGatewayService {
                 }
             }
 
-            // 2. 意图判断（消费顶层 userInput 字段——用户自由文本触发分类路由；
-            //    结构化参数场景（如 finance_analysis 传 userId/range）不传 userInput，自然跳过。
-            //    会话模式（sessionId 非空）跳过——会话已绑定场景，分类是多余且有误打断风险。
-            //    当前主要预留对象：chat 收口进网关后，对话消息即 userInput，此分支成为场景路由器）
-            if (userInput != null && !userInput.isBlank() && request.getSessionId() == null) {
+            // 2. 意图判断（v14.72 场景级开关 enable_intent_routing，默认关闭）：
+            //    仅显式开启的场景消费顶层 userInput 做分类路由——IntentClassifier 规则覆盖有限，
+            //    UNKNOWN(0.3) < 追问阈值(0.6) 会让任何带自由文本的结构化场景被误追问；
+            //    关闭时完全跳过，chat 收口类场景按需开启。会话模式（sessionId 非空）仍跳过。
+            if (Boolean.TRUE.equals(config.getEnableIntentRouting())
+                    && userInput != null && !userInput.isBlank() && request.getSessionId() == null) {
                 IntentClassifier.IntentResult intent = intentClassifier.classify(userInput, sceneCode);
                 if (intent.getConfidence() < 0.6) {
                     AiExecuteResponse<Object> resp = AiExecuteResponse.clarification(
@@ -203,11 +209,29 @@ public class AiGatewayService {
                         "当前场景今日AI额度已用完，请明天再试", System.currentTimeMillis() - startTime, "token_limit");
             }
 
-            // 5. 参数校验
-            handler.validate(request);
-
-            // 6. 执行（配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
-            AiExecuteResponse<?> response = handler.execute(request, config);
+            // 5. 参数校验 + 执行（v14.72 三通道分派，与 resolveBindType 优先级一致 agent > workflow）：
+            //    ① 智能体 + autonomousPlanning → AgentPlanExecutor 受限自主规划（maxIterations +
+            //       tokenBudget 双硬顶，开放任务）；
+            //    ② 绑定工作流 → WorkflowSceneExecutor 固定执行路线（节点数固定，成本可预算）；
+            //    ③ 其余 → Handler 配置驱动直连（固定模型单发最省）。
+            //    三选一互斥由 AiSceneConfigController.validate 保存时强制；存量多绑行按本优先级收口。
+            //    两类替代通道完全取代 Handler（不跑其 validate/execute），各自校验自身契约。
+            boolean planChannel = config.getAgentId() != null && agentPlanExecutor.supports(config);
+            boolean workflowChannel = !planChannel && config.getWorkflowId() != null;
+            String executorName = handler.getClass().getSimpleName();
+            if (!planChannel && !workflowChannel) {
+                handler.validate(request);
+            }
+            AiExecuteResponse<?> response;
+            if (planChannel) {
+                executorName = "AgentPlanExecutor";
+                response = agentPlanExecutor.execute(request, config);
+            } else if (workflowChannel) {
+                executorName = "WorkflowSceneExecutor";
+                response = workflowSceneExecutor.execute(request, config);
+            } else {
+                response = handler.execute(request, config);
+            }
 
             // 6.5 输出内容过滤：场景开启 enable_output_filter 时，复用 DFA 词树
             //     对响应 data 的全部文本节点脱敏。位于缓存回写/执行日志之前——缓存与日志留痕的
@@ -233,7 +257,7 @@ public class AiGatewayService {
                         response, config.getCacheTtl());
             }
             executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
-                    handler.getClass().getSimpleName(), resolveBindType(config), response.getMetadata(),
+                    executorName, resolveBindType(config), response.getMetadata(),
                     inputKey, summarizeOutput(response), "success", null, elapsed);
             log.info("[aigateway:网关] 成功: scene={}, requestId={}, elapsed={}ms",
                     sceneCode, request.getRequestId(), elapsed);
@@ -245,9 +269,15 @@ public class AiGatewayService {
             AiExecuteResponse<?> fallback = fallbackStrategy.executeFallback(sceneCode,
                     config != null ? config.getFallbackResponse() : null, e);
             fillCommon(fallback, request, elapsed);
+            // v14.72 降级可见性：兜底响应统一标记 metadata.degraded=true（code 保持
+            // SUCCESS 兼容存量业务；需严格区分质量的消费方读此标记，不再把兜底文案
+            // 当模型产出二次消费）。token 计量为空——降级响应未发生真实模型调用。
+            AiMetadata degradedMeta = new AiMetadata();
+            degradedMeta.setDegraded(true);
+            fallback.setMetadata(degradedMeta);
             executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     handler != null ? handler.getClass().getSimpleName() : null,
-                    config != null ? resolveBindType(config) : null, null,
+                    config != null ? resolveBindType(config) : null, degradedMeta,
                     canonicalInputKey(request), null, "fail", e.getMessage(), elapsed);
             return fallback;
         }
@@ -414,6 +444,48 @@ public class AiGatewayService {
                         "conversationStream", "agent", null, sessionId, null,
                         "fail", "token_limit_exceeded", 0);
                 onError.accept(new IllegalStateException("当前场景今日AI额度已用完，请明天再试"));
+                return;
+            }
+
+            // 4.5 v14.72 P2-2：三选一分派在会话流式通道同样生效——场景开启自主规划
+            //     （agent + autonomousPlanning + 绑定工具）时走 AgentPlanExecutor：
+            //     规划循环同步执行（工具轮输出不转发前端），终答流式下发。
+            //     治理（限流/Token熔断/执行日志/记忆写回/成本累计）仍在网关本层收口。
+            if (agentPlanExecutor.supports(config)) {
+                List<ChatMessage> planMessages = contextManager.buildTurnMessages(
+                        sessionId, cmd.getMaxMessages(), userInput, cmd.getDirectives());
+                final String planScene = scene;
+                agentPlanExecutor.executeConversationStream(cmd, config, planMessages,
+                        onToken,
+                        (fullText, metadata) -> {
+                            // Token 累计：真实值或估算值都要计入（场景日配额不被绕过）
+                            try {
+                                if (metadata != null && metadata.getTokenUsed() != null
+                                        && metadata.getTokenUsed() > 0) {
+                                    tokenCostGuard.consume(planScene, metadata.getTokenUsed());
+                                }
+                            } catch (Exception e) {
+                                log.warn("[aigateway:网关] Token累计失败（不影响业务）: {}", e.getMessage());
+                            }
+                            // AI 回复入滑窗（超窗时异步预生成摘要，不阻塞）
+                            contextManager.recordAiReply(sessionId, cmd.getMaxMessages(), fullText);
+                            executeLogService.record(requestId, cmd.getUserId(), planScene,
+                                    "AgentPlanExecutor", "agent", metadata, sessionId,
+                                    fullText, "success", null,
+                                    System.currentTimeMillis() - startTime);
+                            try {
+                                onComplete.accept(fullText);
+                            } catch (Exception e) {
+                                log.error("[aigateway:网关] 会话流式 onComplete 回调异常: requestId={}", requestId, e);
+                            }
+                        },
+                        error -> {
+                            executeLogService.record(requestId, cmd.getUserId(), planScene,
+                                    "AgentPlanExecutor", "agent", null, sessionId, null,
+                                    "fail", error.getMessage(),
+                                    System.currentTimeMillis() - startTime);
+                            onError.accept(error);
+                        });
                 return;
             }
 

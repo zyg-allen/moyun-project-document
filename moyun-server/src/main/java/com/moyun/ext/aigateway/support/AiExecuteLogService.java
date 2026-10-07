@@ -64,6 +64,8 @@ public class AiExecuteLogService {
                 logEntry.setOutputTokens(metadata.getOutputTokens());
                 // 估算标记：区分"服务端真实 usage"与"本地分词估算"，报表/看板不得混用
                 logEntry.setTokenEstimated(Boolean.TRUE.equals(metadata.getTokenEstimated()) ? 1 : 0);
+                // 降级标记（v14.72 P2 收尾）：重试失败回落默认模型/网关兜底的调用在日志表可辨识
+                logEntry.setDegraded(Boolean.TRUE.equals(metadata.getDegraded()) ? 1 : 0);
                 logEntry.setCostYuan(calculateCostYuan(metadata));
             }
             logEntry.setInputSummary(abbreviate(inputSummary, 500));

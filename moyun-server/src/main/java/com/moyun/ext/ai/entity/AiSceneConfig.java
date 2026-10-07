@@ -128,6 +128,13 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 是否启用输出内容过滤（启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
     private Boolean enableOutputFilter;
 
+    /**
+     * 是否启用意图分类路由（v14.72）：
+     * 0=关闭（默认）——网关完全跳过 IntentClassifier，结构化场景零误伤（消除"带 userInput 即被追问"地雷）；
+     * 1=开启——顶层 userInput 参与意图分类，置信度不足触发追问、命中建议场景自动路由（chat 收口类场景用）。
+     */
+    private Boolean enableIntentRouting;
+
     /** 备用模型 ID */
     private Long fallbackModelId;
 

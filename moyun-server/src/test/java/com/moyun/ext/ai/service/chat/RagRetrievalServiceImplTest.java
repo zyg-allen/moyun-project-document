@@ -1,6 +1,6 @@
 package com.moyun.ext.ai.service.chat;
 
-import com.moyun.ext.ai.config.RagConfig;
+import com.moyun.ext.ai.config.RagSettingsService;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.ai.service.QueryExpansionService;
 import com.moyun.ext.ai.service.TokenUsageService;
@@ -51,7 +51,7 @@ class RagRetrievalServiceImplTest {
     private VectorStoreExtension embeddingStore;
 
     @Mock
-    private RagConfig ragConfig;
+    private RagSettingsService ragSettings;
 
     @Mock
     private ModelConfigService modelConfigService;

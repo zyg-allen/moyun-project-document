@@ -4160,3 +4160,25 @@ ALTER TABLE `ai_execute_log`
 -- =====================================================================
 ALTER TABLE `ai_execute_log`
     ADD COLUMN `token_estimated` tinyint(1) DEFAULT 0 COMMENT 'Token是否为本地估算：1=估算（服务端未回传usage，本地分词得出），0/NULL=服务端真实值' AFTER `output_tokens`;
+
+-- =====================================================================
+-- AI 模块补充（v14.72 AI统一收口治理批次1 · 2026-10-05）：
+-- ai_scene_config 增加 enable_intent_routing 场景级开关——意图分类仅在
+-- 显式开启的场景生效（默认 0=完全跳过），消除"结构化场景带 userInput
+-- 即被网关追问"地雷（IntentClassifier 规则覆盖有限，UNKNOWN 置信度恒
+-- 低于追问阈值）。回滚安全网同步：fullColumnUpdate 已补齐本列及此前
+-- 遗漏的 max_input_tokens/max_output_tokens/truncate_strategy 三列。
+-- =====================================================================
+ALTER TABLE `ai_scene_config`
+    ADD COLUMN `enable_intent_routing` tinyint(1) DEFAULT '0' COMMENT '是否启用意图分类路由：1=开启（userInput自由文本参与意图分类与场景路由），0=关闭（默认，网关跳过分类）' AFTER `enable_output_filter`;
+
+-- =====================================================================
+-- AI 模块补充（v14.72 P2 收尾 · 2026-10-05）：
+-- ai_execute_log 增加 degraded 降级标记列。
+-- 背景：AbstractAiSceneHandler 瞬时异常重试失败后回落默认模型、网关兜底
+-- 响应均已标记 metadata.degraded=true，但落库仅写 status/error_msg——降级
+-- 调用在日志表不可辨识，成本看板无法统计降级占比（治理盲区：降级意味着
+-- 预期模型未生效、人设可能丢失，需要被看见）。历史行 NULL 语义与新列一致。
+-- =====================================================================
+ALTER TABLE `ai_execute_log`
+    ADD COLUMN `degraded` tinyint(1) DEFAULT 0 COMMENT '是否降级响应：1=降级（重试失败回落默认模型/网关兜底），0/NULL=正常' AFTER `token_estimated`;

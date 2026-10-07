@@ -91,7 +91,20 @@ public enum AiSceneEnum {
     DEFAULT_CHAT("default_chat", "智能体对话",
             "多轮对话（流式）+ 意图分类 + 记忆滑窗",
             "用户输入 + 会话历史 + Agent 人设",
-            "对话回复（流式）");
+            "对话回复（流式）"),
+
+    /**
+     * 工作流 Agent 节点治理场景（v14.72 统一收口）。
+     *
+     * <p>{@code AgentNodeExecutor} 优先经本场景走统一网关（限流/Token 熔断/
+     * 计量/执行日志全治理）；场景行缺失或停用时兜底直连但补计量记账。
+     * 配置驱动执行（DefaultSceneExecutor，text 输出），人设由节点绑定
+     * 的 Agent 经 input.agentPersona 注入（与网关 mergePersona 契约一致）。</p>
+     */
+    WORKFLOW_AGENT_NODE("workflow_agent_node", "工作流Agent节点",
+            "AI 工作流 agent 节点 LLM 调用的统一网关治理",
+            "节点 userPrompt（渲染变量后）+ Agent system_prompt",
+            "自由文本（output_parser=text）");
 
     /** 场景代码（数据库 ai_scene_config.scene_code） */
     private final String code;

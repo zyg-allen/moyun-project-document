@@ -27,6 +27,8 @@ export interface SpeechSynthesisOptions {
   volume?: number;
   /** 强制使用的语音名称（如 'zh-CN-XiaoxiaoNeural'），不传则自动选中文语音 */
   voiceName?: string;
+  /** 候选语音名称关键词列表（按优先级模糊匹配，如男声优选 ['Yunxi','Yunjian']），命中任一即用 */
+  voiceNames?: string[];
   /** 浏览器不支持时的降级回调 */
   onUnsupported?: () => void;
   /** 队列全部播报完成回调 */
@@ -39,6 +41,7 @@ export function useSpeechSynthesis(options: SpeechSynthesisOptions = {}) {
     pitch = 1,
     volume = 1,
     voiceName,
+    voiceNames,
     onUnsupported,
     onQueueEnd,
   } = options;
@@ -73,7 +76,18 @@ export function useSpeechSynthesis(options: SpeechSynthesisOptions = {}) {
         return;
       }
     }
-    // 其次中文语音（zh-CN 优先，其次 zh-*）
+    // 其次按候选关键词模糊匹配（如男声优选：Yunxi/Yunjian/云希/云健，命中即用）
+    if (voiceNames?.length) {
+      for (const key of voiceNames) {
+        const lower = key.toLowerCase();
+        const hit = voices.find((v) => v.name.toLowerCase().includes(lower));
+        if (hit) {
+          selectedVoice = hit;
+          return;
+        }
+      }
+    }
+    // 最后兜底：中文语音（zh-CN 优先，其次 zh-*）
     const zhVoice =
       voices.find((v) => v.lang === 'zh-CN') ||
       voices.find((v) => v.lang && v.lang.startsWith('zh'));

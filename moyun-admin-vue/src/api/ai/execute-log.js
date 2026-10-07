@@ -43,3 +43,12 @@ export function delExecuteLog(ids) {
     method: 'delete'
   });
 }
+
+// 场景×执行器成本聚合（v14.72 成本看板：哪条通道在烧钱）
+export function getSceneExecutorStats(query) {
+  return request({
+    url: '/cms/ai/execute-log/scene-executor-stats',
+    method: 'get',
+    params: query
+  });
+}

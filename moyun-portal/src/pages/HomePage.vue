@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink as Link, useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import {
+  ChevronLeft, ChevronRight,
   Star, Flame,
   User, Tag, BookOpen,
   Quote, ArrowRight, Sparkles,
@@ -17,8 +18,8 @@ import {
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
-import PlatformRoadmap from '@/components/PlatformRoadmap.vue'
 import BackToTop from '@/components/BackToTop.vue'
+import interviewerAvatar from '@/assets/ai-interviewer.png'
 import { generateSeo } from '@/utils/seo'
 import { transformArticle } from '@/utils/articleTransform'
 import * as articleApi from '@/api/article'
@@ -374,6 +375,12 @@ async function retryFailedSections() {
 
 onMounted(() => {
   loadAll()
+  // Hero 轮播自动播放（离开页面即清理）
+  startAutoplay()
+})
+
+onBeforeUnmount(() => {
+  stopAutoplay()
 })
 
 const selectTheme = async (themeId: string, themeName: string) => {
@@ -436,6 +443,50 @@ const goVoiceInterview = () => {
   if (!requireAuth('/interview/voice')) return;
   router.push('/interview/voice');
 };
+
+// 面试报告（Hero 闭环第 4 阶段入口，需登录）
+const goInterviewHistory = () => {
+  if (!requireAuth('/interview/voice/history')) return;
+  router.push('/interview/voice/history');
+};
+
+// AI 面试官考察计划示例（取自真实语音面试会话的 focusAreas，体现按简历+岗位定制出题的价值）
+const focusAreas = [
+  { label: '项目深挖', depth: 'deep', tip: '验证独立项目真实性与架构设计能力' },
+  { label: '技术基础', depth: 'intermediate', tip: '集合框架 · 并发编程 · JVM 内存与 GC' },
+  { label: '岗位核心技能', depth: 'intermediate', tip: 'Spring Bean 生命周期 · 事务 · MySQL 索引 · Redis 缓存一致性' },
+  { label: '系统设计', depth: 'intermediate', tip: '高并发场景下的架构演进' },
+  { label: '软素质/协作', depth: 'basic', tip: '独立项目中的需求拆解与进度管理' },
+]
+const depthText: Record<string, string> = { deep: '深挖', intermediate: '进阶', basic: '基础' }
+
+// ==================== Hero 面试闭环轮播 ====================
+// 四屏：AI 面试官形象（林川） / 面试旅程 / 定制考察计划 / 结果报告
+// 自动轮播 5.5s，悬停暂停，箭头 + 圆点手动切换，每屏均有可点击 CTA
+const HERO_SLIDE_COUNT = 4
+const HERO_SLIDE_INTERVAL = 5500
+const activeSlide = ref(0)
+let slideTimer: ReturnType<typeof setInterval> | null = null
+
+const nextSlide = () => { activeSlide.value = (activeSlide.value + 1) % HERO_SLIDE_COUNT }
+const prevSlide = () => { activeSlide.value = (activeSlide.value + HERO_SLIDE_COUNT - 1) % HERO_SLIDE_COUNT }
+const goSlide = (i: number) => { activeSlide.value = i; startAutoplay() }
+
+function startAutoplay() {
+  stopAutoplay()
+  slideTimer = setInterval(nextSlide, HERO_SLIDE_INTERVAL)
+}
+function stopAutoplay() {
+  if (slideTimer) { clearInterval(slideTimer); slideTimer = null }
+}
+const pauseAutoplay = () => stopAutoplay()
+const resumeAutoplay = () => { if (!slideTimer) startAutoplay() }
+
+// 面试专区（Hero 次按钮入口）
+const goInterviewZone = () => router.push('/interview')
+
+// AI 面试官形象图加载失败兜底（显示图标头像，不出现破图）
+const interviewerImgError = ref(false);
 
 const goResumeOptimize = () => {
   if (!requireAuth('/interview/resume/optimize')) return;
@@ -507,11 +558,11 @@ const heroStats = computed(() => {
 
 // ============ 五大主线锚点导航（Hero → 各区块平滑滚动；保留原设计） ============
 const mainLines = [
-  { id: 'home-learn', label: '学习', desc: '刷题备战 · 薄弱点强化', icon: GraduationCap },
-  { id: 'home-resume', label: '简历', desc: 'AI 诊断 · 3 分钟出报告', icon: FileText },
-  { id: 'home-interview', label: '面试', desc: 'AI 对练 · 实时评分', icon: Mic },
-  { id: 'home-reading', label: '阅读', desc: '书籍与文章', icon: BookOpen },
-  { id: 'home-community', label: '社区', desc: '创作互动', icon: MessageCircle },
+  { id: 'home-learn', label: '学习', icon: GraduationCap },
+  { id: 'home-resume', label: '简历', icon: FileText },
+  { id: 'home-interview', label: '面试', icon: Mic },
+  { id: 'home-reading', label: '阅读', icon: BookOpen },
+  { id: 'home-community', label: '社区', icon: MessageCircle },
 ]
 
 // 学习区功能宫格（主线一：题库/在线编程/知识图谱/错题本/学习计划等）
@@ -605,88 +656,181 @@ useHead(
            综述区（Hero + 五大主线锚点导航，登录与否均展示，
            保持品牌叙事一致性；已登录时上方叠加问候带）
            ================================================================ -->
-        <!-- Hero：左侧文案 + 右侧简历诊断示例卡 -->
+        <!--
+          Hero：牛面式左右分栏 —— 左侧价值主张 + 右侧 AI 面试闭环轮播图
+          轮播四屏：AI 面试官形象（林川，男声语音对练）/ 面试旅程 / 定制考察计划 / 结果报告。
+          自动轮播 5.5s 悬停暂停，箭头 + 圆点手动切换，每屏均有可点击 CTA 按钮直达真实路由。
+        -->
         <section class="order-first relative overflow-hidden bg-gradient-to-br from-theme-primary-soft via-theme-bg to-theme-bg">
           <div class="absolute inset-0 pointer-events-none">
             <div class="absolute top-10 right-1/4 w-64 h-64 bg-theme-primary/10 rounded-full blur-3xl"></div>
             <div class="absolute bottom-0 left-1/4 w-80 h-80 bg-theme-primary/5 rounded-full blur-3xl"></div>
           </div>
           <div class="content-container relative py-8 sm:py-10 lg:py-12">
-            <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-              <!-- 左侧文案 -->
-              <div class="space-y-6 sm:space-y-8">
+            <div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              <!-- 左侧：价值主张 -->
+              <div class="space-y-5 sm:space-y-6">
                 <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-theme-surface border border-theme-border">
-                  <span class="w-2 h-2 bg-theme-primary rounded-full animate-pulse"></span>
-                  <!-- 清单 P2：原缺失条件渲染，接口未就绪时会显示「0+ 道精选面试题」 -->
-            <span
-              v-if="interviewTotalQuestions > 0"
-              class="meta-text font-medium text-theme-primary"
-            >{{ interviewTotalQuestions }}+ 道精选面试题持续更新</span>
+                  <span class="home-live-dot"></span>
+                  <span class="meta-text font-medium text-theme-primary">AI 面试官在线 · 随时开练</span>
                 </div>
 
-                <div class="space-y-5 sm:space-y-6">
-                  <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-theme-text leading-relaxed text-balance">
-                    简历改 3 遍，<br class="hidden sm:block">
-                    <span class="block mt-3 sm:mt-4 text-theme-primary">面试机会翻 1 倍</span>
-                  </h1>
-                  <p class="body-text text-theme-text-secondary leading-relaxed max-w-lg">
-                    AI 一站式求职助手：3 分钟诊断简历薄弱点，模拟面试实战对练，智能刷题查漏补缺，助你拿到更满意的 offer
-                  </p>
-                </div>
+                <h1 class="text-3xl sm:text-4xl lg:text-[2.75rem] font-black text-theme-text leading-snug text-balance">
+                  旭林知行 <span class="text-theme-primary">AI 面试</span><br>
+                  一站式求职成长平台<br>
+                  <span class="block mt-2">Offer 收割机，<span class="text-theme-primary">就是你！</span></span>
+                </h1>
+
+                <p class="body-text text-theme-text-secondary leading-relaxed">
+                  问得准 · 按简历与岗位定制考察&nbsp;&nbsp;|&nbsp;&nbsp;练得真 · 语音对练实时追问&nbsp;&nbsp;|&nbsp;&nbsp;评得细 · 五维雷达定位短板
+                </p>
 
                 <div class="flex flex-wrap gap-3 sm:gap-4">
                   <button
-                    @click="goResumeOptimize"
+                    @click="goVoiceInterview"
                     class="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 bg-theme-primary hover:bg-theme-primary-hover text-theme-on-primary font-semibold rounded-xl shadow-theme-lg transition-all hover:-translate-y-0.5"
                   >
-                    <FileText class="w-5 h-5" />
-                    免费简历诊断
+                    <Mic class="w-5 h-5" />
+                    立即开练
                   </button>
                   <button
-                    @click="goVoiceInterview"
+                    @click="goInterviewZone"
                     class="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 bg-theme-surface hover:bg-theme-surface-highlight text-theme-text font-semibold rounded-xl border border-theme-border shadow-theme-sm transition-all hover:-translate-y-0.5"
                   >
-                    <Mic class="w-5 h-5 text-theme-primary" />
-                    开始模拟面试
+                    了解流程
+                    <ArrowRight class="w-4 h-4 text-theme-primary" />
                   </button>
-                </div>
-
-                <!-- 核心数据 -->
-                <div class="flex items-center gap-5 sm:gap-8 pt-2">
-                  <template v-for="(stat, idx) in heroStats" :key="stat.label">
-                    <div v-if="idx > 0" class="w-px h-10 bg-theme-border"></div>
-                    <div>
-                      <div class="flex items-baseline gap-0.5">
-                        <span class="text-xl sm:text-2xl font-black text-theme-text stat-number">{{ stat.value }}</span>
-                        <span class="meta-text">{{ stat.suffix }}</span>
-                      </div>
-                      <div class="meta-text mt-0.5">{{ stat.label }}</div>
-                    </div>
-                  </template>
                 </div>
               </div>
 
-              <!--
-                第一栏右侧：平台能力路线图（替代原「AI 简历诊断示例卡」）
-                原来这里又是一整张"AI 简历诊断报告 + 生成我的诊断报告"，与左侧
-                「简历改 3 遍 / 免费简历诊断」重复堆叠，且看不出平台除简历外还能做什么。
-                改为按产品定位展示 9 环旅程（节点全部挂真实路由，悬停出提示）。
-              -->
-              <div class="relative lg:pl-6">
-                <div class="relative z-10 rounded-2xl p-5 sm:p-6 shadow-theme-xl border border-theme-border bg-theme-surface">
-                  <div class="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <div class="card-title">从学习到上岸 · 平台能力路线</div>
-                      <div class="meta-text mt-0.5">9 个环节闭环：学习 → 简历 → 面试 → 复盘 → 复习 → 社区 → 创作</div>
+              <!-- 右侧：AI 面试闭环轮播图（可点击按钮直达） -->
+              <div class="home-carousel" @mouseenter="pauseAutoplay" @mouseleave="resumeAutoplay">
+                <div class="home-carousel-track" :style="{ transform: `translateX(-${activeSlide * 100}%)` }">
+                  <!-- 屏 1：AI 面试官形象（男声语音对练） -->
+                  <div class="home-carousel-slide">
+                    <div class="flex items-center gap-4 sm:gap-5 text-left">
+                      <div class="home-slide-photo-wrap shrink-0">
+                        <img
+                          v-if="!interviewerImgError"
+                          :src="interviewerAvatar"
+                          alt="AI 面试官 林川"
+                          class="home-slide-photo"
+                        />
+                        <div v-else class="home-slide-photo home-slide-photo--fallback">
+                          <Mic class="w-8 h-8" />
+                        </div>
+                        <span class="home-slide-live"><span class="home-live-dot"></span>在线</span>
+                      </div>
+                      <div class="min-w-0 space-y-2">
+                        <p class="card-title">林川 · AI 面试官</p>
+                        <div class="flex items-end gap-[2px] h-6 text-theme-primary" aria-hidden="true">
+                          <span
+                            v-for="i in 7"
+                            :key="i"
+                            class="eq-bar"
+                            :style="{ animationDelay: `${i * 0.09}s`, animationDuration: `${0.9 + (i % 3) * 0.2}s` }"
+                          ></span>
+                        </div>
+                        <p class="home-stage-desc">基于你的简历出题，像真人面试官一样边听边追问</p>
+                        <button class="home-slide-cta" @click="goVoiceInterview">
+                          开始对练
+                          <ArrowRight class="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <span class="caption-text text-theme-text-tertiary hidden sm:inline flex-shrink-0">鼠标划入查看</span>
                   </div>
-                  <PlatformRoadmap :cols="3" compact />
+
+                  <!-- 屏 2：面试旅程四阶段 -->
+                  <div class="home-carousel-slide">
+                    <p class="home-slide-title">四步走完一场真面试</p>
+                    <div class="home-journey">
+                      <div class="home-journey-step"><span>01</span>面试准备</div>
+                      <div class="home-journey-step"><span>02</span>AI 面试官</div>
+                      <div class="home-journey-step"><span>03</span>实时对练</div>
+                      <div class="home-journey-step"><span>04</span>结果报告</div>
+                    </div>
+                    <p class="home-stage-desc">选定岗位导入简历 → 语音对练边答边评 → 练完即出五维报告</p>
+                    <button class="home-slide-cta" @click="goResumeOptimize">
+                      免费简历诊断
+                      <ArrowRight class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <!-- 屏 3：定制考察计划（focusAreas） -->
+                  <div class="home-carousel-slide">
+                    <p class="home-slide-title">按简历与岗位，自动生成考察计划</p>
+                    <p class="home-stage-desc">Java 后端示例 · 悬停查看考察意图</p>
+                    <div class="flex flex-wrap justify-center gap-1.5">
+                      <span v-for="f in focusAreas" :key="f.label" class="focus-chip" :title="f.tip">
+                        {{ f.label }}<em class="focus-depth" :class="`focus-depth--${f.depth}`">{{ depthText[f.depth] }}</em>
+                      </span>
+                    </div>
+                    <button class="home-slide-cta" @click="router.push('/learn/questions')">
+                      先去刷题
+                      <ArrowRight class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <!-- 屏 4：结果报告（五维雷达） -->
+                  <div class="home-carousel-slide">
+                    <div class="flex items-center gap-4 text-left">
+                      <svg viewBox="0 0 100 100" class="w-24 h-24 shrink-0" aria-hidden="true">
+                        <polygon points="50,12 86.1,38.3 72.3,80.7 27.7,80.7 13.9,38.3" class="radar-grid" />
+                        <polygon points="50,31 68,44.1 61.2,65.3 38.8,65.3 32,44.1" class="radar-grid" />
+                        <polygon points="50,17.3 82.5,39.5 67.4,73.9 34.4,71.5 20.4,40.4" class="radar-value" />
+                        <circle cx="50" cy="17.3" r="2.5" class="radar-dot" />
+                      </svg>
+                      <div class="min-w-0">
+                        <div class="flex items-baseline gap-1">
+                          <span class="text-3xl font-black text-theme-text stat-number">86</span>
+                          <span class="meta-text">分 · 示例</span>
+                        </div>
+                        <p class="home-stage-desc">五维雷达定位短板</p>
+                        <p class="home-stage-desc">弱项一目了然，提升有方向</p>
+                      </div>
+                    </div>
+                    <button class="home-slide-cta" @click="goInterviewHistory">
+                      查看我的报告
+                      <ArrowRight class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 轮播控制：左右箭头 + 圆点指示器 -->
+                <button type="button" class="home-carousel-btn home-carousel-btn--prev" aria-label="上一屏" @click="prevSlide">
+                  <ChevronLeft class="w-4 h-4" />
+                </button>
+                <button type="button" class="home-carousel-btn home-carousel-btn--next" aria-label="下一屏" @click="nextSlide">
+                  <ChevronRight class="w-4 h-4" />
+                </button>
+                <div class="home-carousel-dots">
+                  <button
+                    v-for="i in HERO_SLIDE_COUNT"
+                    :key="i"
+                    type="button"
+                    :class="['home-carousel-dot', { active: activeSlide === i - 1 }]"
+                    :aria-label="`切换到第 ${i} 屏`"
+                    @click="goSlide(i - 1)"
+                  ></button>
                 </div>
               </div>
             </div>
 
-            <!-- 五大主线导航（锚点直达，图标卡片带悬浮特效）· 保留原设计 -->
+            <!-- 核心数据（真实接口数据，非虚构指标） -->
+            <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 mt-8 sm:mt-10">
+              <template v-for="(stat, idx) in heroStats" :key="stat.label">
+                <div v-if="idx > 0" class="w-px h-10 bg-theme-border hidden sm:block"></div>
+                <div class="text-center">
+                  <div class="flex items-baseline justify-center gap-0.5">
+                    <span class="text-xl sm:text-2xl font-black text-theme-text stat-number">{{ stat.value }}</span>
+                    <span class="meta-text">{{ stat.suffix }}</span>
+                  </div>
+                  <div class="meta-text mt-0.5">{{ stat.label }}</div>
+                </div>
+              </template>
+            </div>
+
+            <!-- 五大主线导航（纯图标锚点，直达下方章节；描述文字已并入章节，避免重复） -->
             <div class="relative mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-theme-border/60">
               <div class="grid grid-cols-5 gap-2 sm:gap-3">
                 <a
@@ -701,7 +845,6 @@ useHead(
                   </div>
                   <div class="home-mainline-text">
                     <span class="font-semibold text-theme-text">{{ line.label }}</span>
-                    <span class="hidden lg:inline text-theme-text-tertiary">· {{ line.desc }}</span>
                   </div>
                   <span class="home-mainline-arrow">
                     <ArrowRight class="w-3.5 h-3.5" />
@@ -1360,6 +1503,224 @@ useHead(
 }
 .home-card-lift { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .home-card-lift:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.1)); }
+
+/* ============== Hero 面试闭环轮播 ============== */
+.home-carousel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  box-shadow: var(--shadow-md);
+}
+.home-carousel-track {
+  display: flex;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.home-carousel-slide {
+  flex: 0 0 100%;
+  min-height: 19rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 3rem;
+  text-align: center;
+}
+.home-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  color: var(--theme-text-secondary);
+  box-shadow: var(--shadow-sm);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.home-carousel-btn:hover { color: var(--theme-primary); border-color: var(--theme-primary); }
+.home-carousel-btn--prev { left: 0.5rem; }
+.home-carousel-btn--next { right: 0.5rem; }
+.home-carousel-dots {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 0.375rem;
+}
+.home-carousel-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--theme-border);
+  transition: all 0.25s ease;
+}
+.home-carousel-dot.active { width: 1.25rem; background: var(--theme-primary); }
+
+/* 轮播屏内元素 */
+.home-slide-title { font-size: 1.05rem; font-weight: 700; color: var(--theme-text); }
+.home-slide-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: var(--theme-primary);
+  color: var(--theme-on-primary);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.home-slide-cta:hover { background: var(--theme-primary-hover); transform: translateY(-1px); }
+.home-slide-photo-wrap { position: relative; }
+.home-slide-photo {
+  width: 7.5rem;
+  height: 9.5rem;
+  object-fit: cover;
+  border-radius: 1rem;
+  box-shadow: var(--shadow-md);
+}
+.home-slide-photo--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--theme-primary-soft);
+  color: var(--theme-primary);
+}
+.home-slide-live {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text-secondary);
+}
+
+/* 屏 2：面试旅程四步 */
+.home-journey {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 22rem;
+}
+.home-journey-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.625rem 0.25rem;
+  border-radius: 0.75rem;
+  background: var(--theme-accent);
+  font-size: 0.75rem;
+  color: var(--theme-text-secondary);
+}
+.home-journey-step span {
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: var(--theme-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 在线呼吸点 */
+.home-live-dot {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--theme-primary);
+  animation: home-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes home-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-primary) 40%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--theme-primary) 0%, transparent); }
+}
+
+.home-stage-desc {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  color: var(--theme-text-tertiary);
+}
+
+/* 阶段卡声波动画（AI 面试官） */
+.eq-bar {
+  flex: 1;
+  min-width: 2px;
+  max-width: 5px;
+  height: 24%;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.85;
+  animation: eq-bounce 1.1s ease-in-out infinite;
+}
+@keyframes eq-bounce {
+  0%, 100% { height: 22%; }
+  50% { height: 94%; }
+}
+
+/* 结果报告五维雷达 */
+.radar-grid { fill: none; stroke: var(--theme-border); stroke-width: 1; }
+.radar-value {
+  fill: color-mix(in srgb, var(--theme-primary) 18%, transparent);
+  stroke: var(--theme-primary);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.radar-dot { fill: var(--theme-primary); }
+
+/* 定制考察计划 chips（维度 + 深度分级，悬停出考察意图） */
+.focus-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.3rem 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--theme-text);
+  cursor: help;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.focus-chip:hover {
+  border-color: color-mix(in srgb, var(--theme-primary) 45%, var(--theme-border));
+  transform: translateY(-1px);
+}
+.focus-depth {
+  font-style: normal;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+}
+.focus-depth--deep { background: var(--theme-primary); color: var(--theme-on-primary); }
+.focus-depth--intermediate { background: var(--theme-primary-soft); color: var(--theme-primary); }
+.focus-depth--basic { background: var(--theme-accent); color: var(--theme-text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar { animation: none; height: 55%; }
+}
 
 /* ============== 问候带 ============== */
 .home-greeting-band {

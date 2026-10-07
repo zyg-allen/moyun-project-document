@@ -34,6 +34,16 @@ public class ChatOutcome {
     /** 输出 Token（成本核算：模型未返回为 null） */
     private Integer outputTokens;
 
+    /**
+     * 是否降级执行（v14.72）：true = 绑定模型瞬时异常重试后仍失败/返回空内容，
+     * 回落默认模型完成（或经 FallbackStrategy 兜底）。业务侧可据此区分
+     * "正常结果"与"降级结果"，避免把兜底文案当模型产出二次消费。
+     */
+    private boolean degraded;
+
+    /** 瞬时异常重试次数（0=一次成功；1=重试一次后成功） */
+    private Integer retryCount;
+
     public boolean isSuccess() {
         return text != null && !text.isBlank();
     }

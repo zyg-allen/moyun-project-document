@@ -279,6 +279,19 @@ public class AiSceneConfigController {
                     + String.join(" / ", java.util.Arrays.stream(AiSceneEnum.values())
                             .map(AiSceneEnum::getCode).toArray(String[]::new)) + "）";
         }
+        // v14.72 三选一绑定校验：调度绑定必须唯一（agent / model / workflow 互斥）。
+        // 统一收口后网关按 bindType 分派执行通道（agent=LLM/自主规划、model=直连LLM、
+        // workflow=工作流执行器），多绑会导致分派歧义——运行时优先级 agent>model>workflow
+        // 会静默忽略其他绑定。存量多绑行不受影响（按优先级执行），新保存强制唯一。
+        int bindings = 0;
+        if (config.getAgentId() != null) bindings++;
+        if (config.getModelConfigId() != null) bindings++;
+        if (config.getWorkflowId() != null) bindings++;
+        if (bindings > 1) {
+            return "调度绑定只能三选一（智能体/模型/工作流互斥）：当前同时绑定了 "
+                    + bindings + " 项。固定执行路线请绑定工作流；固定模型直连请绑定模型；"
+                    + "开放任务自主规划请绑定智能体";
+        }
         // 场景名称以注册表为准（父名称来自枚举，不脱离注册表）；
         // 子场景在名称后追加「·子任务」后缀，使配置列表可读
         config.setSceneName(colon >= 0

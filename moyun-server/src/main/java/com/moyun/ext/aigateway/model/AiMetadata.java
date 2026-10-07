@@ -49,6 +49,12 @@ public class AiMetadata {
     private Integer retryCount;
 
     /**
+     * 是否降级响应（v14.72）：true = 绑定模型异常后回落默认模型/静态兜底产出。
+     * 保持 code=SUCCESS 兼容存量业务，消费方需严格区分质量时应检查本标记。
+     */
+    private Boolean degraded;
+
+    /**
      * 工具调用信息
      */
     @Data

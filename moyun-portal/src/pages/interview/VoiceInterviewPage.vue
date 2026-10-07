@@ -12,6 +12,7 @@ import { useToast } from '@/composables/useToast';
 import { useApiCall } from '@/composables/useApiCall';
 import { useSpeechSynthesis } from '@/composables/useSpeechSynthesis';
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition';
+import interviewerAvatar from '@/assets/ai-interviewer.png';
 import { useAudioLevel } from '@/composables/useAudioLevel';
 import { useMediaDevices } from '@/composables/useMediaDevices';
 import {
@@ -263,6 +264,10 @@ const {
   resume: ttsResume,
   cancel: ttsCancel,
 } = useSpeechSynthesis({
+  // AI 面试官为男性形象「林川」：优先选系统男声（云希/云健/云扬等），命中即用；
+  // 无男声时回落默认中文声并压低音调，尽量贴近男声播报
+  voiceNames: ['Yunxi', 'Yunjian', 'Yunyang', 'Kangkang', '云希', '云健', '云扬'],
+  pitch: 0.9,
   onUnsupported: () => toast.warning('当前浏览器不支持语音合成，将显示纯文字题目'),
 });
 
@@ -2450,7 +2455,12 @@ const chatStatus = computed(() => {
         <div class="left-panel">
           <div class="interviewer-card">
             <div :class="['interviewer-avatar', { speaking: speaking }]">
-              <span class="interviewer-emoji">👨‍💼</span>
+              <img
+                :src="interviewerAvatar"
+                alt="AI 面试官 林川"
+                class="interviewer-photo"
+                draggable="false"
+              />
               <div v-if="speaking" class="ai-sound-wave">
                 <span></span><span></span><span></span><span></span>
               </div>
@@ -4172,6 +4182,16 @@ const chatStatus = computed(() => {
 
 /* --- AI 头像播报声波 --- */
 .interviewer-emoji { position: relative; z-index: 1; }
+/* AI 面试官形象图（与首页 Hero 轮播同一张，保持形象一致） */
+.interviewer-photo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  user-select: none;
+}
 .ai-sound-wave {
   position: absolute;
   bottom: 10px;

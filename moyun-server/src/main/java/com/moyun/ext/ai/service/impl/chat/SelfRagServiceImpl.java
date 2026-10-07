@@ -1,6 +1,6 @@
 package com.moyun.ext.ai.service.impl.chat;
 
-import com.moyun.ext.ai.config.RagConfig;
+import com.moyun.ext.ai.config.RagSettingsService;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.ai.service.chat.SelfRagService;
@@ -33,7 +33,7 @@ public class SelfRagServiceImpl implements SelfRagService {
     private ModelConfigService modelConfigService;
 
     @Autowired
-    private RagConfig ragConfig;
+    private RagSettingsService ragSettings;
 
     /** 默认相关性阈值 */
     private static final double DEFAULT_RELEVANCE_THRESHOLD = 0.6;
@@ -111,7 +111,7 @@ public class SelfRagServiceImpl implements SelfRagService {
             return new ArrayList<>();
         }
 
-        int maxVerifyCount = ragConfig.getSelfRagMaxVerifyCount();
+        int maxVerifyCount = ragSettings.selfRagMaxVerifyCount();
         log.info("🔍 Self-RAG开始验证 {} 个检索结果，最低相关性: {}, 最大LLM验证数: {}", 
                 contents.size(), minRelevance, maxVerifyCount);
         

@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +52,10 @@ public class CmsCreatorCertificationController extends BaseController {
         Page<PortalCreatorCertification> result = certificationService.list(query, page);
         // 填充申请人昵称，便于后台展示
         Page<Map<String, Object>> resultPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
-        java.util.List<Map<String, Object>> records = new java.util.ArrayList<>(result.getRecords().size());
+        List<Map<String, Object>> records = new ArrayList<>(result.getRecords().size());
 
         // 批量查询申请人昵称，避免 N+1（分页 N 条原本 N 次查询 → 现在 1 次）
-        java.util.List<Long> userIds = result.getRecords().stream()
+        List<Long> userIds = result.getRecords().stream()
                 .map(PortalCreatorCertification::getUserId)
                 .filter(java.util.Objects::nonNull)
                 .distinct()

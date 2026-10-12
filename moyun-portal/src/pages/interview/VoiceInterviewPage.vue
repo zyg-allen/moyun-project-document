@@ -38,6 +38,7 @@ import type {
   VoiceInterviewReportVO,
   VoiceStartConfig,
   PointItem,
+  WeakPointView,
   ActiveVoiceInterviewVO,
 } from '@/api/voiceInterview';
 
@@ -139,9 +140,10 @@ const currentSpeakText = ref('');
 
 // 报告
 const report = ref<VoiceInterviewReportVO | null>(null);
-// 三层五 tab（复盘区：概要→问题分析→回放殿后；备战区：追问预测→发展方向）
-// 主线 = 表现 → 归因 → 证据 → 个人预测 → 环境导航
-const reportTab = ref<'summary' | 'analysis' | 'predict' | 'insight' | 'dialog'>('summary');
+// 六 tab（严格对齐静态页 面试报告v2.html，数据接口 Tab 为原型接口参考不落地）：
+//   🎯面试背景 → 📋概览评分 → 💬面试回放 → 🔍逐题分析 → 🎙️语音指标 → 🚀改进建议
+//   （advice 内含：发展方向 + 行动建议 + 追问预警 + 7 天补强计划）
+const reportTab = ref<'bg' | 'overview' | 'dialog' | 'analysis' | 'voice' | 'advice'>('bg');
 const historyLoading = ref(false);
 
 // 结束后批量分析进度（前端轮询 analysis 接口驱动进度条）
@@ -1207,14 +1209,100 @@ const predictedUnasked = computed(() =>
   predictedAll.value.filter((p) => p.askedThisRound !== true),
 );
 
-/**
- * 概要 tab「归档区」折叠状态。
- *
- * 归档区放**资料类**内容（自我介绍评分 / 心态趋势 / 可疑信号 / 流畅度）——
- * 它们是佐证材料而非结论，默认折叠（对齐 V1.2 §6.2「归档区（折叠）」与
- * 「资料降权，现状 11 板块无主次」的病症）。
- */
-const archiveOpen = ref(false);
+// ============================================================================
+// 七 tab 新增数据（v7 静态版规范落地：面试背景 / 语音指标 / 改进建议 / 回放播放）
+// ============================================================================
+
+/** 题源标签（VoiceInterviewQaVO.questionSource → 中文徽标；缺失不显示） */
+const SRC_LABEL: Record<string, string> = {
+  bank: '题库',
+  resume_project: '简历深挖',
+  llm: 'AI 出题',
+};
+
+/** 7 天补强计划（静态示例数据 · 对齐静态页 面试报告v2.html，先跑通样式） */
+const trainingPlanRows = [
+  { days: '第 1–2 天', content: '学习 SkyWalking 官方文档并在本地 Demo 接入，产出 1 份调用链路截图', output: '1 份排查案例' },
+  { days: '第 3–4 天', content: '复盘一个高并发场景，写出压测→阈值→降级→熔断的完整方案，背熟 3 个数字', output: '1 页架构笔记' },
+  { days: '第 5 天', content: '用「约束-对比-选择-代价」四段式重写 2 个项目的自我介绍稿', output: '2 份逐字稿' },
+  { days: '第 6 天', content: '降速训练：朗读逐字稿录音，语速压到 180 字/分，填充词 ≤ 8 次', output: '4 段录音' },
+  { days: '第 7 天', content: '完整模拟面试一轮（3 题），对比本报告指标，重点看系统设计与排查维度', output: '1 份新报告' },
+];
+
+/** 考察方向 chips（report.knowledgePoints，字符串或 {title/name} 对象 → 统一文案） */
+const knowledgeChips = computed<string[]>(() =>
+  (report.value?.knowledgePoints ?? [])
+    .map((k) => (typeof k === 'string' ? k : k.title || k.name || ''))
+    .filter(Boolean),
+);
+
+/** 🎙️ 语音指标卡（真实 VO 字段驱动：缺失隐藏 —— 对齐「字段为空按缺失隐藏」惯例） */
+const voiceMetricCards = computed(() => {
+  const cards: { label: string; value: string; unit: string; tip: string }[] = [];
+  const qaTotal = interview.value?.qaList?.length ?? 0;
+  const qaAnswered = interview.value?.qaList?.filter((q) => q.userAnswer).length ?? 0;
+  if (interview.value?.durationMinutes != null) {
+    cards.push({ label: '⏱️ 面试时长', value: String(interview.value.durationMinutes), unit: '分钟', tip: '本场配置时长' });
+  }
+  if (qaTotal) {
+    cards.push({ label: '💬 作答轮数', value: `${qaAnswered}`, unit: `/ ${qaTotal} 轮`, tip: '已作答 / 总轮数' });
+  }
+  if (report.value?.fluencyAvg != null) {
+    cards.push({
+      label: '🌊 表达流畅度',
+      value: String(report.value.fluencyAvg),
+      unit: '/ 100',
+      tip: '逐轮语音转写流畅度均分',
+    });
+  }
+  const intro = report.value?.introScore;
+  if (intro?.total != null) {
+    cards.push({ label: '🎤 自我介绍', value: String(intro.total), unit: '分', tip: '自我介绍独立评分' });
+  }
+  return cards;
+});
+
+/** 逐轮心态文案（nervous/hesitant/calm/confident → 中文，复用全局 SENTIMENT_LABEL） */
+
+/** 回放播放：已点亮轮次集合 + 播放状态（逐条 650ms 淡入，对齐 v7 交互规范） */
+const playbackLit = ref<Set<number>>(new Set());
+const playbackPlaying = ref(false);
+let playbackTimers: ReturnType<typeof setTimeout>[] = [];
+
+/** 播放态激活（播放中或已部分点亮）：列表进入「逐条浮现」模式，未点亮轮次隐藏 */
+const playbackActive = computed(() => playbackPlaying.value || playbackLit.value.size > 0);
+/** 播放进度百分比（进度条用） */
+const playbackProgress = computed(() => {
+  const total = interview.value?.qaList?.length ?? 0;
+  return total ? Math.round((playbackLit.value.size / total) * 100) : 0;
+});
+
+/** 回放「从头播放」：先全灭，再按 650ms 间隔逐条点亮，进度条由 lit 比例驱动 */
+function playPlayback() {
+  const list = interview.value?.qaList ?? [];
+  if (!list.length || playbackPlaying.value) return;
+  playbackTimers.forEach(clearTimeout);
+  playbackTimers = [];
+  playbackLit.value = new Set();
+  playbackPlaying.value = true;
+  list.forEach((qa, i) => {
+    playbackTimers.push(
+      setTimeout(() => {
+        const next = new Set(playbackLit.value);
+        next.add(qa.id);
+        playbackLit.value = next;
+        if (i === list.length - 1) playbackPlaying.value = false;
+      }, 350 + i * 650),
+    );
+  });
+}
+
+/** 组件卸载/重新进入报告时清理播放定时器 */
+function stopPlayback() {
+  playbackTimers.forEach(clearTimeout);
+  playbackTimers = [];
+  playbackPlaying.value = false;
+}
 
 // ============================================================================
 // 「🧭 发展方向」懒生成
@@ -1343,6 +1431,29 @@ const weakPointItems = computed<{ title: string; detail: string }[]>(() => {
     detail: pointQuote(p),
   }));
 });
+/** 考察者结论判词与候选人画像（2026-10-12 报告评审升级；旧报告 undefined 隐藏） */
+const reportVerdict = computed(() => report.value?.verdict || '');
+const reportProfile = computed(() => report.value?.profile || '');
+/** 五维能力剖面（考察者视角；旧报告 undefined → 空数组隐藏） */
+const competencyItems = computed(() => report.value?.competencyViews ?? []);
+/** 薄弱点归因卡（结构化归因字段优先；无归因字段回退简版 title+detail） */
+const weakPointCards = computed<WeakPointView[]>(() => {
+  const views = report.value?.weakPointViews;
+  if (views?.length) return views;
+  return weakPointItems.value.map((w) => ({ title: w.title, detail: w.detail }));
+});
+/** 结构化行动建议（suggestionViews 优先；旧报告回退 suggestionItems 文本列表） */
+const suggestionCardItems = computed(() => report.value?.suggestionViews ?? []);
+/** AI 深度复盘降级标记 → 概要 tab 顶部横幅 + 重新生成入口 */
+const reportReviewDegraded = computed(() => report.value?.reviewDegraded === true);
+const WEAK_TYPE_META: Record<string, { label: string; cls: string }> = {
+  knowledge: { label: '知识缺口', cls: 'knowledge' },
+  expression: { label: '表达问题', cls: 'expression' },
+  depth: { label: '深度不足', cls: 'depth' },
+};
+function weakTypeMeta(type?: string) {
+  return (type && WEAK_TYPE_META[type]) || null;
+}
 /** 逐题"你的回答"折叠展开（默认 2 行，点击展开全文） */
 const expandedReviews = ref<Set<number>>(new Set());
 function toggleReviewExpand(idx: number) {
@@ -1387,6 +1498,61 @@ const suggestionItems = computed(() => {
   return numbered.length > 1 ? numbered : [s];
 });
 
+/** 改进建议卡（合并 improvementSuggestions 标题+分数 与 suggestionViews 动作+验收，对齐静态页 .dev-item） */
+const adviceCards = computed(() => {
+  const views = report.value?.suggestionViews ?? [];
+  const improves = report.value?.improvementSuggestions ?? [];
+  const weakViews = report.value?.weakPointViews ?? [];
+  const n = Math.max(views.length, improves.length);
+  if (n === 0) return [];
+  return Array.from({ length: n }, (_, i) => {
+    const v = views[i];
+    const improve = improves[i] || '';
+    // improvementSuggestions 格式："补齐链路追踪能力（预计排查维度 +15 分）"
+    const m = improve.match(/^(.+?)（预计(.+?)）/);
+    const title = m ? m[1].trim() : (v?.action || improve);
+    const gain = m ? m[2].trim() : '';
+    const weak = weakViews[i];
+    const gap = weak?.evidence || weak?.detail || '';
+    return {
+      priority: v?.priority ?? (i + 1),
+      title,
+      gain,
+      gap,
+      action: v?.action || '',
+      acceptance: v?.acceptance || '',
+    };
+  });
+});
+function devPriorityClass(p: number) {
+  return p <= 1 ? 'p1' : p === 2 ? 'p2' : 'p3';
+}
+
+/** 逐题分析：筛选 chips + 折叠展开（对齐静态页 .qf + .q 卡片） */
+const qFilter = ref<'all' | 'low' | 'mid' | 'flag'>('all');
+const expandedQuestions = ref<Set<number>>(new Set());
+function toggleQuestionExpand(idx: number) {
+  const next = new Set(expandedQuestions.value);
+  if (next.has(idx)) next.delete(idx);
+  else next.add(idx);
+  expandedQuestions.value = next;
+}
+const filteredQuestionList = computed(() => {
+  const f = qFilter.value;
+  return lowScoreFirst.value.filter((q) => {
+    const s = q.score ?? 0;
+    const risk = (q.tags ?? []).some((t) => t.type === 'red');
+    if (f === 'all') return true;
+    if (f === 'low') return s < 60;
+    if (f === 'mid') return s >= 60 && s < 80;
+    if (f === 'flag') return risk;
+    return true;
+  });
+});
+function qScoreClass(score: number) {
+  return score >= 80 ? 'sc-high' : score >= 60 ? 'sc-mid' : 'sc-low';
+}
+
 /** v11.x：自我介绍评分展示（4维度分 + 总评，无 introScore 时为 null 隐藏） */
 const introScoreView = computed(() => {
   const intro = report.value?.introScore;
@@ -1428,7 +1594,7 @@ async function loadHistoryReport(idStr: string) {
     // 已结束但报告仍在生成（刷新/离开后）——进报告页显示进度并轮询，完成后展示完整报告
     if ((vo.analysisStatus ?? 0) < 2) {
       phase.value = 'report';
-      reportTab.value = 'summary';
+      reportTab.value = 'bg';
       analysisState.value = { active: true, progress: Math.max(5, vo.analysisProgress ?? 0) };
       startAnalysisPolling();
       return;
@@ -1436,7 +1602,7 @@ async function loadHistoryReport(idStr: string) {
 
     // 报告已生成——finish 幂等拉取库中完整报告（真实数据，不再前端拼凑伪报告）
     phase.value = 'report';
-    reportTab.value = 'summary';
+    reportTab.value = 'bg';
     await loadFullReport();
 
     // 历史页「重新生成报告」入口携带 regenerate=1，报告加载完成后自动触发（入口处已确认过，跳过二次弹窗）
@@ -1467,6 +1633,8 @@ onUnmounted(() => {
   releaseMediaResources();
   // 停止报告分析进度轮询（服务端继续生成，可从历史记录查看）
   stopAnalysisPolling();
+  // 停止回放播放定时器
+  stopPlayback();
   // 清理结束触发点计时与准备进度条
   clearIdleWatch();
   stopPrepareProgress();
@@ -1864,7 +2032,7 @@ async function handleFinish() {
     if (success && reportVo?.data) {
       report.value = reportVo.data;
       phase.value = 'report';
-      reportTab.value = 'summary';
+      reportTab.value = 'bg';
       // 骨架报告（summary=报告生成中…）→ 启动分析进度轮询；
       // 完整报告（幂等重入/历史查看）→ 直接刷新对话回放数据
       if (reportVo.data.summary === '报告生成中…') {
@@ -2650,109 +2818,151 @@ const chatStatus = computed(() => {
             </div>
           </div>
         </div>
-        <!-- 报告三段式——第一栏 面试者简介（简历提取 + 口头自我介绍）+ 第二栏 岗位信息 -->
-        <div v-if="candidateInfo || jobInfoView" class="report-profile-grid">
-          <div v-if="candidateInfo" class="profile-card">
-            <div class="profile-card-title">👤 面试者简介</div>
-            <div class="candidate-name-row">
-              <span class="candidate-name">{{ candidateInfo.name || '面试者' }}</span>
-              <span v-if="candidateInfo.aiScore" class="candidate-ai-score">简历 AI 评分 {{ candidateInfo.aiScore }}</span>
-            </div>
-            <div v-if="candidateSkills.length" class="candidate-skills-row">
-              <span v-for="s in candidateSkills" :key="s" class="candidate-skill">{{ s }}</span>
-            </div>
-            <div v-if="candidateInfo.resumeSelfIntro" class="candidate-intro-block">
-              <span class="intro-block-label">📝 简历自我介绍</span>
-              <p class="intro-block-text">{{ candidateInfo.resumeSelfIntro }}</p>
-            </div>
-            <div v-if="candidateInfo.interviewSelfIntro" class="candidate-intro-block">
-              <span class="intro-block-label">🎤 面试口头自我介绍</span>
-              <p class="intro-block-text">{{ candidateInfo.interviewSelfIntro }}</p>
-            </div>
-          </div>
-          <div v-if="jobInfoView" class="profile-card">
-            <div class="profile-card-title">🎯 岗位信息</div>
-            <div class="job-position">{{ jobInfoView.position || interview?.position || '未指定岗位' }}</div>
-            <div v-if="jobInfoView.jobRequirements" class="candidate-intro-block">
-              <span class="intro-block-label">📋 岗位要求</span>
-              <p class="intro-block-text jd-text">{{ jobInfoView.jobRequirements }}</p>
-            </div>
-            <div v-if="jobInfoView.matchRate != null" class="job-match-row">
-              <span class="match-label">岗位匹配度</span>
-              <span class="match-rate" :style="{ color: scoreColor(Number(jobInfoView.matchRate)) }">
-                {{ jobInfoView.matchRate }}%
-              </span>
-              <div class="match-bar">
-                <div class="match-fill" :style="{ width: jobInfoView.matchRate + '%' }"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 历史保留元信息：岗位/难度/时间 -->
+        <!-- Hero 元信息条（对齐 v7：候选人 / 目标岗位 / 面试时间 / 面试时长 / 面试编号） -->
         <div class="report-meta-bar">
+          <div class="meta-chip">
+            <span class="meta-label">候选人</span>
+            <span class="meta-value">{{ candidateInfo?.name || '面试者' }}</span>
+          </div>
           <div class="meta-chip">
             <span class="meta-label">目标岗位</span>
             <span class="meta-value">{{ interview?.position || '未指定' }}</span>
-          </div>
-          <div class="meta-chip">
-            <span class="meta-label">难度</span>
-            <span class="meta-value">{{ interview?.difficulty || '中等' }}</span>
-          </div>
-          <div class="meta-chip">
-            <span class="meta-label">题源</span>
-            <span class="meta-value">{{ interview?.resumeId ? '简历深挖' : '岗位画像' }}</span>
           </div>
           <div class="meta-chip">
             <span class="meta-label">面试时间</span>
             <span class="meta-value">{{ interview?.createTime || '-' }}</span>
           </div>
           <div class="meta-chip">
-            <span class="meta-label">答题数</span>
-            <span class="meta-value">{{ interview?.qaList?.filter(q => q.userAnswer).length ?? 0 }} / {{ interview?.totalQa ?? 0 }}</span>
+            <span class="meta-label">面试时长</span>
+            <span class="meta-value">{{ interview?.durationMinutes != null ? interview.durationMinutes + ' 分钟' : '-' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">面试编号</span>
+            <span class="meta-value">#{{ interview?.id ?? '-' }}</span>
           </div>
         </div>
-        <!-- 三层五 tab —— 复盘区（概要→归因→证据殿后）+ 备战区（个人预测→环境导航） -->
+        <!-- 六 tab（严格对齐静态页 面试报告v2.html）：背景 → 概览 → 回放 → 逐题 → 语音 → 建议 -->
         <div class="report-tabs">
-          <span class="report-tabs-group">复盘</span>
           <button
-            :class="['report-tab', { active: reportTab === 'summary' }]"
-            @click="reportTab = 'summary'"
-            >📋 面试概要</button>
+            :class="['report-tab', { active: reportTab === 'bg' }]"
+            @click="reportTab = 'bg'"
+            >🎯 面试背景</button>
           <button
-            :class="['report-tab', { active: reportTab === 'analysis' }]"
-            @click="reportTab = 'analysis'"
-            >🔍 问题分析</button>
-          <!-- 复盘区"证据殿后"：对话回放的渲染分支早已实现（reportTab==='dialog'），
-               但此前没有任何入口 ⇒ reportTab 永远不会等于 'dialog'，整块回放不可达。 -->
+            :class="['report-tab', { active: reportTab === 'overview' }]"
+            @click="reportTab = 'overview'"
+            >📋 概览评分</button>
           <button
             :class="['report-tab', { active: reportTab === 'dialog' }]"
             @click="reportTab = 'dialog'"
-            >💬 对话回放</button>
-          <span class="report-tabs-group">备战</span>
+            >💬 面试回放</button>
           <button
-            v-if="showPredictTab"
-            :class="['report-tab', { active: reportTab === 'predict' }]"
-            @click="reportTab = 'predict'"
-            >🔮 追问预测</button>
+            :class="['report-tab', { active: reportTab === 'analysis' }]"
+            @click="reportTab = 'analysis'"
+            >🔍 逐题分析</button>
           <button
-            :class="['report-tab', { active: reportTab === 'insight' }]"
-            @click="reportTab = 'insight'"
-            >🧭 发展方向</button>
+            :class="['report-tab', { active: reportTab === 'voice' }]"
+            @click="reportTab = 'voice'"
+            >🎙️ 语音指标</button>
+          <button
+            :class="['report-tab', { active: reportTab === 'advice' }]"
+            @click="reportTab = 'advice'"
+            >🚀 改进建议</button>
         </div>
 
-        <!-- Tab 0: 对话回放（历史面试完整对话） -->
+        <!-- ==================================================================
+             Tab 1: 🎯 面试背景（默认）—— 候选人概要 + 岗位信息 + 简历概要
+             + 考察方向（v7 静态版结构，原常驻区移入；自介评分移至概览评分 Tab）
+             ================================================================== -->
+        <div v-if="reportTab === 'bg'" class="tab-content active">
+          <div v-if="candidateInfo || jobInfoView" class="report-profile-grid">
+            <div v-if="candidateInfo" class="profile-card">
+              <div class="profile-card-title">👤 面试者简介</div>
+              <div class="candidate-name-row">
+                <span class="candidate-name">{{ candidateInfo.name || '面试者' }}</span>
+                <span v-if="candidateInfo.aiScore" class="candidate-ai-score">简历 AI 评分 {{ candidateInfo.aiScore }}</span>
+              </div>
+              <div v-if="candidateSkills.length" class="candidate-skills-row">
+                <span v-for="s in candidateSkills" :key="s" class="candidate-skill">{{ s }}</span>
+              </div>
+              <div v-if="candidateInfo.resumeSelfIntro" class="candidate-intro-block">
+                <span class="intro-block-label">📝 简历自我介绍</span>
+                <p class="intro-block-text">{{ candidateInfo.resumeSelfIntro }}</p>
+              </div>
+              <div v-if="candidateInfo.interviewSelfIntro" class="candidate-intro-block">
+                <span class="intro-block-label">🎤 面试口头自我介绍</span>
+                <p class="intro-block-text">{{ candidateInfo.interviewSelfIntro }}</p>
+              </div>
+            </div>
+            <div v-if="jobInfoView" class="profile-card">
+              <div class="profile-card-title">🎯 岗位信息</div>
+              <div class="job-position">{{ jobInfoView.position || interview?.position || '未指定岗位' }}</div>
+              <div class="bg-meta-row">
+                <span class="bg-meta-item">难度：{{ interview?.difficulty || '中等' }}</span>
+                <span class="bg-meta-item">题源：{{ interview?.resumeId ? '简历深挖' : '岗位画像' }}</span>
+              </div>
+              <div v-if="jobInfoView.jobRequirements" class="candidate-intro-block">
+                <span class="intro-block-label">📋 岗位要求</span>
+                <p class="intro-block-text jd-text">{{ jobInfoView.jobRequirements }}</p>
+              </div>
+              <div v-if="jobInfoView.matchRate != null" class="job-match-row">
+                <span class="match-label">岗位匹配度</span>
+                <span class="match-rate" :style="{ color: scoreColor(Number(jobInfoView.matchRate)) }">
+                  {{ jobInfoView.matchRate }}%
+                </span>
+                <div class="match-bar">
+                  <div class="match-fill" :style="{ width: jobInfoView.matchRate + '%' }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 考察方向（本场预设知识点） -->
+          <div v-if="knowledgeChips.length" class="archive-block">
+            <div class="archive-block-title">🧭 本次考察方向（{{ knowledgeChips.length }}）</div>
+            <div class="candidate-skills-row">
+              <span v-for="(k, i) in knowledgeChips" :key="'kp' + i" class="candidate-skill">{{ k }}</span>
+            </div>
+          </div>
+
+          <div v-if="!candidateInfo && !jobInfoView && !knowledgeChips.length" class="empty-tip">
+            暂无背景数据。
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             Tab 3: 💬 面试回放 —— 聊天式布局，仅保留 AI 提问与我的回答
+             （点评移至「逐题分析」查看）；支持从头播放（逐条 650ms 淡入）
+             ================================================================== -->
         <div v-if="reportTab === 'dialog'" class="tab-content active">
+          <!-- 播放控制条（v7：▶ 从头播放 + 进度条 + N/M 计数器） -->
+          <div v-if="interview?.qaList?.length" class="replay-controls">
+            <button class="replay-play-btn" :disabled="playbackPlaying" @click="playPlayback">
+              {{ playbackPlaying ? '⏳ 播放中…' : '▶ 从头播放' }}
+            </button>
+            <div class="replay-progress">
+              <div class="replay-progress-fill" :style="{ width: playbackProgress + '%' }"></div>
+            </div>
+            <span class="replay-counter">{{ playbackLit.size }} / {{ interview.qaList.length }}</span>
+          </div>
           <div v-if="!interview?.qaList?.length" class="dialog-empty">
             本次面试没有保存对话内容。
           </div>
           <div v-else class="replay-list">
-            <div v-for="qa in interview.qaList" :key="qa.id" class="replay-item">
+            <div
+              v-for="qa in interview.qaList"
+              :key="qa.id"
+              class="replay-item"
+              :class="{ hidden: playbackActive && !playbackLit.has(qa.id), lit: playbackLit.has(qa.id) }"
+            >
               <!-- 面试官 -->
               <div class="replay-row interviewer">
                 <div class="replay-avatar">AI</div>
                 <div class="replay-bubble ai">
-                  <div class="replay-idx">问题 {{ qa.questionIdx }}<span v-if="qa.parentQaId" class="replay-tag">追问</span></div>
+                  <div class="replay-idx">
+                    问题 {{ qa.questionIdx }}
+                    <span v-if="qa.parentQaId" class="replay-tag">追问</span>
+                    <span v-if="qa.questionSource && SRC_LABEL[qa.questionSource]" class="replay-tag src">{{ SRC_LABEL[qa.questionSource] }}</span>
+                  </div>
                   <MarkdownRenderer :content="qa.question || ''" />
                 </div>
               </div>
@@ -2764,25 +2974,22 @@ const chatStatus = computed(() => {
                 </div>
                 <div class="replay-avatar">我</div>
               </div>
-              <!-- AI 点评 -->
-              <div v-if="qa.aiFeedback" class="replay-row interviewer">
-                <div class="replay-avatar">AI</div>
-                <div class="replay-bubble feedback">
-                  <div class="replay-feedback-title">点评</div>
-                  <MarkdownRenderer :content="qa.aiFeedback" />
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
         <!-- ==================================================================
-             Tab 1: 面试概要（v13.49 批次 2：四区重排，对齐 V1.2 §6.2）
-             A 首屏（结论）→ B 叙事区 → C 行动区（薄弱与建议相邻）→ D 归档区（折叠）
-             设计意图：原 11 板块无主次 —— 资料类内容（自介分/心态/信号）降权折叠，
-             结论与行动提到一屏内可见。
+             Tab 2: 📋 概览评分（v7 规范）—— 雷达首屏（结论）→ 叙事区（总评/亮点）
+             → 薄弱点简版（归因卡详版在「逐题分析」）；改进建议移至「改进建议」tab，
+             资料类内容拆出：自介分→面试背景、过程信号→语音指标
              ================================================================== -->
-        <div v-if="reportTab === 'summary'" class="tab-content active">
+        <div v-if="reportTab === 'overview'" class="tab-content active">
+          <!-- AI 深度复盘降级横幅（模型无输出/解析失败 → 规则聚合数据仍有效，提供重新生成入口） -->
+          <div v-if="reportReviewDegraded" class="report-degraded-banner">
+            <span class="report-degraded-text">⚠️ AI 深度复盘未完成，当前仅展示基础聚合数据（逐题评分有效，总评/能力剖面缺失）。</span>
+            <button class="report-degraded-btn" @click="handleRegenerateReport()">重新生成报告</button>
+          </div>
+
           <!-- ---------- A 首屏：总分大数字 + 六维雷达 + 匹配度 + 定级徽章 ---------- -->
           <div class="sum-hero">
             <div class="sum-hero-score">
@@ -2848,11 +3055,56 @@ const chatStatus = computed(() => {
             </div>
           </div>
 
+          <!-- 考察结论判词（考察者视角一句话定性；旧报告隐藏） -->
+          <div v-if="reportVerdict" class="verdict-card">
+            <span class="verdict-label">考察结论</span>
+            <span class="verdict-text">{{ reportVerdict }}</span>
+          </div>
+
+          <!-- 五维能力剖面（考察者视角：技术深度/工程实践/系统设计/沟通表达/岗位匹配） -->
+          <div v-if="competencyItems.length" class="competency-card">
+            <div class="sum-zone-title">📊 能力剖面（考察者视角）</div>
+            <div class="competency-grid">
+              <div v-for="c in competencyItems" :key="c.key" class="competency-item">
+                <div class="competency-head">
+                  <span class="competency-label">{{ c.label || c.key }}</span>
+                  <span class="competency-score" :style="{ color: scoreColor(c.score ?? 0) }">{{ c.score ?? '-' }}</span>
+                </div>
+                <div class="competency-bar">
+                  <div :class="['score-fill', scoreClass(c.score ?? 0)]" :style="{ width: (c.score ?? 0) + '%' }"></div>
+                </div>
+                <div v-if="c.comment" class="competency-comment">{{ c.comment }}</div>
+                <div v-if="c.evidenceIdx?.length" class="competency-evidence">证据：第 {{ c.evidenceIdx.join('、') }} 题</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自我介绍评分（v7 从背景 Tab 移入概览评分 Tab） -->
+          <div v-if="introScoreView" class="archive-block">
+            <div class="archive-block-title">
+              🎤 自我介绍评分
+              <span class="intro-score-total" :style="{ color: scoreColor(introScoreView.total) }">
+                {{ introScoreView.total }} 分
+              </span>
+            </div>
+            <div class="intro-score-dims">
+              <div v-for="d in introScoreView.dims" :key="d.key" class="intro-score-dim">
+                <span class="intro-dim-label">{{ d.label }}</span>
+                <div class="intro-dim-bar">
+                  <div :class="['score-fill', scoreClass(d.value)]" :style="{ width: d.value + '%' }"></div>
+                </div>
+                <span class="intro-dim-value">{{ d.value }}</span>
+              </div>
+            </div>
+            <div v-if="introScoreView.comment" class="intro-score-comment">{{ introScoreView.comment }}</div>
+          </div>
+
           <!-- ---------- B 叙事区 + C 行动区（两栏：左=总评/亮点，右=薄弱点/建议） ---------- -->
           <div class="sum-main-grid">
             <!-- B 叙事区 -->
             <div class="sum-zone">
               <div class="sum-zone-title">📖 整场总评</div>
+              <p v-if="reportProfile" class="summary-paragraph profile-paragraph">🧑‍💼 {{ reportProfile }}</p>
               <p class="summary-paragraph">{{ reportOverall || '本次面试尚未形成完整总结。' }}</p>
               <div v-if="jobMatchReason" class="banner-match-reason">🎯 {{ jobMatchReason }}</div>
 
@@ -2864,7 +3116,7 @@ const chatStatus = computed(() => {
               <div v-if="highlightItems.length === 0" class="empty-tip">暂无亮点数据</div>
             </div>
 
-            <!-- C 行动区：薄弱点与改进建议相邻（问题挨着答案） -->
+            <!-- C 行动区：薄弱点简版（改进建议已移至「🚀 改进建议」tab） -->
             <div class="sum-zone">
               <div class="sum-zone-title">⚠️ 薄弱点（{{ weakPointItems.length }}）</div>
               <div v-for="(c, i) in weakPointItems.slice(0, 4)" :key="'cw' + i" class="pros-item">
@@ -2872,334 +3124,200 @@ const chatStatus = computed(() => {
                 <div v-if="c.detail" class="pros-item-quote">{{ c.detail }}</div>
               </div>
               <div v-if="weakPointItems.length === 0" class="empty-tip">暂无薄弱点数据</div>
+            </div>
+          </div>
+        </div>
 
-              <div class="sum-zone-title sum-zone-title-spaced">📋 改进建议</div>
-              <ul class="suggestion-list">
-                <li v-for="(s, i) in suggestionItems" :key="'sg' + i" class="suggestion-item">
-                  <div class="suggestion-number">{{ i + 1 }}</div>
-                  <div class="suggestion-content">{{ s }}</div>
-                </li>
-                <li v-if="suggestionItems.length === 0" class="empty-tip">暂无改进建议</li>
-              </ul>
-              <div class="sum-zone-actions">
-                <button class="practice-btn" @click="reportTab = 'analysis'">🔍 查看逐题分析 →</button>
-                <button class="practice-btn" @click="router.push('/interview/resume/optimize')">📝 按建议优化简历</button>
+        <!-- ==================================================================
+             Tab 5: 🎙️ 语音指标（v7 规范）—— 真实 VO 字段驱动的指标卡
+             （时长/作答轮数/流畅度/自介分，缺失隐藏）+ 逐轮心态趋势 + 可疑信号
+             （原概要归档区「过程信号」拆出独立成 tab）
+             ================================================================== -->
+        <div v-if="reportTab === 'voice'" class="tab-content active">
+          <div v-if="voiceMetricCards.length" class="card">
+            <div class="card-title"><span class="bar"></span>语音表现指标<span class="tip">声学信号分析</span></div>
+            <div class="voice-metric-grid">
+              <div v-for="(c, i) in voiceMetricCards" :key="'vm' + i" class="voice-metric-card">
+                <div class="vm-label">{{ c.label }}</div>
+                <div class="vm-value">
+                  {{ c.value }} <span class="vm-unit">{{ c.unit }}</span>
+                </div>
+                <div class="vm-tip">{{ c.tip }}</div>
               </div>
             </div>
           </div>
 
-          <!-- ---------- D 归档区（折叠）：资料类内容降权 ---------- -->
+          <!-- 逐轮心态趋势（sentimentTrend：紧张/犹豫/平稳/自信） -->
+          <div v-if="report?.sentimentTrend?.length" class="card">
+            <div class="card-title"><span class="bar"></span>逐轮心态趋势<span class="tip">逐轮情绪</span></div>
+            <div class="voice-sentiment-list">
+              <div v-for="(s, i) in report.sentimentTrend" :key="'vs' + i" class="voice-sentiment-item">
+                <span class="vs-round">第 {{ i + 1 }} 轮</span>
+                <span :class="['sentiment-dot', s]"></span>
+                <span class="vs-label">{{ SENTIMENT_LABEL[s] || s }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 全场可疑信号 -->
+          <div v-if="report?.redFlags?.length" class="card">
+            <div class="card-title"><span class="bar"></span>全场可疑信号<span class="tip">{{ report.redFlags.length }} 项</span></div>
+            <div class="deep-review-flags">
+              <span v-for="(fg, i) in report.redFlags" :key="'vf' + i" class="redflag-item">⚠ {{ fg }}</span>
+            </div>
+          </div>
+
           <div
-            v-if="introScoreView || report?.sentimentTrend?.length || report?.redFlags?.length || report?.fluencyAvg != null"
-            class="sum-archive"
-          >
-            <button class="sum-archive-toggle" @click="archiveOpen = !archiveOpen">
-              <span class="sum-archive-caret">{{ archiveOpen ? '▾' : '▸' }}</span>
-              🗂 面试过程资料（自我介绍评分 · 心态趋势 · 可疑信号）
-              <span class="sum-archive-hint">{{ archiveOpen ? '收起' : '展开' }}</span>
-            </button>
-            <div v-if="archiveOpen" class="sum-archive-body">
-              <!-- 自我介绍评分 -->
-              <div v-if="introScoreView" class="archive-block">
-                <div class="archive-block-title">
-                  🎤 自我介绍评分
-                  <span class="intro-score-total" :style="{ color: scoreColor(introScoreView.total) }">
-                    {{ introScoreView.total }} 分
-                  </span>
+            v-if="!voiceMetricCards.length && !report?.sentimentTrend?.length && !report?.redFlags?.length"
+            class="empty-tip"
+          >本场暂无语音指标数据。</div>
+        </div>
+
+        <!-- ==================================================================
+             Tab 6: 🚀 改进建议 —— 改进卡（编号+标题+分数标签+差距+行动）
+             + 追问预警（.pq-item 结构）+ 7 天补强计划表
+             ================================================================== -->
+        <div v-if="reportTab === 'advice'" class="tab-content active">
+          <!-- 改进建议卡（对齐静态页 .dev-item） -->
+          <div class="card">
+            <div class="card-title"><span class="bar"></span>改进建议<span class="tip">按优先级排序</span></div>
+            <p class="dev-lead">基于本场暴露的短板，按优先级给出「动作 + 验收口径」—— 做到验收口径描述的程度，即为过关。</p>
+            <div v-if="adviceCards.length" class="dev-list">
+              <div v-for="(c, i) in adviceCards" :key="'adv' + i" :class="['dev-item', devPriorityClass(c.priority)]">
+                <div class="dev-head">
+                  <div class="dev-rank">{{ c.priority }}</div>
+                  <h5>{{ c.title }}</h5>
+                  <span v-if="c.gain" class="dev-gain">{{ c.gain }}</span>
                 </div>
-                <div class="intro-score-dims">
-                  <div v-for="d in introScoreView.dims" :key="d.key" class="intro-score-dim">
-                    <span class="intro-dim-label">{{ d.label }}</span>
-                    <div class="intro-dim-bar">
-                      <div :class="['score-fill', scoreClass(d.value)]" :style="{ width: d.value + '%' }"></div>
-                    </div>
-                    <span class="intro-dim-value">{{ d.value }}</span>
-                  </div>
-                </div>
-                <div v-if="introScoreView.comment" class="intro-score-comment">{{ introScoreView.comment }}</div>
+                <div v-if="c.gap" class="dev-row"><span class="k">当前差距</span><span class="v">{{ c.gap }}</span></div>
+                <div v-if="c.action" class="dev-row"><span class="k">行动建议</span><span class="v">{{ c.action }}</span></div>
+                <div v-if="c.acceptance" class="dev-row"><span class="k">验收口径</span><span class="v">{{ c.acceptance }}</span></div>
               </div>
-              <!-- 心态趋势 / 流畅度 / 可疑信号 -->
-              <div class="archive-block">
-                <div class="archive-block-title">🧠 过程信号</div>
-                <div v-if="report?.sentimentTrend?.length" class="deep-review-row">
-                  <span class="deep-review-label">心态趋势</span>
-                  <span class="sentiment-track">
-                    <span
-                      v-for="(s, i) in report.sentimentTrend"
-                      :key="'as' + i"
-                      :class="['sentiment-dot', s]"
-                      :title="`第 ${i + 1} 轮：${SENTIMENT_LABEL[s] || s}`"
-                    ></span>
-                  </span>
+            </div>
+            <div v-else class="empty-tip">暂无改进建议</div>
+          </div>
+
+          <!-- 追问预警（未问在前=预警；已问在后=复盘；对齐静态页 .pq-item） -->
+          <div v-if="showPredictTab" class="card">
+            <div class="card-title"><span class="bar"></span>追问预警<span class="tip">未问到的题 = 下次最可能被问</span></div>
+            <div class="pq-list">
+              <div v-for="(p, i) in predictedUnasked" :key="'u' + i" class="pq-item">
+                <div class="pq-head">
+                  <span class="pq-kp">{{ p.knowledgePoint || '综合' }}</span>
+                  <span class="pq-state">⚠️ 未被问到</span>
                 </div>
-                <div v-if="report?.fluencyAvg != null" class="deep-review-row">
-                  <span class="deep-review-label">表达流畅度</span>
-                  <span class="deep-review-value">{{ report.fluencyAvg }} / 100</span>
+                <div class="pq-q">{{ p.question }}</div>
+                <div v-if="p.briefAnswer" class="pq-a"><span class="k">要点</span>{{ p.briefAnswer }}</div>
+                <div v-if="p.analysis" class="pq-a"><span class="k">缘由</span>{{ p.analysis }}</div>
+              </div>
+              <div v-for="(p, i) in predictedAsked" :key="'a' + i" class="pq-item pq-asked">
+                <div class="pq-head">
+                  <span class="pq-kp">{{ p.knowledgePoint || '综合' }}</span>
+                  <span class="pq-state">本场已问 · {{ p.askedScore ?? '--' }} 分</span>
                 </div>
-                <div v-if="report?.redFlags?.length" class="deep-review-row">
-                  <span class="deep-review-label">可疑信号</span>
-                  <span class="deep-review-flags">
-                    <span v-for="(fg, i) in report.redFlags" :key="'af' + i" class="redflag-item">⚠ {{ fg }}</span>
-                  </span>
-                </div>
-                <div
-                  v-if="!report?.sentimentTrend?.length && report?.fluencyAvg == null && !report?.redFlags?.length"
-                  class="empty-tip"
-                >本次未产出过程信号数据</div>
+                <div class="pq-q">{{ p.question }}</div>
+                <div v-if="p.briefAnswer" class="pq-a"><span class="k">要点</span>{{ p.briefAnswer }}</div>
+                <div v-if="p.analysis" class="pq-a"><span class="k">缘由</span>{{ p.analysis }}</div>
               </div>
             </div>
           </div>
+
+          <!-- 7 天补强计划（对齐静态页 advice Tab §7 天补强计划表） -->
+          <div v-if="trainingPlanRows.length" class="card">
+            <div class="card-title"><span class="bar"></span>7 天补强计划<span class="tip">示例计划 · 按薄弱点替换</span></div>
+            <table class="plan-table">
+              <thead>
+                <tr>
+                  <th style="width:82px">时间</th>
+                  <th>训练内容</th>
+                  <th style="width:104px">目标产出</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(p, i) in trainingPlanRows" :key="'tp' + i">
+                  <td class="day">{{ p.days }}</td>
+                  <td>{{ p.content }}</td>
+                  <td>{{ p.output }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Tab 2: 问题分析 -->
+        <!-- ==================================================================
+             Tab 4: 📝 逐题分析 —— 筛选 chips + .q 折叠卡 + 6 块（意图/分析/点评/框架/差距/建议）+ 标签行
+             ================================================================== -->
         <div v-if="reportTab === 'analysis'" class="tab-content active">
-          <!-- 按维度聚类（归因锚点 + 低分题置顶） -->
-          <div v-if="weakestDimension || lowScoreCount" class="cluster-banner">
-            <div class="cluster-banner-head">
-              <span class="cluster-banner-icon">🧭</span>
-              <span class="cluster-banner-title">最该补的维度</span>
-              <span v-if="weakestDimension" class="cluster-dim-chip">
-                {{ weakestDimension.label }} <strong>{{ weakestDimension.value }}</strong>
-              </span>
+          <div class="card">
+            <div class="card-title">
+              <span class="bar"></span>逐题表现分析
+              <span class="tip">共 {{ lowScoreFirst.length }} 题</span>
             </div>
-            <div class="cluster-banner-desc">
-              <template v-if="lowScoreCount">
-                下列 <strong>{{ lowScoreCount }}</strong> 道题得分低于 {{ LOW_SCORE_THRESHOLD }} 分，已<strong>置顶</strong>按分数升序排列，建议优先复盘。
-              </template>
-              <template v-else>本次各题得分均不低于 {{ LOW_SCORE_THRESHOLD }} 分，按分数升序排列便于定位短板。</template>
+            <!-- 筛选 chips -->
+            <div class="qf">
+              <div :class="['chip', { active: qFilter === 'all' }]" @click="qFilter = 'all'">全部</div>
+              <div :class="['chip', { active: qFilter === 'low' }]" @click="qFilter = 'low'">薄弱 &lt; 60</div>
+              <div :class="['chip', { active: qFilter === 'mid' }]" @click="qFilter = 'mid'">中等 60–79</div>
+              <div :class="['chip', { active: qFilter === 'flag' }]" @click="qFilter = 'flag'">含风险点</div>
             </div>
-          </div>
-
-          <!-- 薄弱点收口（结构化 title+detail + 去练习） -->
-          <div v-if="weakPointItems.length" class="weak-points-card">
-            <div class="analysis-card-title">⚠️ 待提升（{{ weakPointItems.length }}）</div>
-            <div v-for="(c, i) in weakPointItems" :key="i" class="weak-point-row">
-              <div class="weak-point-text">
-                <div class="weak-point-title">{{ c.title }}</div>
-                <div v-if="c.detail" class="weak-point-quote">{{ c.detail }}</div>
-              </div>
-              <button class="practice-btn" @click="gotoPractice(c.title)">🎯 去练习</button>
-            </div>
-          </div>
-          <div class="analysis-grid">
-            <div
-              v-for="(q, i) in lowScoreFirst"
-              :key="i"
-              class="analysis-item"
-            >
-              <div class="analysis-item-header">
-                <div :class="['analysis-item-icon', q.score < 80 ? 'weak' : 'strong']">
-                  {{ q.score < 80 ? '⚠️' : '✅' }}
-                </div>
-                <div class="analysis-item-title">第 {{ q.questionIdx }} 题 · {{ truncate(q.question, 18) }}</div>
-              </div>
-              <div class="analysis-item-content">{{ q.analysis || q.feedback }}</div>
-              <!-- 你的回答折叠展开（默认 2 行，点击展开全文） -->
-              <div v-if="q.userAnswer" class="analysis-user-answer" :class="{ expanded: expandedReviews.has(q.questionIdx ?? i) }">
-                <div class="analysis-user-answer-text">
-                  <strong>你的回答：</strong>{{ q.userAnswer }}
-                </div>
-                <button
-                  v-if="q.userAnswer.length > 80"
-                  class="answer-expand-btn"
-                  @click="toggleReviewExpand(q.questionIdx ?? i)"
-                >
-                  {{ expandedReviews.has(q.questionIdx ?? i) ? '收起' : '展开全文' }}
-                </button>
-              </div>
-              <div class="analysis-item-score">
-                <span :style="{ color: scoreColor(q.score), fontWeight: 600 }">{{ q.score }} 分</span>
-                <div class="score-bar">
-                  <div :class="['score-fill', scoreClass(q.score)]" :style="{ width: q.score + '%' }"></div>
-                </div>
-              </div>
-              <button
-                v-if="q.score < 80 && q.qaId"
-                class="wrong-book-btn"
-                :disabled="wrongBookLoading === q.qaId"
-                @click="handleAddToWrongBook(q.qaId)"
-          >
-                {{ wrongBookLoading === q.qaId ? '加入中...' : '📚 加入错题本' }}
-              </button>
-            </div>
-            <div v-if="lowScoreFirst.length === 0" class="empty-tip">暂无逐题分析数据</div>
-          </div>
-        </div>
-
-        <!-- ==================================================================
-             v13.47 批次 2：Tab「🔮 追问预测」（备战区·个人）
-             分组 A「本次已问」= 复盘视角（答得对不对）
-             分组 B「未被问到」= 预警视角（下次真面试的押题清单）★核心价值
-             数据源：report.predictedQuestions（缺失则整 tab 不渲染，由 tab 按钮 v-if 控制）
-             ================================================================== -->
-        <div v-if="reportTab === 'predict'" class="tab-content active">
-          <div class="predict-intro">
-            <div class="predict-intro-title">🔮 真面试官拿到这份简历，还会问什么</div>
-            <div class="predict-intro-desc">
-              基于你本场的简历、岗位与对话记录推演，<strong>未被问到的部分</strong>是下次面试的重点准备方向。
-            </div>
-          </div>
-
-          <!-- 分组 A：本次已问 -->
-          <div v-if="predictedAsked.length" class="predict-group">
-            <div class="predict-group-title">
-              ✅ 本次已问
-              <span class="predict-group-sub">复盘视角：对照要点，看看你答得够不够</span>
-            </div>
-            <div class="predict-list">
-              <div v-for="(p, i) in predictedAsked" :key="'a' + i" class="predict-card">
-                <div class="predict-card-head">
-                  <div class="predict-q">{{ p.question }}</div>
-                  <div v-if="p.askedScore != null" :class="['predict-score', scoreClass(p.askedScore)]">
-                    {{ p.askedScore }} 分
+            <!-- 逐题折叠卡 -->
+            <div class="q-list">
+              <div
+                v-for="(q, i) in filteredQuestionList"
+                :key="i"
+                :class="['q', { open: expandedQuestions.has(q.questionIdx ?? i) }]"
+              >
+                <div class="q-head" @click="toggleQuestionExpand(q.questionIdx ?? i)">
+                  <div class="q-title">
+                    <span class="q-no">Q{{ q.questionIdx }}</span>
+                    <span>{{ q.question }}</span>
+                    <span v-if="q.selfIntro" class="pb-self">🎤 自我介绍</span>
+                  </div>
+                  <div class="q-right">
+                    <div :class="['q-score', qScoreClass(q.score)]">{{ q.score }} 分</div>
+                    <span class="q-arrow">▼</span>
                   </div>
                 </div>
-                <div v-if="p.knowledgePoint" class="predict-tag">考点：{{ p.knowledgePoint }}</div>
-                <div v-if="p.briefAnswer" class="predict-block">
-                  <span class="predict-block-label">要点参考</span>
-                  <span class="predict-block-text">{{ p.briefAnswer }}</span>
-                </div>
-                <div v-if="p.analysis" class="predict-block">
-                  <span class="predict-block-label">提问动机</span>
-                  <span class="predict-block-text">{{ p.analysis }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 分组 B：未被问到 ★核心价值 -->
-          <div v-if="predictedUnasked.length" class="predict-group">
-            <div class="predict-group-title">
-              ⭐ 未被问到
-              <span class="predict-group-sub">预警视角：这些是你简历里写了、但本场没深挖的点</span>
-            </div>
-            <div class="predict-list">
-              <div v-for="(p, i) in predictedUnasked" :key="'u' + i" class="predict-card highlight">
-                <div class="predict-card-head">
-                  <div class="predict-q">{{ p.question }}</div>
-                </div>
-                <div v-if="p.knowledgePoint" class="predict-tag">考点：{{ p.knowledgePoint }}</div>
-                <div v-if="p.briefAnswer" class="predict-block">
-                  <span class="predict-block-label">要点参考</span>
-                  <span class="predict-block-text">{{ p.briefAnswer }}</span>
-                </div>
-                <div v-if="p.analysis" class="predict-block">
-                  <span class="predict-block-label">提问动机</span>
-                  <span class="predict-block-text">{{ p.analysis }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="!predictedAsked.length && !predictedUnasked.length" class="empty-tip">
-            本次未产出追问预测数据。
-          </div>
-        </div>
-
-
-        <!-- ==================================================================
-             Tab「🧭 发展方向」（备战区·环境）v13.50 批次 3
-             懒生成：不自动触发，用户点按钮才调 LLM（不开不花）
-             口径诚实：LLM 无实时行业数据 → 只做方向性判断，不承诺实时动态
-             ================================================================== -->
-        <div v-if="reportTab === 'insight'" class="tab-content active">
-          <div class="insight-head">
-            <div class="insight-head-title">🧭 发展方向</div>
-            <div class="insight-head-desc">
-              基于本场表现与岗位方向的个人化分析 —— 把本场暴露的短板放进岗位坐标系，告诉你往哪补最划算。
-            </div>
-            <div v-if="industryInsight" class="insight-head-meta">
-              <span class="insight-stamp">{{ insightGeneratedAtText }}</span>
-              <span v-if="insightStale" class="insight-stale">· 已超过 7 天，建议刷新</span>
-              <button class="insight-refresh" :disabled="insightLoading" @click="handleGenerateInsight(true)">
-                {{ insightLoading ? '生成中…' : '🔄 刷新' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- 占位：未生成（懒生成，必须用户点击） -->
-          <div v-if="!industryInsight" class="insight-placeholder">
-            <div class="insight-placeholder-icon">🧭</div>
-            <div class="insight-placeholder-title">生成发展方向分析</div>
-            <div class="insight-placeholder-desc">
-              约需 10 秒。内容包含技术趋势、技能供需结构与 3 条针对你本场薄弱点的行动建议。
-            </div>
-            <button
-              class="insight-placeholder-btn"
-              :disabled="insightLoading"
-              @click="handleGenerateInsight(false)"
-            >{{ insightLoading ? '生成中，请稍候…' : '开始生成' }}</button>
-            <div v-if="insightError" class="insight-error">{{ insightError }}</div>
-          </div>
-
-          <!-- 已生成 -->
-          <template v-else>
-            <!-- ① 技术趋势 -->
-            <section v-if="industryInsight.trends?.length" class="insight-section">
-              <div class="insight-section-title">📈 技术趋势</div>
-              <div class="trend-list">
-                <div v-for="(t, i) in industryInsight.trends" :key="'tr' + i" class="trend-card">
-                  <div class="trend-card-head">
-                    <span class="trend-title">{{ t.title }}</span>
-                    <span v-if="t.maturity" :class="['trend-maturity', maturityClass(t.maturity)]">
-                      {{ t.maturity }}
-                    </span>
+                <div class="q-body">
+                  <div class="q-block">
+                    <span class="bk">🎯 考察意图</span>
+                    <div class="qa-intent">{{ q.intent || '--' }}</div>
                   </div>
-                  <div v-if="t.detail" class="trend-detail">{{ t.detail }}</div>
-                </div>
-              </div>
-            </section>
-
-            <!-- ② 技能供需结构 -->
-            <section
-              v-if="industryInsight.supplyDemand?.existing?.length || industryInsight.supplyDemand?.missing?.length"
-              class="insight-section"
-            >
-              <div class="insight-section-title">🧩 技能供需结构</div>
-              <div class="sd-row">
-                <span class="sd-label">✅ 已具备</span>
-                <span class="sd-tags">
-                  <span
-                    v-for="(s, i) in (industryInsight.supplyDemand?.existing ?? [])"
-                    :key="'se' + i"
-                    class="sd-tag have"
-                  >{{ s }}</span>
-                  <span v-if="!industryInsight.supplyDemand?.existing?.length" class="sd-empty">简历未提取到技能标签</span>
-                </span>
-              </div>
-              <div class="sd-row">
-                <span class="sd-label">⚠️ 建议补充</span>
-                <span class="sd-tags">
-                  <span
-                    v-for="(s, i) in (industryInsight.supplyDemand?.missing ?? [])"
-                    :key="'sm' + i"
-                    class="sd-tag miss"
-                  >{{ s }}</span>
-                  <span v-if="!industryInsight.supplyDemand?.missing?.length" class="sd-empty">暂无建议</span>
-                </span>
-              </div>
-            </section>
-
-            <!-- ③ 行动建议（每条锚定本场真实薄弱点） -->
-            <section v-if="industryInsight.actions?.length" class="insight-section">
-              <div class="insight-section-title">🎯 行动建议</div>
-              <div class="action-list">
-                <div v-for="(a, i) in industryInsight.actions" :key="'ac' + i" class="action-card">
-                  <div class="action-number">{{ i + 1 }}</div>
-                  <div class="action-body">
-                    <div class="action-content">{{ a.content }}</div>
-                    <div v-if="a.relatedWeakPoint" class="action-anchor">
-                      ↳ 对应本场薄弱点：{{ a.relatedWeakPoint }}
-                    </div>
+                  <div class="q-block">
+                    <span class="bk">回答分析</span>
+                    <div class="answer">{{ q.analysis || q.feedback || '--' }}</div>
+                  </div>
+                  <div class="q-block">
+                    <span class="bk">AI 点评</span>
+                    <div class="comment">{{ q.feedback || '--' }}</div>
+                  </div>
+                  <div class="q-block">
+                    <span class="bk">参考框架</span>
+                    <ul class="qa-fw">
+                      <li v-for="(f, fi) in (q.framework ?? [])" :key="fi">{{ f }}</li>
+                      <li v-if="!q.framework?.length">--</li>
+                    </ul>
+                  </div>
+                  <div class="q-block">
+                    <span class="bk">差距分析</span>
+                    <div class="answer">{{ q.gap || '--' }}</div>
+                  </div>
+                  <div class="q-block">
+                    <span class="bk">提升建议</span>
+                    <div class="suggest">{{ q.advice || '--' }}</div>
+                  </div>
+                  <div v-if="q.tags?.length" class="tagrow">
+                    <span
+                      v-for="(t, ti) in q.tags"
+                      :key="ti"
+                      :class="['tag', t.type]"
+                    >{{ t.text }}</span>
                   </div>
                 </div>
               </div>
-            </section>
-
-            <div class="insight-disclaimer">
-              本分析为方向性判断（基于你本场的简历、岗位与表现），不包含实时行业数据。
             </div>
-          </template>
+            <div v-if="filteredQuestionList.length === 0" class="empty-tip">暂无符合筛选条件的题目</div>
+          </div>
         </div>
 
         <div class="report-actions">
@@ -3275,6 +3393,19 @@ const chatStatus = computed(() => {
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-full: 9999px;
+
+  /* 静态页 CSS 变量映射（逐题/改进/追问预警/表格 复用静态页固定色名） */
+  --border: var(--gray-200);
+  --sub: var(--gray-500);
+  --primary-soft: var(--primary-bg);
+  --red: var(--error);
+  --red-soft: var(--error-bg);
+  --amber: var(--warning);
+  --amber-soft: var(--warning-bg);
+  --green: var(--success);
+  --green-soft: var(--success-bg);
+  --border-2: var(--gray-200);
+  --primary-2: var(--theme-primary-hover);
 
   /* 宽度/内边距统一交给外层 Tailwind 规范类：max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
      （对齐《项目开发规范》§4.4⑤「主内容区域宽度规范」） */
@@ -3427,6 +3558,55 @@ const chatStatus = computed(() => {
 .weak-point-row:last-child { border-bottom: none; }
 .weak-point-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-800); }
 .weak-point-quote { font-size: 0.8125rem; color: var(--gray-500); margin-top: 0.125rem; }
+/* ===== 2026-10-12 报告评审升级：考察者视角新板块 ===== */
+.report-degraded-banner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.625rem 1rem; margin-bottom: 1rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius-md); }
+.report-degraded-text { font-size: 0.8125rem; color: #9a3412; }
+.report-degraded-btn { flex-shrink: 0; padding: 0.375rem 0.875rem; background: #ea580c; color: #fff; border: none; border-radius: var(--radius-md); font-size: 0.8125rem; cursor: pointer; transition: opacity 0.2s; }
+.report-degraded-btn:hover { opacity: 0.85; }
+.verdict-card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 18px 20px; margin-bottom: 16px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.06)); border: 1px solid var(--border); border-radius: 13px; }
+.verdict-label { flex-shrink: 0; padding: 0.125rem 0.5rem; background: var(--primary); color: var(--theme-on-primary); border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; }
+.verdict-text { font-size: 0.9375rem; font-weight: 600; color: var(--gray-800); line-height: 1.6; }
+.competency-card { background: var(--theme-bg-elevated); border: 1px solid var(--border); border-radius: 13px; padding: 18px 20px; margin-bottom: 16px; }
+.archive-block { border: 1px solid var(--border); border-radius: 13px; padding: 18px 20px; margin-bottom: 16px; background: var(--theme-bg-elevated); }
+.archive-block-title { font-size: 14px; font-weight: 800; color: var(--gray-800); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.sum-zone { border: 1px solid var(--border); border-radius: 13px; padding: 18px 20px; background: var(--theme-bg-elevated); }
+.competency-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.875rem; }
+.competency-item { padding: 0.75rem 0.875rem; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); }
+.competency-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.375rem; }
+.competency-label { font-size: 0.8125rem; font-weight: 600; color: var(--gray-700); }
+.competency-score { font-size: 1rem; font-weight: 700; }
+.competency-bar { height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem; }
+.competency-comment { font-size: 0.8125rem; color: var(--gray-600); line-height: 1.6; }
+.competency-evidence { margin-top: 0.375rem; font-size: 0.75rem; color: var(--gray-400); }
+.profile-paragraph { padding: 0.625rem 0.875rem; background: var(--gray-50); border-left: 3px solid var(--primary); border-radius: var(--radius-sm); }
+.suggestion-action { font-size: 0.875rem; color: var(--gray-800); }
+.suggestion-acceptance { margin-top: 0.25rem; font-size: 0.75rem; color: var(--gray-500); }
+.suggestion-priority { flex-shrink: 0; align-self: flex-start; padding: 0.125rem 0.375rem; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; }
+.weak-point-card { padding: 0.75rem 0.875rem; border-bottom: 1px dashed var(--gray-200); }
+.weak-point-card:last-child { border-bottom: none; }
+.weak-point-head { display: flex; align-items: center; gap: 0.5rem; }
+.weak-point-head .weak-point-title { flex: 1; }
+.weak-point-head .practice-btn { flex-shrink: 0; }
+.weak-type-badge { flex-shrink: 0; padding: 0.125rem 0.4375rem; border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; }
+.weak-type-badge.knowledge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.weak-type-badge.expression { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.weak-type-badge.depth { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+.weak-attrib-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.8125rem; color: var(--gray-600); line-height: 1.6; }
+.weak-attrib-label { flex-shrink: 0; padding: 0 0.375rem; background: var(--gray-100); color: var(--gray-500); border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; height: fit-content; }
+.weak-attrib-row.remedy { color: var(--gray-800); }
+.weak-attrib-row.remedy .weak-attrib-label { background: #ecfdf5; color: #059669; }
+.self-intro-tag { flex-shrink: 0; padding: 0.125rem 0.4375rem; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; white-space: nowrap; }
+.review-fourpart { margin-top: 0.625rem; padding: 0.625rem 0.75rem; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); }
+.fourpart-row { display: flex; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.8125rem; color: var(--gray-600); line-height: 1.6; }
+.fourpart-row + .fourpart-row { border-top: 1px dashed var(--gray-200); }
+.fourpart-label { flex-shrink: 0; width: 60px; text-align: center; padding: 0.0625rem 0; border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; height: fit-content; }
+.fourpart-label.intent { background: #eff6ff; color: #1d4ed8; }
+.fourpart-label.framework { background: #f0fdf4; color: #15803d; }
+.fourpart-label.gap { background: #fef2f2; color: #b91c1c; }
+.fourpart-label.advice { background: #ecfdf5; color: #059669; }
+.fourpart-text { flex: 1; }
+.fourpart-framework { flex: 1; margin: 0; padding-left: 1.125rem; }
+.fourpart-framework li { margin: 0.125rem 0; }
 .test-btn { padding: 0.375rem 0.875rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); color: var(--gray-600); border-radius: var(--radius-md); cursor: pointer; font-size: 0.8125rem; font-weight: 500; transition: all 0.2s; }
 .test-btn:hover:not(:disabled) { background: var(--primary); color: var(--theme-on-primary); border-color: var(--primary); }
 .test-btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -3639,15 +3819,68 @@ const chatStatus = computed(() => {
 .rap-fill { height: 100%; background: linear-gradient(90deg, var(--theme-primary), var(--theme-accent-hover, var(--theme-primary))); border-radius: var(--radius-full); transition: width 0.6s ease; }
 .rap-tip { margin-top: 0.625rem; font-size: 0.75rem; color: var(--gray-400); }
 
-.report-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.75rem; background: var(--theme-bg-elevated); padding: 0.375rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); width: fit-content; }
-.report-tab { padding: 0.625rem 1.25rem; border: none; background: none; cursor: pointer; font-size: 0.875rem; color: var(--gray-500); border-radius: var(--radius-sm); white-space: nowrap; transition: all 0.2s; font-weight: 500; }
-.report-tab:hover { color: var(--gray-700); background: var(--gray-50); }
-.report-tab.active { color: var(--primary); background: var(--primary-bg); font-weight: 600; }
+.report-tabs { display: flex; gap: 0.3125rem; margin-bottom: 1.75rem; background: var(--theme-bg-elevated); padding: 0.3125rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); width: 100%; overflow-x: auto; scrollbar-width: none; }
+.report-tabs::-webkit-scrollbar { display: none; }
+.report-tab { flex: 1; min-width: 88px; text-align: center; padding: 0.5625rem 0.8125rem; border: none; background: none; cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: var(--gray-500); border-radius: 0.625rem; white-space: nowrap; transition: all 0.18s; user-select: none; }
+.report-tab:hover { background: var(--gray-50); color: var(--gray-800); }
+.report-tab.active { background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-hover)); color: #fff; box-shadow: 0 6px 14px -8px rgba(79, 70, 229, 0.7); }
 
 /* ==================== 对话回放与历史保留 ==================== */
 .replay-list { display: flex; flex-direction: column; gap: 1.25rem; }
 .replay-item { display: flex; flex-direction: column; gap: 0.625rem; }
 .replay-item + .replay-item { padding-top: 1.25rem; border-top: 1px dashed var(--gray-100); }
+/* 播放模式：未点亮轮次隐藏，已点亮轮次淡入上移（650ms 间隔驱动，对齐 v7 交互规范） */
+.replay-item.hidden { display: none; }
+.replay-item.lit { animation: replayFadeIn 0.45s ease both; }
+@keyframes replayFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+/* 回放播放控制条（▶ 从头播放 + 进度条 + N/M 计数器） */
+.replay-controls {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.625rem 0.875rem; margin-bottom: 1.25rem;
+  background: var(--theme-bg-elevated);
+  border: 1px solid var(--gray-100); border-radius: var(--radius-md);
+}
+.replay-play-btn {
+  flex-shrink: 0; padding: 0.375rem 0.875rem; border: none; cursor: pointer;
+  border-radius: var(--radius-sm); font-size: 0.8125rem; font-weight: 600;
+  background: var(--primary-gradient, var(--primary)); color: var(--theme-on-primary, #fff);
+}
+.replay-play-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.replay-progress {
+  flex: 1; height: 6px; border-radius: 99px;
+  background: var(--gray-100); overflow: hidden;
+}
+.replay-progress-fill {
+  height: 100%; border-radius: 99px;
+  background: var(--primary-gradient, var(--primary));
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.replay-counter { flex-shrink: 0; font-size: 0.75rem; font-weight: 600; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+/* 题源 / 自我介绍徽标（区别于橙色「追问」标签） */
+.replay-tag.src { background: var(--info-bg, #eff6ff); color: var(--info, #3b82f6); }
+.replay-tag.intro { background: var(--success-bg); color: var(--success); }
+/* 面试背景 Tab：难度/题源行 */
+.bg-meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0.5rem 0 0.75rem; }
+.bg-meta-item { font-size: 0.8125rem; color: var(--gray-600); }
+/* 语音指标 Tab：指标卡网格 + 逐轮心态列表 */
+.voice-metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.voice-metric-card {
+  padding: 0.875rem 1rem;
+  background: var(--theme-bg-elevated);
+  border: 1px solid var(--gray-100); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.vm-label { font-size: 0.75rem; font-weight: 600; color: var(--gray-500); }
+.vm-value { margin: 0.25rem 0 0.125rem; font-size: 1.5rem; font-weight: 800; color: var(--gray-800); line-height: 1.2; }
+.vm-unit { font-size: 0.75rem; font-weight: 500; color: var(--gray-400); }
+.vm-tip { font-size: 0.6875rem; color: var(--gray-400); }
+.voice-sentiment-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.voice-sentiment-item { display: flex; align-items: center; gap: 0.625rem; font-size: 0.8125rem; color: var(--gray-600); }
+.vs-round { width: 3.5rem; flex-shrink: 0; font-size: 0.75rem; color: var(--gray-400); }
+.vs-label { font-weight: 600; }
 .replay-row { display: flex; gap: 0.625rem; align-items: flex-start; }
 .replay-row.user { justify-content: flex-end; }
 .replay-avatar { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6875rem; font-weight: 600; }
@@ -3661,6 +3894,7 @@ const chatStatus = computed(() => {
 .replay-score { font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-bottom: 0.375rem; }
 .replay-feedback-title { font-size: 0.75rem; color: var(--info); font-weight: 600; margin-bottom: 0.375rem; }
 .dialog-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-400); font-size: 0.9375rem; }
+.tab-content { display: none; }
 .tab-content.active { display: block; animation: msg-in 0.3s ease; }
 
 .summary-grid { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 1.5rem; }
@@ -3953,30 +4187,12 @@ const chatStatus = computed(() => {
   .sum-zone-title-spaced { margin-top: 1.5rem; }
   .sum-zone-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; }
 
-  /* ---- D 归档区（折叠） ---- */
-  .sum-archive {
-    background: var(--gray-50);
-    border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-  .sum-archive-toggle {
-    width: 100%; display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.75rem 1.125rem;
-    background: transparent; border: none; cursor: pointer;
-    font-size: 0.8125rem; font-weight: 600; color: var(--gray-600);
-    text-align: left;
-  }
-  .sum-archive-toggle:hover { background: var(--gray-100); }
-  .sum-archive-caret { color: var(--gray-400); font-size: 0.75rem; }
-  .sum-archive-hint { margin-left: auto; font-size: 0.75rem; font-weight: 400; color: var(--gray-400); }
-  .sum-archive-body {
-    padding: 0 1.125rem 1.125rem;
-    display: flex; flex-direction: column; gap: 1rem;
-  }
+  /* ---- 资料卡（自我介绍评分 / 考察方向 / 语音信号共用） ---- */
   .archive-block {
     padding: 1rem 1.125rem;
     background: var(--theme-bg-elevated);
     border: 1px solid var(--gray-100); border-radius: var(--radius-md);
+    margin-bottom: 1rem;
   }
   .archive-block-title {
     display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
@@ -3995,7 +4211,12 @@ const chatStatus = computed(() => {
   .level-estimate-badge.mid { border-color: var(--primary, #3b82f6); color: var(--primary, #3b82f6); background: var(--info-bg, #eff6ff); }
   .level-estimate-badge.senior { border-color: var(--success, #22c55e); color: var(--success); background: var(--success-bg); }
 
-  /* ---- Tab「🔮 追问预测」 ---- */
+  /* ---- Tab「🚀 改进建议」追问预警（未问卡右上徽标） ---- */
+  .predict-unasked-badge {
+    flex-shrink: 0; padding: 0.125rem 0.5rem; border-radius: var(--radius-full);
+    font-size: 0.6875rem; font-weight: 700;
+    background: var(--warning); color: var(--theme-on-primary);
+  }
   .predict-intro {
     padding: 0.875rem 1rem;
     margin-bottom: 1rem;
@@ -4003,14 +4224,7 @@ const chatStatus = computed(() => {
     background: var(--gray-50);
     border-left: 3px solid var(--primary, #3b82f6);
   }
-  .predict-intro-title { font-size: 0.875rem; font-weight: 700; color: var(--gray-800); }
   .predict-intro-desc { margin-top: 0.25rem; font-size: 0.75rem; color: var(--gray-500); line-height: 1.6; }
-  .predict-group { margin-bottom: 1.5rem; }
-  .predict-group-title {
-    display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem;
-    margin-bottom: 0.625rem; font-size: 0.875rem; font-weight: 700; color: var(--gray-800);
-  }
-  .predict-group-sub { font-size: 0.75rem; font-weight: 400; color: var(--gray-400); }
   .predict-list { display: flex; flex-direction: column; gap: 0.75rem; }
   .predict-card {
     padding: 0.875rem 1rem;
@@ -4116,6 +4330,100 @@ const chatStatus = computed(() => {
     border: 1px solid var(--gray-200); background: var(--gray-100); color: var(--gray-400);
     font-size: 0.8125rem; cursor: not-allowed;
   }
+
+/* ==================== Tab「🔌 数据接口」+ advice 内发展方向/补强计划 ==================== */
+
+/* ---- 通用卡片标题（api / advice 共用） ---- */
+.api-card, .advice-insight-card, .advice-plan-card {
+  margin-top: 1rem; padding: 1.25rem 1.5rem;
+  background: var(--theme-surface); border: 1px solid var(--theme-border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.api-card-title, .advice-card-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.9375rem; font-weight: 700; color: var(--gray-800);
+  margin-bottom: 1rem;
+}
+.api-bar {
+  width: 3.5px; height: 16px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--theme-primary), var(--theme-primary-hover));
+  flex-shrink: 0;
+}
+.api-tip { margin-left: auto; font-size: 0.7rem; font-weight: 400; color: var(--gray-500); }
+
+/* ---- 接口清单 ---- */
+.api-endpoint {
+  display: flex; align-items: center; gap: 0.625rem;
+  padding: 0.75rem 0.9375rem; border: 1px solid var(--theme-border);
+  border-radius: var(--radius-sm); background: var(--gray-50);
+  margin-bottom: 0.625rem; flex-wrap: wrap;
+}
+.api-endpoint:last-child { margin-bottom: 0; }
+.api-method {
+  font-size: 0.65rem; font-weight: 800; padding: 0.1875rem 0.5625rem;
+  border-radius: 0.375rem; letter-spacing: 0.5px; flex-shrink: 0;
+}
+.api-method.m-post { background: #dcfce7; color: #15803d; }
+.api-method.m-get { background: #dbeafe; color: #1d4ed8; }
+.api-path {
+  font-family: var(--font-mono); font-size: 0.8125rem; color: var(--gray-800);
+  word-break: break-all;
+}
+.api-opt {
+  font-size: 0.65rem; padding: 0.125rem 0.4375rem; border-radius: 0.3125rem;
+  background: var(--gray-100); color: var(--gray-500);
+  border: 1px solid var(--gray-200); flex-shrink: 0;
+}
+.api-desc { margin-left: auto; font-size: 0.7rem; color: var(--gray-500); text-align: right; }
+@media (max-width: 760px) { .api-desc { margin-left: 0; text-align: left; width: 100%; } }
+
+/* ---- 代码块 + 复制按钮 ---- */
+.api-code-wrap { position: relative; }
+.api-copy-btn {
+  position: absolute; top: 0.625rem; right: 0.75rem; z-index: 2;
+  font-size: 0.7rem; padding: 0.3125rem 0.6875rem; border-radius: 0.4375rem;
+  background: rgba(255,255,255,.12); color: #cbd5e1;
+  border: 1px solid rgba(255,255,255,.18); transition: background .18s;
+}
+.api-copy-btn:hover { background: rgba(255,255,255,.22); color: #fff; }
+.api-copy-btn.done { background: var(--success); color: #fff; border-color: var(--success); }
+.api-code-box {
+  background: #0f172a; color: #e2e8f0; border-radius: var(--radius-sm);
+  padding: 1rem 1.125rem; overflow: auto; margin: 0;
+  font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.75;
+  max-height: 30rem; white-space: pre;
+}
+.api-prompt-box {
+  background: var(--gray-50); border: 1px solid var(--theme-border);
+  border-radius: var(--radius-sm); padding: 1rem 1.125rem;
+  font-size: 0.8125rem; line-height: 1.9; color: var(--gray-800);
+  white-space: pre-wrap; max-height: 32rem; overflow: auto;
+}
+
+/* ---- 字段说明表 ---- */
+.api-field-table, .api-plan-table {
+  width: 100%; border-collapse: collapse; font-size: 0.8125rem;
+}
+.api-field-table th, .api-plan-table th {
+  text-align: left; font-size: 0.7rem; color: var(--gray-500);
+  font-weight: 700; padding: 0.5625rem 0.6875rem;
+  background: var(--gray-50); border-bottom: 1px solid var(--theme-border);
+}
+.api-field-table td, .api-plan-table td {
+  padding: 0.625rem 0.6875rem; border-bottom: 1px solid var(--gray-200);
+  vertical-align: top; line-height: 1.7;
+}
+.api-field-table tr:last-child td, .api-plan-table tr:last-child td { border-bottom: none; }
+.fd-name { font-family: var(--font-mono); color: var(--theme-primary); font-size: 0.7rem; white-space: nowrap; }
+.fd-type { color: var(--gray-500); white-space: nowrap; font-size: 0.7rem; }
+.fd-desc { color: var(--gray-700); }
+.ai-tag { font-size: 0.6rem; margin-left: 0.3125rem; }
+.plan-day { font-weight: 700; color: var(--theme-primary); white-space: nowrap; }
+
+/* ---- advice 内发展方向卡 ---- */
+.advice-insight-card { border-left: 3px solid var(--theme-primary); }
+.advice-insight-lead { font-size: 0.8125rem; color: var(--gray-500); line-height: 1.8; margin-bottom: 0.75rem; }
+.advice-plan-card { border-left: 3px solid var(--success); }
 
 /* ==================== 语音对话可视化增强 ==================== */
 
@@ -4227,4 +4535,82 @@ const chatStatus = computed(() => {
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
 .interviewer-state.thinking { color: var(--warning); }
+
+/* ========== 卡片（对齐静态页 .card/.card-title） ========== */
+.card { border: 1px solid var(--border); border-radius: 13px; padding: 18px 20px; margin-bottom: 16px; background: var(--theme-bg-elevated); }
+.card-title { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; margin-bottom: 14px; color: var(--gray-800); }
+.card-title .bar { width: 4px; height: 16px; border-radius: 2px; background: linear-gradient(180deg, var(--primary), var(--primary-2)); flex-shrink: 0; }
+.card-title .tip { font-size: 11.5px; font-weight: 500; color: var(--sub); margin-left: auto; }
+.pb-self { font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-soft); border-radius: 6px; padding: 2px 8px; flex-shrink: 0; }
+
+/* ========== 逐题分析（对齐静态页 .qf/.chip/.q） ========== */
+.qf { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip { font-size: 12px; padding: 5px 13px; border-radius: 99px; background: var(--gray-50); color: var(--gray-600); border: 1px solid transparent; transition: 0.18s; font-weight: 500; cursor: pointer; }
+.chip:hover { background: var(--gray-100); }
+.chip.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-border); font-weight: 700; }
+.q { border: 1px solid var(--border); border-radius: 13px; margin-bottom: 12px; overflow: hidden; transition: 0.2s; background: var(--theme-bg-elevated); }
+.q:hover { border-color: var(--primary-border); }
+.q-head { display: flex; justify-content: space-between; align-items: center; gap: 13px; padding: 15px 18px; cursor: pointer; user-select: none; }
+.q-title { font-size: 13.5px; font-weight: 600; display: flex; gap: 9px; align-items: flex-start; flex: 1; line-height: 1.65; }
+.q-no { background: var(--primary-soft); color: var(--primary); font-size: 11.5px; font-weight: 800; border-radius: 6px; padding: 2px 8px; flex-shrink: 0; margin-top: 2px; }
+.q-right { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.q-score { font-size: 12.5px; font-weight: 800; padding: 3px 10px; border-radius: 7px; white-space: nowrap; }
+.sc-low { background: var(--red-soft); color: var(--red); border: 1px solid var(--red); }
+.sc-mid { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber); }
+.sc-high { background: var(--green-soft); color: var(--green); border: 1px solid var(--green); }
+.q-arrow { font-size: 10px; color: var(--sub); transition: transform 0.3s; }
+.q.open .q-arrow { transform: rotate(180deg); }
+.q-body { display: none; padding: 0 18px 18px; animation: qfade 0.28s ease; }
+.q.open .q-body { display: block; }
+@keyframes qfade { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+.q-block { margin-top: 14px; }
+.q-block .bk { font-size: 11.5px; font-weight: 800; color: var(--sub); letter-spacing: 0.4px; margin-bottom: 5px; display: block; }
+.q-block .qa-intent { font-size: 12.5px; color: var(--gray-800); line-height: 1.8; }
+.q-block .qa-fw { margin: 0; padding-left: 18px; }
+.q-block .qa-fw li { font-size: 12.5px; color: var(--gray-600); line-height: 1.8; }
+.answer { background: var(--gray-50); border-left: 3px solid var(--gray-300); border-radius: 0 8px 8px 0; padding: 10px 13px; color: var(--gray-600); font-size: 12.5px; line-height: 1.8; }
+.comment { color: var(--gray-800); font-size: 12.5px; line-height: 1.8; }
+.suggest { background: var(--primary-soft); border-radius: 9px; padding: 11px 13px; font-size: 12.5px; color: var(--primary); line-height: 1.8; }
+.tagrow { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 11px; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--gray-50); color: var(--gray-600); border: 1px solid var(--gray-200); }
+.tag.red { background: var(--red-soft); color: var(--red); border-color: var(--red); }
+.tag.green { background: var(--green-soft); color: var(--green); border-color: var(--green); }
+.tag.amber { background: var(--amber-soft); color: var(--amber); border-color: var(--amber); }
+
+/* ========== 改进建议（对齐静态页 .dev-item） ========== */
+.dev-lead { font-size: 13px; color: var(--sub); margin-bottom: 16px; line-height: 1.8; }
+.dev-item { border: 1px solid var(--border); border-radius: 13px; padding: 16px 18px; margin-bottom: 12px; background: var(--theme-bg-elevated); transition: 0.2s; position: relative; overflow: hidden; }
+.dev-item:hover { border-color: var(--primary-border); box-shadow: 0 8px 22px -18px rgba(79,70,229,0.7); }
+.dev-item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.dev-item.p1::before { background: linear-gradient(180deg, #e11d48, #fb7185); }
+.dev-item.p2::before { background: linear-gradient(180deg, #d97706, #fbbf24); }
+.dev-item.p3::before { background: linear-gradient(180deg, #4f46e5, #a855f7); }
+.dev-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; flex-wrap: wrap; }
+.dev-rank { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0; }
+.p1 .dev-rank { background: linear-gradient(135deg, #e11d48, #fb7185); }
+.p2 .dev-rank { background: linear-gradient(135deg, #d97706, #fbbf24); }
+.p3 .dev-rank { background: linear-gradient(135deg, #4f46e5, #a855f7); }
+.dev-head h5 { font-size: 14px; font-weight: 800; margin: 0; }
+.dev-gain { margin-left: auto; font-size: 11.5px; font-weight: 800; color: var(--green); background: var(--green-soft); padding: 3px 10px; border-radius: 99px; border: 1px solid var(--green); }
+.dev-row { display: flex; gap: 9px; font-size: 12.5px; margin-top: 7px; line-height: 1.75; }
+.dev-row .k { flex-shrink: 0; width: 58px; color: var(--sub); font-weight: 700; }
+.dev-row .v { flex: 1; color: var(--gray-800); }
+
+/* ========== 追问预警（对齐静态页 .pq-item） ========== */
+.pq-item { border: 1px solid var(--border-2); border-radius: 11px; padding: 12px 14px; margin-bottom: 10px; background: var(--theme-bg-elevated); }
+.pq-item.pq-asked { background: var(--gray-50); opacity: 0.85; }
+.pq-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.pq-kp { font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-soft); border-radius: 99px; padding: 2px 10px; }
+.pq-state { font-size: 11px; font-weight: 700; color: var(--amber); background: var(--amber-soft); border: 1px solid var(--amber); border-radius: 99px; padding: 2px 10px; }
+.pq-asked .pq-state { color: var(--green); background: var(--green-soft); border-color: var(--green); }
+.pq-q { font-size: 13px; font-weight: 700; color: var(--gray-800); line-height: 1.7; margin-bottom: 6px; }
+.pq-a { font-size: 12px; color: var(--gray-600); line-height: 1.8; margin-top: 3px; }
+.pq-a .k { font-weight: 800; color: var(--sub); margin-right: 7px; }
+
+/* ========== 7天补强计划表格（对齐静态页 table） ========== */
+.plan-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.plan-table th { text-align: left; font-size: 11.5px; color: var(--sub); font-weight: 700; padding: 9px 11px; background: var(--gray-50); border-bottom: 1px solid var(--border); }
+.plan-table td { padding: 10px 11px; border-bottom: 1px solid var(--gray-100); vertical-align: top; line-height: 1.7; }
+.plan-table tr:last-child td { border-bottom: none; }
+.plan-table td.day { font-weight: 800; color: var(--primary); white-space: nowrap; }
 </style>

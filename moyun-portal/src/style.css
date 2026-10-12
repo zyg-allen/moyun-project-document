@@ -816,6 +816,78 @@ a {
 }
 
 /* ============================================================
+   统一区块卡片（替代各页面重复的 inline style 空状态）
+   ============================================================ */
+
+.empty-state {
+  padding: var(--space-8) var(--space-5);
+  border-radius: var(--radius-2xl);
+  border: 1px dashed var(--theme-border);
+  background-color: var(--theme-surface);
+  color: var(--theme-text-secondary);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+/* 统一标签 pill 样式（替代各页面不一致的 inline tag 样式） */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  background-color: var(--theme-accent);
+  color: var(--theme-primary);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.tag-pill--success { background-color: var(--theme-success-bg); color: var(--theme-success); }
+.tag-pill--warning { background-color: var(--theme-warning-bg); color: var(--theme-warning); }
+.tag-pill--danger  { background-color: var(--theme-danger-bg);  color: var(--theme-danger); }
+.tag-pill--info    { background-color: var(--theme-info-bg);    color: var(--theme-info); }
+
+/* 按钮步骤提示词（按钮下方/右侧的小字说明） */
+.btn-hint {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-regular);
+  color: var(--theme-text-tertiary);
+  line-height: 1;
+  margin-top: 2px;
+}
+
+/* 统一操作按钮：带步骤提示 */
+.btn-with-hint {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+/* 统一页面区块背景（交替条纹，减少视觉疲劳） */
+.section-bg-base { background-color: var(--theme-bg); }
+.section-bg-soft  { background-color: color-mix(in srgb, var(--theme-surface) 50%, var(--theme-bg)); }
+.section-bg-accent { background-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-bg)); }
+
+/* 统一卡片内嵌区域（用于卡片内的子区块） */
+.sub-card {
+  border-radius: var(--radius-xl);
+  background-color: var(--theme-bg);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* 步骤条提示词 */
+.step-hint {
+  font-size: 0.6875rem;
+  color: var(--theme-text-tertiary);
+  line-height: 1rem;
+  margin-top: 2px;
+}
+
+/* ============================================================
    辅助工具类
    ============================================================ */
 

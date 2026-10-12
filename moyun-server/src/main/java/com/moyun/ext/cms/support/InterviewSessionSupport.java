@@ -44,6 +44,90 @@ public final class InterviewSessionSupport {
     private static final Pattern VERBAL_END_PATTERN = Pattern.compile(
             "(结束面试|面试结束|就到这里|到这里吧|不面了|不想面了|停止面试|不用问了|可以了)");
 
+    /** 短句告别识别：整句很短且以告别词结尾才判定（防「再见面」这类嵌词误伤） */
+    private static final Pattern FAREWELL_TAIL_PATTERN = Pattern.compile(
+            "(再见|拜拜[了~]?|辛苦了)[。！!～~\\s]*$");
+
+    /**
+     * AI 面试官主动结束标记（对话轮指令协议）。
+     *
+     * <p>背景：收尾致谢曾被当作「下一题」入库并等待作答，候选人礼貌回应（"好的，再见"）
+     * 又被逐题评分打出 22 分——收尾寒暄污染总分/雷达/薄弱点全链路。</p>
+     *
+     * <p>协议：轮次指令告知模型——判断考察充分需结束时，在回复最后单独一行输出本标记；
+     * 业务侧检测到标记即剥离话术、不再建下一题、服务端收口（ai_end）。</p>
+     */
+    public static final String AI_END_MARKER = "【面试结束】";
+
+    /** 候选人是否明确表达结束意图（严格短语 + 短句告别） */
+    public static boolean matchesVerbalEnd(String transcript) {
+        if (transcript == null) {
+            return false;
+        }
+        if (VERBAL_END_PATTERN.matcher(transcript).find()) {
+            return true;
+        }
+        // 短句告别：整句 ≤20 字且以告别词收尾（如「好的，再见」「辛苦了」）
+        String t = transcript.trim();
+        return t.length() <= 20 && FAREWELL_TAIL_PATTERN.matcher(t).find();
+    }
+
+    /** 剥离 AI 结束标记（话术入库/前端展示前调用；无标记原样返回 trim 结果） */
+    public static String stripAiEndMarker(String text) {
+        return text == null ? "" : text.replace(AI_END_MARKER, "").trim();
+    }
+
+    /**
+     * AI 结束标记流式过滤器（打字机/TTS 下发用）。
+     *
+     * <p>标记随 token 流式到达，直接透传会把「【面试结束】」念给候选人听。
+     * 本过滤器恒扣留流尾部最多 {@code AI_END_MARKER.length()-1} 字符，
+     * 命中完整标记即剥离；flush 时放行剩余缓冲（标记已剥离）。</p>
+     */
+    public static final class AiEndMarkerStreamFilter {
+        private final StringBuilder buf = new StringBuilder();
+        private boolean markerSeen = false;
+
+        /** 追加一个 token，返回本次可安全下发的文本（可能为空串） */
+        public String push(String token) {
+            if (token == null || token.isEmpty()) {
+                return "";
+            }
+            if (markerSeen) {
+                return ""; // 标记后内容约定为空，防御性丢弃
+            }
+            buf.append(token);
+            String s = buf.toString();
+            int idx = s.indexOf(AI_END_MARKER);
+            if (idx >= 0) {
+                markerSeen = true;
+                buf.setLength(0);
+                return s.replace(AI_END_MARKER, "");
+            }
+            // 扣留尾部可能是标记前缀的部分（按前缀最长匹配）
+            int hold = 0;
+            int max = Math.min(AI_END_MARKER.length() - 1, s.length());
+            for (int k = max; k >= 1; k--) {
+                if (s.endsWith(AI_END_MARKER.substring(0, k))) {
+                    hold = k;
+                    break;
+                }
+            }
+            int emitLen = s.length() - hold;
+            String emit = s.substring(0, emitLen);
+            buf.delete(0, emitLen);
+            return emit;
+        }
+
+        /** 流结束：放行剩余缓冲（标记已剥离） */
+        public String flush() {
+            String rest = markerSeen ? "" : buf.toString();
+            buf.setLength(0);
+            return rest;
+        }
+    }
+
+
     // ==================== Redis 键（统一前缀，避免散落魔法字符串） ====================
 
     /** 答题幂等锁键（同一 qaId 的并发/重复提交互斥） */
@@ -145,11 +229,6 @@ public final class InterviewSessionSupport {
                 interview.getCreateTime().plusMinutes(durationMin + DURATION_GRACE_MINUTES));
     }
 
-    /** 候选人是否明确表达结束意图（严格短语匹配） */
-    public static boolean matchesVerbalEnd(String transcript) {
-        return transcript != null && VERBAL_END_PATTERN.matcher(transcript).find();
-    }
-
     // ==================== 上下文指令拼装 ====================
 
     /**
@@ -184,7 +263,9 @@ public final class InterviewSessionSupport {
         }
         return skipNote
                 + "只输出面试官会说的话，不要任何分析、标记或多余格式。"
-                + "（本场已问 " + doneRounds + " 个大问题）" + timeNote + phaseNote;
+                + "（本场已问 " + doneRounds + " 个大问题）" + timeNote + phaseNote
+                + "若你判断本场考察已充分、应当结束面试，请输出简短收尾致谢，"
+                + "并在整段回复的最后单独一行输出标记【面试结束】——除该结束场景外严禁输出此标记。";
     }
 
     /**

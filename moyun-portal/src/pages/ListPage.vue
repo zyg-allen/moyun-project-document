@@ -340,6 +340,25 @@ useHead(
               />
             </div>
 
+            <!-- 移动端热门标签 -->
+            <div v-if="!loading && !error && hotTags.length > 0" class="lg:hidden mt-4 p-4 rounded-xl theme-card">
+              <div class="flex items-center gap-2 mb-3">
+                <Flame class="w-4 h-4 text-theme-primary" />
+                <h3 class="section-title">热门标签</h3>
+              </div>
+              <nav class="flex flex-wrap gap-2">
+                <button
+                  v-for="tag in hotTags.slice(0, 8)"
+                  :key="tag.id || tag.name"
+                  @click="goToTag(tag.name)"
+                  class="tag-pill cursor-pointer"
+                >
+                  <Tag class="w-3 h-3" />
+                  {{ tag.name }}
+                </button>
+              </nav>
+            </div>
+
             <!-- Pagination -->
             <div class="flex justify-center mt-6" v-if="!loading && !error && totalPages > 1 && paginatedArticles.length > 0">
               <Pagination
@@ -363,12 +382,12 @@ useHead(
           </div>
 
           <!-- 侧栏（lg 屏显示） -->
-          <aside class="hidden lg:block space-y-5">
+          <aside class="lg:block space-y-5">
             <!-- 创作引导卡 -->
-            <div class="rounded-xl p-4 theme-card">
+            <div class="rounded-xl p-4 theme-card" style="background: var(--theme-primary-soft); border-color: var(--theme-primary); border-style: solid; border-width: 1px;">
               <div class="flex items-center gap-2 mb-3">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-theme-accent">
-                  <PenLine class="w-4 h-4 text-theme-primary" />
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-theme-primary">
+                  <PenLine class="w-4 h-4 text-white" />
                 </div>
                 <h3 class="section-title">写下你的所思</h3>
               </div>
@@ -378,6 +397,7 @@ useHead(
               <button
                 @click="goToPublish"
                 class="w-full theme-btn theme-btn-primary py-2.5 text-sm"
+                title="需要登录后才能创作"
               >
                 <PenLine class="w-4 h-4" />
                 开始创作
@@ -395,7 +415,7 @@ useHead(
                   v-for="tag in hotTags"
                   :key="tag.id || tag.name"
                   @click="goToTag(tag.name)"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full caption-text transition-colors hover:opacity-80 bg-theme-accent text-theme-primary"
+                  class="tag-pill transition-colors hover:opacity-80 cursor-pointer"
                 >
                   <Tag class="w-3 h-3" />
                   {{ tag.name }}

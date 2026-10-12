@@ -891,31 +891,14 @@ useHead(
                   <Link
                     v-if="articleAuthor && (articleAuthor.id || article?.authorId)"
                     :to="`/author/${articleAuthor.id || article?.authorId}`"
-                    class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    class="font-medium meta-text text-theme-primary hover:underline"
                   >
-                    <img
-                      :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-                      :alt="articleAuthor.username"
-                      class="w-8 h-8 rounded-full"
-                      loading="lazy"
-                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(articleAuthor?.id ?? ''))"
-                    />
-                    <span class="font-medium meta-text text-theme-text">
-                      {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
-                    </span>
+                    {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
                   </Link>
                   <!-- 作者信息 - 无 authorId 时仅展示不可点击 -->
-                  <div v-else-if="articleAuthor" class="flex items-center gap-2">
-                    <img
-                      :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-                      :alt="articleAuthor.username"
-                      class="w-8 h-8 rounded-full"
-                      loading="lazy"
-                    />
-                    <span class="font-medium meta-text text-theme-text">
-                      {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
-                    </span>
-                  </div>
+                  <span v-else-if="articleAuthor" class="font-medium meta-text text-theme-text">
+                    {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
+                  </span>
 
                   <!-- 时间 -->
                   <span class="meta-text">
@@ -1288,7 +1271,7 @@ useHead(
                 </div>
 
                 <!-- 回复输入框 -->
-                <div v-if="replyingTo?.id === rootComment.id && replyingToRoot" class="mt-3 mb-3 ml-13 p-3 sm:p-4 rounded-xl bg-theme-bg">
+                <div v-if="replyingTo?.id === rootComment.id && replyingToRoot" class="sub-card mt-3 mb-3 ml-13">
                   <div class="flex gap-3">
                     <img
                         :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"

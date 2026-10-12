@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音模拟面试评估报告 · 钟永国</title>
+<style>
+:root{
+  --primary:#4f46e5;--primary-2:#7c3aed;--primary-soft:#eef2ff;
+  --green:#059669;--green-soft:#ecfdf5;
+  --amber:#d97706;--amber-soft:#fffbeb;
+  --red:#e11d48;--red-soft:#fff1f3;
+  --text:#1f2937;--sub:#6b7280;--border:#e8eaef;--bg:#f5f6f9;--card:#fff;
+  --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.7;padding:20px 14px 70px;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+button:active{transform:translateY(1px)}
+
+/* ============ 紫色 Hero ============ */
+.hero{
+  background:linear-gradient(135deg,#5b4bd6 0%,#7c3aed 50%,#a855f7 100%);
+  border-radius:22px;padding:30px 32px 26px;color:#fff;position:relative;overflow:hidden;
+  box-shadow:0 14px 36px -16px rgba(91,75,214,.65);
+}
+.hero::after{content:"";position:absolute;right:-80px;top:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.10)}
+.hero::before{content:"";position:absolute;right:90px;bottom:-120px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;position:relative;z-index:2}
+.hero h1{font-size:22px;font-weight:800;letter-spacing:.5px}
+.hero .sub{font-size:12.5px;opacity:.85;margin-top:4px;letter-spacing:.3px}
+.hero-actions{display:flex;gap:9px;flex-wrap:wrap}
+.btn-glass{
+  background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35);
+  backdrop-filter:blur(6px);font-size:12.5px;font-weight:600;
+  padding:9px 15px;border-radius:10px;transition:.2s;display:inline-flex;align-items:center;gap:6px;
+}
+.btn-glass:hover{background:rgba(255,255,255,.3)}
+.btn-glass:disabled{opacity:.6;cursor:wait}
+
+.hero-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:26px;position:relative;z-index:2}
+.hero-meta .item{background:rgba(255,255,255,.15);border-radius:12px;padding:12px 16px;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.1)}
+.hero-meta .label{font-size:11px;opacity:.82;letter-spacing:.4px}
+.hero-meta .value{font-size:14.5px;font-weight:700;margin-top:3px}
+
+/* ============ 评分卡 ============ */
+.score-card{
+  background:#fff;border:1px solid var(--border);border-radius:20px;
+  padding:24px 28px;margin-top:-14px;position:relative;z-index:3;
+  box-shadow:0 8px 24px -18px rgba(16,24,40,.3);
+}
+.score-flex{display:flex;gap:32px;align-items:center;flex-wrap:wrap}
+.score-block{display:flex;flex-direction:column;align-items:center;min-width:104px}
+.score-num{font-size:56px;font-weight:900;line-height:.95;letter-spacing:-2px;color:var(--red)}
+.score-num.mid{color:var(--amber)}.score-num.high{color:var(--green)}
+.score-label{font-size:12px;color:var(--sub);margin-top:5px}
+.score-badge{margin-top:8px;font-size:11.5px;font-weight:700;padding:3px 12px;border-radius:99px;background:var(--red-soft);color:var(--red);border:1px solid #fecdd3}
+.score-badge.mid{background:var(--amber-soft);color:var(--amber);border-color:#fde68a}
+.score-badge.high{background:var(--green-soft);color:var(--green);border-color:#a7f3d0}
+.score-desc{flex:1;min-width:260px;font-size:13.5px;color:#374151;line-height:1.85}
+.score-desc .muted{color:var(--sub);font-size:12.5px;display:block;margin-top:8px}
+.match-block{text-align:right;min-width:132px}
+.match-label{font-size:12px;color:var(--sub)}
+.match-num{font-size:32px;font-weight:900;line-height:1.1;color:var(--red)}
+.match-bar{height:6px;border-radius:99px;background:#eef0f6;margin-top:8px;overflow:hidden}
+.match-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#fb7185,#e11d48);transition:width 1.1s cubic-bezier(.4,0,.2,1)}
+@media(max-width:820px){.match-block{text-align:left}.match-bar{max-width:200px}}
+
+/* ============ Tabs ============ */
+.tabs{
+  display:flex;gap:5px;margin-top:18px;background:#fff;border:1px solid var(--border);
+  border-radius:14px;padding:5px;overflow-x:auto;scrollbar-width:none;
+  box-shadow:0 1px 2px rgba(16,24,40,.04);
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:1;min-width:88px;text-align:center;padding:9px 13px;border-radius:10px;
+  font-size:13px;font-weight:600;color:var(--sub);transition:.18s;white-space:nowrap;user-select:none;
+}
+.tab:hover{background:#f6f7fb;color:var(--text)}
+.tab.active{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;box-shadow:0 6px 14px -8px rgba(79,70,229,.7)}
+
+/* ============ 卡片 ============ */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-top:16px;box-shadow:0 1px 3px rgba(16,24,40,.04)}
+.card-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;margin-bottom:16px}
+.card-title .bar{width:3.5px;height:16px;border-radius:2px;background:linear-gradient(180deg,var(--primary),#a855f7)}
+.card-title .tip{font-size:11.5px;font-weight:400;color:var(--sub);margin-left:auto}
+
+/* ============ 面试背景 ============ */
+.bg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.bg-grid{grid-template-columns:1fr}}
+.bg-card{border:1px solid var(--border);border-radius:14px;padding:18px 20px;background:#fff}
+.bg-card h4{font-size:13.5px;font-weight:800;margin-bottom:13px;display:flex;align-items:center;gap:7px;color:#374151}
+.cand-name{font-size:20px;font-weight:800;margin-bottom:3px}
+.cand-sub{font-size:12.5px;color:var(--sub);margin-bottom:13px}
+.info-row{display:flex;gap:10px;font-size:12.5px;margin-bottom:7px;line-height:1.7}
+.info-row .k{color:var(--sub);flex-shrink:0;width:64px}
+.info-row .v{color:#374151;flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chips span{font-size:11.5px;padding:3px 10px;border-radius:7px;background:#f3f4f8;color:#4b5563;border:1px solid #eaecf2;font-weight:500}
+.tech-group{margin-bottom:14px}
+.tech-group:last-child{margin-bottom:0}
+.tech-group .tg-title{font-size:11.5px;font-weight:800;color:var(--sub);letter-spacing:.4px;margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.tech-group .tg-title::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--primary)}
+.resume-block{margin-top:13px}
+.resume-block:first-child{margin-top:0}
+.resume-block .rb-title{font-size:11.5px;font-weight:800;color:var(--sub);letter-spacing:.4px;margin-bottom:5px}
+.resume-block p{font-size:12.5px;color:#4b5563;line-height:1.85;background:#fafbfe;border-radius:9px;padding:10px 13px;border-left:2px solid #e0e4ee}
+
+/* ============ 雷达 ============ */
+#radar{width:100%;height:340px;display:block}
+
+/* ============ 维度 ============ */
+.dim{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+.dim-name{width:80px;font-size:13px;font-weight:500;flex-shrink:0}
+.dim-track{flex:1;height:8px;background:#eef0f6;border-radius:99px;overflow:hidden}
+.dim-fill{height:100%;width:0;border-radius:99px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+.f-high{background:linear-gradient(90deg,#34d399,#059669)}
+.f-mid{background:linear-gradient(90deg,#fbbf24,#d97706)}
+.f-low{background:linear-gradient(90deg,#fb7185,#e11d48)}
+.dim-score{width:38px;text-align:right;font-size:13.5px;font-weight:800;flex-shrink:0}
+.s-high{color:var(--green)}.s-mid{color:var(--amber)}.s-low{color:var(--red)}
+.dim-note{font-size:11.5px;color:var(--sub);margin:0 0 14px 93px}
+
+/* ============ 面试回放 ============ */
+.pb-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px dashed #eef0f6}
+.btn-brand{
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:10px;
+  display:inline-flex;align-items:center;gap:6px;transition:.2s;
+  box-shadow:0 6px 14px -8px rgba(79,70,229,.8);
+}
+.btn-brand:hover{transform:translateY(-1px);box-shadow:0 10px 20px -10px rgba(79,70,229,.9)}
+.btn-brand:disabled{opacity:.6;cursor:wait;transform:none}
+.pb-progress{flex:1;height:5px;background:#eef0f6;border-radius:99px;overflow:hidden;min-width:100px}
+.pb-progress i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--primary),var(--primary-2));transition:width .4s}
+.pb-counter{font-size:12px;color:var(--sub);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.pb-list{display:flex;flex-direction:column;gap:22px}
+.pb-round{
+  display:flex;flex-direction:column;gap:12px;
+  opacity:0;transform:translateY(14px);transition:.45s ease;
+  padding-bottom:20px;border-bottom:1px dashed #f0f1f6;
+}
+.pb-round:last-child{border-bottom:none;padding-bottom:0}
+.pb-round.on{opacity:1;transform:none}
+
+.pb-row{display:flex;gap:11px;align-items:flex-start}
+.pb-row.user{flex-direction:row-reverse}
+
+.pb-avatar{
+  width:34px;height:34px;border-radius:10px;flex-shrink:0;
+  display:grid;place-items:center;font-size:11px;font-weight:900;color:#fff;letter-spacing:.3px;
+}
+.pb-avatar.ai{background:linear-gradient(135deg,#ef4444,#f97316);box-shadow:0 4px 10px -4px rgba(239,68,68,.6)}
+.pb-avatar.me{background:linear-gradient(135deg,#4f46e5,#a855f7);box-shadow:0 4px 10px -4px rgba(79,70,229,.6)}
+
+.pb-bubble{
+  border-radius:14px;padding:13px 16px;font-size:13px;line-height:1.85;max-width:86%;
+  position:relative;word-break:break-word;
+}
+.pb-bubble.q{background:#f5f6fa;color:#374151;border-top-left-radius:4px}
+.pb-bubble.a{background:#fff1f3;color:#374151;border-top-right-radius:4px;border:1px solid #fecdd3}
+
+.pb-label{font-size:11px;font-weight:800;letter-spacing:.3px;margin-bottom:5px;display:block}
+.pb-bubble.q .pb-label{color:#6b7280}
+.pb-bubble.a .pb-label{color:#e11d48}
+
+.pb-score{
+  position:absolute;top:-9px;right:14px;font-size:11px;font-weight:800;
+  padding:2px 9px;border-radius:99px;background:#e11d48;color:#fff;
+  box-shadow:0 2px 8px -2px rgba(225,29,72,.5);
+}
+.pb-score.mid{background:#d97706;box-shadow:0 2px 8px -2px rgba(217,119,6,.5)}
+.pb-score.high{background:#059669;box-shadow:0 2px 8px -2px rgba(5,150,105,.5)}
+
+.pb-me-tag{
+  font-size:11px;font-weight:800;color:#6b7280;
+  padding:6px 9px;border-radius:7px;background:#fff;border:1px solid var(--border);
+  flex-shrink:0;align-self:flex-start;
+}
+@media(max-width:600px){.pb-bubble{max-width:100%}}
+
+/* ============ 逐题 ============ */
+.qf{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.chip{font-size:12px;padding:5px 13px;border-radius:99px;background:#f3f4f8;color:#4b5563;border:1px solid transparent;transition:.18s;font-weight:500}
+.chip:hover{background:#e9ebf3}
+.chip.active{background:var(--primary-soft);color:var(--primary);border-color:#c7d2fe;font-weight:700}
+.q{border:1px solid var(--border);border-radius:13px;margin-bottom:12px;overflow:hidden;transition:.2s;background:#fff}
+.q:hover{border-color:#c7d2fe}
+.q-head{display:flex;justify-content:space-between;align-items:center;gap:13px;padding:15px 18px;cursor:pointer;user-select:none}
+.q-title{font-size:13.5px;font-weight:600;display:flex;gap:9px;align-items:flex-start;flex:1;line-height:1.65}
+.q-no{background:var(--primary-soft);color:var(--primary);font-size:11.5px;font-weight:800;border-radius:6px;padding:2px 8px;flex-shrink:0;margin-top:2px}
+.q-right{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.q-score{font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:7px;white-space:nowrap}
+.sc-low{background:var(--red-soft);color:var(--red);border:1px solid #fecdd3}
+.sc-mid{background:var(--amber-soft);color:var(--amber);border:1px solid #fde68a}
+.sc-high{background:var(--green-soft);color:var(--green);border:1px solid #a7f3d0}
+.q-arrow{font-size:10px;color:var(--sub);transition:transform .3s}
+.q.open .q-arrow{transform:rotate(180deg)}
+.q-body{display:none;padding:0 18px 18px;animation:fade .28s ease}
+.q.open .q-body{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+.q-block{margin-top:14px}
+.q-block .bk{font-size:11.5px;font-weight:800;color:var(--sub);letter-spacing:.4px;margin-bottom:5px;display:block}
+.answer{background:#fafbfe;border-left:3px solid #d8dce8;border-radius:0 8px 8px 0;padding:10px 13px;color:#4b5563;font-size:12.5px;line-height:1.8}
+.comment{color:#374151;font-size:12.5px;line-height:1.8}
+.suggest{background:var(--primary-soft);border-radius:9px;padding:11px 13px;font-size:12.5px;color:#3730a3;line-height:1.8}
+.tagrow{display:flex;gap:5px;flex-wrap:wrap;margin-top:11px}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:#f3f4f8;color:#4b5563;border:1px solid #e8eaef}
+.tag.red{background:var(--red-soft);color:var(--red);border-color:#fecdd3}
+.tag.green{background:var(--green-soft);color:var(--green);border-color:#a7f3d0}
+.tag.amber{background:var(--amber-soft);color:var(--amber);border-color:#fde68a}
+
+/* ============ 语音 ============ */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.vitem{border:1px solid var(--border);border-radius:12px;padding:13px 15px;background:linear-gradient(180deg,#fcfcff,#f8f9fd);transition:.2s}
+.vitem:hover{transform:translateY(-2px);border-color:#c7d2fe;box-shadow:0 8px 18px -14px rgba(79,70,229,.6)}
+.vitem .vt{font-size:11.5px;color:var(--sub)}
+.vitem .vv{font-size:19px;font-weight:800;margin-top:5px}
+.vitem .vv small{font-size:11.5px;font-weight:500;color:var(--sub)}
+.vitem .vd{font-size:11px;margin-top:3px;font-weight:600}
+.ok{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+.mini-audio{display:flex;align-items:center;gap:12px;background:#fafbfe;border:1px solid #eef0f6;border-radius:10px;padding:10px 14px}
+.play-btn{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;font-size:13px;display:grid;place-items:center;flex-shrink:0;transition:.2s}
+.play-btn:hover{transform:scale(1.07)}
+.wave{flex:1;display:flex;align-items:center;gap:2px;height:34px}
+.wave i{flex:1;background:#dbe0f0;border-radius:2px;transition:background .12s}
+.wave i.on{background:linear-gradient(180deg,var(--primary),#a855f7)}
+.audio-time{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ============ 双栏 ============ */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:660px){.two-col{grid-template-columns:1fr}}
+.panel{border-radius:14px;padding:18px 20px}
+.panel.good{background:linear-gradient(180deg,#f0fdf9,#ecfdf5);border:1px solid #a7f3d0}
+.panel.weak{background:linear-gradient(180deg,#fffbf5,#fffbeb);border:1px solid #fde68a}
+.panel h4{font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.panel.good h4{color:#047857}
+.panel.weak h4{color:#b45309}
+.panel ul{list-style:none}
+.panel li{font-size:13px;color:#374151;padding-left:18px;position:relative;margin-bottom:9px;line-height:1.75}
+.panel li:last-child{margin-bottom:0}
+.panel li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%}
+.panel.good li::before{background:var(--green)}
+.panel.weak li::before{background:var(--amber)}
+
+/* ============ 建议 ============ */
+.dev-lead{font-size:13px;color:var(--sub);margin-bottom:16px;line-height:1.8}
+.dev-item{border:1px solid var(--border);border-radius:13px;padding:16px 18px;margin-bottom:12px;background:#fff;transition:.2s;position:relative;overflow:hidden}
+.dev-item:hover{border-color:#c7d2fe;box-shadow:0 8px 22px -18px rgba(79,70,229,.7)}
+.dev-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.dev-item.p1::before{background:linear-gradient(180deg,#e11d48,#fb7185)}
+.dev-item.p2::before{background:linear-gradient(180deg,#d97706,#fbbf24)}
+.dev-item.p3::before{background:linear-gradient(180deg,#4f46e5,#a855f7)}
+.dev-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+.dev-rank{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
+.p1 .dev-rank{background:linear-gradient(135deg,#e11d48,#fb7185)}
+.p2 .dev-rank{background:linear-gradient(135deg,#d97706,#fbbf24)}
+.p3 .dev-rank{background:linear-gradient(135deg,#4f46e5,#a855f7)}
+.dev-head h5{font-size:14px;font-weight:800}
+.dev-gain{margin-left:auto;font-size:11.5px;font-weight:800;color:var(--green);background:var(--green-soft);padding:3px 10px;border-radius:99px;border:1px solid #a7f3d0}
+.dev-row{display:flex;gap:9px;font-size:12.5px;margin-top:7px;line-height:1.75}
+.dev-row .k{flex-shrink:0;width:58px;color:var(--sub);font-weight:700}
+.dev-row .v{flex:1;color:#374151}
+
+/* ============ 表格 ============ */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:11.5px;color:var(--sub);font-weight:700;padding:9px 11px;background:#fafbfe;border-bottom:1px solid var(--border)}
+td{padding:10px 11px;border-bottom:1px solid #f2f3f7;vertical-align:top;line-height:1.7}
+tr:last-child td{border-bottom:none}
+td.day{font-weight:800;color:var(--primary);white-space:nowrap}
+
+/* ============ 接口 ============ */
+.ep{display:flex;align-items:center;gap:10px;padding:12px 15px;border:1px solid var(--border);border-radius:11px;background:#fbfcff;margin-bottom:10px;flex-wrap:wrap}
+.ep:last-child{margin-bottom:0}
+.method{font-size:10.5px;font-weight:900;padding:3px 9px;border-radius:6px;letter-spacing:.5px}
+.m-get{background:#dbeafe;color:#1d4ed8}
+.m-post{background:#dcfce7;color:#15803d}
+.ep code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#1f2937}
+.ep .desc{margin-left:auto;font-size:11.5px;color:var(--sub)}
+.ep .opt{font-size:10.5px;padding:2px 7px;border-radius:5px;background:#f3f4f8;color:#6b7280;border:1px solid #e5e7eb}
+.cwrap{position:relative}
+.code{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:16px 18px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.75;max-height:480px;white-space:pre;margin:0}
+.code .key{color:#7dd3fc}
+.code .str{color:#86efac}
+.code .num{color:#fca5a5}
+.code .bool{color:#c4b5fd}
+.code .null{color:#94a3b8}
+.code .cmt{color:#64748b;font-style:italic}
+.copy{position:absolute;top:10px;right:12px;font-size:11px;padding:5px 11px;border-radius:7px;background:rgba(255,255,255,.12);color:#cbd5e1;border:1px solid rgba(255,255,255,.18);transition:.18s}
+.copy:hover{background:rgba(255,255,255,.22);color:#fff}
+.copy.done{background:#059669;color:#fff;border-color:#059669}
+.ftable td:first-child{font-family:ui-monospace,Menlo,monospace;color:#4f46e5;font-size:11.5px;white-space:nowrap}
+.ftable td:nth-child(2){color:var(--sub);white-space:nowrap;font-size:11.5px}
+.ai-tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;background:var(--primary-soft);color:var(--primary);margin-left:5px}
+.prompt-box{background:#fbfcff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;font-size:12.5px;line-height:1.9;color:#374151;white-space:pre-wrap;max-height:520px;overflow:auto}
+
+/* ============ 骨架 / Toast ============ */
+#sk{padding:16px 0}
+.sk{border-radius:14px;background:linear-gradient(90deg,#eef0f6 25%,#f7f8fc 37%,#eef0f6 63%);background-size:400% 100%;animation:sh 1.3s infinite;margin-bottom:13px}
+@keyframes sh{0%{background-position:100% 50%}100%{background-position:0 50%}}
+#toast{
+  position:fixed;left:50%;bottom:32px;transform:translate(-50%,22px);opacity:0;pointer-events:none;
+  background:#111827;color:#fff;font-size:12.5px;padding:10px 19px;border-radius:11px;
+  box-shadow:0 12px 30px -10px rgba(0,0,0,.55);transition:.3s;z-index:99;display:flex;align-items:center;gap:8px;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+.spin{width:11px;height:11px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.panel-section[hidden]{display:none}
+
+/* ============ 分享弹窗 ============ */
+.modal-mask{
+  position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);
+  z-index:999;display:none;align-items:center;justify-content:center;padding:20px;
+  opacity:0;transition:opacity .25s;
+}
+.modal-mask.show{display:flex;opacity:1}
+.modal{
+  background:#fff;border-radius:20px;max-width:420px;width:100%;
+  padding:26px 26px 22px;position:relative;
+  box-shadow:0 24px 60px -20px rgba(15,23,42,.5);
+  transform:translateY(16px) scale(.97);transition:.3s cubic-bezier(.4,0,.2,1);
+}
+.modal-mask.show .modal{transform:none}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.modal .modal-sub{font-size:12.5px;color:var(--sub);margin-bottom:20px}
+.modal-close{
+  position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:9px;
+  display:grid;place-items:center;font-size:15px;color:var(--sub);transition:.18s;
+}
+.modal-close:hover{background:#f3f4f8;color:var(--text)}
+
+.share-link{
+  display:flex;gap:8px;margin-bottom:18px;
+  background:#f8f9fd;border:1px solid var(--border);border-radius:11px;padding:6px 6px 6px 14px;
+}
+.share-link input{
+  flex:1;border:none;background:transparent;font-family:inherit;font-size:12.5px;
+  color:#4b5563;outline:none;min-width:0;
+}
+.share-link button{
+  background:var(--primary);color:#fff;font-size:12.5px;font-weight:700;
+  padding:8px 16px;border-radius:8px;transition:.18s;white-space:nowrap;
+}
+.share-link button:hover{background:#4338ca}
+.share-link button.done{background:var(--green)}
+
+.share-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;
+}
+.share-item{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding:13px 6px;border-radius:12px;border:1px solid var(--border);
+  background:#fff;transition:.2s;cursor:pointer;
+}
+.share-item:hover{border-color:#c7d2fe;background:#fafbff;transform:translateY(-2px)}
+.share-item .icon{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  font-size:17px;color:#fff;
+}
+.share-item .name{font-size:11px;color:#4b5563;font-weight:500}
+.ic-wechat{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.ic-qq{background:linear-gradient(135deg,#38bdf8,#0284c7)}
+.ic-weibo{background:linear-gradient(135deg,#f87171,#dc2626)}
+.ic-link{background:linear-gradient(135deg,#4f46e5,#a855f7)}
+
+.share-qr{
+  display:flex;gap:14px;align-items:center;padding:14px;
+  border:1px dashed var(--border);border-radius:12px;background:#fafbff;
+}
+.share-qr .qr-img{
+  width:76px;height:76px;border-radius:9px;flex-shrink:0;
+  background:
+    repeating-conic-gradient(#1f2937 0 25%, #fff 0 50%) 50% / 9px 9px;
+  border:1px solid var(--border);
+}
+.share-qr .qr-text{font-size:12px;color:var(--sub);line-height:1.7}
+.share-qr .qr-text b{color:var(--text);font-weight:700;display:block;font-size:13px;margin-bottom:2px}
+
+/* ============ 底部 ============ */
+.footer{margin-top:18px;padding:18px 24px;border-radius:16px;background:linear-gradient(135deg,#1f2937,#374151);color:#e5e7eb;font-size:12px;line-height:1.9}
+.footer b{color:#fff}
+.footer .disc{margin-top:9px;font-size:11px;color:#9ca3af}
+
+@media(max-width:560px){
+  .hero{padding:24px 20px 22px}
+  .hero h1{font-size:19px}
+  .card{padding:18px 15px}
+  .score-card{padding:20px 18px}
+  .score-num{font-size:46px}
+  .cand-name{font-size:17px}
+  .share-grid{grid-template-columns:repeat(4,1fr)}
+}
+
+/* ============ v7 重构新增：考察者结论 / 归因卡 / 四段式 / 趋势 / 预警 ============ */
+/* 自我介绍徽标（回放 + 逐题） */
+.pb-self{
+  display:inline-block;font-size:10.5px;font-weight:700;color:#7c3aed;
+  background:#f3e8ff;border:1px solid #e9d5ff;border-radius:99px;
+  padding:1px 8px;margin-left:6px;vertical-align:1px;
+}
+
+/* 考察者结论卡（概览顶部） */
+.verdict-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+.verdict-tag{
+  display:inline-flex;align-items:center;font-size:12px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:99px;padding:4px 13px;
+  box-shadow:0 4px 10px -4px rgba(79,70,229,.6);
+}
+.lv-badge{font-size:11.5px;font-weight:800;border-radius:99px;padding:3px 11px}
+.lv-junior{background:#fff1f3;color:#e11d48;border:1px solid #fecdd3}
+.lv-mid{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
+.lv-senior{background:#ecfdf5;color:#059669;border:1px solid #a7f3d0}
+.verdict-text{font-size:14px;font-weight:700;color:#1f2937;line-height:1.9;margin-bottom:8px}
+.profile-text{font-size:12.5px;color:#6b7280;line-height:1.9;background:#f8f9fd;border-radius:10px;padding:10px 14px}
+
+/* 优势/薄弱列表副文本 + 归因卡 */
+.li-sub{display:block;font-size:12px;color:#6b7280;line-height:1.8;margin-top:3px}
+.wp-card{
+  border:1px solid var(--border-2);border-radius:11px;padding:11px 13px;margin:8px 0;
+  border-left:3px solid #d3d7e3;background:#fcfcfe;
+}
+.wp-card.w-depth{border-left-color:#e11d48}
+.wp-card.w-knowledge{border-left-color:#d97706}
+.wp-card.w-expression{border-left-color:#7c3aed}
+.wp-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wp-head b{font-size:13px;color:#1f2937}
+.wp-type{font-size:10.5px;font-weight:700;color:#6b7280;background:#f3f4f8;border-radius:99px;padding:1px 8px;flex-shrink:0}
+.wp-row{font-size:12px;color:#4b5563;line-height:1.8;margin-top:6px;padding-top:6px;border-top:1px dashed #eef0f6}
+.wp-row .k{font-weight:800;color:var(--sub);margin-right:7px}
+.wp-row.wp-fix{background:#f5f3ff;border-radius:8px;padding:7px 10px;border-top:none;color:#5b21b6}
+.wp-row.wp-fix .k{color:#7c3aed}
+.ev-idx{display:inline-block;font-size:10.5px;color:#4f46e5;background:#eef2ff;border-radius:6px;padding:0 7px;margin-left:7px;font-weight:600}
+
+/* 逐题四段式 */
+.qa-intent{font-size:12.5px;color:#374151;line-height:1.8;background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #e0e7ff;border-radius:9px;padding:8px 12px;font-weight:600}
+.qa-fw{list-style:none;padding-left:0;font-size:12.5px;color:#374151;line-height:1.95}
+.qa-fw li{padding-left:15px;position:relative}
+.qa-fw li::before{content:"";position:absolute;left:2px;top:11px;width:5px;height:5px;border-radius:50%;background:#a5b4fc}
+
+/* 自我介绍独立评分块（Tab1） */
+.is-block{margin-top:14px;padding-top:14px;border-top:1px dashed #eef0f6}
+.is-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.is-total{font-size:26px;font-weight:900;color:#4f46e5}
+.is-total small{font-size:12px;color:#9ca3af;font-weight:600}
+.is-dims{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px;margin-bottom:10px}
+.is-dim{display:flex;align-items:center;gap:9px;font-size:12px}
+.is-dim .k{color:#6b7280;width:72px;flex-shrink:0}
+.is-dim b{width:26px;text-align:right;color:#374151}
+.is-track{flex:1;height:6px;background:#f3f4f8;border-radius:99px;overflow:hidden}
+.is-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#a855f7)}
+.is-comment{font-size:12px;color:#6b7280;line-height:1.8;background:#f8f9fd;border-radius:9px;padding:9px 12px;margin-bottom:10px}
+
+/* 心态趋势 + 可疑信号（Tab5） */
+.st-trend{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;flex-wrap:wrap}
+.st-node{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:64px}
+.st-dot{width:15px;height:15px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 4px rgba(16,24,40,.2)}
+.st-ok .st-dot{background:#10b981}.st-good .st-dot{background:#059669}
+.st-warn .st-dot{background:#f59e0b}.st-bad .st-dot{background:#e11d48}
+.st-txt{font-size:12px;font-weight:700;color:#374151}
+.st-rd{font-size:10.5px;color:#9ca3af}
+.st-line{flex:1;height:2px;background:linear-gradient(90deg,#e5e7eb,#d1d5db);margin-top:7px;min-width:14px;border-radius:99px}
+.flag-title{font-size:12.5px;font-weight:800;color:#be123c;margin-bottom:8px}
+.flag-item{
+  font-size:12.5px;color:#9f1239;line-height:1.7;background:linear-gradient(135deg,#fff1f3,#fff5f7);
+  border:1px solid #fecdd3;border-radius:9px;padding:8px 12px;margin-bottom:7px;
+}
+.flag-item:last-child{margin-bottom:0}
+
+/* 追问预警（Tab6） */
+.pq-item{border:1px solid var(--border-2);border-radius:11px;padding:12px 14px;margin-bottom:10px;background:#fff}
+.pq-item.pq-asked{background:#fafbfe;opacity:.85}
+.pq-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.pq-kp{font-size:11px;font-weight:700;color:#4f46e5;background:#eef2ff;border-radius:99px;padding:2px 10px}
+.pq-state{font-size:11px;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;border-radius:99px;padding:2px 10px}
+.pq-asked .pq-state{color:#059669;background:#ecfdf5;border-color:#a7f3d0}
+.pq-q{font-size:13px;font-weight:700;color:#1f2937;line-height:1.7;margin-bottom:6px}
+.pq-a{font-size:12px;color:#6b7280;line-height:1.8;margin-top:3px}
+.pq-a .k{font-weight:800;color:var(--sub);margin-right:7px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ 紫色 Hero ============ -->
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <h1>AI 语音模拟面试评估报告</h1>
+        <div class="sub">Voice Mock Interview Analysis Report</div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn-glass" id="btn-export">📄 导出简历 PDF</button>
+        <button class="btn-glass" id="btn-share">🔗 分享报告</button>
+      </div>
+    </div>
+    <div class="hero-meta" id="heroMeta"></div>
+  </div>
+
+  <!-- ============ 评分卡 ============ -->
+  <div class="score-card">
+    <div class="score-flex">
+      <div class="score-block">
+        <div class="score-num" id="scoreNum">--</div>
+        <div class="score-label">综合得分</div>
+        <div class="score-badge" id="scoreBadge">--</div>
+      </div>
+      <div class="score-desc" id="scoreDesc"></div>
+      <div class="match-block">
+        <div class="match-label">岗位匹配度</div>
+        <div class="match-num" id="matchNum">--</div>
+        <div class="match-bar"><i id="matchBar"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Tabs ============ -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="bg">🎯 面试背景</div>
+    <div class="tab" data-tab="overview">📋 概览评分</div>
+    <div class="tab" data-tab="playback">💬 面试回放</div>
+    <div class="tab" data-tab="questions">🔍 逐题分析</div>
+    <div class="tab" data-tab="voice">🎙️ 语音指标</div>
+    <div class="tab" data-tab="advice">🚀 改进建议</div>
+    <div class="tab" data-tab="api">🔌 数据接口</div>
+  </div>
+
+  <main id="main">
+    <div id="sk">
+      <div class="sk" style="height:120px"></div>
+      <div class="sk" style="height:240px"></div>
+      <div class="sk" style="height:180px"></div>
+    </div>
+
+    <!-- 面试背景 -->
+    <section class="panel-section" data-panel="bg" hidden>
+      <div class="bg-grid">
+        <div class="bg-card" id="jobCard"></div>
+        <div class="bg-card" id="candCard"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title"><span class="bar"></span>简历概要<span class="tip">简历 + 口头自我介绍</span></div>
+        <div id="resumeBox"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>技术概要<span class="tip">按方向分组</span></div>
+        <div id="techBox"></div>
+      </div>
+    </section>
+
+    <!-- 概览评分 -->
+    <section class="panel-section" data-panel="overview" hidden>
+      <div class="card" id="verdictCard" style="display:none"></div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>能力雷达<span class="tip">考察者视角五维模型</span></div>
+        <canvas id="radar"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>维度评分明细</div>
+        <div id="dimList"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>核心优势与待改进项</div>
+        <div class="two-col">
+          <div class="panel good"><h4>✅ 核心优势</h4><ul id="strengthList"></ul></div>
+          <div class="panel weak"><h4>⚠️ 待改进项</h4><ul id="weaknessList"></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 面试回放 -->
+    <section class="panel-section" data-panel="playback" hidden>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>面试回放<span class="tip" id="pbTip"></span></div>
+        <div class="pb-controls">
+          <button class="btn-brand" id="pbReplay">▶ 从头播放</button>
+          <div class="pb-progress"><i id="pbProgress"></i></div>
+          <span class="pb-counter" id="pbCounter">0 / 0</span>
+        </div>
+        <div class="pb-list" id="pbList"></div>
+      </div>
+    </section>
+
+    <!-- 逐题分析 -->
+    <section class="panel-section" data-panel="questions" hidden>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>逐题表现分析<span class="tip" id="qCount"></span></div>
+        <div class="qf" id="qFilter">
+          <div class="chip active" data-f="all">全部</div>
+          <div class="chip" data-f="low">薄弱 &lt; 60</div>
+          <div class="chip" data-f="mid">中等 60–79</div>
+          <div class="chip" data-f="flag">含风险点</div>
+        </div>
+        <div id="qList"></div>
+      </div>
+    </section>
+
+    <!-- 语音指标 -->
+    <section class="panel-section" data-panel="voice" hidden>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>语音表现指标<span class="tip">声学信号分析</span></div>
+        <div class="vgrid" id="vgrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>心态与风险信号<span class="tip">逐轮情绪趋势 · 全场可疑信号</span></div>
+        <div id="stBox"></div>
+        <div id="flagBox" style="margin-top:14px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>语速波动曲线<span class="tip">点击播放模拟回放</span></div>
+        <div class="mini-audio">
+          <button class="play-btn" id="vPlay">▶</button>
+          <div class="wave" id="vWave"></div>
+          <div class="audio-time" id="vTime">00:00 / --:--</div>
+        </div>
+        <p style="font-size:12.5px;color:var(--sub);margin-top:12px;line-height:1.8" id="voiceLead"></p>
+      </div>
+    </section>
+
+    <!-- 改进建议 -->
+    <section class="panel-section" data-panel="advice" hidden>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>发展方向<span class="tip">AI 个性化生成</span></div>
+        <p class="dev-lead" id="devLead"></p>
+        <div id="devList"></div>
+      </div>
+      <div class="card" id="pqCard" style="display:none">
+        <div class="card-title"><span class="bar"></span>追问预警<span class="tip">未问到的题 = 下次最可能被问</span></div>
+        <div id="pqBox"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>7 天补强计划<span class="tip">示例计划 · 按薄弱点替换</span></div>
+        <table id="planTable">
+          <thead><tr><th style="width:82px">时间</th><th>训练内容</th><th style="width:104px">目标产出</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 数据接口 -->
+    <section class="panel-section" data-panel="api" hidden>
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>接口清单<span class="tip">真实接口 · PortalVoiceInterviewController</span></div>
+        <div class="ep">
+          <span class="method m-post">POST</span>
+          <code>/portal/interview/voice/{interviewId}/finish</code>
+          <span class="desc">结束面试收口并生成报告，返回 VoiceInterviewReportVO</span>
+        </div>
+        <div class="ep">
+          <span class="method m-post">POST</span>
+          <code>/portal/interview/voice/{interviewId}/regenerate-report</code>
+          <span class="desc">重新生成 AI 深度复盘（verdict / 能力剖面 / 归因卡 / 四段式）</span>
+        </div>
+        <div class="ep">
+          <span class="method m-get">GET</span>
+          <code>/portal/interview/voice/{interviewId}/analysis</code>
+          <span class="desc">轮询报告分析状态（0 未分析 / 1 分析中 / 2 已完成）</span>
+        </div>
+        <div class="ep">
+          <span class="method m-get">GET</span>
+          <code>/portal/interview/voice/share/{shareToken}</code>
+          <span class="opt">分享</span>
+          <span class="desc">免登录查看报告（分享令牌 1–30 天有效）</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>响应示例<span class="tip">VoiceInterviewReportVO 真实结构</span></div>
+        <div class="cwrap">
+          <button class="copy" id="copyBtn">复制</button>
+          <pre class="code" id="codeBox"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>字段说明<span class="tip">🤖 = AI 生成字段</span></div>
+        <table class="ftable">
+          <thead><tr><th style="width:190px">字段</th><th style="width:80px">类型</th><th>说明</th></tr></thead>
+          <tbody id="fieldBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span>交给 AI（Trae）的开发提示词<span class="tip">一键复制</span></div>
+        <div class="cwrap">
+          <button class="copy" id="copyPrompt">复制</button>
+          <div class="prompt-box" id="promptBox"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer" id="footer"></div>
+</div>
+
+<!-- ============ 分享弹窗 ============ -->
+<div class="modal-mask" id="shareModal">
+  <div class="modal">
+    <button class="modal-close" id="shareClose">✕</button>
+    <h3>🔗 分享这份报告</h3>
+    <div class="modal-sub">将报告链接分享给朋友或导师，一起复盘提升</div>
+
+    <div class="share-link">
+      <input type="text" id="shareInput" readonly>
+      <button id="shareCopy">复制链接</button>
+    </div>
+
+    <div class="share-grid">
+      <div class="share-item" data-share="wechat">
+        <div class="icon ic-wechat">💬</div>
+        <div class="name">微信</div>
+      </div>
+      <div class="share-item" data-share="qq">
+        <div class="icon ic-qq">🐧</div>
+        <div class="name">QQ</div>
+      </div>
+      <div class="share-item" data-share="weibo">
+        <div class="icon ic-weibo">🌐</div>
+        <div class="name">微博</div>
+      </div>
+      <div class="share-item" data-share="link">
+        <div class="icon ic-link">📋</div>
+        <div class="name">复制</div>
+      </div>
+    </div>
+
+    <div class="share-qr">
+      <div class="qr-img"></div>
+      <div class="qr-text">
+        <b>扫码查看报告</b>
+        手机相机扫描左侧二维码，即可在移动端打开本报告。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+ *  0. 工具
+ * =======================================================*/
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function countUp(el, target, dec = 0, dur = 1100) {
+  const t0 = performance.now();
+  (function step(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const v = target * (1 - Math.pow(1 - p, 3));
+    el.textContent = dec ? v.toFixed(dec) : Math.round(v);
+    if (p < 1) requestAnimationFrame(step);
+  })(performance.now());
+}
+
+function toast(msg, spin = false) {
+  const t = $('#toast');
+  t.innerHTML = (spin ? '<span class="spin"></span>' : '') + esc(msg);
+  t.classList.add('show');
+  clearTimeout(t._t);
+  if (!spin) t._t = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function hlJSON(json) {
+  return esc(json).replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    m => {
+      let c = 'num';
+      if (/^"/.test(m)) c = /:$/.test(m) ? 'key' : 'str';
+      else if (/true|false/.test(m)) c = 'bool';
+      else if (/null/.test(m)) c = 'null';
+      return `<span class="${c}">${m}</span>`;
+    }
+  );
+}
+
+/* =========================================================
+ *  1. Mock 报告数据（对齐后端 VoiceInterviewReportVO 真实字段）
+ *     面试场次信息来自 VoiceInterviewVO（meta），报告主体为 ReportVO
+ * =======================================================*/
+const MOCK = {
+  /* ---- 报告主体：VoiceInterviewReportVO ---- */
+  interviewId: 2,
+  totalScore: 50,
+  levelEstimate: "junior",
+  reviewDegraded: false,
+
+  summary: "本次面试共 3 道主问，实际作答 5 轮（含自我介绍与追问）。整体表现一般，建议针对薄弱点深入复习。",
+  overallComment: "技术栈广度达标，但深度与体系化不足。项目描述停留在「做了什么」，缺少「为什么这么做」的架构权衡；高并发与故障排查类问题未给出量化指标与排查路径。",
+  verdict: "考察者视角：8 年真实研发履历与技术广度达标，但技术深度、量化设计与排查方法论未达「后端开发」独立担纲线；当前定级 junior，差距集中在深度而非广度。",
+  profile: "候选人钟永国，8 年 Java 研发经验，覆盖保险、银行、证券多行业，具备全栈意识（Vue/TypeScript）。项目复杂度以企业级中台与 SaaS 平台为主，对照岗位「核心系统架构设计与高可用保障」的要求，缺少大型高并发场景的量化实证。",
+
+  dimensions: { depth: 45, engineering: 50, design: 42, communication: 62, match: 50 },
+  competencyViews: [
+    { key: "depth", label: "技术深度", score: 45, comment: "能列出技术名词，但未深入原理与选型依据；被追问「为什么用 Nacos」时未答出对比维度。", evidenceIdx: [1, 2] },
+    { key: "engineering", label: "工程实践", score: 50, comment: "排查依赖经验直觉，未提链路追踪、线程池、GC 等系统性手段。", evidenceIdx: [3] },
+    { key: "design", label: "系统设计", score: 42, comment: "限流阈值答「运维配的」，缺容量预估与压测数据支撑。", evidenceIdx: [2] },
+    { key: "communication", label: "表达沟通", score: 62, comment: "表达清晰、态度诚恳，但语速偏快、填充词 31 次，关键结论缺少收束。", evidenceIdx: [1, 3, 4] },
+    { key: "match", label: "岗位匹配", score: 50, comment: "技能栈基本覆盖 JD，架构与高并发能力与岗位要求存在差距。", evidenceIdx: [2, 3] }
+  ],
+  jobMatch: { rate: 50, reason: "技能栈基本覆盖 JD，但架构与高并发能力与岗位要求有差距。" },
+
+  candidate: {
+    name: "钟永国",
+    skills: "Java、Spring、MyBatis、MySQL、Redis、MQ、微服务、TypeScript、Vue、AI Agent",
+    resumeSelfIntro: "近 8 年 Java 研发经验，熟悉后端体系与 Spring 微服务，具备 Vue 全栈与多语言开发能力，习惯通过源码分析理解技术本质。有保险、银行、证券行业项目经验，能从业务视角思考架构设计，在稳定性与扩展性之间做权衡。保持复盘习惯，持续学习，追求技术深度与业务价值的结合。正在备考系统分析师（高级），目标向架构师方向发展。",
+    interviewSelfIntro: "我是钟永国，来自云南，历史学专业，2018 年毕业于西北民族大学。我从大三开始自学 Java，毕业后开始从事 Java 开发工作，现在有八年工作经验。我会 Java，使用 Spring 家族框架，会微服务，做过管理、项目经理，基本在项目中能做全栈开发，还会 Agent。",
+    aiScore: "82"
+  },
+  jobInfo: {
+    position: "后端开发",
+    jobRequirements: "负责核心系统的架构设计与技术选型，主导重大技术难题攻关；\n规划系统演进方向，推动技术架构升级，保障系统高可用、高并发、高扩展。",
+    matchRate: "50%"
+  },
+
+  /* v11.x 自我介绍独立评分 */
+  introScore: {
+    dimensions: { "内容完整度": 80, "技术相关性": 75, "表达结构": 70, "岗位关联": 60 },
+    total: 72,
+    comment: "背景与年限交代完整，但岗位关联偏弱：未点明与「后端开发」最相关的架构与高并发经历，结尾缺少求职动机收束。",
+    strengths: ["跨行业履历真实可信", "全栈视野加分"],
+    weaknesses: ["未突出架构主线", "结尾没有动机收束"]
+  },
+
+  /* 预设考察方向（本次面试的考察点） */
+  knowledgePoints: [
+    "自我介绍", "项目经历", "项目难点", "工程化", "项目管理",
+    "技术深度", "高并发", "问题排查", "数据一致性", "职业规划"
+  ],
+
+  highlightViews: [
+    { title: "8 年多行业真实履历", detail: "覆盖保险、银行、证券多个行业，业务复杂度足够，经历可信。" },
+    { title: "技术栈广度达标", detail: "Spring 生态、Redis、MQ、微服务均有实际项目使用经历。" },
+    { title: "全栈意识", detail: "掌握 Vue / TypeScript，能独立承接前后端联调工作。" },
+    { title: "坦诚度好", detail: "被追问到不会的问题时没有强行编造，态度诚恳。" }
+  ],
+  weakPointViews: [
+    { title: "技术深度不足", type: "depth", detail: "能说出技术名词，但无法解释原理、选型依据与量化参数。",
+      evidence: "Q1 原话「用的是 Nacos」→ 未答出与 Eureka 的对比；Q2「是运维配的，我不太清楚」。",
+      impact: "真实面试中会被判定为「使用过但未吃透」，高级岗位直接淘汰。",
+      remedy: "每个技术选型准备「约束 → 对比 → 代价」三句话。" },
+    { title: "系统设计缺量化", type: "depth", detail: "没有容量预估、限流阈值、压测数据等硬指标支撑。",
+      evidence: "Q2 被追问阈值时无法给出任何数字。",
+      impact: "系统设计题会被认为「没主导过核心链路」。",
+      remedy: "复盘一个真实场景，背熟压测 QPS、阈值、恢复时间 3 个数字。" },
+    { title: "排查方法论不成体系", type: "knowledge", detail: "依赖经验直觉，未建立链路追踪等标准化排查路径。",
+      evidence: "Q3 排查回答未提 TraceId / SkyWalking / 线程池。",
+      impact: "会被判定为「故障现场经验少」，直接影响定级。",
+      remedy: "背熟排查五步：定位范围 → 拆耗时 → 查链路 → 看资源 → 验证。" },
+    { title: "表达发散且语速偏快", type: "expression", detail: "全程 31 次填充词，2 次超时，关键结论缺少收束。",
+      evidence: "Q3 填充词 11 次；Q2 / Q3 各超时 1 次。",
+      impact: "同等内容下传达效率打折，面试官注意力流失。",
+      remedy: "先说结论框架（15 秒内），用停顿替代「然后 / 就是」。" }
+  ],
+
+  /* 逐题分析：QuestionReview 四段式（intent / framework / gap / advice） */
+  questionReviews: [
+    {
+      questionIdx: 1, qaId: 101, selfIntro: false,
+      question: "请介绍你最近参与的一个微服务项目，你负责哪些模块？",
+      score: 55,
+      analysis: "介绍了某保险核心系统的微服务拆分，提到自己负责「用户中心」与「订单服务」两个模块，使用 Spring Cloud + Nacos + Redis，日请求量约 200 万。",
+      feedback: "项目背景交代清楚，但 {{只说了「用了什么」，没说「为什么这么选」}}。例如为什么用 Nacos 而不是 Eureka、服务拆分的边界依据是什么，都没有展开，面试官无法判断你的架构判断力。",
+      intent: "验证微服务落地的真实参与度与架构决策能力",
+      framework: ["项目背景与规模量化（QPS / 数据量 / 团队）", "服务拆分依据与边界", "关键技术选型及对比", "踩坑与解决过程", "个人贡献占比"],
+      gap: "{{缺少选型对比}} —— 只说了「用了 Nacos」，被追问与 Eureka 差异时未答出注册一致性、AP/CP 取舍等差异点。",
+      advice: "用「技术选型三问」重写项目开头：约束 → 对比 → 代价。",
+      /* tags 为演示数据：真实接口无此字段，Vue 落地时缺失即隐藏 */
+      tags: [
+        { text: "背景清晰", type: "green" },
+        { text: "选型无对比", type: "red" },
+        { text: "未提边界划分", type: "amber" }
+      ]
+    },
+    {
+      questionIdx: 2, qaId: 102, selfIntro: false,
+      question: "你们的服务是如何做限流和熔断的？",
+      score: 45,
+      analysis: "回答说使用了 Sentinel 做限流、Hystrix 做熔断，提到配置了 QPS 阈值，但未说出具体阈值是多少、依据是什么，被追问后表示「是运维配的，我不太清楚」。",
+      feedback: "技术名词正确，但回答停留在「知道有这个东西」的层面。限流是后端核心能力，面试官期待听到阈值推导过程（如基于压测 QPS × 0.8）、降级策略与恢复机制。回答「运维配的」会显著削弱技术主导性。",
+      intent: "验证高并发核心组件的主导程度与量化意识",
+      framework: ["压测得出单机 QPS 基线", "阈值推导（如 QPS × 0.8）", "降级与排队策略", "熔断半开恢复机制", "一次真实触发案例"],
+      gap: "{{无量化阈值}}，且把配置归因于运维，暴露未主导过限流治理。",
+      advice: "准备「限流自述」：压测 QPS → 阈值 → 降级 → 半开恢复，记 3 个数字。",
+      tags: [
+        { text: "名词正确", type: "green" },
+        { text: "无量化阈值", type: "red" },
+        { text: "超时", type: "red" }
+      ]
+    },
+    {
+      questionIdx: 3, qaId: 103, selfIntro: false,
+      question: "如果线上出现接口超时，你会如何排查？",
+      score: 50,
+      analysis: "回答先看监控告警，再查日志、看数据库慢查询，最后考虑扩容。表述中穿插了大量「然后」「就是」，未提到链路追踪、线程池、GC 等关键排查维度。",
+      feedback: "排查方向大体正确，但 {{缺少结构化的排查链路}}，且遗漏了分布式场景下最关键的「链路追踪」与「依赖服务耗时拆解」。这类问题面试官看重的是方法论，而不是零散经验。",
+      intent: "验证线上故障的体系化排查方法论",
+      framework: ["先定位影响范围（全量 / 单接口）", "耗时拆解（网关 / 应用 / DB / 下游）", "链路追踪定位慢调用", "资源层排查（CPU / GC / 线程池）", "修复验证与复盘"],
+      gap: "{{排查链路跳跃}} —— 从监控直接跳到扩容，缺中间的证据链环节。",
+      advice: "背熟排查五步，回答先给框架再挑一步展开。",
+      tags: [
+        { text: "方向正确", type: "green" },
+        { text: "缺链路追踪", type: "red" },
+        { text: "填充词 11 次", type: "amber" }
+      ]
+    }
+  ],
+
+  /* ---- 面试场次：VoiceInterviewVO（回放数据源 qaList） ---- */
+  meta: {
+    position: "后端开发",
+    agentName: "资深后端面试官",
+    difficulty: "hard",
+    durationMinutes: 31,
+    createTime: "2026-09-30T17:21:30",
+    fluencyAvg: 76,
+    sentimentTrend: ["nervous", "hesitant", "calm", "confident", "hesitant"],
+    redFlags: [
+      "第 2、3 题各超时 1 次",
+      "Q2 被追问后回答「是运维配的」，暴露非主导",
+      "填充词 31 次且集中在追问轮"
+    ]
+  },
+  qaList: [
+    { questionIdx: 1, questionSource: "bank", selfIntro: true, score: 50,
+      question: "你好，欢迎参加今天的面试，放轻松点，我们就是围绕你的项目和技术栈聊一聊。先请你做一个简单的自我介绍，重点结合一下和这个后端开发岗位相关的项目经历。",
+      userAnswer: "我是钟永国，来自云南，历史学专业，2018 年毕业于西北民族大学，我从大三开始自学 Java，毕业后开始从事 Java 开发工作，现在有八年工作经验，我会 Java，使用 Spring 家族框架，会微服务，做过管理、项目经理，基本在项目中能做全栈开发，还会 AI Agent。" },
+    { questionIdx: 2, questionSource: "resume_project", selfIntro: false, score: 56,
+      question: "好的，听下来你的经历挺丰富，从历史学跨到 Java 开发还做过管理和项目经理，这个跨度不容易。那我先顺着你提到的项目经历问一下：你在中信证券一体化运营平台这个项目里，具体是负责哪一块？是偏后端核心开发，还是更多是带团队和做项目管理？",
+      userAnswer: "负责邮件管理模块，主要是邮件管理，收发邮件，之后写 Java 代码，解析邮件正文或者邮件的附件中的特定字段、列表等数据，这个由场景而定，还有配置提取规则，开发规则引擎，后期也做了前端，主要是 SaaS 平台低代码，开发流程表单，写 JS 业务逻辑，这是我的主要工作。" },
+    { questionIdx: 3, questionSource: "llm", selfIntro: false, score: 48,
+      question: "了解，邮件解析这块听起来是有一定复杂度的。那追问一下：你们邮件量级大概是多少？解析规则是怎么设计的？遇到解析失败或者格式异常的情况怎么处理？",
+      userAnswer: "邮件量的话，每天大概几万封吧，具体的数字记不太清了。解析规则主要是正则表达式，针对不同的券商和银行有不同的模板，我们在配置文件里维护这些模板。解析失败的话，会记录日志，然后人工去看一下，再补充规则。异常格式的话，就是加新的正则去匹配。" },
+    { questionIdx: 4, questionSource: "llm", selfIntro: false, score: 52,
+      question: "嗯，这块我们后面可以再深入。换个方向，你刚才提到做过项目经理，那你带团队的时候，遇到需求频繁变更或者工期紧张的情况，一般怎么处理？",
+      userAnswer: "这个情况挺常见的，一般就是先和产品经理沟通，看看哪些需求是必须的，哪些可以往后放。然后也会和开发沟通，看能不能加班赶一赶。如果实在不行，就上报给领导，让他们来协调。项目管理这块我主要用的是敏捷，就是每天开站会，用看板管理任务。" },
+    { questionIdx: 5, questionSource: "llm", selfIntro: false, score: 45,
+      question: "好的，最后一个问题：你刚才说自己会 AI Agent，能具体说说你在项目里是怎么用 Agent 的吗？解决了什么实际问题？",
+      userAnswer: "AI Agent 这块我主要是自己学习，了解 LangChain、Dify 这些框架，也会用 ChatGPT 辅助写代码。项目里的话，之前用 Dify 搭过一个客服问答的 Demo，但是没有真正上线。我理解 Agent 就是能调用工具的 LLM，比如可以查数据库、调 API 这种。" }
+  ],
+
+  /* ---- 语音指标（展示层数据：语速/填充词等为演示值，流利度取 fluencyAvg） ---- */
+  voiceMetrics: [
+    { name: "🎙️ 平均语速",   value: 212, unit: "字/分", status: "warn", comment: "偏快", bench: "160–190" },
+    { name: "⏸️ 平均停顿",   value: 1.5, unit: "秒",   status: "ok",   comment: "正常", bench: "1.2–2.5" },
+    { name: "🔁 填充词",     value: 31,  unit: "次",   status: "bad",  comment: "偏多（“然后”×14、“就是”×9）", bench: "≤ 8" },
+    { name: "🌊 表达流畅度", value: 76,  unit: "/100", status: "ok",   comment: "来自 fluencyAvg 字段", bench: "≥ 70" },
+    { name: "📢 音量稳定度", value: 84,  unit: "%",    status: "ok",   comment: "稳定", bench: "≥ 80" },
+    { name: "🗣️ 咬字清晰度", value: 90,  unit: "%",    status: "ok",   comment: "优秀", bench: "≥ 85" },
+    { name: "⚡ 抢话/超时",  value: 2,   unit: "次",   status: "bad",  comment: "第 2、3 题各超时 1 次", bench: "0" },
+    { name: "🎵 语调变化",   value: 46,  unit: "/100", status: "warn", comment: "偏平，缺少重音强调", bench: "≥ 65" }
+  ],
+  voiceLead: "语速峰值出现在第 2 题（限流熔断，238 字/分），同期出现超时；低谷在第 1 题开头自我介绍，约 184 字/分，节奏最舒适。建议在压力型技术问题上主动降速。",
+
+  /* ---- 结构化行动建议：SuggestionView（动作 + 验收口径 + 优先级） ---- */
+  suggestionViews: [
+    { priority: 1, action: "系统学习 SkyWalking 并在现有项目接入，产出 1 份真实排查案例", acceptance: "能用 TraceId 讲清一次慢调用定位全过程" },
+    { priority: 2, action: "复盘高并发场景：压测得 QPS → 按 80% 设阈值 → 设计降级 → 熔断半开", acceptance: "背熟 3 个关键数字并能白板推导" },
+    { priority: 3, action: "用「约束 → 对比 → 选择 → 代价」四段式重写 2 个项目叙述", acceptance: "每个项目备好 1 个选型对比与 1 个失败取舍" },
+    { priority: 4, action: "每题先说结论框架再展开，录音自测压缩填充词", acceptance: "语速 ≤ 180 字/分，填充词 ≤ 8 次" }
+  ],
+  /* 旧字段回退（improvementSuggestions） */
+  improvementSuggestions: [
+    "补齐链路追踪能力（预计排查维度 +15 分）",
+    "建立高并发架构量化思维（预计系统设计 +20 分）",
+    "重构项目叙述为决策型表达（预计项目维度 +12 分）",
+    "降速与结构化表达训练（预计表达维度 +18 分）"
+  ],
+
+  /* ---- 追问预测：PredictedQuestionView（未问到的 = 下次最可能被问） ---- */
+  predictedQuestions: [
+    { question: "Nacos 注册中心的 AP / CP 模式有什么区别？你们为什么选它？", briefAnswer: "默认 AP（Distro）保证可用性；配置中心用 CP（Raft）。选型看一致性敏感度。", analysis: "Q1 提到 Nacos 但没答出对比，是最自然的追问点。", knowledgePoint: "注册中心", askedThisRound: false },
+    { question: "Sentinel 和 Hystrix 的核心区别？为什么现在主流选 Sentinel？", briefAnswer: "Sentinel 流控维度更丰富（QPS/线程数/关联链路）+ 控制台实时规则；Hystrix 已停止更新。", analysis: "Q2 同时提到两个组件，必被追问差异。", knowledgePoint: "限流熔断", askedThisRound: false },
+    { question: "接口超时排查中，如何区分是应用问题还是数据库问题？", briefAnswer: "链路追踪看 Span 耗时分布；DB 慢查询日志 + 连接池监控；应用层看线程池与 GC。", analysis: "Q3 排查链路不完整，此题为同一考点的深挖。", knowledgePoint: "问题排查", askedThisRound: false },
+    { question: "邮件解析场景中，如何保证「几万封/天」的解析不积压？", briefAnswer: "MQ 削峰 + 消费者水平扩展 + 失败重试与死信队列；监控积压量并告警。", analysis: "Q3 追问中提到了量级但未答出吞吐设计。", knowledgePoint: "高并发", askedThisRound: false },
+    { question: "项目经理经历中，如何估算工期？估算不准怎么办？", briefAnswer: "三点估算法 + 历史数据校准；预留缓冲并按里程碑滚动修正。", analysis: "Q4 项目管理回答停在流程层面，缺方法论。", knowledgePoint: "项目管理", askedThisRound: false },
+    { question: "Dify 搭建的客服问答 Demo，RAG 检索效果怎么评估？", briefAnswer: "召回率 / MRR 评估检索，人工抽评 + 用户反馈闭环迭代知识库。", analysis: "Q5 声称会 Agent 但只有 Demo，必然追问落地细节。", knowledgePoint: "AI 应用", askedThisRound: true, askedScore: 45 }
+  ],
+
+  trainingPlan: [
+    { days: "第 1–2 天", content: "学习 SkyWalking 官方文档并在本地 Demo 接入，产出 1 份调用链路截图", output: "1 份排查案例" },
+    { days: "第 3–4 天", content: "复盘一个高并发场景，写出压测→阈值→降级→熔断的完整方案，背熟 3 个数字", output: "1 页架构笔记" },
+    { days: "第 5 天",   content: "用「约束-对比-选择-代价」四段式重写 2 个项目的自我介绍稿", output: "2 份逐字稿" },
+    { days: "第 6 天",   content: "降速训练：朗读逐字稿录音，语速压到 180 字/分，填充词 ≤ 8 次", output: "4 段录音" },
+    { days: "第 7 天",   content: "完整模拟面试一轮（3 题），对比本报告指标，重点看系统设计与排查维度", output: "1 份新报告" }
+  ],
+
+  disclaimer: "本报告由 AI 语音分析引擎基于录音信号与文本转写自动生成，评分结果反映本次模拟面试的即时表现，仅供自我提升参考，不代表任何企业的真实招聘评价标准。建议结合真人面试官反馈综合判断。告别语轮次已从评分统计中剔除。"
+};
+
+/* =========================================================
+ *  2. API 层
+ *     静态演示直接使用内置 Mock；Vue 落地时的真实链路：
+ *     ① 结束收口  POST /portal/interview/voice/{interviewId}/finish        → VoiceInterviewReportVO
+ *     ② 重新生成  POST /portal/interview/voice/{interviewId}/regenerate-report → VoiceInterviewReportVO
+ *     ③ 分析轮询  GET  /portal/interview/voice/{interviewId}/analysis      → 分析状态
+ *     ④ 免登录分享 GET  /portal/interview/voice/share/{shareToken}         → VoiceInterviewReportVO
+ * =======================================================*/
+async function fetchReport() {
+  await new Promise(r => setTimeout(r, 300));
+  return MOCK;
+}
+
+/* =========================================================
+ *  3. 渲染
+ * =======================================================*/
+let REPORT = null;
+const lv = s => s >= 80 ? 'high' : s >= 60 ? 'mid' : 'low';
+const gradeOf = s => s >= 80 ? '优秀' : s >= 60 ? '合格' : '待提升';
+const SRC_MAP = { bank: '题库', resume_project: '简历锚定', llm: '智能追问' };
+
+/* ---------- Hero ---------- */
+function renderHero(d) {
+  const m = d.meta || {};
+  const t = new Date(m.createTime || Date.now());
+  const pad = n => String(n).padStart(2, '0');
+  $('#heroMeta').innerHTML = `
+    <div class="item"><div class="label">候选人</div><div class="value">${esc(d.candidate.name)}</div></div>
+    <div class="item"><div class="label">应聘岗位</div><div class="value">${esc(d.jobInfo.position || m.position)}</div></div>
+    <div class="item"><div class="label">面试时间</div><div class="value">${pad(t.getMonth()+1)}/${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}</div></div>
+    <div class="item"><div class="label">面试时长</div><div class="value">${m.durationMinutes || '--'} 分钟</div></div>
+    <div class="item"><div class="label">面试编号</div><div class="value">#${d.interviewId}</div></div>
+  `;
+}
+
+/* ---------- 评分卡 ---------- */
+function renderScore(d) {
+  const score = d.totalScore ?? 0;
+  const rate = d.jobMatch?.rate ?? Number(d.jobInfo?.matchRate) || 0;
+  const level = lv(score);
+  const numEl = $('#scoreNum');
+  numEl.className = 'score-num ' + (level === 'high' ? 'high' : level === 'mid' ? 'mid' : '');
+  countUp(numEl, score, 0, 1200);
+  $('#scoreBadge').textContent = gradeOf(score);
+  $('#scoreBadge').className = 'score-badge ' + (level === 'high' ? 'high' : level === 'mid' ? 'mid' : '');
+  $('#scoreDesc').innerHTML = `${esc(d.summary || '')}<span class="muted">${esc(d.overallComment || '')}</span>`;
+  countUp($('#matchNum'), rate, 0, 1200);
+  $('#matchNum').textContent = rate + '%';
+  setTimeout(() => $('#matchBar').style.width = rate + '%', 120);
+}
+
+/* ---------- 面试背景 ---------- */
+function renderBackground(d) {
+  const c = d.candidate, j = d.jobInfo, m = d.meta || {};
+  const t = new Date(m.createTime || Date.now());
+  const pad = n => String(n).padStart(2, '0');
+  const skillArr = String(c.skills || '').split(/[、,，;；]+/).map(s => s.trim()).filter(Boolean);
+  const jdLines = String(j.jobRequirements || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const sources = [...new Set((d.qaList || []).map(q => SRC_MAP[q.questionSource] || q.questionSource).filter(Boolean))].join(' + ') || '--';
+  const diffMap = { easy: '简单', medium: '中等', hard: '困难' };
+
+  $('#jobCard').innerHTML = `
+    <h4>💼 目标岗位信息摘要</h4>
+    <div style="font-size:17px;font-weight:800;margin-bottom:10px">${esc(j.position || m.position)}</div>
+    <div class="info-row"><span class="k">面试难度</span><span class="v">${esc(diffMap[m.difficulty] || m.difficulty || '--')}</span></div>
+    <div class="info-row"><span class="k">题源类型</span><span class="v">${esc(sources)}</span></div>
+    <div class="info-row"><span class="k">面试官</span><span class="v">${esc(m.agentName || '--')}</span></div>
+    <div class="info-row"><span class="k">面试时间</span><span class="v">${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}</span></div>
+    <div class="info-row"><span class="k">面试时长</span><span class="v">${m.durationMinutes || '--'} 分钟</span></div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #eef0f6">
+      <div style="font-size:11.5px;font-weight:800;color:var(--sub);margin-bottom:7px">岗位要求（JD）</div>
+      <ul style="list-style:none;font-size:12.5px;color:#4b5563;line-height:1.85">
+        ${jdLines.map(r => `<li style="padding-left:14px;position:relative;margin-bottom:4px"><span style="position:absolute;left:0;top:9px;width:5px;height:5px;border-radius:50%;background:#c7cbd8"></span>${esc(r)}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+
+  $('#candCard').innerHTML = `
+    <h4>👤 候选人概要</h4>
+    <div class="cand-name">${esc(c.name)}</div>
+    <div class="cand-sub">口头自我介绍 AI 评分 ${esc(c.aiScore || '--')} · 作答 ${(d.qaList || []).length} 轮</div>
+    <div class="info-row"><span class="k">面试编号</span><span class="v" style="font-family:monospace;font-size:12px">#${d.interviewId}</span></div>
+    <div class="info-row"><span class="k">岗位匹配</span><span class="v">${esc(j.matchRate || ((d.jobMatch && d.jobMatch.rate + '%')) || '--')}</span></div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #eef0f6">
+      <div style="font-size:11.5px;font-weight:800;color:var(--sub);margin-bottom:8px">技能标签</div>
+      <div class="chips">${skillArr.map(s => `<span>${esc(s)}</span>`).join('')}</div>
+    </div>
+  `;
+
+  const is = d.introScore;
+  $('#resumeBox').innerHTML = `
+    <div class="resume-block">
+      <div class="rb-title">📄 简历自我介绍</div>
+      <p>${esc(c.resumeSelfIntro || '--')}</p>
+    </div>
+    <div class="resume-block">
+      <div class="rb-title">🎤 面试口头自我介绍</div>
+      <p>${esc(c.interviewSelfIntro || '--')}</p>
+    </div>
+    ${is ? `
+    <div class="is-block">
+      <div class="is-head">
+        <span class="rb-title">⭐ 自我介绍独立评分</span>
+        <span class="is-total">${is.total ?? '--'}<small> / 100</small></span>
+      </div>
+      <div class="is-dims">
+        ${Object.entries(is.dimensions || {}).map(([k, v]) => `
+          <div class="is-dim"><span class="k">${esc(k)}</span>
+            <div class="is-track"><i style="width:${v}%"></i></div><b>${v}</b>
+          </div>`).join('')}
+      </div>
+      <p class="is-comment">${esc(is.comment || '')}</p>
+      <div class="two-col">
+        <div class="panel good"><h4>✅ 优势</h4><ul>${(is.strengths || []).map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>
+        <div class="panel weak"><h4>⚠️ 不足</h4><ul>${(is.weaknesses || []).map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>
+      </div>
+    </div>` : ''}
+  `;
+
+  $('#techBox').innerHTML = `
+    <div class="tech-group">
+      <div class="tg-title">技能标签</div>
+      <div class="chips" style="margin-top:0">${skillArr.map(s => `<span>${esc(s)}</span>`).join('')}</div>
+    </div>
+    <div class="tech-group">
+      <div class="tg-title">本次考察方向（${(d.knowledgePoints || []).length}）</div>
+      <div class="chips" style="margin-top:0">${(d.knowledgePoints || []).map(k => {
+        const txt = typeof k === 'string' ? k : (k.title || k.name || '');
+        return `<span>${esc(txt)}</span>`;
+      }).join('')}</div>
+    </div>
+  `;
+}
+
+/* ---------- 概览 ---------- */
+function renderOverview(d) {
+  // 考察者结论卡（verdict + profile + 定级徽章）
+  const vc = $('#verdictCard');
+  if (d.verdict || d.profile) {
+    vc.style.display = '';
+    const LV_MAP = { junior: '入门级 · junior', mid: '中级 · mid', senior: '高级 · senior' };
+    vc.innerHTML = `
+      <div class="verdict-row">
+        <span class="verdict-tag">🧭 考察者结论</span>
+        ${d.levelEstimate ? `<span class="lv-badge lv-${esc(d.levelEstimate)}">${LV_MAP[d.levelEstimate] || esc(d.levelEstimate)}</span>` : ''}
+      </div>
+      ${d.verdict ? `<p class="verdict-text">${esc(d.verdict)}</p>` : ''}
+      ${d.profile ? `<p class="profile-text">${esc(d.profile)}</p>` : ''}
+    `;
+  }
+
+  // 核心优势（highlightViews，缺省回退 highlights）
+  const hls = (d.highlightViews && d.highlightViews.length ? d.highlightViews : d.highlights) || [];
+  $('#strengthList').innerHTML = hls.map(x => {
+    if (typeof x === 'string') return `<li>${esc(x)}</li>`;
+    return `<li><b style="display:block;color:#065f46;font-size:13px">${esc(x.title || '')}</b><span class="li-sub">${esc(x.detail || '')}</span></li>`;
+  }).join('');
+
+  // 待改进项（weakPointViews 归因卡，缺省回退 weakPoints）
+  const wps = (d.weakPointViews && d.weakPointViews.length ? d.weakPointViews : d.weakPoints) || [];
+  const TYPE_MAP = { depth: ['深度型', 'w-depth'], knowledge: ['知识型', 'w-knowledge'], expression: ['表达型', 'w-expression'] };
+  $('#weaknessList').innerHTML = wps.map(x => {
+    if (typeof x === 'string') return `<li>${esc(x)}</li>`;
+    const [tn, tc] = TYPE_MAP[x.type] || ['综合型', 'w-depth'];
+    return `<li class="wp-card ${tc}">
+      <div class="wp-head"><b>${esc(x.title || '')}</b><span class="wp-type">${tn}</span></div>
+      <div class="li-sub">${esc(x.detail || '')}</div>
+      ${x.evidence ? `<div class="wp-row"><span class="k">证据</span>${esc(x.evidence)}</div>` : ''}
+      ${x.impact ? `<div class="wp-row"><span class="k">影响</span>${esc(x.impact)}</div>` : ''}
+      ${x.remedy ? `<div class="wp-row wp-fix"><span class="k">补法</span>${esc(x.remedy)}</div>` : ''}
+    </li>`;
+  }).join('');
+}
+
+function renderDimensions(d) {
+  // 优先用能力剖面 competencyViews（考察者视角五维），缺省回退 dimensions 映射
+  const list = (d.competencyViews && d.competencyViews.length)
+    ? d.competencyViews.map(c => ({ name: c.label || c.key || '--', score: c.score || 0, comment: c.comment || '', evidenceIdx: c.evidenceIdx }))
+    : Object.entries(d.dimensions || {}).map(([k, v]) => ({ name: k, score: v, comment: '', evidenceIdx: [] }));
+  $('#dimList').innerHTML = list.map(x => {
+    const level = lv(x.score);
+    const ev = x.evidenceIdx && x.evidenceIdx.length
+      ? `<span class="ev-idx">证据：${x.evidenceIdx.map(i => 'Q' + i).join(' · ')}</span>` : '';
+    return `
+    <div class="dim">
+      <div class="dim-name">${esc(x.name)}</div>
+      <div class="dim-track"><div class="dim-fill f-${level}" data-w="${x.score}"></div></div>
+      <div class="dim-score s-${level}">${x.score}</div>
+    </div>
+    ${x.comment ? `<div class="dim-note">${esc(x.comment)}${ev}</div>` : ''}
+  `;
+  }).join('');
+  setTimeout(() => $$('.dim-fill').forEach(el => el.style.width = el.dataset.w + '%'), 120);
+}
+
+/* ---------- 雷达 ---------- */
+/* 雷达数据源：优先能力剖面 competencyViews（考察者视角五维），缺省回退 dimensions 映射 */
+function radarDims(d) {
+  return (d.competencyViews && d.competencyViews.length)
+    ? d.competencyViews.map(c => ({ name: c.label || c.key || '--', score: c.score || 0, level: lv(c.score || 0) }))
+    : Object.entries(d.dimensions || {}).map(([k, v]) => ({ name: k, score: v, level: lv(v) }));
+}
+function drawRadar(cv, dims, p) {
+  const ctx = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const n = dims.length;
+  const cx = W / 2, cy = H / 2 + 6;
+  const R = Math.min(W / 2 - 66, H / 2 - 42);
+  const ang = i => -Math.PI / 2 + i * 2 * Math.PI / n;
+  const pt = (i, r) => [cx + Math.cos(ang(i)) * r, cy + Math.sin(ang(i)) * r];
+
+  for (let k = 1; k <= 4; k++) {
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const [x, y] = pt(i, R * k / 4);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = k === 4 ? '#d3d7e3' : '#eceef6';
+    ctx.lineWidth = 1; ctx.stroke();
+  }
+  ctx.strokeStyle = '#e9ebf3';
+  for (let i = 0; i < n; i++) {
+    const [x, y] = pt(i, R);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+  }
+
+  const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, R);
+  g.addColorStop(0, 'rgba(225,29,72,.38)');
+  g.addColorStop(1, 'rgba(168,85,247,.18)');
+  ctx.beginPath();
+  dims.forEach((d, i) => {
+    const [x, y] = pt(i, R * (d.score / 100) * p);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; ctx.stroke();
+
+  dims.forEach((d, i) => {
+    const [x, y] = pt(i, R * (d.score / 100) * p);
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.strokeStyle = d.level === 'high' ? '#059669' : d.level === 'mid' ? '#d97706' : '#e11d48';
+    ctx.lineWidth = 2.4; ctx.stroke();
+  });
+
+  dims.forEach((d, i) => {
+    const [x, y] = pt(i, R + 27);
+    const cos = Math.cos(ang(i));
+    ctx.textAlign = Math.abs(cos) < 0.2 ? 'center' : (cos > 0 ? 'left' : 'right');
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#4b5563';
+    ctx.font = '500 12.5px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText(d.name, x, y - 7);
+    ctx.fillStyle = d.level === 'high' ? '#059669' : d.level === 'mid' ? '#d97706' : '#e11d48';
+    ctx.font = '800 13px -apple-system,"PingFang SC",sans-serif';
+    ctx.fillText(d.score, x, y + 10);
+  });
+}
+function animateRadar(dims) {
+  const cv = $('#radar');
+  const t0 = performance.now();
+  (function step(now) {
+    const p = Math.min((now - t0) / 950, 1);
+    drawRadar(cv, dims, 1 - Math.pow(1 - p, 3));
+    if (p < 1) requestAnimationFrame(step);
+  })(performance.now());
+}
+
+/* ---------- 面试回放（数据源 qaList：仅 AI 问 + 我的答，无点评气泡） ---------- */
+function renderPlayback(d) {
+  const list = d.qaList || [];
+  $('#pbTip').textContent = `共 ${list.length} 轮问答`;
+  $('#pbCounter').textContent = `${list.length} / ${list.length}`;
+
+  $('#pbList').innerHTML = list.map((r, idx) => {
+    const sc = r.score >= 80 ? 'high' : r.score >= 60 ? 'mid' : '';
+    const src = SRC_MAP[r.questionSource];
+    const selfTag = r.selfIntro ? `<span class="pb-self">🎤 自我介绍</span>` : '';
+    return `
+      <div class="pb-round on" data-round="${idx}">
+        <div class="pb-row">
+          <div class="pb-avatar ai">AI</div>
+          <div class="pb-bubble q">
+            <span class="pb-label">问题 ${r.questionIdx}${src ? ' · ' + esc(src) : ''}</span>${selfTag}
+            ${esc(r.question)}
+          </div>
+        </div>
+        <div class="pb-row user">
+          <div class="pb-bubble a">
+            ${r.score != null ? `<span class="pb-score ${sc}">本问 ${r.score} 分</span>` : ''}
+            <span class="pb-label">我的回答</span>
+            ${esc(r.userAnswer || '（未作答）')}
+          </div>
+          <div class="pb-me-tag">我</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  $('#pbProgress').style.width = '100%';
+  $('#pbReplay').addEventListener('click', () => playPlayback());
+}
+
+function playPlayback() {
+  const rounds = $$('#pbList .pb-round');
+  const total = rounds.length;
+  if (!total) return;
+  rounds.forEach(r => r.classList.remove('on'));
+  $('#pbProgress').style.width = '0%';
+  $('#pbCounter').textContent = `0 / ${total}`;
+
+  let i = 0;
+  const playBtn = $('#pbReplay');
+  playBtn.disabled = true;
+  playBtn.textContent = '▶ 播放中…';
+
+  (function next() {
+    if (i >= total) {
+      playBtn.disabled = false;
+      playBtn.textContent = '▶ 从头播放';
+      return;
+    }
+    rounds[i].classList.add('on');
+    i++;
+    $('#pbProgress').style.width = (i / total * 100) + '%';
+    $('#pbCounter').textContent = `${i} / ${total}`;
+    rounds[i - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(next, 650);
+  })();
+}
+
+/* ---------- 逐题（QuestionReview 四段式：意图 / 框架 / 差距 / 建议） ---------- */
+function renderQuestions(d) {
+  const list = d.questionReviews || [];
+  $('#qCount').textContent = `共 ${list.length} 题`;
+
+  // {{…}} 高亮：底纹用于原文引用，红粗用于关键缺陷
+  const hlDim = s => esc(s || '').replace(/\{\{(.+?)\}\}/g, '<span style="background:#fff7ed;border-bottom:1px dashed #fdba74;padding:0 2px;border-radius:2px">$1</span>');
+  const hlRed = s => esc(s || '').replace(/\{\{(.+?)\}\}/g, '<strong style="color:#e11d48">$1</strong>');
+
+  $('#qList').innerHTML = list.map(q => {
+    const sc = q.score >= 80 ? 'sc-high' : q.score >= 60 ? 'sc-mid' : 'sc-low';
+    const tags = q.tags || [];
+    const risk = tags.some(t => t.type === 'red');
+    const selfTag = q.selfIntro ? '<span class="pb-self">🎤 自我介绍</span>' : '';
+    return `
+      <div class="q" data-score="${q.score}" data-risk="${risk}">
+        <div class="q-head">
+          <div class="q-title"><span class="q-no">Q${q.questionIdx}</span><span>${esc(q.question)}</span>${selfTag}</div>
+          <div class="q-right">
+            <div class="q-score ${sc}">${q.score} 分</div>
+            <span class="q-arrow">▼</span>
+          </div>
+        </div>
+        <div class="q-body">
+          <div class="q-block"><span class="bk">🎯 考察意图</span><div class="qa-intent">${esc(q.intent || '--')}</div></div>
+          <div class="q-block"><span class="bk">回答分析</span><div class="answer">${hlDim(q.analysis) || '--'}</div></div>
+          <div class="q-block"><span class="bk">AI 点评</span><div class="comment">${hlRed(q.feedback) || '--'}</div></div>
+          <div class="q-block"><span class="bk">参考框架</span><ul class="qa-fw">${(q.framework || []).map(f => `<li>${esc(f)}</li>`).join('') || '<li>--</li>'}</ul></div>
+          <div class="q-block"><span class="bk">差距分析</span><div class="answer">${hlRed(q.gap) || '--'}</div></div>
+          <div class="q-block"><span class="bk">提升建议</span><div class="suggest">${esc(q.advice || '--')}</div></div>
+          ${tags.length ? `<div class="tagrow">${tags.map(t => `<span class="tag ${t.type}">${esc(t.text)}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  $$('#qList .q-head').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+
+  $$('#qFilter .chip').forEach(c => {
+    c.addEventListener('click', () => {
+      $$('#qFilter .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      const f = c.dataset.f;
+      $$('#qList .q').forEach(card => {
+        const s = +card.dataset.score, risk = card.dataset.risk === 'true';
+        const show = f === 'all' || (f === 'low' && s < 60) || (f === 'mid' && s >= 60 && s < 80) || (f === 'flag' && risk);
+        card.style.display = show ? '' : 'none';
+      });
+    });
+  });
+}
+
+/* ---------- 语音 ---------- */
+const ST_MAP = { nervous: ['😤 紧张', 'st-bad'], hesitant: ['🤔 犹豫', 'st-warn'], calm: ['😌 平稳', 'st-ok'], confident: ['😄 自信', 'st-good'] };
+
+function renderVoice(d) {
+  $('#vgrid').innerHTML = d.voiceMetrics.map(m => {
+    const cls = m.status === 'ok' ? 'ok' : m.status === 'warn' ? 'warn' : 'bad';
+    const ic = m.status === 'ok' ? '●' : m.status === 'warn' ? '▲' : '✕';
+    return `
+      <div class="vitem">
+        <div class="vt">${m.name}</div>
+        <div class="vv">${m.value}<small> ${m.unit}</small></div>
+        <div class="vd ${cls}">${ic} ${esc(m.comment)} · 基准 ${esc(m.bench)}</div>
+      </div>`;
+  }).join('');
+  $('#voiceLead').textContent = d.voiceLead;
+
+  // 心态趋势（sentimentTrend：逐轮情绪）
+  const trend = (d.meta && d.meta.sentimentTrend) || d.sentimentTrend || [];
+  $('#stBox').innerHTML = trend.length ? `
+    <div class="st-trend">${trend.map((s, i) => {
+      const [txt, cls] = ST_MAP[s] || [esc(s), 'st-ok'];
+      return `${i ? '<i class="st-line"></i>' : ''}<div class="st-node ${cls}"><div class="st-dot"></div><div class="st-txt">${txt}</div><div class="st-rd">第 ${i + 1} 轮</div></div>`;
+    }).join('')}</div>` : '<span style="font-size:12px;color:var(--sub)">本场暂无逐轮情绪数据</span>';
+
+  // 全场可疑信号（redFlags）
+  const flags = (d.meta && d.meta.redFlags) || d.redFlags || [];
+  $('#flagBox').innerHTML = flags.length
+    ? `<div class="flag-title">🚩 可疑信号（${flags.length}）</div>` + flags.map(f => `<div class="flag-item">${esc(f)}</div>`).join('')
+    : '';
+
+  const wave = $('#vWave');
+  wave.innerHTML = Array.from({ length: 56 }, (_, i) =>
+    `<i style="height:${Math.min(28 + Math.abs(Math.sin(i / 5)) * 62 + Math.random() * 10, 100)}%"></i>`
+  ).join('');
+
+  const btn = $('#vPlay'), timeEl = $('#vTime');
+  let timer = null;
+  const total = ((d.meta && d.meta.durationMinutes) || 30) * 60;
+  btn.addEventListener('click', () => {
+    const bars = $$('i', wave);
+    if (timer) { clearInterval(timer); timer = null; btn.textContent = '▶'; return; }
+    btn.textContent = '⏸';
+    let i = 0;
+    timer = setInterval(() => {
+      if (i >= bars.length) {
+        clearInterval(timer); timer = null; btn.textContent = '▶';
+        bars.forEach(b => b.classList.remove('on'));
+        timeEl.textContent = '00:00 / ' + fmt(total);
+        return;
+      }
+      bars.forEach((b, k) => b.classList.toggle('on', k <= i && k > i - 7));
+      timeEl.textContent = fmt(Math.round(total * i / bars.length)) + ' / ' + fmt(total);
+      i++;
+    }, 90);
+  });
+}
+const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+
+/* ---------- 建议（SuggestionView：动作 + 验收口径 + 优先级） ---------- */
+function renderAdvice(d) {
+  $('#devLead').textContent = '基于本场暴露的短板，按优先级给出「动作 + 验收口径」—— 做到验收口径描述的程度，即为过关。';
+
+  // 优先使用结构化 suggestionViews，缺省回退 improvementSuggestions
+  const svs = d.suggestionViews || [];
+  if (svs.length) {
+    const plv = p => p <= 1 ? 'p1' : p === 2 ? 'p2' : 'p3';
+    $('#devList').innerHTML = svs.map(x => `
+      <div class="dev-item ${plv(x.priority || 3)}">
+        <div class="dev-head">
+          <div class="dev-rank">${x.priority || '--'}</div>
+          <h5>${esc(x.action || '')}</h5>
+        </div>
+        <div class="dev-row"><span class="k">验收口径</span><span class="v">${esc(x.acceptance || '--')}</span></div>
+      </div>
+    `).join('');
+  } else {
+    $('#devList').innerHTML = (d.improvementSuggestions || []).map((s, i) => `
+      <div class="dev-item p${Math.min(i + 1, 3)}">
+        <div class="dev-head"><div class="dev-rank">${i + 1}</div><h5>${esc(s)}</h5></div>
+      </div>
+    `).join('');
+  }
+
+  // 追问预警（predictedQuestions：未问到的 = 下次最可能被问）
+  const pqs = d.predictedQuestions || [];
+  if (pqs.length) {
+    $('#pqCard').style.display = '';
+    const item = p => `
+      <div class="pq-item ${p.askedThisRound ? 'pq-asked' : ''}">
+        <div class="pq-head">
+          <span class="pq-kp">${esc(p.knowledgePoint || '综合')}</span>
+          <span class="pq-state">${p.askedThisRound ? `本场已问 · ${p.askedScore ?? '--'} 分` : '⚠️ 未被问到'}</span>
+        </div>
+        <div class="pq-q">${esc(p.question || '')}</div>
+        ${p.briefAnswer ? `<div class="pq-a"><span class="k">要点</span>${esc(p.briefAnswer)}</div>` : ''}
+        ${p.analysis ? `<div class="pq-a"><span class="k">缘由</span>${esc(p.analysis)}</div>` : ''}
+      </div>`;
+    $('#pqBox').innerHTML =
+      pqs.filter(p => !p.askedThisRound).map(item).join('') +
+      pqs.filter(p => p.askedThisRound).map(item).join('');
+  }
+
+  $('#planTable tbody').innerHTML = d.trainingPlan.map(p => `
+    <tr><td class="day">${esc(p.days)}</td><td>${esc(p.content)}</td><td>${esc(p.output)}</td></tr>
+  `).join('');
+}
+
+/* ---------- 底部结论 ---------- */
+function renderFooter(d) {
+  $('#footer').innerHTML = `
+    <b>结论</b>：${esc(d.overallComment || d.summary || '')}
+    <div class="disc">${esc(d.disclaimer || '')}</div>
+  `;
+}
+
+/* =========================================================
+ *  4. 导出简历 PDF
+ * =======================================================*/
+function exportResumePDF() {
+  if (!REPORT) return;
+  const d = REPORT;
+  const c = d.candidate, j = d.jobInfo, m = d.meta || {};
+  const t = new Date(m.createTime || Date.now());
+  const pad = n => String(n).padStart(2, '0');
+  const dateStr = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+  const skillArr = String(c.skills || '').split(/[、,，;；]+/).map(s => s.trim()).filter(Boolean);
+
+  // 生成简历 HTML（打印用）
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>${c.name} · 简历</title>
+<style>
+  @page{size:A4;margin:18mm 16mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#1f2937;line-height:1.7;font-size:12.5px;padding:20px}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:2px solid #4f46e5;margin-bottom:18px}
+  .hdr .name{font-size:26px;font-weight:900;letter-spacing:.5px}
+  .hdr .job{font-size:13px;color:#4f46e5;font-weight:700;margin-top:3px}
+  .hdr .contact{font-size:11.5px;color:#6b7280;text-align:right;line-height:1.9}
+  h2{font-size:13.5px;font-weight:800;color:#4f46e5;margin:18px 0 9px;padding-left:9px;border-left:3px solid #4f46e5;line-height:1}
+  h2:first-of-type{margin-top:0}
+  .summary{background:#f8f9fd;border-radius:8px;padding:12px 15px;font-size:12px;line-height:1.9;color:#374151}
+  .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .tags span{font-size:11px;padding:2px 9px;border-radius:6px;background:#eef2ff;color:#4f46e5;font-weight:500}
+  .info-row{display:flex;gap:10px;font-size:12px;margin-bottom:5px}
+  .info-row .k{color:#6b7280;width:64px;flex-shrink:0}
+  .info-row .v{color:#374151}
+  ul{list-style:none;padding-left:0}
+  li{padding-left:14px;position:relative;font-size:12px;line-height:1.85;margin-bottom:4px;color:#374151}
+  li::before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:#c7cbd8}
+  .foot{margin-top:26px;padding-top:12px;border-top:1px dashed #e5e7eb;font-size:10.5px;color:#9ca3af;text-align:center}
+  .watermark{font-size:10px;color:#d1d5db;text-align:right;margin-top:4px}
+</style>
+</head>
+<body>
+  <div class="hdr">
+    <div>
+      <div class="name">${esc(c.name)}</div>
+      <div class="job">${esc(j.position || m.position)} · 岗位匹配 ${esc(j.matchRate || '--')}</div>
+    </div>
+    <div class="contact">
+      面试编号：#${d.interviewId}<br>
+      导出日期：${dateStr}
+    </div>
+  </div>
+
+  <h2>个人简介</h2>
+  <div class="summary">${esc(c.resumeSelfIntro || '')}</div>
+
+  <h2>技能标签</h2>
+  <div class="tags">${skillArr.map(s => `<span>${esc(s)}</span>`).join('')}</div>
+
+  <h2>面试口头自我介绍</h2>
+  <div class="summary">${esc(c.interviewSelfIntro || '')}</div>
+
+  <div class="foot">
+    本简历由 AI 语音模拟面试评估系统导出 · 面试编号 #${d.interviewId}
+  </div>
+  <div class="watermark">Voice Mock Interview Analysis Report</div>
+
+  <script>
+    window.onload = function(){
+      setTimeout(function(){ window.print(); }, 200);
+    };
+  <\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank', 'width=820,height=900');
+  if (!w) { toast('弹窗被拦截，请允许弹窗后重试'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  toast('简历 PDF 已生成，请在打印窗口选择「另存为 PDF」');
+}
+
+/* =========================================================
+ *  5. 分享报告
+ * =======================================================*/
+function openShare() {
+  const url = getShareUrl();
+  $('#shareInput').value = url;
+  $('#shareModal').classList.add('show');
+}
+
+function closeShare() {
+  $('#shareModal').classList.remove('show');
+}
+
+function getShareUrl() {
+  // 实际部署时替换为真实报告链接（分享令牌：POST /portal/interview/voice/{id}/share-token）
+  const base = location.origin && location.origin !== 'null'
+    ? location.origin + location.pathname
+    : 'https://report.example.com/interview';
+  return `${base}?interviewId=${REPORT ? REPORT.interviewId : ''}`;
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = '已复制 ✓';
+      btn.classList.add('done');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('done'); }, 1600);
+    }
+    toast('已复制到剪贴板');
+  }).catch(() => toast('复制失败，请手动选择'));
+}
+
+async function nativeShare() {
+  const url = getShareUrl();
+  const title = 'AI 语音模拟面试评估报告';
+  const text = `${REPORT ? REPORT.candidate.name : ''} 的模拟面试评估报告，综合得分 ${REPORT ? REPORT.totalScore : ''} 分`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      toast('分享成功');
+      closeShare();
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('分享已取消');
+    }
+  } else {
+    copyText(url, null);
+  }
+}
+
+/* =========================================================
+ *  6. 接口文档
+ * =======================================================*/
+const CODE_SAMPLE = `POST /portal/interview/voice/2/finish
+Content-Type: application/json
+
+────────────────────────────────────────────
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "interviewId": 2,
+    "totalScore": 50,
+    "levelEstimate": "junior",
+    "reviewDegraded": false,
+    "verdict": "考察者视角：8 年真实研发履历与技术广度达标……",
+    "profile": "候选人钟永国，8 年 Java 研发经验……",
+
+    "dimensions": { "depth": 45, "engineering": 50, "design": 42, "communication": 62, "match": 50 },
+    "competencyViews": [
+      { "key": "depth", "label": "技术深度", "score": 45,
+        "comment": "能列出技术名词，但未深入原理与选型依据……",
+        "evidenceIdx": [1, 2] }
+    ],
+    "jobMatch": { "rate": 50, "reason": "技能栈基本覆盖 JD……" },
+
+    "candidate": {
+      "name": "钟永国",
+      "skills": "Java、Spring、MyBatis、MySQL、Redis、MQ、微服务、TypeScript、Vue、AI Agent",
+      "resumeSelfIntro": "近 8 年 Java 研发经验……",
+      "interviewSelfIntro": "我是钟永国，来自云南……",
+      "aiScore": "82"
+    },
+    "jobInfo": {
+      "position": "后端开发",
+      "jobRequirements": "负责核心系统的架构设计与技术选型……",
+      "matchRate": "50%"
+    },
+    "introScore": {
+      "dimensions": { "内容完整度": 80, "技术相关性": 75, "表达结构": 70, "岗位关联": 60 },
+      "total": 72, "comment": "……", "strengths": [], "weaknesses": []
+    },
+
+    "summary": "本次面试共 3 道主问，实际作答 5 轮……",
+    "overallComment": "技术栈广度达标，但深度与体系化不足……",
+    "highlightViews": [ { "title": "8 年多行业真实履历", "detail": "……" } ],
+    "weakPointViews": [
+      { "title": "技术深度不足", "type": "depth", "detail": "……",
+        "evidence": "Q1 原话「用的是 Nacos」……", "impact": "……", "remedy": "……" }
+    ],
+
+    "questionReviews": [
+      {
+        "questionIdx": 1, "qaId": 101, "selfIntro": false,
+        "question": "请介绍你最近参与的一个微服务项目……",
+        "score": 55,
+        "analysis": "介绍了某保险核心系统的微服务拆分……",
+        "feedback": "项目背景交代清楚，但只说了「用了什么」……",
+        "intent": "验证微服务落地的真实参与度与架构决策能力",
+        "framework": ["项目背景与规模量化", "服务拆分依据与边界", "选型及对比"],
+        "gap": "缺少选型对比——只说了「用了 Nacos」……",
+        "advice": "用「技术选型三问」重写项目开头。"
+      }
+    ],
+    "knowledgePoints": ["自我介绍", "项目经历", "高并发", "问题排查"],
+
+    "sentimentTrend": ["nervous", "hesitant", "calm", "confident", "hesitant"],
+    "redFlags": ["第 2、3 题各超时 1 次"],
+    "fluencyAvg": 76,
+
+    "suggestionViews": [
+      { "priority": 1, "action": "系统学习 SkyWalking 并接入现有项目……",
+        "acceptance": "能用 TraceId 讲清一次慢调用定位全过程" }
+    ],
+    "improvementSuggestions": ["补齐链路追踪能力……"],
+    "predictedQuestions": [
+      { "question": "Nacos 注册中心的 AP / CP 模式有什么区别？",
+        "briefAnswer": "默认 AP（Distro）……", "analysis": "Q1 提到 Nacos 但没答出对比……",
+        "knowledgePoint": "注册中心", "askedThisRound": false }
+    ],
+
+    "suggestion": "整体补强建议（旧字段回退用）……"
+  }
+}
+
+/* 配套：面试详情（回放数据源）
+GET /portal/interview/voice/2
+→ VoiceInterviewVO { id, position, agentName, status, difficulty,
+   totalQa, currentIdx, score, durationMinutes, analysisStatus,
+   qaList: [{ id, questionIdx, question, userAnswer, score,
+              questionSource: "bank"|"resume_project"|"llm", ... }] }
+*/`;
+
+const FIELDS = [
+  ['interviewId',        'number', '面试 ID（Hero「面试编号」）'],
+  ['totalScore',         'number', '综合得分 0–100'],
+  ['levelEstimate',      'string', '🤖 水平定级：junior / mid / senior（概览定级徽章）'],
+  ['reviewDegraded',     'boolean','AI 深度复盘是否降级（true 时概要顶部横幅提示）'],
+  ['verdict',            'string', '🤖 考察者结论判词（≤60 字，概览顶部结论卡）'],
+  ['profile',            'string', '🤖 候选人画像段（背景/年限/项目复杂度对照岗位）'],
+  ['dimensions',         'object', '能力维度得分映射（旧字段，雷达回退用）'],
+  ['competencyViews[]',  'array',  '🤖 能力剖面五维：key / label / score / comment / evidenceIdx'],
+  ['jobMatch',           'object', '🤖 岗位匹配：rate(%) + reason'],
+  ['candidate',          'object', '候选人：name / skills / resumeSelfIntro / interviewSelfIntro / aiScore'],
+  ['jobInfo',            'object', '岗位：position / jobRequirements(JD) / matchRate'],
+  ['introScore',         'object', '🤖 自我介绍独立评分：4 维 dimensions + total + comment'],
+  ['summary',            'string', '🤖 一句话总评（评分卡 headline）'],
+  ['overallComment',     'string', '🤖 整场 LLM 复盘总评 3–5 句（评分卡 detail + 底部结论）'],
+  ['highlightViews[]',   'array',  '🤖 结构化亮点：title / detail（回退 highlights）'],
+  ['weakPointViews[]',   'array',  '🤖 薄弱点归因卡：title / detail / type(depth|knowledge|expression) / evidence / impact / remedy'],
+  ['questionReviews[]',  'array',  '🤖 逐题四段式：questionIdx / question / score / analysis / feedback / intent / framework[] / gap / advice / selfIntro'],
+  ['knowledgePoints[]',  'array',  '预设考察方向（字符串或 {title,desc}）'],
+  ['sentimentTrend[]',   'array',  '逐轮心态：nervous / hesitant / calm / confident'],
+  ['redFlags[]',         'array',  '全场可疑信号汇总'],
+  ['fluencyAvg',         'number', '表达流畅度均分 0–100'],
+  ['suggestionViews[]',  'array',  '🤖 结构化行动建议：action(动词开头) / acceptance(验收口径) / priority'],
+  ['improvementSuggestions[]', 'array', '针对性改进建议（旧字段回退）'],
+  ['predictedQuestions[]','array', '🤖 追问预测（≤6 条）：question / briefAnswer / analysis / knowledgePoint / askedThisRound / askedScore'],
+  ['suggestion',         'string', '旧版整体建议（回退字段）']
+];
+
+const PROMPT = `【角色】
+你是一名资深前端工程师 + AI 产品设计者。
+
+【任务】
+请帮我实现一个「AI 语音模拟面试评估报告」页面，技术栈为原生 HTML + CSS + JavaScript，
+单文件可直接运行，不依赖任何构建工具与第三方库（图表用 Canvas 手绘）。
+数据结构与后端 PortalVoiceInterviewController 真实 VO（VoiceInterviewReportVO）对齐。
+
+【一、数据接口（真实链路，报告无独立 GET 接口）】
+报告数据由「结束收口 / 重新生成」接口返回，静态演示用 Mock 回退：
+
+1. POST /portal/interview/voice/{interviewId}/finish
+   结束面试并生成报告（幂等），返回 Result<VoiceInterviewReportVO>
+2. POST /portal/interview/voice/{interviewId}/regenerate-report
+   重新生成报告（触发异步分析，可轮询 analysis）
+3. GET  /portal/interview/voice/{interviewId}/analysis
+   报告分析状态轮询：{ status: 0未分析 | 1分析中 | 2已完成 }
+4. GET  /portal/interview/voice/share/{shareToken}
+   分享免登录读取报告（同一 VO 结构）
+
+报告本体返回结构（核心字段，🤖 为 AI 生成字段）：
+{
+  interviewId, totalScore,
+  levelEstimate: 'junior'|'mid'|'senior',      // 🤖 水平定级
+  reviewDegraded,                               // 复盘降级标记
+  verdict,                                      // 🤖 考察者结论判词（≤60 字）
+  profile,                                      // 🤖 候选人画像段
+  competencyViews: [{ key, label, score, comment, evidenceIdx[] }],  // 🤖 五维能力剖面
+  dimensions: { depth: 55, ... },               // 旧版维度映射（回退用）
+  jobMatch: { rate, reason },                   // 🤖 岗位匹配评估
+  candidate: { name, skills, resumeSelfIntro, interviewSelfIntro, aiScore },
+  jobInfo: { position, jobRequirements, matchRate },
+  introScore: { dimensions{}, total, comment }, // 🤖 自我介绍独立评分
+  summary, overallComment,                      // 🤖 一句话总评 / 整场复盘 3-5 句
+  highlightViews: [{ title, detail }],          // 🤖 结构化亮点
+  weakPointViews: [{ title, detail, type:'depth'|'knowledge'|'expression',
+                     evidence, impact, remedy }],              // 🤖 薄弱点归因卡
+  questionReviews: [{ questionIdx, qaId, selfIntro, question, score,
+                      analysis, feedback, intent, framework[], gap, advice }], // 🤖 逐题四段式
+  knowledgePoints[], sentimentTrend[], redFlags[], fluencyAvg,
+  suggestionViews: [{ action, acceptance, priority }],        // 🤖 结构化行动建议
+  improvementSuggestions[],                     // 旧版回退字段
+  predictedQuestions: [{ question, briefAnswer, analysis, knowledgePoint,
+                         askedThisRound, askedScore }]         // 🤖 追问预测 ≤6 条
+}
+
+回放数据源（另一接口）：
+GET /portal/interview/voice/{interviewId}
+返回 VoiceInterviewVO（含 qaList: [{ questionIdx, question, userAnswer, score,
+questionSource:'bank'|'resume_project'|'llm', selfIntro }]），供面试回放 Tab 使用。
+
+【二、页面结构】
+顶部紫色渐变 Hero 头部：
+- 渐变：linear-gradient(135deg, #5b4bd6 0%, #7c3aed 50%, #a855f7 100%)
+- 右上角两个毛玻璃按钮：「📄 导出简历 PDF」「🔗 分享报告」
+  【禁止：不要包含「重新生成建议」按钮，报告生成仅由结束收口/重新生成接口触发】
+- 底部一行 5 个毛玻璃元信息卡片：候选人 / 应聘岗位 / 面试时间 / 面试时长 / 面试编号
+
+评分卡（与 Hero 轻微重叠，白底圆角卡片）：
+- 三栏：大号综合得分 + 派生评级胶囊 / 一句话总评 summary + overallComment / 岗位匹配度 + 进度条
+
+Tab 栏（7 个，横向可滚动）：
+🎯 面试背景 / 📋 概览评分 / 💬 面试回放 / 🔍 逐题分析 / 🎙️ 语音指标 / 🚀 改进建议 / 🔌 数据接口
+
+各 Tab 内容：
+1) 面试背景：目标岗位摘要 + 候选人概要（两列）→ 简历概要（resumeSelfIntro + interviewSelfIntro）
+   → 自我介绍评分（introScore 4 维 + 总分）→ 考察方向（knowledgePoints chips）
+2) 概览评分：考察者结论卡（verdict + levelEstimate 徽章 + profile）→ Canvas 五维雷达图
+   （competencyViews，含 evidenceIdx 证据题号徽章）→ 结构化亮点 highlightViews
+   → 薄弱点归因卡 weakPointViews（左侧色条按 type 区分：depth 红 / knowledge 橙 / expression 紫）
+3) 面试回放：聊天式布局，【仅保留 AI 问题和我的回答，不要点评气泡】；
+   数据源为 VoiceInterviewVO.qaList；AI 问题在左（灰底 + 红橙头像 + 题源标签 + 自我介绍徽标），
+   我的回答在右（浅红底 + 分数徽标 + 白色「我」标签）；
+   顶部播放控制条：▶ 从头播放 + 进度条 + 「N / M」计数器
+4) 逐题分析：筛选 chips + 可展开四段式卡片：
+   🎯 考察意图 intent → 回答分析 analysis（{{}} 高亮底纹）→ AI 点评 feedback（{{}} 红色加粗）
+   → 参考框架 framework（要点列表）→ 差距分析 gap（{{}} 红色加粗）→ 提升建议 advice（紫底卡片）
+   自我介绍轮（selfIntro）显示徽标但不计分
+5) 语音指标：指标卡片网格（时长=durationMinutes、流畅度=fluencyAvg）
+   → 逐轮心态趋势 sentimentTrend（nervous 红绿点连线）→ 全场可疑信号 redFlags
+6) 改进建议：结构化行动建议 suggestionViews（优先级色条 + 动作 + 验收口径）
+   → 追问预警卡 predictedQuestions（未问在前、已问在后，已问含 askedScore）
+   → 7 天补强计划示例表
+7) 数据接口：真实接口清单 + finish 响应 JSON 示例 + 字段说明 + 开发提示词
+
+底部深色卡片：overallComment 结论 + 免责声明（含「告别语轮次已从评分统计中剔除」）。
+
+【三、核心交互】
+1. 导出简历 PDF：
+   - 点击后生成一份 A4 简历 HTML（姓名、技能 chips、求职意向=jobInfo.position + 匹配度、
+     简历自我介绍 resumeSelfIntro、面试口头自我介绍 interviewSelfIntro）
+   - 用 window.open 打开新窗口并自动调用 window.print()
+   - 用户可在打印窗口选择「另存为 PDF」
+   - 简历要有紫色主色调、专业排版、A4 @page 边距
+
+2. 分享报告：
+   - 点击弹出模态框，含：报告链接（?interviewId=N）输入框 + 复制按钮、
+     四个分享渠道（微信/QQ/微博/复制）、二维码区域
+   - 复制链接用 navigator.clipboard，成功后按钮变绿并显示「已复制 ✓」
+   - 若浏览器支持 navigator.share，点击分享渠道可直接调用原生分享
+   - 模态框有遮罩、淡入动画、右上角关闭按钮、点击遮罩关闭
+
+3. 其他：
+   - Tab 切换：切到概览时重播雷达动画（competencyViews 数据源）
+   - 分数 countUp 缓动动画
+   - 面试回放：逐条 .on class 淡入（650ms 间隔），进度条与计数器同步，自动滚动到当前轮次
+   - 复制按钮统一反馈：文案变「已复制 ✓」并变绿，1.6 秒还原
+   - 操作反馈用底部居中 toast（2.2 秒消失）
+   - 字段缺失按缺失隐藏（如 verdict/predictedQuestions 为 undefined 时对应区块不渲染）
+
+【四、视觉规范】
+- 背景 #f5f6f9，卡片白底 + 1px #e8eaef 边框 + 圆角 16px
+- 主色 #4f46e5 / #7c3aed，低分 #e11d48，中分 #d97706，高分 #059669
+- 字体：-apple-system / PingFang SC / Microsoft YaHei
+- 大分数 56px / font-weight 900
+- 响应式：<820px Hero 三栏变单栏；<760px 背景两栏变单栏
+
+【五、交付】
+输出一个完整的单文件 HTML（含 <style> 与 <script>），
+内置一份符合上述结构的 Mock 数据（interviewId=2，候选人：钟永国，后端开发，
+综合得分 50，levelEstimate=junior，含 5 轮 qaList 回放、3 道逐题四段式、
+5 维能力剖面、4 张归因卡、6 条追问预测），保证在浏览器直接打开即可看到全部效果与交互。
+代码需有清晰的中文注释分区。`;
+
+function renderApi() {
+  $('#codeBox').innerHTML = hlJSON(CODE_SAMPLE);
+  $('#fieldBody').innerHTML = FIELDS.map(([f, t, d, ai]) => `
+    <tr>
+      <td>${esc(f)}</td>
+      <td>${esc(t)}</td>
+      <td>${esc(d)}${ai ? '<span class="ai-tag">🤖 AI</span>' : ''}</td>
+    </tr>
+  `).join('');
+  $('#promptBox').textContent = PROMPT;
+
+  const doCopy = (btn, text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = '已复制 ✓';
+      btn.classList.add('done');
+      setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('done'); }, 1600);
+    }).catch(() => toast('复制失败，请手动选择'));
+  };
+  $('#copyBtn').addEventListener('click', e => doCopy(e.target, CODE_SAMPLE));
+  $('#copyPrompt').addEventListener('click', e => doCopy(e.target, PROMPT));
+}
+
+/* =========================================================
+ *  7. 交互绑定
+ * =======================================================*/
+function bindUI() {
+  // Tabs
+  $$('#tabs .tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('#tabs .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const k = tab.dataset.tab;
+      $$('.panel-section').forEach(p => p.hidden = p.dataset.panel !== k);
+      if (k === 'overview' && REPORT) setTimeout(() => animateRadar(radarDims(REPORT)), 60);
+      if (k === 'playback') window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // 导出简历 PDF
+  $('#btn-export').addEventListener('click', exportResumePDF);
+
+  // 分享报告
+  $('#btn-share').addEventListener('click', openShare);
+  $('#shareClose').addEventListener('click', closeShare);
+  $('#shareModal').addEventListener('click', e => {
+    if (e.target === $('#shareModal')) closeShare();
+  });
+  $('#shareCopy').addEventListener('click', e => copyText($('#shareInput').value, e.target));
+  $$('.share-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const type = item.dataset.share;
+      const url = getShareUrl();
+      if (type === 'link') {
+        copyText(url, null);
+      } else if (type === 'wechat') {
+        toast('请复制链接后在微信中粘贴分享');
+        copyText(url, null);
+      } else if (type === 'qq') {
+        window.open(`https://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(url)}&title=AI语音模拟面试评估报告`, '_blank');
+      } else if (type === 'weibo') {
+        window.open(`https://service.weibo.com/share/share.php?url=${encodeURIComponent(url)}&title=AI语音模拟面试评估报告`, '_blank');
+      }
+    });
+  });
+
+  // 重新生成建议按钮已按 v7 规范移除（报告生成仅由结束收口/重新生成接口触发）
+
+  // ESC 关闭弹窗
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeShare();
+  });
+
+  // 自适应雷达
+  let rt;
+  window.addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => {
+      if (REPORT && !$('[data-panel="overview"]').hidden) drawRadar($('#radar'), radarDims(REPORT), 1);
+    }, 180);
+  });
+}
+
+/* =========================================================
+ *  8. 初始化
+ * =======================================================*/
+async function init() {
+  bindUI();
+  renderApi();
+
+  const data = await fetchReport();
+  REPORT = data;
+
+  await new Promise(r => setTimeout(r, 600));
+
+  renderHero(data);
+  renderScore(data);
+  renderBackground(data);
+  renderOverview(data);
+  renderDimensions(data);
+  renderPlayback(data);
+  renderQuestions(data);
+  renderVoice(data);
+  renderAdvice(data);
+  renderFooter(data);
+
+  $('#sk').remove();
+  $$('.panel-section').forEach(p => p.hidden = p.dataset.panel !== 'bg');
+  $$('#tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'bg'));
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

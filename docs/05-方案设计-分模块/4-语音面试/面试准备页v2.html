@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音面试准备 · 旭林知行</title>
+<style>
+:root{
+  --primary:#4f46e5;--primary-2:#7c3aed;--primary-soft:#eef2ff;
+  --green:#059669;--green-soft:#ecfdf5;
+  --amber:#d97706;--amber-soft:#fffbeb;
+  --red:#e11d48;--red-soft:#fff1f3;--red-2:#f43f5e;
+  --text:#1f2937;--sub:#6b7280;--muted:#9ca3af;
+  --border:#e8eaef;--border-2:#eef0f6;
+  --bg:#f5f6f9;--card:#fff;
+  --radius:16px;--radius-sm:12px;
+  --shadow-sm:0 1px 3px rgba(16,24,40,.04);
+  --shadow-md:0 4px 16px -8px rgba(16,24,40,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.7;
+  padding:20px 14px 60px;-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(124,58,237,.05), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(79,70,229,.05), transparent 45%);
+  background-attachment:fixed;
+}
+.wrap{max-width:1140px;margin:0 auto}
+button{font-family:inherit;cursor:pointer;border:none;background:none;transition:.2s;color:inherit}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
+input,textarea,select{font-family:inherit;font-size:13px;outline:none;color:var(--text)}
+input:focus,textarea:focus,select:focus{border-color:var(--primary)!important;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+::selection{background:var(--primary-soft);color:var(--primary)}
+
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#dfe2ea;border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:#c7cbd8}
+
+/* ============ 顶部工具栏 ============ */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .logo{
+  width:36px;height:36px;border-radius:10px;display:grid;place-items:center;
+  font-size:16px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));
+  box-shadow:0 8px 18px -8px rgba(79,70,229,.85);
+  position:relative;
+}
+.brand .logo::after{
+  content:"";position:absolute;inset:0;border-radius:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.25),transparent 55%);
+}
+.brand h1{font-size:18px;font-weight:800;letter-spacing:.2px;line-height:1.3}
+.brand .sub{font-size:11.5px;color:var(--sub);margin-top:1px}
+
+/* ============ 通用按钮 ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-size:13px;font-weight:600;padding:9px 18px;border-radius:10px;
+  white-space:nowrap;transition:.2s;
+}
+.btn-outline{background:#fff;border:1px solid var(--border);color:#374151}
+.btn-outline:hover{background:#f7f8fb;border-color:#d5d9e2;transform:translateY(-1px)}
+
+/* ============ 步骤指示器 ============ */
+.steps{
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#fff 0%,#fbfbff 100%);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:22px 30px;margin-bottom:18px;flex-wrap:wrap;gap:0;
+  box-shadow:var(--shadow-sm);
+}
+.step{display:flex;align-items:center;gap:11px;font-size:13px;font-weight:600;color:var(--muted);transition:.3s}
+.step .num{
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  font-size:12.5px;font-weight:800;background:#f3f4f8;color:#9ca3af;flex-shrink:0;transition:.3s;
+  position:relative;
+}
+.step.done .num{background:var(--green);color:#fff;box-shadow:0 4px 10px -4px rgba(5,150,105,.6)}
+.step.active .num{
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  box-shadow:0 6px 14px -4px rgba(79,70,229,.75);
+}
+.step.active .num::before{
+  content:"";position:absolute;inset:-4px;border-radius:50%;
+  border:2px solid rgba(79,70,229,.28);animation:ripple 2s infinite;
+}
+@keyframes ripple{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+.step.done,.step.active{color:var(--text)}
+.step-line{flex:1;height:2px;background:var(--border-2);min-width:40px;margin:0 18px;border-radius:99px;position:relative;overflow:hidden}
+.step-line.done{background:var(--green)}
+.step-line.active::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--green),var(--primary));
+  animation:flowLine 1.6s ease forwards;
+}
+@keyframes flowLine{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@media(max-width:640px){.steps{padding:18px 14px}.step{font-size:11.5px;gap:7px}.step .num{width:26px;height:26px;font-size:11px}.step-line{margin:0 8px;min-width:16px}}
+
+/* ============ 卡片 ============ */
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px 26px;margin-bottom:16px;box-shadow:var(--shadow-sm);
+  transition:.25s;
+}
+.card-title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:800;margin-bottom:20px;flex-wrap:wrap}
+.card-title .bar{width:4px;height:17px;border-radius:2px;background:linear-gradient(180deg,var(--primary),#a855f7)}
+.card-title .badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:8px;font-size:12px;font-weight:800;
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  box-shadow:0 4px 10px -4px rgba(79,70,229,.6);
+}
+.card-title .tip{font-size:11.5px;font-weight:400;color:var(--sub);margin-left:auto}
+
+/* ============ 设备检测 ============ */
+.device-row{
+  display:flex;align-items:center;gap:14px;padding:15px 18px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:11px;
+  transition:.25s;flex-wrap:wrap;background:#fff;position:relative;overflow:hidden;
+}
+.device-row::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--green);opacity:0;transition:.25s;
+}
+.device-row:hover{
+  border-color:#c7d2fe;background:linear-gradient(90deg,#fafbff,#fff);
+  transform:translateX(2px);box-shadow:var(--shadow-md);
+}
+.device-row:hover::before{opacity:1}
+.device-row:last-of-type{margin-bottom:0}
+.device-icon{
+  width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(135deg,#f3f4f8,#eceef6);font-size:17px;flex-shrink:0;
+  transition:.25s;
+}
+.device-row:hover .device-icon{background:linear-gradient(135deg,var(--primary-soft),#e0e7ff);transform:scale(1.05)}
+.device-info{flex:1;min-width:130px}
+.device-info .name{font-size:13.5px;font-weight:700;color:var(--text)}
+.device-info .meta{font-size:11.5px;color:var(--sub);margin-top:2px}
+.device-status{
+  font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:99px;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.st-ok{background:var(--green-soft);color:var(--green);border:1px solid #a7f3d0}
+.st-warn{background:var(--amber-soft);color:var(--amber);border:1px solid #fde68a}
+.st-idle{background:#f3f4f8;color:#6b7280;border:1px solid #e5e7eb}
+.device-select{
+  background:#fff;border:1px solid var(--border);border-radius:9px;
+  padding:8px 32px 8px 13px;font-size:12.5px;color:#4b5563;cursor:pointer;
+  min-width:190px;flex-shrink:0;transition:.2s;
+  appearance:none;
+  background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3e%3cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+  background-repeat:no-repeat;background-position:right 11px center;background-size:15px;
+}
+.device-select:hover{border-color:#c7d2fe}
+@media(max-width:640px){.device-select{min-width:0;width:100%}}
+
+.info-tip{
+  display:flex;gap:11px;padding:13px 16px;background:linear-gradient(135deg,#fffbeb,#fff7ed);
+  border:1px solid #fde68a;border-radius:var(--radius-sm);
+  font-size:12.5px;color:#92400e;line-height:1.75;margin-top:16px;
+}
+.info-tip.tip-danger{background:linear-gradient(135deg,#fff1f3,#fff5f7);border-color:#fecdd3;color:#9f1239}
+.info-tip .ic{flex-shrink:0;font-size:15px;line-height:1.5}
+
+/* ============ 表单 ============ */
+.form-group{margin-bottom:18px}
+.form-group:last-child{margin-bottom:0}
+.form-label{
+  display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;
+  color:#374151;margin-bottom:9px;
+}
+.form-label .req{color:var(--red);font-weight:800}
+.form-label .opt{font-size:11.5px;color:var(--sub);font-weight:400}
+.form-input,.form-select,.form-textarea{
+  width:100%;background:#fafbfe;border:1px solid var(--border);border-radius:10px;
+  padding:12px 15px;font-size:13px;color:var(--text);transition:.2s;
+  line-height:1.7;
+}
+.form-input::placeholder,.form-textarea::placeholder{color:#b0b4be}
+.form-input:hover,.form-select:hover,.form-textarea:hover{background:#f7f8fd}
+.form-textarea{resize:vertical;min-height:120px;line-height:1.85}
+.form-select{
+  appearance:none;cursor:pointer;padding-right:38px;
+  background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3e%3cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:16px;
+}
+.form-footer{display:flex;align-items:center;justify-content:space-between;margin-top:9px}
+.form-count{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:500}
+.form-clear{
+  font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:5px;
+  padding:3px 6px;border-radius:6px;transition:.18s;
+}
+.form-clear:hover{color:var(--red);background:var(--red-soft)}
+
+.resume-picker{
+  display:flex;align-items:center;gap:13px;padding:14px 18px;
+  background:linear-gradient(135deg,#fafbff,#f5f7fe);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  cursor:pointer;transition:.22s;position:relative;
+}
+.resume-picker:hover{
+  border-color:#c7d2fe;background:linear-gradient(135deg,#f5f7ff,#eef2ff);
+  transform:translateY(-1px);box-shadow:var(--shadow-md);
+}
+.resume-picker .ic{
+  width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--primary-soft),#e0e7ff);
+  color:var(--primary);font-size:17px;flex-shrink:0;
+}
+.resume-picker .info{flex:1;min-width:0}
+.resume-picker .info .name{
+  font-size:13.5px;font-weight:700;color:#374151;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.resume-picker .info .meta{font-size:11.5px;color:var(--sub);margin-top:2px}
+.resume-picker .arrow{font-size:11px;color:var(--sub);transition:.2s}
+.resume-picker:hover .arrow{color:var(--primary);transform:translateX(2px)}
+
+/* ============ 高级设置 ============ */
+.advanced{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:17px 26px;background:#fff;border:1px solid var(--border);
+  border-radius:var(--radius);cursor:pointer;transition:.25s;margin-bottom:16px;
+  box-shadow:var(--shadow-sm);
+}
+.advanced:hover{border-color:#c7d2fe;background:#fafbff;transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.advanced .left{display:flex;align-items:center;gap:11px;font-size:13.5px;font-weight:700}
+.advanced .left .ic{font-size:15px;color:var(--primary)}
+.advanced .right{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:7px;font-weight:600}
+.advanced .arrow{font-size:10px;transition:transform .35s}
+.advanced.open .arrow{transform:rotate(180deg)}
+
+/* ============ 主按钮 ============ */
+.main-cta{
+  width:100%;padding:18px 24px;border-radius:var(--radius);
+  background:linear-gradient(135deg,var(--red) 0%,var(--red-2) 100%);
+  color:#fff;font-size:15.5px;font-weight:800;letter-spacing:.4px;
+  display:flex;align-items:center;justify-content:center;gap:11px;
+  box-shadow:0 14px 32px -14px rgba(225,29,72,.75);
+  position:relative;overflow:hidden;transition:.25s;
+}
+.main-cta::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.25) 50%,transparent 70%);
+  transform:translateX(-100%);transition:.6s;
+}
+.main-cta:hover::before{transform:translateX(100%)}
+.main-cta:hover{box-shadow:0 18px 40px -16px rgba(225,29,72,.95);transform:translateY(-2px)}
+
+/* ============ Toast ============ */
+#toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,24px);opacity:0;pointer-events:none;
+  background:#111827;color:#fff;font-size:13px;padding:12px 22px;border-radius:12px;
+  box-shadow:0 14px 34px -10px rgba(0,0,0,.55);transition:.32s cubic-bezier(.4,0,.2,1);z-index:99;
+  display:flex;align-items:center;gap:9px;font-weight:500;max-width:90vw;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast .ic{font-size:14px}
+
+@media(max-width:560px){
+  .card{padding:18px 16px}
+  .brand h1{font-size:16px}
+  .main-cta{font-size:14px;padding:16px 20px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 顶部工具栏 -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">旭</div>
+      <div>
+        <h1>AI 语音面试准备</h1>
+        <div class="sub">完成以下准备步骤，开始你的模拟面试</div>
+      </div>
+    </div>
+    <div class="acts">
+      <button class="btn btn-outline" id="btnHistory">📁 我的面试记录</button>
+    </div>
+  </div>
+
+  <!-- 步骤指示器 -->
+  <div class="steps">
+    <div class="step done"><span class="num">✓</span><span>设备检测</span></div>
+    <div class="step-line done"></div>
+    <div class="step active"><span class="num">2</span><span>岗位与简历</span></div>
+    <div class="step-line active"></div>
+    <div class="step"><span class="num">3</span><span>开始面试</span></div>
+  </div>
+
+  <!-- ① 设备检测 -->
+  <div class="card">
+    <div class="card-title">
+      <span class="bar"></span>
+      <span class="badge">1</span>
+      设备检测
+      <span class="tip">仅需一次，浏览器会记住授权</span>
+    </div>
+
+    <div class="device-row">
+      <div class="device-icon">🎤</div>
+      <div class="device-info">
+        <div class="name">麦克风</div>
+        <div class="meta">用于录制你的语音回答</div>
+      </div>
+      <span class="device-status st-ok">✓ 已授权</span>
+      <select class="device-select">
+        <option>系统默认输入设备</option>
+        <option>MacBook Pro 麦克风</option>
+        <option>外接 USB 麦克风</option>
+      </select>
+      <button class="btn btn-outline" data-test="麦克风">测试</button>
+    </div>
+
+    <div class="device-row">
+      <div class="device-icon">🔊</div>
+      <div class="device-info">
+        <div class="name">扬声器</div>
+        <div class="meta">用于播放面试官语音</div>
+      </div>
+      <span class="device-status st-ok">✓ 检测到 3 个输出设备</span>
+      <select class="device-select">
+        <option>系统默认输出设备</option>
+        <option>MacBook Pro 扬声器</option>
+        <option>AirPods Pro</option>
+      </select>
+      <button class="btn btn-outline" data-test="扬声器">测试</button>
+    </div>
+
+    <div class="device-row">
+      <div class="device-icon">🎧</div>
+      <div class="device-info">
+        <div class="name">耳机 <span style="font-size:11px;color:var(--sub);font-weight:500">（推荐）</span></div>
+        <div class="meta">避免回声，提升收音质量</div>
+      </div>
+      <span class="device-status st-warn">⚠ 未检测到耳机</span>
+    </div>
+
+    <div class="device-row">
+      <div class="device-icon">🔇</div>
+      <div class="device-info">
+        <div class="name">环境噪声</div>
+        <div class="meta">检测当前环境是否适合面试</div>
+      </div>
+      <span class="device-status st-idle" id="noiseStatus">未检测</span>
+      <button class="btn btn-outline" id="btnNoise">检测</button>
+    </div>
+
+    <div class="info-tip">
+      <span class="ic">💡</span>
+      <div>建议佩戴耳机避免回声。麦克风权限可在浏览器地址栏图标中管理；插拔设备后列表会自动刷新。</div>
+    </div>
+  </div>
+
+  <!-- ② 岗位与简历 -->
+  <div class="card">
+    <div class="card-title">
+      <span class="bar"></span>
+      <span class="badge">2</span>
+      岗位与简历
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">🎯 面试岗位</label>
+      <select class="form-select" id="jobSelect">
+        <option value="custom">自定义（手动输入岗位名称）</option>
+        <option value="java-junior">初级 Java 开发工程师</option>
+        <option value="java-mid">中级 Java 开发工程师</option>
+        <option value="pm-mid">产品经理（中级）</option>
+        <option value="fe-senior">高级前端工程师</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">自定义岗位名称 <span class="opt">（上限 64 字）</span></label>
+      <input type="text" class="form-input" id="customJob" value="后端开发" maxlength="64" placeholder="例如：后端开发">
+      <div class="form-footer">
+        <span></span>
+        <span class="form-count" id="jobCount">4/64</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">📋 岗位要求 <span class="opt">（选填）</span></label>
+      <textarea class="form-textarea" id="jdInput" maxlength="2000" placeholder="粘贴目标岗位的 JD，AI 会据此调整题目难度与方向">初级 Java 开发工程师（0-2 年经验）
+薪资范围：8K - 15K · 13薪
+工作地点：深圳市南山区
+学历要求：本科及以上，计算机相关专业
+岗位职责：
+1. 参与公司核心业务系统的后端开发与维护；
+2. 在导师指导下完成模块设计与编码，编写单元测试；
+3. 配合前端完成接口联调，参与线上问题排查。</textarea>
+      <div class="form-footer">
+        <button class="form-clear" id="btnClearJD">✕ 清空</button>
+        <span class="form-count" id="jdCount">0/2000</span>
+      </div>
+    </div>
+
+    <div class="info-tip tip-danger">
+      <span class="ic">ℹ️</span>
+      <div>选中岗位后自动带入该岗位的 JD / 难度 / 题量（后台【岗位模板】可配），你可随时修改；<b>不选岗位则以此处输入为准</b>，留空则按岗位通用标准出题。</div>
+    </div>
+
+    <div class="form-group" style="margin-top:18px">
+      <label class="form-label">📄 简历</label>
+      <div class="resume-picker" id="resumePicker">
+        <div class="ic">📄</div>
+        <div class="info">
+          <div class="name">钟永国的简历-使用版01</div>
+          <div class="meta">最后更新于 2026-09-28 · PDF</div>
+        </div>
+        <span class="arrow">已选择 ▾</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 高级设置 -->
+  <div class="advanced" id="advancedToggle">
+    <div class="left"><span class="ic">⚙️</span>高级设置（选填）</div>
+    <div class="right"><span class="txt">展开</span><span class="arrow">▼</span></div>
+  </div>
+
+  <!-- 主按钮 -->
+  <button class="main-cta" id="btnStart">🎤 开始 AI 语音面试</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+function toast(msg, icon = '✨') {
+  const t = $('#toast');
+  t.innerHTML = `<span class="ic">${icon}</span><span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* 岗位名称字数统计 */
+const customJob = $('#customJob');
+const jobCount  = $('#jobCount');
+const updateJobCount = () => jobCount.textContent = `${customJob.value.length}/64`;
+customJob.addEventListener('input', updateJobCount);
+updateJobCount();
+
+/* JD 字数统计 */
+const jdInput = $('#jdInput');
+const jdCount = $('#jdCount');
+const updateJDCount = () => jdCount.textContent = `${jdInput.value.length}/2000`;
+jdInput.addEventListener('input', updateJDCount);
+updateJDCount();
+
+/* 清空 JD */
+$('#btnClearJD').addEventListener('click', () => {
+  if (!jdInput.value) return;
+  jdInput.value = '';
+  updateJDCount();
+  toast('已清空岗位要求', '🗑️');
+});
+
+/* 岗位下拉联动 */
+$('#jobSelect').addEventListener('change', e => {
+  const map = {
+    'java-junior': '初级 Java 开发工程师',
+    'java-mid':    '中级 Java 开发工程师',
+    'pm-mid':      '产品经理（中级）',
+    'fe-senior':   '高级前端工程师'
+  };
+  if (e.target.value === 'custom') {
+    customJob.value = '';
+    customJob.focus();
+    toast('请输入自定义岗位名称', '✏️');
+  } else {
+    customJob.value = map[e.target.value] || '';
+    toast(`已带入「${map[e.target.value]}」模板`, '📋');
+  }
+  updateJobCount();
+});
+
+/* 设备测试 */
+$$('[data-test]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const name = btn.dataset.test;
+    const old  = btn.textContent;
+    btn.textContent = '测试中…';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = old;
+      btn.disabled = false;
+      toast(`${name}工作正常`, '✓');
+    }, 1100);
+  });
+});
+
+/* 环境噪声检测 */
+$('#btnNoise').addEventListener('click', () => {
+  const status = $('#noiseStatus');
+  const btn    = $('#btnNoise');
+  status.className = 'device-status st-idle';
+  status.textContent = '检测中…';
+  btn.disabled = true;
+  setTimeout(() => {
+    status.className = 'device-status st-ok';
+    status.textContent = '✓ 环境安静（推荐）';
+    btn.disabled = false;
+    btn.textContent = '重新检测';
+    toast('环境噪声检测通过', '🔇');
+  }, 1400);
+});
+
+/* 简历选择 */
+$('#resumePicker').addEventListener('click', () => toast('打开简历选择器（示例）', '📄'));
+
+/* 高级设置 */
+const adv = $('#advancedToggle');
+adv.addEventListener('click', function () {
+  this.classList.toggle('open');
+  const txt = this.querySelector('.txt');
+  const open = this.classList.contains('open');
+  txt.textContent = open ? '收起' : '展开';
+  toast(open ? '已展开高级设置' : '已收起高级设置', '⚙️');
+});
+
+/* 开始面试 → 跳转到面试过程页 */
+$('#btnStart').addEventListener('click', () => {
+  toast('正在进入面试间…', '🎤');
+  setTimeout(() => {
+    // 实际接入时：携带 interviewId / jobId 等参数
+    window.location.href = '面试过程页v2.html';
+  }, 600);
+});
+
+$('#btnHistory').addEventListener('click', () => toast('跳转「我的面试记录」（示例）', '📁'));
+</script>
+</body>
+</html>

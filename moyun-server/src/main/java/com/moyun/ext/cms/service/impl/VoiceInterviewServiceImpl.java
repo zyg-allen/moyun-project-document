@@ -241,6 +241,18 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             a.followupWorth = node.path("followupWorth").asBoolean(false) && !flaws.isEmpty();
             a.followupQuestion = node.path("followupQuestion").asText("");
             a.guidance = node.path("guidance").asText("");
+            // 考察者视角四段式（旧报告/解析缺失时为空，前端按缺失隐藏）
+            a.intent = node.path("intent").asText("").trim();
+            List<String> fw = new ArrayList<>();
+            for (JsonNode f : node.path("framework")) {
+                String t = f.asText("").trim();
+                if (StringUtils.isNotEmpty(t)) {
+                    fw.add(t);
+                }
+            }
+            a.framework = fw;
+            a.gap = node.path("gap").asText("").trim();
+            a.advice = node.path("advice").asText("").trim();
             return a;
         } catch (Exception e) {
             return null;
@@ -255,7 +267,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             log.warn("[VoiceInterview] SSE 发送 {} 事件失败：{}", name, e.getMessage());
         }
     }
-    /** LLM 分析结果（规则评分的超集：漏洞/水平/追问建议） */
+    /** LLM 分析结果（规则评分的超集：漏洞/水平/追问建议 + 考察者视角四段式） */
     private static class AnswerAnalysis {
         int score;
         String feedback;
@@ -265,6 +277,14 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         boolean followupWorth;
         String followupQuestion = "";
         String guidance = "";
+        /** 考察意图（本题在验证什么能力，面试官视角一句） */
+        String intent = "";
+        /** 参考要点框架（好答案应覆盖的要点，3-5 条） */
+        List<String> framework = new ArrayList<>();
+        /** 差距分析（你的回答 vs 参考框架，引用原话） */
+        String gap = "";
+        /** 针对性补法（动词开头一条） */
+        String advice = "";
     }
 
     /** 场景代码：语音面试（AI场景配置中心） */
@@ -829,6 +849,27 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 轮次正常/异常结束后由 runAgentTurn 释放锁：轮次 = 「提交答案 → LLM 流式 → 建下一题」，
         // 锁覆盖整个过程；结束后再次提交同 qaId 由上面的「已作答」守卫兜底拦截。
 
+        // 口头结束检测：候选人明确表达结束意图（严格短语/短句告别），直接收尾（不进 agent 轮次）。
+        // 前置到作答落库之前：告别短句（"好的，再见"）不计作答——userAnswer 保持空，
+        // 逐题评分与报告统计自然排除（旧链路曾把告别语打出 22 分并计入总分）；
+        // 原始转写仍存 answerRaw 留痕（先存原始铁律）。
+        // 服务端同步收口会话并触发报告——若只发 SSE finished 事件、status 仍
+        // in_progress，若前端未回调 /finish 会话将悬挂且报告永不生成（不可依赖前端行为）
+        if (!isSkip && InterviewSessionSupport.matchesVerbalEnd(transcript)) {
+            qa.setAnswerRaw(transcript);
+            qa.setAnswerTime(LocalDateTime.now());
+            qaMapper.updateById(qa);
+            recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
+            finishQuietly(interview, "verbal_end");
+            turnLock.close();
+            SseEmitter endEmitter = new SseEmitter(SSE_TIMEOUT);
+            sendEvent(endEmitter, "delta", toJson(Map.of("t", "好的，本场面试就到这里，感谢你的参与，稍后可查看面试报告。")));
+            sendEvent(endEmitter, "end", toJson(Map.of(
+                    "roundDone", countAnsweredRounds(interviewId), "finished", true)));
+            endEmitter.complete();
+            return endEmitter;
+        }
+
         // 原始回答提交即落库（铁律：先存原始，任何后续失败对话不丢；跳过题保持 userAnswer 为空）
         if (!isSkip) {
             qa.setUserAnswer(transcript);
@@ -836,7 +877,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             qa.setAnswerTime(LocalDateTime.now());
             qa.setLatencyMs(latencyMs);
             qaMapper.updateById(qa);
-            recordEvent(interviewId, "answer", Map.of("qaId", qaId,
+            recordEvent(interviewId, "answer", Map.of(
+                    "qaId", qaId,
                     "latencyMs", latencyMs == null ? 0 : latencyMs));
         } else {
             recordEvent(interviewId, "skip", Map.of("qaId", qaId));
@@ -856,20 +898,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             return timeoutEmitter;
         }
 
-        // 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
-        // 服务端同步收口会话并触发报告——若只发 SSE finished 事件、status 仍
-        // in_progress，若前端未回调 /finish 会话将悬挂且报告永不生成（不可依赖前端行为）
-        if (!isSkip && InterviewSessionSupport.matchesVerbalEnd(transcript)) {
-            recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
-            finishQuietly(interview, "verbal_end");
-            turnLock.close();
-            SseEmitter endEmitter = new SseEmitter(SSE_TIMEOUT);
-            sendEvent(endEmitter, "delta", toJson(Map.of("t", "好的，本场面试就到这里，感谢你的参与，稍后可查看面试报告。")));
-            sendEvent(endEmitter, "end", toJson(Map.of(
-                    "roundDone", countAnsweredRounds(interviewId), "finished", true)));
-            endEmitter.complete();
-            return endEmitter;
-        }
+        // 口头结束检测已前置到作答落库之前（告别短句不计作答），此处直接进入轮次
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         // ====================================================================
@@ -941,6 +970,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     skip, countAnsweredRounds(interview.getId()),
                     InterviewSessionSupport.remainMinutesOf(interview, durationOf(interview)))));
 
+            // AI 结束标记流式过滤器：标记不入打字机/TTS 流（扣留可能成标记的尾部，命中即剥离）
+            InterviewSessionSupport.AiEndMarkerStreamFilter markerFilter =
+                    new InterviewSessionSupport.AiEndMarkerStreamFilter();
+
             aiGatewayService.executeConversationStream(cmd,
                     // onToken：面试官话术增量实时下发（前端打字机 + 分句 TTS）
                     token -> {
@@ -951,13 +984,27 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                         if (clientGone.get()) {
                             return;
                         }
+                        String safe = markerFilter.push(token);
+                        if (safe.isEmpty()) {
+                            return;
+                        }
                         Map<String, Object> delta = new LinkedHashMap<>();
-                        delta.put("t", token);
+                        delta.put("t", safe);
                         sendEvent(emitter, "delta", toJson(delta));
                     },
                     // onComplete：话术已由网关入滑窗 → 落库 → 创建下一题 → end（nextQaId/finished）
                     full -> {
-                        String speak = full == null ? "" : full.trim();
+                        // 放行过滤器扣留的尾部（标记已剥离；断连则不再下发）
+                        String pendingTail = markerFilter.flush();
+                        if (!pendingTail.isEmpty() && !clientGone.get()) {
+                            Map<String, Object> tailDelta = new LinkedHashMap<>();
+                            tailDelta.put("t", pendingTail);
+                            sendEvent(emitter, "delta", toJson(tailDelta));
+                        }
+                        // AI 主动结束：话术剥离标记、不再建下一题，end 带 finished 后服务端收口
+                        //（旧链路收尾致谢被当作「下一题」入库，候选人礼貌回应再被评分——寒暄污染报告全链路）
+                        boolean aiEnded = full != null && full.contains(InterviewSessionSupport.AI_END_MARKER);
+                        String speak = InterviewSessionSupport.stripAiEndMarker(full);
                         // 客户端已断开 → 不再为已离开的用户造下一题
                         // （本轮话术与 token 由网关照常记账，此处仅避免污染题目序列）
                         if (clientGone.get()) {
@@ -981,6 +1028,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             transactionTemplate.executeWithoutResult(status -> {
                                 qa.setSpeakText(speak);
                                 qaMapper.updateById(qa);
+
+                                // AI 已主动收尾：不再预建下一题（候选人无题可答，
+                                // end 事件带 finished 由服务端收口生成报告）
+                                if (aiEnded) {
+                                    return;
+                                }
 
                                 int nextIdx = (qa.getQuestionIdx() == null ? 0 : qa.getQuestionIdx()) + 1;
                                 Long dupCount = qaMapper.selectCount(
@@ -1040,7 +1093,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             // 本轮结束后服务端自动收口并触发报告，不再依赖用户点结束按钮
                             boolean timeUp = InterviewSessionSupport.remainMinutesOf(
                                     interview, durationOf(interview)) <= 0;
-                            if (timeUp) {
+                            if (timeUp || aiEnded) {
                                 payload.put("finished", true);
                             }
                             sendEvent(emitter, "end", toJson(payload));
@@ -1049,6 +1102,11 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                                 recordEvent(interview.getId(), "timeout_close",
                                         Map.of("qaId", qa.getId(), "phase", "after_turn"));
                                 finishQuietly(interview, "timeout");
+                            }
+                            // AI 主动收尾（考察充分/候选人无更多内容）：同步收口生成报告
+                            if (aiEnded) {
+                                recordEvent(interview.getId(), "ai_end", Map.of("qaId", qa.getId()));
+                                finishQuietly(interview, "ai_end");
                             }
                         } catch (Exception e) {
                             log.error("[VoiceInterview] 轮次收尾异常 interviewId={}", interview.getId(), e);
@@ -1462,9 +1520,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         try {
         List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
         // 待补分析的已作答题目（异步单题分析未覆盖或失败的）
+        // 告别语轮过滤（存量数据防护）：收尾寒暄的礼貌回应（"好的，再见"/"结束面试吧"）
+        // 无实质作答，送 LLM 只会产出「针对『好的，再见』的参考框架」类胡给内容
         List<PortalVoiceInterviewQA> pending = new ArrayList<>();
         for (PortalVoiceInterviewQA qa : qaList) {
             if (StringUtils.isNotEmpty(qa.getUserAnswer())
+                    && !InterviewSessionSupport.matchesVerbalEnd(qa.getUserAnswer())
                     && (qa.getAnalysisStatus() == null || qa.getAnalysisStatus() != 2)) {
                 pending.add(qa);
             }
@@ -1498,7 +1559,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             "flaws", analysis.flaws,
                             "level", analysis.level,
                             "guidance", analysis.guidance == null ? "" : analysis.guidance,
-                            "redFlags", java.util.Collections.emptyList())));
+                            "redFlags", java.util.Collections.emptyList(),
+                            // 考察者视角四段式（报告逐题卡展示用）
+                            "intent", analysis.intent == null ? "" : analysis.intent,
+                            "framework", analysis.framework == null ? java.util.Collections.emptyList() : analysis.framework,
+                            "gap", analysis.gap == null ? "" : analysis.gap,
+                            "advice", analysis.advice == null ? "" : analysis.advice)));
                 } else {
                     // LLM 失败兜底：规则分写主分，防聚合跳过（V3 规则引擎已删，ScoreResult 为默认值）
                     qa.setScore(sr.score);
@@ -1556,6 +1622,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
 
         List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
+        // 自介评分视图前置解析（循环内判定自我介绍轮需用；旧口径在循环后解析）
+        VoiceInterviewReportVO.IntroScoreView introScoreView = parseIntroScoreView(interview.getIntroScoreJson());
         int answered = 0;
         long sum = 0;
         List<VoiceInterviewReportVO.QuestionReview> reviews = new ArrayList<>();
@@ -1585,8 +1653,15 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             } else {
                 effectiveScore = qa.getScore();
             }
-            answered++;
-            sum += effectiveScore;
+            // 自我介绍轮不计入总分/维度均分（产品口径：面试题数=考察方向数，自介独立评分）。
+            // 判定收紧：首轮主问 **且** 本场确有自介评分——首轮非自介的开场不会被误排除
+            boolean selfIntroRound = introScoreView != null
+                    && qa.getParentQaId() == null
+                    && Integer.valueOf(0).equals(qa.getQuestionIdx());
+            if (!selfIntroRound) {
+                answered++;
+                sum += effectiveScore;
+            }
 
             VoiceInterviewReportVO.QuestionReview review = new VoiceInterviewReportVO.QuestionReview();
             review.setQuestionIdx(qa.getQuestionIdx());
@@ -1596,16 +1671,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             // 补原始作答与问答ID（前端折叠展示/加入错题本）
             review.setUserAnswer(qa.getUserAnswer());
             review.setQaId(qa.getId());
+            review.setSelfIntro(selfIntroRound);
+            // 考察者视角四段式（批量分析落 llm_analysis_json；旧数据缺字段 → 前端按缺失隐藏）
+            fillReviewAnalysis(review, qa.getLlmAnalysisJson());
             reviews.add(review);
 
-            if (effectiveScore >= 80) {
-                highlights.add(qa.getQuestion());
-            } else if (effectiveScore < 60) {
-                weakPoints.add(qa.getQuestion());
-            }
+            // 兜底亮点/薄弱点已去毒：不再把题干原文当亮点/薄弱点——旧逻辑产出
+            // 「针对薄弱点『你好，欢迎参加今天的面试…』做专项复习」类胡给内容。
+            // 真实归因由整场 LLM 复盘（weakPoints 结构）承载，LLM 失败时板块留空（宁缺勿假）。
 
-            // 累加维度分
-            if (StringUtils.isNotEmpty(qa.getRuleDimensionsJson())) {
+            // 累加维度分（自我介绍轮不计入均分）
+            if (!selfIntroRound && StringUtils.isNotEmpty(qa.getRuleDimensionsJson())) {
                 try {
                     Map<String, Integer> dims = objectMapper.readValue(
                             qa.getRuleDimensionsJson(),
@@ -1621,7 +1697,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
         int avg = answered > 0 ? (int) Math.round((double) sum / answered) : 0;
         // v11.x C1：自我介绍分与技术均分按权重融合（默认 intro 20% + tech 80%）
-        VoiceInterviewReportVO.IntroScoreView introScoreView = parseIntroScoreView(interview.getIntroScoreJson());
+        // （introScoreView 已在循环前解析，见 L1623）
         PortalInterviewConfig finishConfig = loadInterviewConfigQuietly();
         int totalScore = introScoreView != null && introScoreView.getTotal() != null
                 ? scoringEngine.fuseTotalScore(introScoreView.getTotal(), avg,
@@ -1694,7 +1770,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         report.setSuggestion(InterviewReportFormatter.buildSuggestion(avg, weakPoints));
         // v11.x C2：自我介绍独立评分 + 针对性改进建议
         report.setIntroScore(introScoreView);
-        report.setImprovementSuggestions(InterviewReportFormatter.buildImprovementSuggestions(weakPoints, introScoreView));
+        report.setImprovementSuggestions(InterviewReportFormatter.buildImprovementSuggestions(introScoreView));
         // 相关知识点生成移除（题库 tags 聚合对 agent 自由面试无参考意义，前端 Tab 已删）
         // LLM 深度分析聚合结果（Agent 模式产出；旧数据字段为空，前端按缺失隐藏）
         report.setSentimentTrend(sentimentTrend);
@@ -2046,6 +2122,30 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
+    /** 从批量分析产物（llm_analysis_json）回填逐题四段式（考察意图/参考框架/差距/补法） */
+    private void fillReviewAnalysis(VoiceInterviewReportVO.QuestionReview review, String llmAnalysisJson) {
+        if (StringUtils.isEmpty(llmAnalysisJson)) {
+            return;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(llmAnalysisJson);
+            review.setIntent(node.path("intent").asText("").trim());
+            List<String> framework = new ArrayList<>();
+            for (JsonNode f : node.path("framework")) {
+                String t = f.asText("").trim();
+                if (StringUtils.isNotEmpty(t)) {
+                    framework.add(t);
+                }
+            }
+            if (!framework.isEmpty()) {
+                review.setFramework(framework);
+            }
+            review.setGap(node.path("gap").asText("").trim());
+            review.setAdvice(node.path("advice").asText("").trim());
+        } catch (Exception ignored) {
+        }
+    }
+
     @Override
     public String createShareToken(Long interviewId, Long userId, Integer expireDays) {
         PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
@@ -2129,11 +2229,23 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 input.append("候选人简历摘要：\n").append(InterviewTextUtils.truncateText(resumeDigest, 800)).append('\n');
             }
             input.append("整场对话记录（含每题初评分，供参考）：\n");
+            // 自我介绍轮标注（与聚合层 selfIntroRound 判定同口径）：提示模型该轮不计入技术评分、
+            // 不得作为能力证据引用；寒暄收尾轮（作答为告别语或无评分，如存量的"结束面试吧"）
+            // 零引用——对应复盘话术铁律第 ⑥ 条
+            boolean hasIntroScore = report.getIntroScore() != null;
             for (PortalVoiceInterviewQA qa : qaList) {
-                if (StringUtils.isEmpty(qa.getUserAnswer())) {
+                if (StringUtils.isEmpty(qa.getUserAnswer())
+                        || qa.getScore() == null
+                        || InterviewSessionSupport.matchesVerbalEnd(qa.getUserAnswer())) {
                     continue;
                 }
-                input.append("【第").append(qa.getQuestionIdx()).append("题】")
+                boolean introRound = hasIntroScore && qa.getParentQaId() == null
+                        && Integer.valueOf(0).equals(qa.getQuestionIdx());
+                input.append("【第").append(qa.getQuestionIdx()).append("题】");
+                if (introRound) {
+                    input.append("（自我介绍轮：仅用于画像与表达评估，不计入技术评分，禁止作为能力证据引用）");
+                }
+                input.append('\n')
                         .append(InterviewTextUtils.truncateText(qa.getQuestion(), 150)).append('\n')
                         .append("候选人回答：").append(InterviewTextUtils.truncateText(qa.getUserAnswer(), 400)).append('\n')
                         .append("初评分：").append(qa.getScore() == null ? 50 : qa.getScore()).append('\n');
@@ -2168,7 +2280,23 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     SCENE_VOICE_INTERVIEW, reportInput, interview.getUserId());
             if (node == null) {
                 log.warn("[VoiceInterview] 整场复盘解析失败，保留规则兜底 interviewId={}", interview.getId());
+                // 降级标记：前端概要 tab 顶部展示「AI 深度复盘未完成」横幅 + 重新生成入口
+                report.setReviewDegraded(true);
                 return;
+            }
+
+            // ---------- 考察者视角新维度（2026-10-12 报告评审升级；全部可缺省，缺失前端隐藏） ----------
+            String verdict = node.path("verdict").asText("").trim();
+            if (StringUtils.isNotEmpty(verdict)) {
+                report.setVerdict(verdict);
+            }
+            String profile = node.path("profile").asText("").trim();
+            if (StringUtils.isNotEmpty(profile)) {
+                report.setProfile(profile);
+            }
+            List<VoiceInterviewReportVO.CompetencyView> competencies = parseCompetencyViews(node.path("competencies"));
+            if (!competencies.isEmpty()) {
+                report.setCompetencyViews(competencies);
             }
 
             // ---------- 总评 / 匹配度 ----------
@@ -2213,12 +2341,20 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 report.setWeakPoints(weakTitles);
             }
 
-            // ---------- 可执行建议（非空覆盖模板文案） ----------
+            // ---------- 可执行建议（suggestionViews 结构化优先，旧 suggestions 纯文本回退） ----------
+            List<VoiceInterviewReportVO.SuggestionView> suggestionViews = parseSuggestionViews(node.path("suggestionViews"));
             List<String> suggestions = new ArrayList<>();
-            for (JsonNode s : node.path("suggestions")) {
-                String t = s.asText("").trim();
-                if (StringUtils.isNotEmpty(t)) {
-                    suggestions.add(t);
+            if (!suggestionViews.isEmpty()) {
+                report.setSuggestionViews(suggestionViews);
+                for (VoiceInterviewReportVO.SuggestionView sv : suggestionViews) {
+                    suggestions.add(sv.getAction());
+                }
+            } else {
+                for (JsonNode s : node.path("suggestions")) {
+                    String t = s.asText("").trim();
+                    if (StringUtils.isNotEmpty(t)) {
+                        suggestions.add(t);
+                    }
                 }
             }
             if (!suggestions.isEmpty()) {
@@ -2289,10 +2425,11 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
             // ---------- 重算总分（全量已作答题目的分数均分 + 自介分加权融合） ----------
             // 在「修正后的全量分数」上求均分：先应用 perQuestion 修正，再遍历全部主问题。
+            // 口径与聚合层一致：自我介绍轮不计入技术均分（自介分经加权融合单独进入总分）
             long scoreSum = 0;
             int scoreCount = 0;
             for (VoiceInterviewReportVO.QuestionReview review : report.getQuestionReviews()) {
-                if (review.getScore() != null) {
+                if (review.getScore() != null && !Boolean.TRUE.equals(review.getSelfIntro())) {
                     scoreSum += review.getScore();
                     scoreCount++;
                 }
@@ -2310,6 +2447,15 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 report.setSummary("本次面试共 " + report.getQuestionReviews().size() + " 题。"
                         + (overallComment.isEmpty() ? "" : overallComment));
             }
+            // 降级判定：LLM 有响应但未产出任何复盘字段（空壳输出）→ 视同复盘未完成
+            boolean anyEnriched = StringUtils.isNotEmpty(overallComment)
+                    || report.getJobMatch() != null
+                    || (report.getHighlightViews() != null && !report.getHighlightViews().isEmpty())
+                    || (report.getWeakPointViews() != null && !report.getWeakPointViews().isEmpty())
+                    || (report.getCompetencyViews() != null && !report.getCompetencyViews().isEmpty());
+            if (!anyEnriched) {
+                report.setReviewDegraded(true);
+            }
             updateAnalysisProgress(interview.getId(), 92);
             log.info("[VoiceInterview] 整场复盘完成 interviewId={}：总分 {}，亮点 {} 条，薄弱点 {} 条",
                     interview.getId(), report.getTotalScore(),
@@ -2317,7 +2463,62 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     report.getWeakPointViews() == null ? 0 : report.getWeakPointViews().size());
         } catch (Exception e) {
             log.warn("[VoiceInterview] 整场复盘异常（保留规则兜底）interviewId={}：{}", interview.getId(), e.getMessage());
+            report.setReviewDegraded(true);
         }
+    }
+
+    /** 解析五维能力剖面（考察者视角；缺 key 的条目跳过） */
+    private List<VoiceInterviewReportVO.CompetencyView> parseCompetencyViews(JsonNode arr) {
+        List<VoiceInterviewReportVO.CompetencyView> list = new ArrayList<>();
+        if (arr == null || !arr.isArray()) {
+            return list;
+        }
+        for (JsonNode item : arr) {
+            String key = item.path("key").asText("").trim();
+            if (StringUtils.isEmpty(key)) {
+                continue;
+            }
+            VoiceInterviewReportVO.CompetencyView view = new VoiceInterviewReportVO.CompetencyView();
+            view.setKey(key);
+            String label = item.path("label").asText("").trim();
+            view.setLabel(StringUtils.isNotEmpty(label) ? label : key);
+            int score = item.path("score").asInt(-1);
+            if (score >= 0) {
+                view.setScore(InterviewTextUtils.clamp(score, 0, 100));
+            }
+            view.setComment(item.path("comment").asText("").trim());
+            List<Integer> evidenceIdx = new ArrayList<>();
+            for (JsonNode e : item.path("evidenceIdx")) {
+                if (e.asInt(-1) >= 0) {
+                    evidenceIdx.add(e.asInt());
+                }
+            }
+            if (!evidenceIdx.isEmpty()) {
+                view.setEvidenceIdx(evidenceIdx);
+            }
+            list.add(view);
+        }
+        return list;
+    }
+
+    /** 解析结构化行动建议（动作+验收口径+优先级；缺 action 的条目跳过） */
+    private List<VoiceInterviewReportVO.SuggestionView> parseSuggestionViews(JsonNode arr) {
+        List<VoiceInterviewReportVO.SuggestionView> list = new ArrayList<>();
+        if (arr == null || !arr.isArray()) {
+            return list;
+        }
+        for (JsonNode item : arr) {
+            String action = item.path("action").asText("").trim();
+            if (StringUtils.isEmpty(action)) {
+                continue;
+            }
+            VoiceInterviewReportVO.SuggestionView view = new VoiceInterviewReportVO.SuggestionView();
+            view.setAction(action);
+            view.setAcceptance(item.path("acceptance").asText("").trim());
+            view.setPriority(Math.max(1, Math.min(3, item.path("priority").asInt(2))));
+            list.add(view);
+        }
+        return list;
     }
 
     /** 低分主问题自动入错题本（<60 分、题库来源、非追问；失败不影响报告生成） */

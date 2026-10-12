@@ -108,12 +108,62 @@ export interface QuestionReview {
   analysis?: string;
   /** 问答ID（用于加入错题本） */
   qaId?: number;
+  /** 是否自我介绍轮（不计入总分与维度均分；前端展示标签） */
+  selfIntro?: boolean;
+  /** 考察意图（本题在验证什么能力，面试官视角一句，≤40 字） */
+  intent?: string;
+  /** 参考要点框架（好答案应覆盖的要点，3-5 条） */
+  framework?: string[];
+  /** 差距分析（你的回答 vs 参考框架，引用原话，1-2 句） */
+  gap?: string;
+  /** 针对性补法（动词开头一条，≤50 字） */
+  advice?: string;
+  /** 风险/亮点标签（red=风险点/green=亮点/amber=待提升；后端可选，无则不渲染标签行） */
+  tags?: { type: 'red' | 'green' | 'amber'; text: string }[];
 }
 
 /** 亮点/薄弱点条目（兼容纯字符串或带原文引用的对象） */
 export type PointItem =
   | string
   | { text?: string; quote?: string };
+
+/** 结构化薄弱点（2026-10-12 升级：type/evidence/impact/remedy 归因卡字段可缺省，缺失按旧样式渲染） */
+export interface WeakPointView {
+  title?: string;
+  detail?: string;
+  /** 薄弱点类型：knowledge 知识型 / expression 表达型 / depth 深度型 */
+  type?: string;
+  /** 证据（哪几题 + 原话摘要） */
+  evidence?: string;
+  /** 影响（真实面试中会被如何解读） */
+  impact?: string;
+  /** 补法（具体可执行动作） */
+  remedy?: string;
+}
+
+/** 能力剖面（考察者视角五维评价） */
+export interface CompetencyView {
+  /** 能力项 key：depth / engineering / design / communication / match */
+  key?: string;
+  /** 能力项名称 */
+  label?: string;
+  /** 本场表现分（0-100） */
+  score?: number;
+  /** 评价（2-3 句，锚定原话或题号证据） */
+  comment?: string;
+  /** 证据题号（对应 questionReviews.questionIdx） */
+  evidenceIdx?: number[];
+}
+
+/** 结构化行动建议（动词开头动作 + 验收口径 + 优先级） */
+export interface SuggestionView {
+  /** 具体动作（动词开头，≤50 字） */
+  action?: string;
+  /** 验收口径（能做到什么算过关，≤40 字） */
+  acceptance?: string;
+  /** 优先级（1 最高） */
+  priority?: number;
+}
 
 /** 知识点条目（兼容纯字符串或带标题/描述的对象） */
 export type KnowledgePointItem =
@@ -152,8 +202,18 @@ export interface VoiceInterviewReportVO {
   jobMatch?: { rate?: number; reason?: string };
   /** 结构化亮点（旧报告缺失时回退 highlights） */
   highlightViews?: { title?: string; detail?: string }[];
-  /** 结构化薄弱点（旧报告缺失时回退 weakPoints） */
-  weakPointViews?: { title?: string; detail?: string }[];
+  /** 结构化薄弱点（旧报告缺失时回退 weakPoints；2026-10-12 升级支持归因卡字段） */
+  weakPointViews?: WeakPointView[];
+  /** 结论判词（考察者视角一句话定性整体水平与岗位差距方向，≤60 字；旧报告为 undefined 隐藏） */
+  verdict?: string;
+  /** 候选人画像段（背景/年限/项目复杂度对照岗位要求，2-4 句；旧报告为 undefined 隐藏） */
+  profile?: string;
+  /** 能力剖面（考察者视角五维评价；旧报告为 undefined 隐藏） */
+  competencyViews?: CompetencyView[];
+  /** 结构化行动建议（动作+验收口径+优先级；旧报告为 undefined 回退 improvementSuggestions） */
+  suggestionViews?: SuggestionView[];
+  /** AI 深度复盘是否降级（模型无输出/解析失败，报告仅含规则聚合数据）→ 概要 tab 顶部横幅 + 重新生成 */
+  reviewDegraded?: boolean;
   /**
    * 水平定级（junior/mid/senior）。
    * 用于概要 tab 定级徽章、发展方向 tab 个人化锚点；旧报告为 undefined。

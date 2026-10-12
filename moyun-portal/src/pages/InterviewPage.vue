@@ -5,7 +5,7 @@ import { useHead } from '@vueuse/head';
 import {
   Briefcase, BookOpen, Star, ArrowRight, Trophy, FileText,
   TrendingUp, Users, CheckCircle, Target, Zap, Building2, Lightbulb,
-  Mic, Sparkles, PlayCircle, Clock, BarChart3, MessageSquare, Crown
+  Mic, Sparkles, PlayCircle, Clock, BarChart3, MessageSquare
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -134,9 +134,6 @@ function goMyAttempts() {
 // @VipOnly(benefit = "interview_unlimited")：free 档仅有限次数，用完返回 402 引导开通。
 // 「FREE」会让人以为不限次。改为查 /portal/vip/status（额度来自 vip_tier_benefit 表，非前端写死）。
 const interviewBadge = computed(() => '免费不限次');  // 【合规改造】全站免费化：不再有会员徽标与开通入口
-function goVip() {
-  router.push('/interview/voice');
-}
 
 function formatNumber(n: number) {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w';
@@ -183,7 +180,7 @@ const sectionNav = [
     </div>
 
     <!-- 页头：轻量标题 + 数据 + 快捷入口（与首页风格统一） -->
-    <div class="pt-6 sm:pt-8 pb-2">
+    <div class="section-bg-base pt-6 sm:pt-8 pb-2">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
@@ -217,15 +214,15 @@ const sectionNav = [
 
           <!-- 快捷入口 -->
           <div class="flex flex-wrap items-center gap-2">
-            <button @click="goMyResume" class="theme-btn theme-btn-primary px-4 py-2 rounded-lg text-sm">
+            <button @click="goMyResume" title="管理简历结构，AI 评分与改写" class="theme-btn theme-btn-primary px-4 py-2 rounded-lg text-sm">
               <FileText class="w-4 h-4" />
               我的简历
             </button>
-            <button @click="goResume" class="theme-btn theme-btn-secondary px-4 py-2 rounded-lg text-sm">
+            <button @click="goResume" title="浏览精选模板，一键套用" class="theme-btn theme-btn-secondary px-4 py-2 rounded-lg text-sm">
               <FileText class="w-4 h-4" />
               简历模板
             </button>
-            <button @click="router.push('/learn/questions')" class="theme-btn theme-btn-secondary px-4 py-2 rounded-lg text-sm">
+            <button @click="router.push('/learn/questions')" title="按分类刷题，支持在线编程" class="theme-btn theme-btn-secondary px-4 py-2 rounded-lg text-sm">
               <BookOpen class="w-4 h-4" />
               浏览题库
             </button>
@@ -277,28 +274,24 @@ const sectionNav = [
               <div class="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   @click="goVoiceInterview"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold shadow-theme-sm transition hover:opacity-90 bg-theme-primary text-theme-on-primary meta-text"
+                  class="btn-with-hint items-center gap-1.5 px-4 py-2 rounded-lg font-semibold shadow-theme-sm transition hover:opacity-90 bg-theme-primary text-theme-on-primary meta-text"
                 >
-                  <PlayCircle class="w-4 h-4" />
-                  立即开始面试
-                  <span
-                    v-if="interviewBadge"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-theme-primary bg-white/90"
-                  >{{ interviewBadge }}</span>
+                  <span class="inline-flex items-center gap-1.5">
+                    <PlayCircle class="w-4 h-4" />
+                    立即开始面试
+                    <span v-if="interviewBadge" class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-theme-primary bg-white/90">{{ interviewBadge }}</span>
+                  </span>
+                  <span class="btn-hint text-white/70">点击进入语音对练，约15分钟/场</span>
                 </button>
                 <button
                   @click="goMyAttempts"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold transition hover:bg-theme-surface-highlight border border-theme-border bg-theme-surface text-theme-text meta-text"
+                  class="btn-with-hint inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold transition hover:bg-theme-surface-highlight border border-theme-border bg-theme-surface text-theme-text meta-text"
                 >
-                  <Trophy class="w-4 h-4" />
-                  我的面试记录
-                </button>
-                <button
-                  @click="goVip"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold transition hover:opacity-90 border border-amber-400/60 bg-amber-50 text-amber-700 meta-text dark:bg-amber-500/10 dark:text-amber-300"
-                >
-                  <Crown class="w-4 h-4" />
-                  面试会员
+                  <span class="inline-flex items-center gap-1.5">
+                    <Trophy class="w-4 h-4" />
+                    我的面试记录
+                  </span>
+                  <span class="btn-hint">查看历史答题与五维报告</span>
                 </button>
               </div>
             </div>
@@ -318,7 +311,7 @@ const sectionNav = [
           <p class="meta-text">从练习到复盘的完整漏斗：刷题 → 语音对练 → 复盘报告</p>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <!-- 1. 实时 AI 语音面试 -->
+          <!-- 1. AI 面试复盘 -->
           <button
             @click="goVoiceInterview"
             class="group relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg overflow-hidden bg-theme-surface border-theme-primary/40"
@@ -327,9 +320,9 @@ const sectionNav = [
             <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-theme-primary text-white">
               <Mic class="w-5 h-5" />
             </div>
-            <div class="card-title mb-1">实时面试提醒</div>
+            <div class="card-title mb-1">AI 面试复盘</div>
             <div class="card-summary leading-relaxed mb-3">
-              进入语音面试，实时对练 · 智能追问
+              查看历史答题报告与五维雷达
             </div>
             <div class="inline-flex items-center gap-1 meta-text font-semibold text-theme-primary">
               进入体验 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
@@ -381,7 +374,7 @@ const sectionNav = [
             </div>
             <div class="card-title mb-1">多语言面试支持</div>
             <div class="card-summary leading-relaxed mb-3">
-              DashScope CosyVoice 多音色 · 中英混练（敬请期待）
+              中英混练 · 多音色切换（敬请期待）
             </div>
             <div class="inline-flex items-center gap-1 meta-text font-semibold text-theme-text-secondary">
               开发中 <Clock class="w-3 h-3" />
@@ -423,7 +416,7 @@ const sectionNav = [
 
         <template v-else>
           <!-- 分类快捷入口 -->
-          <div v-if="categories.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+          <div v-if="categories.length === 0" class="empty-state mb-8 sm:mb-10">
         暂无面试分类
       </div>
       <div v-if="categories.length > 0" id="interview-categories" class="mb-8 sm:mb-10 scroll-mt-24">
@@ -455,7 +448,7 @@ const sectionNav = [
           </div>
 
           <!-- 热门题目 -->
-          <div v-if="hotQuestions.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+          <div v-if="hotQuestions.length === 0" class="empty-state mb-8 sm:mb-10">
         暂无热门题目
       </div>
       <div v-if="hotQuestions.length > 0" id="interview-questions" class="mb-8 sm:mb-10 scroll-mt-24">
@@ -479,24 +472,21 @@ const sectionNav = [
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center mb-2 flex-wrap gap-2">
                       <span class="w-6 h-6 rounded-full flex items-center justify-center font-bold caption-text mr-1 bg-theme-accent text-theme-primary">{{ index + 1 }}</span>
-                      <span
-                        class="px-2 py-0.5 rounded-full caption-text font-medium"
-                        :class="getDifficultyColor(q.difficulty)"
-                      >
+                      <span class="tag-pill" :class="getDifficultyColor(q.difficulty)">
                         {{ getDifficultyText(q.difficulty) }}
                       </span>
-                      <span v-if="q.categoryName" class="px-2 py-0.5 rounded-full caption-text bg-theme-accent text-theme-text-secondary">{{ q.categoryName }}</span>
+                      <span v-if="q.categoryName" class="tag-pill" style="background-color: var(--theme-surface-highlight); color: var(--theme-text-secondary);">{{ q.categoryName }}</span>
                       <span
                         v-for="tag in q.tags?.slice(0, 3)"
                         :key="tag"
-                        class="px-1.5 py-0.5 rounded caption-text bg-theme-accent text-theme-primary"
+                        class="tag-pill"
                       >
                         #{{ tag }}
                       </span>
                       <span
                         v-for="c in q.companies?.slice(0, 2)"
                         :key="c.id"
-                        class="px-1.5 py-0.5 rounded caption-text bg-theme-primary-soft text-theme-primary"
+                        class="tag-pill"
                       >
                         {{ c.name }}
                       </span>
@@ -520,7 +510,7 @@ const sectionNav = [
           </div>
 
           <!-- 热门面经 -->
-          <div v-if="hotExperiences.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+          <div v-if="hotExperiences.length === 0" class="empty-state mb-8 sm:mb-10">
         暂无热门面经
       </div>
       <div v-if="hotExperiences.length > 0" id="interview-experiences" class="mb-8 sm:mb-10 scroll-mt-24">
@@ -572,7 +562,7 @@ const sectionNav = [
           </div>
 
           <!-- 简历模板 -->
-          <div v-if="resumeTemplates.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+          <div v-if="resumeTemplates.length === 0" class="empty-state mb-8 sm:mb-10">
         暂无简历模板
       </div>
       <div v-if="resumeTemplates.length > 0" id="interview-resume" class="mb-8 sm:mb-10 scroll-mt-24">
@@ -611,7 +601,7 @@ const sectionNav = [
           </div>
 
           <!-- 热门公司墙 -->
-          <div v-if="hotCompanies.length === 0" class="mb-8 sm:mb-10 px-5 py-8 rounded-2xl text-center text-sm" style="background-color: var(--theme-surface); border: 1px dashed var(--theme-border); color: var(--theme-text-secondary);">
+          <div v-if="hotCompanies.length === 0" class="empty-state mb-8 sm:mb-10">
         暂无热门公司数据
       </div>
       <div v-if="hotCompanies.length > 0" id="interview-companies" class="mb-8 sm:mb-10 scroll-mt-24">

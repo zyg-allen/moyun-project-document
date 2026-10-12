@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音模拟面试 · 面试过程</title>
+<style>
+:root{
+  --primary:#4f46e5;--primary-2:#7c3aed;--primary-soft:#eef2ff;
+  --green:#059669;--green-soft:#ecfdf5;
+  --amber:#d97706;--amber-soft:#fffbeb;
+  --red:#e11d48;--red-soft:#fff1f3;--red-2:#f43f5e;
+  --text:#1f2937;--sub:#6b7280;--muted:#9ca3af;
+  --border:#e8eaef;--border-2:#eef0f6;
+  --bg:#f5f6f9;--card:#fff;
+  --radius:16px;--radius-sm:12px;
+  --shadow-sm:0 1px 3px rgba(16,24,40,.04);
+  --shadow-md:0 4px 16px -8px rgba(16,24,40,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.7;
+  padding:20px 14px 60px;-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(124,58,237,.05), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(79,70,229,.05), transparent 45%);
+  background-attachment:fixed;
+}
+.wrap{max-width:1140px;margin:0 auto}
+button{font-family:inherit;cursor:pointer;border:none;background:none;transition:.2s;color:inherit}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
+input,textarea,select{font-family:inherit;font-size:13px;outline:none;color:var(--text)}
+input:focus,textarea:focus,select:focus{border-color:var(--primary)!important;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+::selection{background:var(--primary-soft);color:var(--primary)}
+
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#dfe2ea;border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:#c7cbd8}
+
+/* =========================================================
+ *  顶部悬浮栏（面包屑 + 状态 + 操作，同一行）
+ * =======================================================*/
+.top-float-bar{
+  position:fixed;left:0;right:0;top:0;z-index:90;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 4px 20px -14px rgba(16,24,40,.3);
+}
+.top-float-bar .inner{
+  max-width:1140px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:12px 24px;flex-wrap:wrap;
+}
+
+/* 面包屑 */
+.breadcrumb{display:flex;align-items:center;gap:3px;font-size:13px;flex-shrink:0}
+.breadcrumb .crumb-link{
+  display:inline-flex;align-items:center;gap:5px;
+  color:#4b5563;font-weight:500;padding:3px 6px;border-radius:6px;
+  transition:.18s;text-decoration:none;
+}
+.breadcrumb .crumb-link:hover{color:var(--primary);background:var(--primary-soft)}
+.breadcrumb .crumb-link .home-ic{
+  width:14px;height:14px;stroke:currentColor;stroke-width:1.9;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.breadcrumb .sep{color:#c7cbd8;font-size:13px;user-select:none;padding:0 1px}
+.breadcrumb .crumb-current{color:var(--text);font-weight:700;padding:3px 6px}
+
+/* 状态 + 操作组 */
+.status-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+.status-pill{
+  display:flex;align-items:center;gap:9px;
+  background:#fff;border:1px solid var(--border);border-radius:99px;
+  padding:6px 14px;box-shadow:0 2px 8px -6px rgba(16,24,40,.2);
+  flex-shrink:0;
+}
+.status-pill .timer{
+  display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:800;
+  color:#374151;font-variant-numeric:tabular-nums;letter-spacing:.3px;
+}
+.status-pill .timer .dot{
+  width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:pulse 1.6s infinite;box-shadow:0 0 0 0 rgba(5,150,105,.6);
+}
+@keyframes pulse{
+  0%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(5,150,105,.6)}
+  50%{opacity:.6;transform:scale(.85);box-shadow:0 0 0 6px rgba(5,150,105,0)}
+  100%{opacity:1;transform:scale(1);box-shadow:0 0 0 0 rgba(5,150,105,0)}
+}
+.status-pill .divider{width:1px;height:14px;background:var(--border)}
+.status-pill .status{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
+  color:var(--green);
+}
+.status-pill .status .dot{
+  width:6px;height:6px;border-radius:50%;background:var(--green);
+  animation:pulse 1.6s infinite;
+}
+
+/* 顶部操作按钮组（播报、暂停、结束面试） */
+.action-group{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+.action-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:600;padding:7px 13px;border-radius:9px;
+  white-space:nowrap;transition:.2s;border:1px solid var(--border);
+  background:#fff;color:#4b5563;
+}
+.action-btn:hover{
+  background:#f7f8fb;border-color:#d5d9e2;color:#1f2937;
+  transform:translateY(-1px);box-shadow:0 4px 12px -8px rgba(16,24,40,.3);
+}
+.action-btn.playing{background:var(--primary-soft);border-color:#c7d2fe;color:var(--primary)}
+.action-btn.end{
+  background:#fff;border-color:#fecdd3;color:var(--red);font-weight:700;
+}
+.action-btn.end:hover{background:var(--red-soft);border-color:#fda4af}
+
+@media(max-width:960px){
+  .top-float-bar .inner{padding:10px 16px;gap:10px}
+  .breadcrumb{font-size:12px}
+  .status-pill{padding:5px 11px}
+  .status-pill .timer{font-size:12.5px}
+  .status-pill .status{font-size:11px}
+  .action-btn{font-size:11.5px;padding:6px 11px}
+}
+@media(max-width:720px){
+  .breadcrumb .crumb-link:nth-child(n+3){display:none}
+  .breadcrumb .sep:nth-of-type(n+2){display:none}
+}
+
+/* =========================================================
+ *  主体布局
+ * =======================================================*/
+.wrap{padding-top:70px}
+@media(max-width:960px){.wrap{padding-top:64px}}
+@media(max-width:720px){.wrap{padding-top:60px}}
+
+/* 通用按钮 */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:9px;
+  white-space:nowrap;transition:.2s;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  box-shadow:0 6px 16px -8px rgba(79,70,229,.75);
+}
+.btn-primary:hover{box-shadow:0 10px 22px -10px rgba(79,70,229,.95);transform:translateY(-1px)}
+.btn-outline{background:#fff;border:1px solid var(--border);color:#4b5563}
+.btn-outline:hover{background:#f7f8fb;border-color:#d5d9e2;color:#1f2937;transform:translateY(-1px)}
+.btn-ghost{background:#f3f4f8;color:#4b5563;border:1px solid transparent}
+.btn-ghost:hover{background:#e9ebf3;color:#1f2937}
+
+/* 跳过本题（紫色描边） */
+.btn-skip{
+  background:#fff;border:1px solid #c7d2fe;color:var(--primary);font-weight:600;
+}
+.btn-skip:hover{background:var(--primary-soft);border-color:#a5b4fc;transform:translateY(-1px)}
+
+/* 三栏布局 */
+.iv-layout{display:grid;grid-template-columns:252px 1fr 288px;gap:16px;align-items:start}
+@media(max-width:1024px){.iv-layout{grid-template-columns:1fr}}
+@media(max-width:1024px) and (min-width:761px){
+  .iv-left,.iv-right{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+}
+
+/* 左栏 */
+.avatar-card{
+  background:linear-gradient(180deg,#fff 0%,#fbfbff 100%);
+  border:1px solid var(--border);border-radius:var(--radius);padding:26px 16px;
+  text-align:center;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
+}
+.avatar-card::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:60px;
+  background:linear-gradient(135deg,var(--primary-soft),transparent);
+  opacity:.5;
+}
+.avatar-ring{
+  width:104px;height:104px;margin:0 auto 14px;border-radius:50%;
+  background:linear-gradient(135deg,#dbeafe,#bfdbfe);
+  display:grid;place-items:center;font-size:44px;color:#2563eb;
+  border:3px solid #fff;box-shadow:0 0 0 3px #dbeafe,0 12px 26px -12px rgba(37,99,235,.55);
+  position:relative;z-index:1;
+}
+.avatar-name{font-size:13.5px;font-weight:800;color:var(--text);position:relative}
+.avatar-status{
+  font-size:11.5px;color:var(--green);margin-top:4px;
+  display:flex;align-items:center;justify-content:center;gap:6px;font-weight:600;
+}
+.avatar-status .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite}
+
+/* 知识点卡片 */
+.knowledge-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px 18px;margin-top:16px;box-shadow:var(--shadow-sm);
+  position:relative;
+}
+.knowledge-card h4{
+  font-size:13.5px;font-weight:800;margin-bottom:6px;
+  display:flex;align-items:center;gap:8px;
+}
+.knowledge-card h4 .ic{font-size:15px}
+.knowledge-card h4 .count{
+  margin-left:auto;font-size:11px;font-weight:700;color:var(--primary);
+  background:var(--primary-soft);padding:2px 9px;border-radius:99px;
+}
+.knowledge-sub{
+  font-size:11px;color:var(--sub);margin-bottom:13px;line-height:1.6;
+  padding:8px 11px;background:linear-gradient(135deg,#fafbff,#f5f7fe);
+  border-radius:9px;border-left:2px solid var(--primary);
+  display:flex;gap:7px;align-items:flex-start;
+}
+.knowledge-sub .ic{flex-shrink:0;font-size:12px;line-height:1.6}
+
+.knowledge-list{list-style:none;max-height:400px;overflow-y:auto;padding-right:5px;margin-right:-5px}
+.knowledge-item{
+  display:flex;align-items:flex-start;gap:11px;padding:11px 12px;
+  border-radius:10px;font-size:12.5px;color:#4b5563;cursor:pointer;
+  transition:.18s;margin-bottom:5px;position:relative;
+  border:1px solid transparent;
+}
+.knowledge-item:hover{
+  background:linear-gradient(135deg,#fafbff,#f5f7fe);
+  border-color:#e0e7ff;transform:translateX(2px);
+  box-shadow:0 4px 12px -8px rgba(79,70,229,.4);
+}
+.knowledge-item .idx{
+  width:24px;height:24px;border-radius:7px;display:grid;place-items:center;
+  font-size:11px;font-weight:800;background:#f3f4f8;color:#9ca3af;flex-shrink:0;
+  transition:.2s;
+}
+.knowledge-item:hover .idx{
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));
+  color:#fff;box-shadow:0 4px 10px -4px rgba(79,70,229,.6);
+}
+.knowledge-item.current{
+  background:linear-gradient(90deg,var(--red-soft),#fff5f7);
+  border-color:#fecdd3;
+  box-shadow:0 4px 12px -8px rgba(225,29,72,.4);
+}
+.knowledge-item.current .idx{
+  background:linear-gradient(135deg,var(--red),var(--red-2));
+  color:#fff;box-shadow:0 4px 10px -4px rgba(225,29,72,.6);
+}
+.knowledge-item .body{flex:1;min-width:0}
+.knowledge-item .title{
+  font-size:12.5px;font-weight:700;color:#374151;line-height:1.55;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:.2s;
+}
+.knowledge-item.current .title{color:var(--red)}
+.knowledge-item .tag{
+  display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;
+  border-radius:5px;background:#f3f4f8;color:#6b7280;margin-top:3px;
+  letter-spacing:.2px;
+}
+.knowledge-item.current .tag{background:#fee2e2;color:#b91c1c}
+
+.knowledge-tooltip{
+  position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%) scale(.96);
+  width:280px;background:#1f2937;color:#e5e7eb;
+  border-radius:12px;padding:14px 16px;font-size:12px;line-height:1.8;
+  box-shadow:0 16px 40px -12px rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;transition:.2s cubic-bezier(.4,0,.2,1);
+  z-index:10;
+}
+.knowledge-tooltip::before{
+  content:"";position:absolute;left:-6px;top:50%;transform:translateY(-50%) rotate(45deg);
+  width:12px;height:12px;background:#1f2937;border-radius:2px;
+}
+.knowledge-tooltip .tip-tag{
+  display:inline-block;font-size:10px;font-weight:800;
+  padding:1px 8px;border-radius:5px;background:rgba(255,255,255,.12);
+  color:#a5b4fc;margin-bottom:6px;letter-spacing:.3px;
+}
+.knowledge-tooltip .tip-title{
+  font-size:12.5px;font-weight:800;color:#fff;margin-bottom:5px;
+}
+.knowledge-tooltip .tip-q{color:#cbd5e1;font-size:11.5px;line-height:1.75}
+.knowledge-item:hover .knowledge-tooltip{opacity:1;transform:translateY(-50%) scale(1)}
+@media(max-width:1024px){
+  .knowledge-tooltip{left:auto;right:auto;top:calc(100% + 8px);transform:translateY(0) scale(.96);width:100%}
+  .knowledge-item:hover .knowledge-tooltip{transform:translateY(0) scale(1)}
+  .knowledge-tooltip::before{left:24px;top:-6px;transform:rotate(45deg)}
+}
+
+/* 中栏聊天 */
+.chat-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  display:flex;flex-direction:column;height:calc(100vh - 130px);min-height:560px;
+  box-shadow:var(--shadow-sm);overflow:hidden;
+}
+.chat-header{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:15px 22px;border-bottom:1px solid var(--border-2);flex-shrink:0;
+  background:linear-gradient(180deg,#fff,#fbfcff);
+}
+.chat-header .title{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800}
+.chat-header .title .ic{font-size:15px}
+.chat-header .qcount{
+  font-size:11.5px;font-weight:700;color:var(--primary);
+  background:var(--primary-soft);padding:4px 12px;border-radius:99px;
+  border:1px solid #c7d2fe;
+}
+
+.chat-body{flex:1;overflow-y:auto;padding:24px 22px;background:linear-gradient(180deg,#fbfcfe,#fafbfe)}
+.msg{display:flex;gap:11px;align-items:flex-start;margin-bottom:20px;animation:msgIn .4s cubic-bezier(.4,0,.2,1)}
+.msg.user{flex-direction:row-reverse}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.msg-avatar{
+  width:36px;height:36px;border-radius:11px;flex-shrink:0;
+  display:grid;place-items:center;font-size:16px;transition:.2s;
+}
+.msg-avatar.ai{
+  background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#2563eb;
+  box-shadow:0 4px 10px -4px rgba(37,99,235,.45);
+}
+.msg-avatar.me{
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  font-weight:800;font-size:12px;
+  box-shadow:0 4px 10px -4px rgba(79,70,229,.55);
+}
+
+.msg-bubble{
+  border-radius:14px;padding:14px 17px;font-size:13px;line-height:1.85;
+  max-width:78%;word-break:break-word;position:relative;
+}
+.msg.ai .msg-bubble{
+  background:#fff;border:1px solid var(--border);border-top-left-radius:4px;
+  box-shadow:0 2px 8px -6px rgba(16,24,40,.15);
+}
+.msg.user .msg-bubble{
+  background:linear-gradient(135deg,var(--red-soft),#fff5f7);
+  border:1px solid #fecdd3;border-top-right-radius:4px;color:#374151;
+}
+.msg-label{font-size:11px;font-weight:800;letter-spacing:.3px;margin-bottom:6px;display:block}
+.msg.ai .msg-label{color:#2563eb}
+.msg.user .msg-label{color:var(--red)}
+
+.msg-highlight{
+  background:linear-gradient(135deg,#fffbeb,#fef3c7);
+  border:1px solid #fde68a;border-radius:14px;
+  padding:16px 18px;font-size:13px;line-height:1.9;color:#374151;
+  max-width:88%;box-shadow:0 4px 14px -10px rgba(217,119,6,.5);
+  position:relative;
+}
+.msg-highlight::before{
+  content:"";position:absolute;left:-1px;top:16px;bottom:16px;width:3px;
+  background:linear-gradient(180deg,#f59e0b,#d97706);border-radius:99px;
+}
+.q-title{
+  font-size:11.5px;font-weight:800;color:#b45309;
+  display:inline-flex;align-items:center;gap:5px;
+  margin-bottom:9px;padding:3px 10px;border-radius:7px;background:#fef3c7;
+  border:1px solid #fde68a;
+}
+.feedback-bubble{
+  background:#f3f4f8;border-radius:12px;padding:13px 17px;font-size:12.5px;
+  color:#4b5563;line-height:1.85;border-top-left-radius:4px;
+  max-width:78%;position:relative;
+}
+.feedback-bubble .fb-label{
+  font-size:11px;font-weight:800;color:var(--primary);
+  letter-spacing:.3px;margin-bottom:6px;display:block;
+}
+.typing{display:inline-flex;gap:4px;align-items:center;height:18px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#c7cbd8;animation:typing 1.4s infinite}
+.typing i:nth-child(2){animation-delay:.2s}
+.typing i:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,60%,100%{opacity:.4;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* 输入区 */
+.chat-input{
+  flex-shrink:0;padding:16px 22px 18px;border-top:1px solid var(--border-2);
+  background:linear-gradient(180deg,#fff,#fbfcff);
+}
+.chat-input .info{
+  display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--sub);
+  margin-bottom:10px;font-weight:500;flex-wrap:wrap;
+}
+.chat-input .info .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1.8s infinite}
+.chat-input .info .sep{color:#d1d5db}
+.input-box{position:relative;display:flex;gap:10px;align-items:flex-end}
+.input-box textarea{
+  flex:1;background:#fafbfe;border:1px solid var(--border);border-radius:12px;
+  padding:13px 54px 13px 16px;font-size:13px;line-height:1.7;resize:none;
+  min-height:68px;max-height:150px;color:var(--text);transition:.2s;
+}
+.input-box textarea:hover{background:#f7f8fd}
+.input-send{
+  position:absolute;right:11px;bottom:11px;width:38px;height:38px;border-radius:11px;
+  background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  display:grid;place-items:center;font-size:15px;
+  box-shadow:0 6px 16px -8px rgba(79,70,229,.9);transition:.2s;
+}
+.input-send:hover:not(:disabled){transform:scale(1.08)}
+
+/* 输入操作行：跳过本题 + 清空文本 + 智能提示 + 回答完毕 */
+.input-actions{
+  display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;
+}
+.input-actions .btn{padding:8px 14px;font-size:12px}
+.input-actions .btn-primary{padding:8px 20px;margin-left:auto}
+
+/* 右栏 */
+.iv-right .bg-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px 22px;box-shadow:var(--shadow-sm);
+}
+.iv-right .bg-card + .bg-card{margin-top:16px}
+.iv-right h4{font-size:13.5px;font-weight:800;margin-bottom:15px;display:flex;align-items:center;gap:8px}
+.iv-right h4 .ic{font-size:15px}
+.iv-right .info-row{display:flex;gap:11px;font-size:12px;margin-bottom:10px;line-height:1.7}
+.iv-right .info-row:last-child{margin-bottom:0}
+.iv-right .info-row .k{color:var(--sub);flex-shrink:0;width:60px;font-weight:500}
+.iv-right .info-row .v{color:#374151;flex:1;font-weight:600}
+.iv-right .divider{
+  font-size:11.5px;color:var(--sub);margin-top:12px;padding-top:12px;
+  border-top:1px dashed var(--border-2);line-height:1.75;
+}
+.iv-right .hint-list{list-style:none}
+.iv-right .hint-list li{
+  display:flex;gap:10px;font-size:12px;color:#4b5563;line-height:1.75;
+  padding:11px 13px;border-radius:10px;
+  background:linear-gradient(135deg,#fafbfe,#f5f7fd);
+  border:1px solid var(--border);margin-bottom:9px;cursor:pointer;
+  transition:.2s;position:relative;
+}
+.iv-right .hint-list li:last-child{margin-bottom:0}
+.iv-right .hint-list li:hover{
+  border-color:#c7d2fe;background:linear-gradient(135deg,#f5f7ff,#eef2ff);
+  transform:translateX(2px);
+}
+.iv-right .hint-list li .n{
+  width:22px;height:22px;border-radius:7px;flex-shrink:0;display:grid;place-items:center;
+  font-size:10.5px;font-weight:800;background:var(--primary-soft);color:var(--primary);
+}
+
+/* 结束面试确认框 */
+.modal-mask{
+  position:fixed;inset:0;background:rgba(15,23,42,.55);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  z-index:999;display:none;align-items:center;justify-content:center;padding:20px;
+  opacity:0;transition:opacity .25s;
+}
+.modal-mask.show{display:flex;opacity:1}
+.confirm-modal{
+  background:#fff;border-radius:20px;max-width:400px;width:100%;
+  padding:28px 26px 22px;text-align:center;
+  box-shadow:0 24px 60px -20px rgba(15,23,42,.55);
+  transform:translateY(16px) scale(.97);transition:.3s cubic-bezier(.4,0,.2,1);
+  position:relative;
+}
+.modal-mask.show .confirm-modal{transform:none}
+.confirm-icon{
+  width:60px;height:60px;margin:0 auto 16px;border-radius:50%;
+  display:grid;place-items:center;font-size:26px;
+  background:linear-gradient(135deg,#fff1f3,#ffe4e6);
+  border:2px solid #fecdd3;
+  box-shadow:0 8px 22px -10px rgba(225,29,72,.55);
+}
+.confirm-modal h3{font-size:17px;font-weight:800;margin-bottom:8px;color:var(--text)}
+.confirm-modal p{font-size:13px;color:var(--sub);line-height:1.75;margin-bottom:22px}
+.confirm-actions{display:flex;gap:10px}
+.confirm-actions .btn{
+  flex:1;padding:11px 16px;font-size:13px;font-weight:700;border-radius:11px;
+}
+.btn-end-confirm{
+  background:linear-gradient(135deg,var(--red),var(--red-2));color:#fff;
+  box-shadow:0 8px 20px -10px rgba(225,29,72,.85);
+}
+.btn-end-confirm:hover{box-shadow:0 12px 26px -12px rgba(225,29,72,1);transform:translateY(-1px)}
+
+/* Toast */
+#toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,24px);opacity:0;pointer-events:none;
+  background:#111827;color:#fff;font-size:13px;padding:12px 22px;border-radius:12px;
+  box-shadow:0 14px 34px -10px rgba(0,0,0,.55);transition:.32s cubic-bezier(.4,0,.2,1);z-index:99;
+  display:flex;align-items:center;gap:9px;font-weight:500;max-width:90vw;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast .ic{font-size:14px}
+
+@media(max-width:560px){
+  .chat-card{height:auto;min-height:520px}
+  .msg-bubble{max-width:88%}
+  .msg-highlight{max-width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部悬浮栏：面包屑 + 状态 + 操作（播报/暂停/结束面试） -->
+<div class="top-float-bar">
+  <div class="inner">
+
+    <nav class="breadcrumb" aria-label="面包屑">
+      <a href="interview-prep.html" class="crumb-link">
+        <svg class="home-ic" viewBox="0 0 24 24">
+          <path d="M3 11l9-8 9 8"/>
+          <path d="M5 10v10h14V10"/>
+        </svg>
+        首页
+      </a>
+      <span class="sep">›</span>
+      <a href="#" class="crumb-link">学习中心</a>
+      <span class="sep">›</span>
+      <a href="#" class="crumb-link">模拟面试</a>
+      <span class="sep">›</span>
+      <span class="crumb-current">面试过程</span>
+    </nav>
+
+    <div class="status-actions">
+
+      <div class="status-pill">
+        <div class="timer">
+          <span class="dot"></span>
+          <span id="timerText">22:27</span>
+        </div>
+        <div class="divider"></div>
+        <div class="status">
+          <span class="dot"></span>
+          在线 · 等待回答
+        </div>
+      </div>
+
+      <!-- 顶部操作组：播报、暂停、结束面试 -->
+      <div class="action-group">
+        <button class="action-btn playing" id="btnPlay">🔊 播报中</button>
+        <button class="action-btn" id="btnPause">⏸ 暂停</button>
+        <button class="action-btn end" id="btnEnd">⏹ 结束面试</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="iv-layout">
+
+    <!-- 左栏 -->
+    <aside class="iv-left">
+      <div class="avatar-card">
+        <div class="avatar-ring">👨‍💼</div>
+        <div class="avatar-name">AI 面试官 · 默认</div>
+        <div class="avatar-status"><span class="dot"></span>在线 · 等待回答</div>
+      </div>
+
+      <div class="knowledge-card">
+        <h4>
+          <span class="ic">🎯</span>
+          本次考察知识点
+          <span class="count" id="kCount">10 个</span>
+        </h4>
+        <div class="knowledge-sub">
+          <span class="ic">ℹ️</span>
+          <span>以下为本次面试的<b>预设考察方向</b>，面试官会根据你的回答灵活追问，不一定按此顺序提问。</span>
+        </div>
+        <ul class="knowledge-list" id="knowledgeList"></ul>
+      </div>
+    </aside>
+
+    <!-- 中栏聊天 -->
+    <section class="chat-card">
+      <div class="chat-header">
+        <div class="title"><span class="ic">💬</span>面试对话</div>
+        <div class="qcount" id="qCount">问题 1/10</div>
+      </div>
+
+      <div class="chat-body" id="chatBody">
+
+        <div class="msg ai">
+          <div class="msg-avatar ai">🤖</div>
+          <div class="msg-bubble">
+            <span class="msg-label">面试官</span>
+            你好，欢迎参加今天的面试，我们放松聊一聊。先简单了解一下你的情况。<br><br>
+            请先做个自我介绍，可以重点说说和你应聘这个后端开发岗位相关的经历。
+          </div>
+        </div>
+
+        <div class="msg ai">
+          <div class="msg-avatar ai">🤖</div>
+          <div class="msg-highlight">
+            <div class="q-title">⭐ 问题 1/10 · 题源：智能生成</div>
+            你好，欢迎参加今天的面试，我们放松聊一聊。先简单了解一下你的情况。<br><br>
+            请先做个自我介绍，可以重点说说和你应聘这个后端开发岗位相关的经历。
+          </div>
+        </div>
+
+        <div class="msg user">
+          <div class="msg-avatar me">我</div>
+          <div class="msg-bubble">
+            <span class="msg-label">我的回答</span>
+            好的，我说下。
+          </div>
+        </div>
+
+        <div class="msg ai">
+          <div class="msg-avatar ai">🤖</div>
+          <div class="feedback-bubble">
+            <span class="fb-label">💬 评分反馈</span>
+            好，我这边准备好了，你直接开始就行。
+          </div>
+        </div>
+
+      </div>
+
+      <div class="chat-input">
+        <div class="info">
+          <span class="dot"></span>
+          已用时 18 秒 · 不限时，想好再提交
+          <span class="sep">·</span>
+          <span id="answerInfo">已作答 0 题</span>
+        </div>
+        <div class="input-box">
+          <textarea id="answerInput" placeholder="面试官你好，我认为…"></textarea>
+          <button class="input-send" id="btnSend" title="发送回答">➤</button>
+        </div>
+
+        <!-- 输入操作行：跳过本题 + 清空文本 + 智能提示 + 回答完毕 -->
+        <div class="input-actions">
+          <button class="btn btn-skip" id="btnSkip">⏭ 跳过本题</button>
+          <button class="btn btn-ghost" id="btnClearText">📝 清空文本</button>
+          <button class="btn btn-ghost" id="btnHint">💡 智能提示</button>
+          <button class="btn btn-primary" id="btnFinish">✓ 回答完毕</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右栏 -->
+    <aside class="iv-right">
+      <div class="bg-card">
+        <h4><span class="ic">🎯</span>面试背景</h4>
+        <div class="info-row"><span class="k">目标岗位</span><span class="v">后端开发</span></div>
+        <div class="info-row"><span class="k">题目难度</span><span class="v">初级（应届/转行）</span></div>
+        <div class="info-row"><span class="k">简历锚定</span><span class="v">钟永国</span></div>
+        <div class="divider">六维评分与深度分析将在面试结束后的报告中统一呈现。</div>
+      </div>
+
+      <div class="bg-card">
+        <h4><span class="ic">💡</span>面试提示</h4>
+        <ul class="hint-list">
+          <li><span class="n">1</span><span>点击「智能提示」可获得本题的答题思路框架</span></li>
+          <li><span class="n">2</span><span>卡壳时可逐级升级提示，共 3 级，越往后越具体</span></li>
+          <li><span class="n">3</span><span>建议先自己组织语言，再参考提示</span></li>
+        </ul>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- 结束面试确认框 -->
+<div class="modal-mask" id="endModal">
+  <div class="confirm-modal">
+    <div class="confirm-icon">⚠️</div>
+    <h3>确定结束本次面试？</h3>
+    <p>结束后将立即生成评估报告，本次面试不可恢复。<br>建议回答完当前题目再结束。</p>
+    <div class="confirm-actions">
+      <button class="btn btn-outline" id="btnCancelEnd">继续面试</button>
+      <button class="btn btn-end-confirm" id="btnConfirmEnd">确定结束</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+ *  0. 工具
+ * =======================================================*/
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+function toast(msg, icon = '✨') {
+  const t = $('#toast');
+  t.innerHTML = `<span class="ic">${icon}</span><span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* =========================================================
+ *  1. 本次考察知识点
+ * =======================================================*/
+const knowledgePoints = [
+  { tag: '自我介绍', point: '个人背景与项目经历的条理化表达',
+    full: '请用 2 分钟做一个自我介绍，重点结合与后端开发岗位相关的项目经历。' },
+  { tag: '项目经历', point: '中信证券一体化运营平台：负责模块与角色',
+    full: '你在中信证券一体化运营平台项目里，具体负责哪一块？是偏后端核心开发，还是更多带团队和做项目管理？' },
+  { tag: '项目难点', point: '邮件解析量级与规则引擎设计',
+    full: '邮件解析这块听起来有复杂度。你们邮件量级大概多少？解析规则是怎么设计的？遇到解析失败或格式异常怎么处理？' },
+  { tag: '工程化', point: '消息队列削峰与失败任务自动重试',
+    full: '如果每天有几万封邮件，你会如何设计削峰方案？失败任务如何自动重试与分类告警？' },
+  { tag: '项目管理', point: '需求频繁变更与工期紧张的处理策略',
+    full: '你带团队时，遇到需求频繁变更或工期紧张，一般怎么处理？请用一个真实项目说明。' },
+  { tag: '技术深度', point: '微服务拆分边界与技术选型依据',
+    full: '请介绍你最近参与的一个微服务项目，为什么这么拆分？选型时对比了哪些方案？' },
+  { tag: '高并发', point: '限流熔断阈值推导与降级策略',
+    full: '你们的服务是如何做限流和熔断的？阈值是怎么定的？超出后走什么降级策略？' },
+  { tag: '问题排查', point: '线上接口超时的系统化排查路径',
+    full: '如果线上出现接口超时，你会如何排查？请说出你的完整排查链路。' },
+  { tag: '数据一致性', point: '分布式事务与最终一致性方案',
+    full: '你们的订单和库存服务如何保证数据一致性？用了什么方案？为什么这么选？' },
+  { tag: '职业规划', point: '未来三年发展方向与 AI Agent 实战',
+    full: '你未来三年的职业规划是什么？你提到会 AI Agent，能具体说说在项目里怎么用的吗？' }
+];
+
+const truncate = (str, n = 10) => str.length > n ? str.slice(0, n) + '…' : str;
+let currentIdx = 0;
+
+function renderKnowledge() {
+  $('#knowledgeList').innerHTML = knowledgePoints.map((k, i) => `
+    <li class="knowledge-item ${i === currentIdx ? 'current' : ''}" data-idx="${i}">
+      <span class="idx">${i + 1}</span>
+      <div class="body">
+        <div class="title">${truncate(k.point, 10)}</div>
+        <span class="tag">${k.tag}</span>
+      </div>
+      <div class="knowledge-tooltip">
+        <div class="tip-tag"># ${k.tag}</div>
+        <div class="tip-title">${k.point}</div>
+        <div class="tip-q">${k.full}</div>
+      </div>
+    </li>
+  `).join('');
+  $('#kCount').textContent = `${knowledgePoints.length} 个`;
+  $('#qCount').textContent = `问题 ${currentIdx + 1}/${knowledgePoints.length}`;
+}
+renderKnowledge();
+
+$('#knowledgeList').addEventListener('click', e => {
+  const item = e.target.closest('.knowledge-item');
+  if (!item) return;
+  const idx = +item.dataset.idx;
+  toast(`第 ${idx + 1} 个考察点：${knowledgePoints[idx].point}`, '🎯');
+});
+
+/* =========================================================
+ *  2. 计时器
+ * =======================================================*/
+let seconds = 1347; // 22:27
+setInterval(() => {
+  seconds++;
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  $('#timerText').textContent = `${m}:${s}`;
+}, 1000);
+
+/* =========================================================
+ *  3. 顶部悬浮栏操作
+ * =======================================================*/
+let playing = true;
+$('#btnPlay').addEventListener('click', function () {
+  playing = !playing;
+  this.textContent = playing ? '🔊 播报中' : '🔇 已静音';
+  this.classList.toggle('playing', playing);
+  toast(playing ? '已开启语音播报' : '已静音', playing ? '🔊' : '🔇');
+});
+
+$('#btnPause').addEventListener('click', function () {
+  const paused = this.textContent.includes('继续');
+  this.textContent = paused ? '⏸ 暂停' : '▶ 继续';
+  toast(paused ? '面试已继续' : '面试已暂停', paused ? '▶' : '⏸');
+});
+
+$('#btnEnd').addEventListener('click', () => {
+  $('#endModal').classList.add('show');
+});
+
+$('#btnCancelEnd').addEventListener('click', () => {
+  $('#endModal').classList.remove('show');
+  toast('已取消，继续面试', '↩️');
+});
+
+$('#btnConfirmEnd').addEventListener('click', () => {
+  $('#endModal').classList.remove('show');
+  toast('面试已结束，正在生成报告…', '📊');
+  // 静态演示：直接跳转报告页；实际接入时先调 POST /portal/interview/voice/{id}/finish 生成报告再跳转
+  setTimeout(() => window.location.href = '面试报告v2.html', 1200);
+});
+
+$('#endModal').addEventListener('click', e => {
+  if (e.target === $('#endModal')) $('#endModal').classList.remove('show');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#endModal').classList.contains('show')) {
+    $('#endModal').classList.remove('show');
+  }
+});
+
+/* =========================================================
+ *  4. 跳过本题（输入区）
+ * =======================================================*/
+$('#btnSkip').addEventListener('click', () => {
+  if (currentIdx < knowledgePoints.length - 1) {
+    currentIdx++;
+    renderKnowledge();
+  }
+  toast('已跳过本题，进入下一考察点', '⏭');
+});
+
+/* =========================================================
+ *  5. 输入与发送
+ * =======================================================*/
+const input = $('#answerInput');
+input.addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+});
+
+let answerCount = 0;
+function updateAnswerInfo() {
+  $('#answerInfo').textContent = `已作答 ${answerCount} 题`;
+}
+
+$('#btnClearText').addEventListener('click', () => {
+  if (!input.value) { toast('输入框已为空', 'ℹ️'); return; }
+  input.value = '';
+  input.style.height = 'auto';
+  input.focus();
+  toast('已清空输入', '🗑️');
+});
+
+let hintLevel = 0;
+$('#btnHint').addEventListener('click', () => {
+  hintLevel = hintLevel >= 3 ? 1 : hintLevel + 1;
+  const hints = [
+    '第 1 级提示：先给出总体框架，再展开 1–2 个重点。',
+    '第 2 级提示：可从「项目背景 + 我的角色 + 技术难点 + 结果」四步展开。',
+    '第 3 级提示：参考示例——「我在 XX 项目中负责 XX 模块，用 XX 技术解决了 XX 问题，最终 XX 指标提升 XX%。」'
+  ];
+  toast(`💡 ${hints[hintLevel - 1]}`, '💡');
+});
+
+const chatBody = $('#chatBody');
+function sendAnswer() {
+  const text = input.value.trim();
+  if (!text) { toast('请先输入你的回答', '⚠️'); input.focus(); return; }
+
+  const msg = document.createElement('div');
+  msg.className = 'msg user';
+  msg.innerHTML = `
+    <div class="msg-avatar me">我</div>
+    <div class="msg-bubble">
+      <span class="msg-label">我的回答</span>
+      ${text.replace(/</g, '&lt;')}
+    </div>
+  `;
+  chatBody.appendChild(msg);
+  chatBody.scrollTop = chatBody.scrollHeight;
+
+  input.value = '';
+  input.style.height = 'auto';
+  answerCount++;
+  updateAnswerInfo();
+  toast('回答已提交', '✓');
+
+  const typing = document.createElement('div');
+  typing.className = 'msg ai';
+  typing.innerHTML = `
+    <div class="msg-avatar ai">🤖</div>
+    <div class="feedback-bubble">
+      <span class="fb-label">💬 评分反馈</span>
+      <span class="typing"><i></i><i></i><i></i></span>
+    </div>
+  `;
+  chatBody.appendChild(typing);
+  chatBody.scrollTop = chatBody.scrollHeight;
+
+  setTimeout(() => {
+    typing.innerHTML = `
+      <div class="msg-avatar ai">🤖</div>
+      <div class="feedback-bubble">
+        <span class="fb-label">💬 评分反馈</span>
+        好的，记录下来了。我们继续下一题。
+      </div>
+    `;
+    chatBody.scrollTop = chatBody.scrollHeight;
+    if (currentIdx < knowledgePoints.length - 1) {
+      currentIdx++;
+      renderKnowledge();
+    }
+  }, 1200);
+}
+
+$('#btnSend').addEventListener('click', sendAnswer);
+$('#btnFinish').addEventListener('click', sendAnswer);
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendAnswer();
+  }
+});
+</script>
+</body>
+</html>

@@ -2,6 +2,93 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v14.75 (2026-10-12) 面试报告页 7 Tab 重构落地 Vue（对齐 V8 开发指导）+ 静态页三件套重构
+
+**背景**：用户裁定报告页 Tab 组织不合理，给出 V7 开发指导与静态页新方案；本轮完成静态页三件套重构（对齐真实 VO）并落地 moyun-portal。
+
+### 一、静态页（docs/05-方案设计-分模块/4-语音面试/）
+
+- `面试报告v2.html`：删除「重新生成建议」按钮（V7 禁令）；Mock/渲染全面切换真实
+  VoiceInterviewReportVO（verdict/competencyViews/weakPointViews 归因卡/questionReviews
+  四段式/suggestionViews/predictedQuestions/sentimentTrend/redFlags/introScore）；
+  Tab7 数据接口区改 4 条真实接口（finish/regenerate-report/analysis/share）；
+- `面试准备页v2.html` / `面试过程页v2.html`：三页联动跳转修正为实际文件名
+  （interview-report.html→面试报告v2.html 等），过程页「确定结束」恢复实际跳转。
+
+### 二、Vue 落地（moyun-portal VoiceInterviewPage.vue）
+
+- 报告区按 V8 指导重构为 7 Tab（bg/overview/dialog/analysis/voice/advice/insight，默认 bg）：
+  面试背景（候选人+岗位+自介分+考察方向）/ 概览评分（雷达+verdict+五维剖面）/ 面试回放
+  （**移除点评气泡** + 从头播放逐条 650ms 淡入 + 进度条计数器 + 题源标签）/ 逐题分析（原样）/
+  语音指标（新增：真实字段卡+心态趋势+可疑信号）/ 改进建议（suggestionViews+追问预测并入，
+  未问在前）/ 发展方向（懒生成保留）；
+- V7「🔌数据接口」Tab 不落地（开发调试面板不暴露给最终用户）；
+- Hero 元信息条改 5 项（候选人/岗位/时间/时长/面试编号）；样式全走主题变量；
+- 类型修复：weakPointCards 标注 WeakPointView[]；回放移除 VO 上不存在的 qa.selfIntro；
+- 死代码清理：sum-archive 归档折叠区 + predict 旧 tab 模板与样式。
+
+### 三、文档
+
+- 新增《门户-语音面试-评估报告页面开发指导-V8.md》（V7 升版：追加「十二、Vue 落地记录」，
+  记录 Tab 映射与取舍；旧 V7 文件删除）。
+
+### 四、验证
+
+- `vue-tsc -b` 0 错误；`vite build --mode development` 构建通过
+  （生产构建缺 VITE_SITE_URL 被 SEO 守卫拦截，为既有部署配置问题）。
+
+## v14.74 (2026-10-12) 面试报告「考察者视角」升级：逐题四段式 + 复盘五维剖面 + 薄弱点归因卡 + 兜底去毒
+
+**背景**：id=2 实测复盘发现报告除对话回放外各 tab 内容空洞——薄弱点/建议出现
+「针对薄弱点『你好，欢迎参加今天的面试…』做专项复习」类胡给文案，逐题解析只是问题列表
+无评价；整场复盘曾静默失败（网关 output_tokens=0 误记 success）且兜底文案模板化。
+本次从「问题列表」升级为「考察者对被面试人的客观评价与行动建议」。
+
+### 一、链路修复（4 根因）
+
+- **网关**：流式/同步通道空输出（output_tokens=0）判定为失败并走重试，不再误记 success；
+- **寒暄轮隔离**：口头结束收尾轮（verbal-end）打 selfIntro 同源标记，零评分、零统计、
+  复盘输入组装自动跳过（修复 `InterviewSessionSupport` 重复方法编译错）；
+- **聚合去毒**：`InterviewReportFormatter.buildImprovementSuggestions` 不再从 weakPoints
+  机械拼接模板文案；题干原文不再进 highlights/weakPoints；
+- **重算口径**：enhanceReportByAgent 重算总分跳过自我介绍轮（intro 20% + tech 80% 权重不变）。
+
+### 二、报告内容升级（2 个 Prompt）
+
+- `voice_interview:answer_analysis`：逐题四段式 intent（考察意图）/framework（参考要点
+  框架）/gap（差距分析，引用原话）/advice（动词开头补法），max_tokens 2048→2560；
+- `voice_interview:report_review`：考察者视角新增 verdict（结论判词）/profile（候选人
+  画像）/competencies（五维固定剖面 depth/engineering/design/communication/match，锚定
+  证据+未考察注明）/weakPoints 归因卡（type=knowledge|expression|depth + evidence +
+  impact + remedy）/suggestionViews（action+acceptance 验收口径+priority 1-3）+
+  【话术铁律】6 条；retry 0→3、max_tokens 2560→4600、max_output_tokens 2000→4096；
+- `voice_interview:industry_insight`：retry 1→3（单次抖动不应终局失败）；
+- `enhanceReportByAgent` 解析新维度（verdict/profile/competencies/suggestionViews）+
+  逐题四段式回填（fillReviewAnalysis）+ 空壳输出 reviewDegraded=true（前端概要横幅+重生成入口）。
+
+### 三、前端展示（moyun-portal 三区）
+
+- 概要 tab：考察结论判词卡 + 五维能力剖面网格（分色进度条+证据题号）+ 候选人画像段 +
+  结构化建议卡（动作/验收/优先级徽章）+ 降级横幅；
+- 问题解析 tab：逐题四段式块（考察意图/参考框架/差距/补法）+ 自我介绍轮标签；
+- 待提升 tab：薄弱点归因卡（类型徽章 + 证据/影响/补法三行）；旧报告字段缺失自动回退旧样式。
+
+### 四同步
+
+- 代码：VoiceInterviewServiceImpl / InterviewReportFormatter / InterviewSessionSupport /
+  voiceInterview.ts / VoiceInterviewPage.vue；
+- SQL：增量脚本 `20261012-01`（已执行 moyun-db2 并复核通过：answer_analysis 含四段式硬约束、
+  report_review 含话术铁律 retry=3）+ DML init 同步（answer_analysis/report_review/
+  industry_insight 行 + max_output_tokens 放宽 UPDATE）；菜单无新增页面/字段，无需变更；
+- 文档：方案文档升版 V1.4（新增 2026-10-12 报告评审升级修正清单）；
+- **存量报告（如 id=2）需点「重新生成报告」才会产出新结构内容**。
+
+### 验证
+
+- 后端 `mvn compile` ✓（产物时间戳已核）；增量 SQL 幂等（UPDATE 语义）。
+
+---
+
 ## v14.73 (2026-10-05) v14.72 遗留 P2 三项收尾：意图规则库扩充 + 降级可观测（degraded 列）+ agent 通道流式化
 
 **背景**：v14.72 遗留与后续规划（P2）三项全部闭环——意图路由安全开启前置、降级调用落库可统计、

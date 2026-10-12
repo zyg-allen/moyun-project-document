@@ -10,7 +10,7 @@ import {
   AlertCircle, RefreshCw,
   Network,
   MessageCircle, Activity, Crown, Target,
-  Mic, PlayCircle, Clock,
+  Mic, PlayCircle,
   FileText, Zap, ClipboardList,
   PenLine, Trophy,
   CalendarCheck, XCircle, GraduationCap,
@@ -788,7 +788,7 @@ useHead(
                           <span class="text-3xl font-black text-theme-text stat-number">86</span>
                           <span class="meta-text">分 · 示例</span>
                         </div>
-                        <p class="home-stage-desc">五维雷达定位短板，提升有方向</p>
+                        <p class="home-stage-desc">五维雷达可视化能力分布，弱项一目了然</p>
                         <div class="flex flex-wrap justify-center gap-1.5 mt-1.5">
                           <span
                             v-for="s in [['项目深挖', 92], ['技术基础', 84], ['系统设计', 78]]"
@@ -907,7 +907,7 @@ useHead(
            ================================================================ -->
 
       <!-- 学习（主线一：题库刷题/在线编程/知识图谱/错题本/学习计划） -->
-      <div id="home-learn" class="py-6 sm:py-10 bg-theme-bg scroll-mt-20">
+      <div id="home-learn" class="py-6 sm:py-10 section-bg-base scroll-mt-20">
         <div class="content-container">
           <!-- 章节头 -->
           <div class="home-chapter-head">
@@ -974,7 +974,7 @@ useHead(
       </div>
 
       <!-- 简历（主线二：模板库/岗位维护/AI 评分/AI 优化） -->
-      <div id="home-resume" class="py-6 sm:py-10 bg-theme-accent/40 scroll-mt-20">
+      <div id="home-resume" class="py-6 sm:py-10 section-bg-accent scroll-mt-20">
         <div class="content-container">
           <!-- 章节头 -->
           <div class="home-chapter-head">
@@ -1014,7 +1014,7 @@ useHead(
       </div>
 
       <!-- 面试（主线三：基于简历的 AI 语音面试/复盘/面经共享） -->
-      <div id="home-interview" class="py-6 sm:py-10 bg-gradient-to-b from-theme-primary-soft/50 via-theme-bg to-theme-bg scroll-mt-20">
+      <div id="home-interview" class="py-6 sm:py-10 section-bg-soft scroll-mt-20">
         <div class="content-container">
           <!-- 章节头 -->
           <div class="home-chapter-head">
@@ -1050,19 +1050,11 @@ useHead(
                       <span class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-theme-primary shrink-0 bg-theme-primary/10">NEW</span>
                     </div>
                     <p class="meta-text truncate text-theme-text-secondary">
-                      🎙 基于你的简历 · 麦克风对练 · 实时追问 · 五维雷达报告
+                      🎙 基于简历定制 · 语音对练 · 即时报告
                     </p>
                   </div>
                 </div>
-                <div class="hidden sm:flex items-center gap-5 shrink-0 meta-text text-theme-text-secondary">
-                  <div class="text-center">
-                    <div class="flex items-center gap-1"><PlayCircle class="w-3.5 h-3.5" /> 1次</div>
-                    <div class="text-theme-text-tertiary mt-0.5">约15分钟/场</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="flex items-center gap-1"><Clock class="w-3.5 h-3.5" /> 5主问+追问</div>
-                    <div class="text-theme-text-tertiary mt-0.5">完赛预计</div>
-                  </div>
+                <div class="hidden sm:flex items-center gap-2 shrink-0">
                   <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold bg-theme-primary text-theme-on-primary meta-text hover:opacity-90 transition-opacity">
                     立即体验
                     <ArrowRight class="w-4 h-4" />
@@ -1140,7 +1132,7 @@ useHead(
       </div>
 
       <!-- 阅读（主线四：书籍/书单/金句/文章内容流/标签） -->
-      <div id="home-reading" class="py-6 sm:py-10 bg-theme-accent/40 scroll-mt-20">
+      <div id="home-reading" class="py-6 sm:py-10 section-bg-accent scroll-mt-20">
         <div class="content-container">
           <!-- 章节头 -->
           <div class="home-chapter-head">
@@ -1224,18 +1216,17 @@ useHead(
                 <p v-else class="meta-text">暂无金句</p>
               </div>
 
-              <!-- 读书统计 -->
+              <!-- 阅读入口 -->
               <div class="p-3 sm:p-4 rounded-xl bg-theme-bg">
                 <div class="flex items-center gap-2 mb-3">
                   <div class="w-7 h-7 rounded-lg bg-theme-primary-soft flex items-center justify-center">
                     <Users class="w-3.5 h-3.5 text-theme-primary" />
                   </div>
-                  <h4 class="card-title">读书统计</h4>
+                  <h4 class="card-title">阅读入口</h4>
                 </div>
-                <div class="text-center">
-                  <p class="text-2xl sm:text-3xl font-bold text-theme-primary">{{ readingBooks.length + readingBookLists.length }}</p>
-                  <p class="meta-text mt-1">本精选好书</p>
-                </div>
+                <button type="button" @click="router.push('/reading')" class="w-full text-center py-2 rounded-lg bg-theme-primary-soft text-theme-primary meta-text font-medium hover:opacity-80 transition-opacity">
+                  进入读书空间 →
+                </button>
               </div>
             </div>
           </div>
@@ -1306,7 +1297,7 @@ useHead(
       </div>
 
       <!-- 社区创作（主线五：动态广场/名家创作/话题标签） -->
-      <div id="home-community" class="py-6 sm:py-10 bg-theme-bg scroll-mt-20">
+      <div id="home-community" class="py-6 sm:py-10 section-bg-base scroll-mt-20">
         <div class="content-container">
           <!-- 章节头 -->
           <div class="home-chapter-head">
@@ -1414,9 +1405,7 @@ useHead(
                   <span v-else class="text-sm font-bold text-theme-primary">{{ author.initial || 'A' }}</span>
                 </div>
                 <p class="card-title mb-1">{{ author.name }}</p>
-                <p class="meta-text">已创作 {{ author.works }} 篇</p>
-                <p class="meta-text">{{ author.likes }} 喜欢</p>
-                <p class="meta-text">坚持 {{ author.days }} 天</p>
+                <p class="meta-text">{{ author.works }}篇 · {{ author.likes }}赞 · {{ author.days }}天</p>
               </button>
             </div>
             <div v-else class="py-8 text-center">

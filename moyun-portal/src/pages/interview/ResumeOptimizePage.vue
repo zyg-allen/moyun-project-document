@@ -45,11 +45,11 @@ const breadcrumbs = computed(() => [
 // ==================== 步骤状态 ====================
 const step = ref(1); // 1岗位 2简历 3分析 4对比优化 5预览
 const steps = [
-  { n: 1, label: '选择岗位', icon: Target },
-  { n: 2, label: '选择简历', icon: FolderOpen },
-  { n: 3, label: 'AI 分析', icon: Bot },
-  { n: 4, label: '对比优化', icon: GitCompare },
-  { n: 5, label: '预览保存', icon: Eye },
+  { n: 1, label: '选择岗位', hint: '粘贴JD精准匹配', icon: Target },
+  { n: 2, label: '选择简历', hint: '从我的简历中选择', icon: FolderOpen },
+  { n: 3, label: 'AI 分析', hint: '岗位匹配度评分', icon: Bot },
+  { n: 4, label: '对比优化', hint: '逐项采纳AI建议', icon: GitCompare },
+  { n: 5, label: '预览保存', hint: '生成新版本', icon: Eye },
 ];
 
 // 岗位目标
@@ -1217,7 +1217,7 @@ function gotoInterview() {
       <Breadcrumb :items="breadcrumbs" />
 
       <!-- 页头 -->
-      <div class="mb-6">
+      <div class="mb-6 p-5 rounded-2xl section-bg-soft border border-theme-border">
         <h1 class="text-2xl font-bold flex items-center gap-2">
           <Sparkles class="w-6 h-6" style="color: var(--theme-primary);" />
           AI 简历优化工作台
@@ -1226,7 +1226,7 @@ function gotoInterview() {
       </div>
 
       <!-- 步骤条 -->
-      <div class="bg-theme-surface rounded-xl border border-theme-border p-4 mb-6 flex items-center justify-between overflow-x-auto">
+      <div class="section-bg-accent rounded-xl border border-theme-border p-4 mb-6 flex items-center justify-between overflow-x-auto">
         <template v-for="(s, i) in steps" :key="s.n">
           <div class="flex items-center gap-2 flex-shrink-0">
             <div
@@ -1237,7 +1237,10 @@ function gotoInterview() {
               <CheckCircle2 v-if="step > s.n" class="w-4 h-4" />
               <component v-else :is="s.icon" class="w-4 h-4" />
             </div>
-            <span class="text-sm" :class="step >= s.n ? 'text-theme-text font-medium' : 'text-theme-text-secondary'">{{ s.label }}</span>
+            <div class="flex flex-col">
+              <span class="text-sm" :class="step >= s.n ? 'text-theme-text font-medium' : 'text-theme-text-secondary'">{{ s.label }}</span>
+              <span v-if="s.hint" class="step-hint">{{ s.hint }}</span>
+            </div>
           </div>
           <div v-if="i < steps.length - 1" class="flex-1 h-px mx-3 min-w-[24px]" :class="step > s.n ? 'bg-theme-success' : 'bg-theme-accent'" />
         </template>
@@ -1265,8 +1268,8 @@ function gotoInterview() {
                 <strong class="text-sm">{{ t.position }}</strong>
                 <span v-if="t.company" class="text-xs text-theme-text-secondary">{{ t.company }}</span>
                 <span v-if="t.city" class="text-xs text-theme-text-secondary">· {{ t.city }}</span>
-                <span v-if="t.jobType" class="text-[11px] px-2 py-0.5 rounded bg-theme-info-bg text-theme-primary">{{ t.jobType }}</span>
-                <span v-if="t.isDefault === 1" class="text-[11px] px-2 py-0.5 rounded bg-theme-warning-bg text-theme-warning">默认</span>
+                <span v-if="t.jobType" class="tag-pill tag-pill--info">{{ t.jobType }}</span>
+                <span v-if="t.isDefault === 1" class="tag-pill tag-pill--warning">默认</span>
               </div>
               <p class="text-xs text-theme-text-secondary mt-1 line-clamp-2 whitespace-pre-line">{{ t.jdText.slice(0, 120) }}{{ t.jdText.length > 120 ? '...' : '' }}</p>
             </div>
@@ -1283,16 +1286,19 @@ function gotoInterview() {
         </div>
 
         <div class="flex justify-between">
-          <button class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-theme-border hover:border-theme-primary hover:text-theme-primary" @click="openJobModal">
+          <button class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-theme-border hover:border-theme-primary hover:text-theme-primary" @click="openJobModal" title="粘贴 BOSS/拉勾的岗位描述效果最佳">
             <Plus class="w-4 h-4" /> 新建岗位
           </button>
           <button
-            class="inline-flex items-center gap-1.5 text-sm px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50"
+            class="btn-with-hint inline-flex items-center gap-1.5 text-sm px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50"
             style="background: var(--theme-primary);"
             :disabled="!selectedTargetId"
             @click="goStep2"
           >
-            下一步：选择简历 <ArrowRight class="w-4 h-4" />
+            <span class="inline-flex items-center gap-1.5">
+              下一步：选择简历 <ArrowRight class="w-4 h-4" />
+            </span>
+            <span class="btn-hint text-white/70">选定岗位后进入简历选择</span>
           </button>
         </div>
       </div>

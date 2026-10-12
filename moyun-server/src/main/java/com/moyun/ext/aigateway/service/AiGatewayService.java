@@ -256,11 +256,21 @@ public class AiGatewayService {
                 semanticCache.put(request.getUserId(), sceneCode, inputKey, inputText,
                         response, config.getCacheTtl());
             }
+            // 执行结果如实记账：Executor（如 DefaultSceneExecutor）对空输出/解析失败返回
+            // failure 响应对象而非抛异常——旧逻辑无条件记 "success"，导致「output_tokens=0
+            // 但 status=success」的观测黑洞（报告链路曾据此静默降级无人知晓）。
+            boolean execSuccess = response.getCode() != null && response.getCode() == AiErrorCodes.SUCCESS;
             executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     executorName, resolveBindType(config), response.getMetadata(),
-                    inputKey, summarizeOutput(response), "success", null, elapsed);
-            log.info("[aigateway:网关] 成功: scene={}, requestId={}, elapsed={}ms",
-                    sceneCode, request.getRequestId(), elapsed);
+                    inputKey, summarizeOutput(response),
+                    execSuccess ? "success" : "fail", execSuccess ? null : response.getMsg(), elapsed);
+            if (execSuccess) {
+                log.info("[aigateway:网关] 成功: scene={}, requestId={}, elapsed={}ms",
+                        sceneCode, request.getRequestId(), elapsed);
+            } else {
+                log.warn("[aigateway:网关] 执行失败: scene={}, requestId={}, code={}, msg={}",
+                        sceneCode, request.getRequestId(), response.getCode(), response.getMsg());
+            }
             return response;
 
         } catch (Exception e) {

@@ -72,6 +72,30 @@ public class VoiceInterviewReportVO {
     /** 整场 LLM 复盘总评（3-5 句，基于简历+岗位+对话；旧报告为 null 前端回退 summary） */
     private String overallComment;
 
+    /**
+     * 结论判词（考察者视角，一句话定性整体水平与岗位差距方向，≤60 字）。
+     * <p>整场 LLM 复盘产出；旧报告为 null 前端隐藏。</p>
+     */
+    private String verdict;
+
+    /**
+     * 候选人画像段（考察者视角：背景/年限/项目复杂度对照岗位要求，2-4 句）。
+     * <p>整场 LLM 复盘产出；旧报告为 null 前端隐藏。</p>
+     */
+    private String profile;
+
+    /** 能力剖面（考察者视角五维评价；旧报告为 null 前端隐藏） */
+    private List<CompetencyView> competencyViews;
+
+    /** 结构化行动建议（动作+验收口径+优先级；旧报告为 null 前端回退 improvementSuggestions） */
+    private List<SuggestionView> suggestionViews;
+
+    /**
+     * 整场 LLM 复盘是否降级（模型无输出/解析失败，报告仅含规则聚合数据）。
+     * <p>true 时前端在概要 tab 顶部展示「AI 深度复盘未完成」横幅 + 重新生成入口。</p>
+     */
+    private Boolean reviewDegraded;
+
     /** LLM 岗位匹配度评估（旧报告为 null 前端回退 jobInfo.matchRate） */
     private JobMatchView jobMatch;
 
@@ -134,6 +158,7 @@ public class VoiceInterviewReportVO {
      * 逐题点评项
      */
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class QuestionReview {
         private Integer questionIdx;
         private String question;
@@ -143,6 +168,16 @@ public class VoiceInterviewReportVO {
         private String userAnswer;
         /** 问答ID（加入错题本用） */
         private Long qaId;
+        /** 是否自我介绍轮（不计入总分与维度均分；前端展示标签） */
+        private Boolean selfIntro;
+        /** 考察意图（本题在验证什么能力，面试官视角一句，≤40 字） */
+        private String intent;
+        /** 参考要点框架（好答案应覆盖的要点，3-5 条） */
+        private List<String> framework;
+        /** 差距分析（你的回答 vs 参考框架，引用原话，1-2 句） */
+        private String gap;
+        /** 针对性补法（动词开头一条，≤50 字） */
+        private String advice;
     }
 
     /**
@@ -167,6 +202,46 @@ public class VoiceInterviewReportVO {
         private String title;
         /** 具体依据/不足说明（引用作答内容） */
         private String detail;
+        /** 薄弱点类型：knowledge 知识型 / expression 表达型 / depth 深度型（仅薄弱点有） */
+        private String type;
+        /** 证据（哪几题 + 原话摘要；仅薄弱点归因卡有） */
+        private String evidence;
+        /** 影响（真实面试中会被如何解读；仅薄弱点归因卡有） */
+        private String impact;
+        /** 补法（具体可执行动作；仅薄弱点归因卡有） */
+        private String remedy;
+    }
+
+    /**
+     * 能力剖面视图（考察者视角：技术深度/工程实践/系统设计/沟通表达/岗位匹配）
+     */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CompetencyView {
+        /** 能力项 key：depth / engineering / design / communication / match */
+        private String key;
+        /** 能力项名称（如「技术深度」） */
+        private String label;
+        /** 本场表现分（0-100） */
+        private Integer score;
+        /** 评价（2-3 句，须锚定原话或题号证据） */
+        private String comment;
+        /** 证据题号（对应 questionReviews.questionIdx） */
+        private List<Integer> evidenceIdx;
+    }
+
+    /**
+     * 结构化行动建议视图（动词开头动作 + 验收口径 + 优先级）
+     */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class SuggestionView {
+        /** 具体动作（动词开头，≤50 字） */
+        private String action;
+        /** 验收口径（能做到什么算过关，≤40 字） */
+        private String acceptance;
+        /** 优先级（1 最高） */
+        private Integer priority;
     }
 
     /**

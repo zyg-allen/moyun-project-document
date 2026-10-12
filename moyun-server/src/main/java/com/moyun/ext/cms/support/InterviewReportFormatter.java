@@ -26,9 +26,6 @@ public final class InterviewReportFormatter {
     /** 亮点/薄弱点结构化视图的条数上限（与 LLM 提示词的 2-4 条口径一致） */
     public static final int MAX_POINT_VIEWS = 4;
 
-    /** 薄弱点转改进建议的条数上限 */
-    public static final int MAX_WEAK_SUGGESTIONS = 3;
-
     /** 含自我介绍不足在内的改进建议总条数上限 */
     public static final int MAX_TOTAL_SUGGESTIONS = 5;
 
@@ -67,6 +64,23 @@ public final class InterviewReportFormatter {
             VoiceInterviewReportVO.PointView view = new VoiceInterviewReportVO.PointView();
             view.setTitle(title);
             view.setDetail(item.path("detail").asText("").trim());
+            // 归因卡扩展字段（2026-10-12 报告评审升级；仅薄弱点使用，缺失即不设——前端按字段存在性渲染）
+            String type = item.path("type").asText("").trim();
+            if (StringUtils.isNotEmpty(type)) {
+                view.setType(type);
+            }
+            String evidence = item.path("evidence").asText("").trim();
+            if (StringUtils.isNotEmpty(evidence)) {
+                view.setEvidence(evidence);
+            }
+            String impact = item.path("impact").asText("").trim();
+            if (StringUtils.isNotEmpty(impact)) {
+                view.setImpact(impact);
+            }
+            String remedy = item.path("remedy").asText("").trim();
+            if (StringUtils.isNotEmpty(remedy)) {
+                view.setRemedy(remedy);
+            }
             views.add(view);
             titles.add(title);
         }
@@ -79,26 +93,19 @@ public final class InterviewReportFormatter {
     /**
      * 规则兜底的改进建议（LLM 建议缺失或为空时使用）。
      *
-     * <p>来源两级：① 薄弱点（最多 {@value #MAX_WEAK_SUGGESTIONS} 条）；
-     * ② 自我介绍不足（补足到 {@value #MAX_TOTAL_SUGGESTIONS} 条）。
-     * 两者皆无时给一条「均衡」正向文案 —— **保证建议区永不空白**（报告不出现空板块）。</p>
+     * <p>来源仅自我介绍不足（补足到 {@value #MAX_TOTAL_SUGGESTIONS} 条）；
+     * 为空时给一条「均衡」正向文案 —— **保证建议区永不空白**（报告不出现空板块）。</p>
      *
-     * @param weakPoints 薄弱点标题列表（可空）
+     * <p><b>去毒（2026-10-12）</b>：不再从 weakPoints 机械拼接「针对薄弱点『xxx』做专项复习」——
+     * 薄弱点已有专属展示区与 LLM 归因卡，且兜底链路中 weakPoints 可能为空（宁缺勿假），
+     * 拼接模板只会产出空洞同义反复。</p>
+     *
      * @param introScore 自我介绍评分视图（可空；其 weaknesses 会被转为建议）
      * @return 非空的建议列表
      */
     public static List<String> buildImprovementSuggestions(
-            List<String> weakPoints,
             VoiceInterviewReportVO.IntroScoreView introScore) {
         List<String> suggestions = new ArrayList<>();
-        if (weakPoints != null) {
-            for (String wp : weakPoints) {
-                if (suggestions.size() >= MAX_WEAK_SUGGESTIONS) {
-                    break;
-                }
-                suggestions.add("针对薄弱点「" + wp + "」做专项复习，可结合错题本巩固。");
-            }
-        }
         if (introScore != null && introScore.getWeaknesses() != null) {
             for (String wk : introScore.getWeaknesses()) {
                 if (StringUtils.isNotEmpty(wk) && suggestions.size() < MAX_TOTAL_SUGGESTIONS) {

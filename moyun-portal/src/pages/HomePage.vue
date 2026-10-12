@@ -19,7 +19,7 @@ import {
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import BackToTop from '@/components/BackToTop.vue'
-import interviewerAvatar from '@/assets/ai-interviewer.png'
+import interviewerAvatar from '@/assets/ai-interviewer.jpg'
 import { generateSeo } from '@/utils/seo'
 import { transformArticle } from '@/utils/articleTransform'
 import * as articleApi from '@/api/article'
@@ -676,13 +676,13 @@ useHead(
                 </div>
 
                 <h1 class="text-3xl sm:text-4xl lg:text-[2.75rem] font-black text-theme-text leading-snug text-balance">
-                  旭林知行 <span class="text-theme-primary">AI 面试</span><br>
-                  一站式求职成长平台<br>
-                  <span class="block mt-2">Offer 收割机，<span class="text-theme-primary">就是你！</span></span>
+                  旭林知行
+                  <span class="bg-gradient-to-r from-theme-primary to-theme-accent bg-clip-text text-transparent">AI 模拟面试</span><br>
+                  <span class="block mt-2">真问卷 · 真追问 · 真报告</span>
                 </h1>
 
                 <p class="body-text text-theme-text-secondary leading-relaxed">
-                  问得准 · 按简历与岗位定制考察&nbsp;&nbsp;|&nbsp;&nbsp;练得真 · 语音对练实时追问&nbsp;&nbsp;|&nbsp;&nbsp;评得细 · 五维雷达定位短板
+                  按你的简历与目标岗位出题，语音实时对练、层层追问，答完即出五维能力报告
                 </p>
 
                 <div class="flex flex-wrap gap-3 sm:gap-4">
@@ -721,9 +721,9 @@ useHead(
                         </div>
                         <span class="home-slide-live"><span class="home-live-dot"></span>在线</span>
                       </div>
-                      <div class="min-w-0 space-y-2">
+                      <div class="min-w-0 space-y-2.5">
                         <p class="card-title">林川 · AI 面试官</p>
-                        <div class="flex items-end gap-[2px] h-6 text-theme-primary" aria-hidden="true">
+                        <div class="flex items-end gap-[2px] h-6 w-24 text-theme-primary" aria-hidden="true">
                           <span
                             v-for="i in 7"
                             :key="i"
@@ -731,8 +731,12 @@ useHead(
                             :style="{ animationDelay: `${i * 0.09}s`, animationDuration: `${0.9 + (i % 3) * 0.2}s` }"
                           ></span>
                         </div>
-                        <p class="home-stage-desc">基于你的简历出题，像真人面试官一样边听边追问</p>
-                        <button class="home-slide-cta" @click="goVoiceInterview">
+                        <ul class="home-slide-points">
+                          <li>按简历与岗位 JD 定制考察计划，问到点子上</li>
+                          <li>语音对练，边听边评，像真人一样层层追问</li>
+                          <li>答完即出五维报告，弱项与改进方向一目了然</li>
+                        </ul>
+                        <button class="home-slide-cta mt-1" @click="goVoiceInterview">
                           开始对练
                           <ArrowRight class="w-3.5 h-3.5" />
                         </button>
@@ -744,12 +748,11 @@ useHead(
                   <div class="home-carousel-slide">
                     <p class="home-slide-title">四步走完一场真面试</p>
                     <div class="home-journey">
-                      <div class="home-journey-step"><span>01</span>面试准备</div>
-                      <div class="home-journey-step"><span>02</span>AI 面试官</div>
-                      <div class="home-journey-step"><span>03</span>实时对练</div>
-                      <div class="home-journey-step"><span>04</span>结果报告</div>
+                      <div class="home-journey-step"><span>01</span>面试准备<em>选定岗位，导入简历与 JD</em></div>
+                      <div class="home-journey-step"><span>02</span>考察计划<em>按简历自动生成考察方向</em></div>
+                      <div class="home-journey-step"><span>03</span>实时对练<em>语音作答，追问不停</em></div>
+                      <div class="home-journey-step"><span>04</span>结果报告<em>五维雷达 + 改进建议</em></div>
                     </div>
-                    <p class="home-stage-desc">选定岗位导入简历 → 语音对练边答边评 → 练完即出五维报告</p>
                     <button class="home-slide-cta" @click="goResumeOptimize">
                       免费简历诊断
                       <ArrowRight class="w-3.5 h-3.5" />
@@ -759,8 +762,8 @@ useHead(
                   <!-- 屏 3：定制考察计划（focusAreas） -->
                   <div class="home-carousel-slide">
                     <p class="home-slide-title">按简历与岗位，自动生成考察计划</p>
-                    <p class="home-stage-desc">Java 后端示例 · 悬停查看考察意图</p>
-                    <div class="flex flex-wrap justify-center gap-1.5">
+                    <p class="home-stage-desc">以 Java 后端为例 · 覆盖五大方向，深度分三档 · 悬停 chip 查看考察意图</p>
+                    <div class="flex flex-wrap justify-center gap-1.5 max-w-md">
                       <span v-for="f in focusAreas" :key="f.label" class="focus-chip" :title="f.tip">
                         {{ f.label }}<em class="focus-depth" :class="`focus-depth--${f.depth}`">{{ depthText[f.depth] }}</em>
                       </span>
@@ -785,8 +788,16 @@ useHead(
                           <span class="text-3xl font-black text-theme-text stat-number">86</span>
                           <span class="meta-text">分 · 示例</span>
                         </div>
-                        <p class="home-stage-desc">五维雷达定位短板</p>
-                        <p class="home-stage-desc">弱项一目了然，提升有方向</p>
+                        <p class="home-stage-desc">五维雷达定位短板，提升有方向</p>
+                        <div class="flex flex-wrap justify-center gap-1.5 mt-1.5">
+                          <span
+                            v-for="s in [['项目深挖', 92], ['技术基础', 84], ['系统设计', 78]]"
+                            :key="s[0]"
+                            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-theme-accent text-theme-text-secondary"
+                          >
+                            {{ s[0] }} <b class="text-theme-primary">{{ s[1] }}</b>
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <button class="home-slide-cta" @click="goInterviewHistory">
@@ -1509,9 +1520,11 @@ useHead(
   position: relative;
   overflow: hidden;
   border-radius: 1.25rem;
-  border: 1px solid var(--theme-border);
-  background: var(--theme-surface);
-  box-shadow: var(--shadow-md);
+  /* 玻璃拟态：无边框 + 半透明底 + 背景模糊，融入 Hero 渐变背景，避免生硬色块与边框线 */
+  background: color-mix(in srgb, var(--theme-surface) 55%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-sm);
 }
 .home-carousel-track {
   display: flex;
@@ -1524,8 +1537,8 @@ useHead(
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 1.5rem 3rem;
+  gap: 1.125rem;
+  padding: 1.75rem 2rem;
   text-align: center;
 }
 .home-carousel-btn {
@@ -1569,14 +1582,14 @@ useHead(
 .home-carousel-dot.active { width: 1.25rem; background: var(--theme-primary); }
 
 /* 轮播屏内元素 */
-.home-slide-title { font-size: 1.05rem; font-weight: 700; color: var(--theme-text); }
+.home-slide-title { font-size: 1.25rem; font-weight: 700; color: var(--theme-text); }
 .home-slide-cta {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.45rem 1.1rem;
+  gap: 0.3rem;
+  padding: 0.5rem 1.25rem;
   border-radius: 999px;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 700;
   background: var(--theme-primary);
   color: var(--theme-on-primary);
@@ -1585,10 +1598,10 @@ useHead(
 .home-slide-cta:hover { background: var(--theme-primary-hover); transform: translateY(-1px); }
 .home-slide-photo-wrap { position: relative; }
 .home-slide-photo {
-  width: 7.5rem;
-  height: 9.5rem;
+  width: 8.5rem;
+  height: 8.5rem;
   object-fit: cover;
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   box-shadow: var(--shadow-md);
 }
 .home-slide-photo--fallback {
@@ -1617,27 +1630,64 @@ useHead(
 /* 屏 2：面试旅程四步 */
 .home-journey {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
   width: 100%;
-  max-width: 22rem;
+  max-width: 26rem;
 }
 .home-journey-step {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.625rem 0.25rem;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.75rem 0.875rem;
   border-radius: 0.75rem;
   background: var(--theme-accent);
-  font-size: 0.75rem;
-  color: var(--theme-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--theme-text);
 }
 .home-journey-step span {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   color: var(--theme-primary);
   font-variant-numeric: tabular-nums;
+}
+.home-journey-step em {
+  font-style: normal;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1rem;
+  color: var(--theme-text-tertiary);
+}
+
+/* 屏 1：面试官卖点列表 */
+.home-slide-points {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: left;
+}
+.home-slide-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--theme-text-secondary);
+}
+.home-slide-points li::before {
+  content: '✓';
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  background: var(--theme-primary-soft);
+  color: var(--theme-primary);
 }
 
 /* 在线呼吸点 */
@@ -1656,8 +1706,8 @@ useHead(
 
 .home-stage-desc {
   margin-top: 0.125rem;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.375rem;
   color: var(--theme-text-tertiary);
 }
 

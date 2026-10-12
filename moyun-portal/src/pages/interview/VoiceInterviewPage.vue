@@ -12,7 +12,7 @@ import { useToast } from '@/composables/useToast';
 import { useApiCall } from '@/composables/useApiCall';
 import { useSpeechSynthesis } from '@/composables/useSpeechSynthesis';
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition';
-import interviewerAvatar from '@/assets/ai-interviewer.png';
+import interviewerAvatar from '@/assets/ai-interviewer.jpg';
 import { useAudioLevel } from '@/composables/useAudioLevel';
 import { useMediaDevices } from '@/composables/useMediaDevices';
 import {

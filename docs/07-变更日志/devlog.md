@@ -2,6 +2,53 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.65 (2026-10-13) 修复面包屑样式完全未生效（三页）
+
+**现象**：准备页/过程页/报告页的面包屑无样式、错位。
+
+**根因（选择器写错层级）**：
+`<Breadcrumb class="prep-crumb" />` 的 `class` 会被 Vue **合并到子组件根元素**上，
+而该组件的根就是 `<nav class="flex items-center space-x-1 …" aria-label="面包屑导航">`
+—— 即 `prep-crumb` 与 `nav` 是**同一个元素**。
+
+但上一版 CSS 写成了后代选择器：
+
+```css
+.prep-crumb nav[aria-label] { … }   /* ← 找 prep-crumb 内部的 nav，不存在 */
+```
+
+⇒ **整段样式全部落空**（无 margin、无紫色悬停、无对齐）；
+组件自身的 Tailwind `space-x-1`（给除首个子元素外都加 margin-left）+ 内联
+`color: var(--theme-text-secondary)` 在无补偿样式时即表现为「错位 + 无样式」。
+
+**修复**：直接命中根 `<nav>` 自身，并用 `!important` 覆盖组件内联色值
+（组件内部子元素是 Tailwind 类 + 内联 style，scoped CSS 无法穿透，
+故只能提权覆盖；同时避免改动共享组件影响全站 70+ 处面包屑）：
+
+```css
+.prep-crumb[aria-label],
+.proc-crumb[aria-label],
+.rpt-crumb[aria-label] { display: flex !important; align-items: center !important; … }
+.prep-crumb[aria-label] > button { … }          /* 可点击层 → 紫色悬停胶囊 */
+.prep-crumb[aria-label] > span   { … }          /* 当前页 → 深色加粗 */
+.prep-crumb[aria-label] > svg    { … }          /* 分隔箭头 ChevronRight */
+```
+
+同时合并了准备页顶行（面包屑左 + 历史入口右）的 `.prep-topline` 规则，
+窄屏隐藏中间层与其后分隔箭头（DOM 顺序：Home(1) Chev(2) 中间层(3) Chev(4) 当前页(5)）。
+
+> **未改共享组件**：静态页用 `›` 字符作分隔符，本组件用 `ChevronRight` 图标。
+> 为不影响全站 70+ 处调用，本次保留图标形态，仅对齐颜色/间距/悬停效果。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `vite build --mode development` | ✅ 构建成功 |
+| `FrontendTemplateStructureGuardTest` | ✅ 4/4 |
+| 旧失效选择器残留 | ✅ 0（`:deep()` 仅剩 `.prose` 的合法用法） |
+
+
 ## v13.64 (2026-10-13) 概览评分「核心优势与待改进项」重构为绿/橙双栏对比卡
 
 按视觉规范把原「灰底小卡片 + ✅/⚠️ 逐条前缀」结构，重构为**单张白卡内双栏渐变对比**。

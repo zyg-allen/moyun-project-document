@@ -5264,88 +5264,120 @@ const chatStatus = computed(() => {
 /* ====================================================================
    面包屑（三页统一：准备页 / 过程页 / 报告页）
    对齐静态页 面试过程页v2.html 的 .breadcrumb 规范：
-   紫色悬停胶囊 + 灰色分隔符 › + 当前页深色加粗。
-   注：Breadcrumb 组件用 Tailwind 类 + 内联 style 渲染，
-       故用 nav[aria-label] 提高特异性以覆盖内联色值。
+   紫色悬停胶囊 + 灰色分隔符 + 当前页深色加粗。
+
+   实现要点：Breadcrumb 组件的 class 落在其**根 <nav>** 上
+   （<nav class="flex items-center space-x-1 …" aria-label="面包屑导航">），
+   故必须直接选中根节点本身，不能写成 `nav[aria-label]` 的后代选择器
+   （那会落空）。组件内部子元素用的是 Tailwind 类 + 内联 color，
+   故用 !important 覆盖内联色值，避免影响全站其它 70+ 处面包屑。
    ==================================================================== */
 .prep-crumb,
 .proc-crumb,
 .rpt-crumb {
-  display: block;
   margin-bottom: 12px;
-  font-size: 13px;
 }
-.prep-crumb nav[aria-label],
-.proc-crumb nav[aria-label],
-.rpt-crumb nav[aria-label] {
-  display: flex;
-  align-items: center;
+
+/* 根 <nav>：横向排列 + 统一字号与颜色 */
+.prep-crumb[aria-label],
+.proc-crumb[aria-label],
+.rpt-crumb[aria-label] {
+  display: flex !important;
+  align-items: center !important;
   gap: 2px;
   overflow: hidden;
-  color: #6b7280;
-  font-size: 13px;
+  font-size: 13px !important;
+  line-height: 1.6;
 }
-/* 可点击层：紫色悬停胶囊 */
-.prep-crumb nav[aria-label] > button,
-.proc-crumb nav[aria-label] > button,
-.rpt-crumb nav[aria-label] > button {
-  display: inline-flex;
-  align-items: center;
+
+/* 可点击层（首页按钮 + 中间层按钮）：紫色悬停胶囊 */
+.prep-crumb[aria-label] > button,
+.proc-crumb[aria-label] > button,
+.rpt-crumb[aria-label] > button {
+  display: inline-flex !important;
+  align-items: center !important;
   gap: 5px;
-  padding: 3px 7px;
+  padding: 3px 7px !important;
   border-radius: 7px;
-  color: #6b7280;
-  font-weight: 500;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+  line-height: 1.5;
   white-space: nowrap;
-  transition: all 0.18s ease;
+  transition: color 0.18s ease, background-color 0.18s ease;
 }
-.prep-crumb nav[aria-label] > button:hover,
-.proc-crumb nav[aria-label] > button:hover,
-.rpt-crumb nav[aria-label] > button:hover {
-  color: #4f46e5;
-  background: #eef2ff;
-  opacity: 1;
+.prep-crumb[aria-label] > button:hover,
+.proc-crumb[aria-label] > button:hover,
+.rpt-crumb[aria-label] > button:hover {
+  color: #4f46e5 !important;
+  background: #eef2ff !important;
+  opacity: 1 !important;
 }
-/* 图标 */
-.prep-crumb nav[aria-label] svg,
-.proc-crumb nav[aria-label] svg,
-.rpt-crumb nav[aria-label] svg {
-  width: 13px;
-  height: 13px;
-  color: #9ca3af;
+
+/* 当前页（末尾 span，无 path） */
+.prep-crumb[aria-label] > span,
+.proc-crumb[aria-label] > span,
+.rpt-crumb[aria-label] > span {
+  padding: 3px 6px !important;
+  color: #1f2937 !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
 }
-/* 分隔符（ChevronRight 图标）在 button/span 之后 */
-.prep-crumb nav[aria-label] > svg,
-.proc-crumb nav[aria-label] > svg,
-.rpt-crumb nav[aria-label] > svg {
-  width: 13px;
-  height: 13px;
-  color: #c7cbd8;
+
+/* 图标：首页小房子 + 分隔箭头 */
+.prep-crumb[aria-label] svg,
+.proc-crumb[aria-label] svg,
+.rpt-crumb[aria-label] svg {
+  width: 13px !important;
+  height: 13px !important;
   flex-shrink: 0;
 }
-/* 当前页（最后一个 span） */
-.prep-crumb nav[aria-label] > span,
-.proc-crumb nav[aria-label] > span,
-.rpt-crumb nav[aria-label] > span {
-  padding: 3px 6px;
-  color: #1f2937;
-  font-weight: 700;
-  white-space: nowrap;
+.prep-crumb[aria-label] > button > svg,
+.proc-crumb[aria-label] > button > svg,
+.rpt-crumb[aria-label] > button > svg {
+  color: #9ca3af !important;
+  stroke: currentColor;
 }
+/* 直接位于 nav 下的 svg = 分隔箭头（ChevronRight） */
+.prep-crumb[aria-label] > svg,
+.proc-crumb[aria-label] > svg,
+.rpt-crumb[aria-label] > svg {
+  color: #c7cbd8 !important;
+  stroke: currentColor;
+}
+
+/* 顶行（准备页）：面包屑左 + 历史入口右 */
+.prep-page .prep-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.prep-page .prep-topline .prep-crumb {
+  margin-bottom: 0;
+}
+
 @media (max-width: 760px) {
   .prep-crumb,
   .proc-crumb,
   .rpt-crumb {
     margin-bottom: 9px;
   }
-  /* 窄屏只保留「首页 › 当前页」：隐藏中间层与其后的分隔符 */
-  .prep-crumb nav[aria-label] > *:nth-child(3),
-  .prep-crumb nav[aria-label] > *:nth-child(4),
-  .proc-crumb nav[aria-label] > *:nth-child(3),
-  .proc-crumb nav[aria-label] > *:nth-child(4),
-  .rpt-crumb nav[aria-label] > *:nth-child(3),
-  .rpt-crumb nav[aria-label] > *:nth-child(4) {
-    display: none;
+  .prep-crumb[aria-label],
+  .proc-crumb[aria-label],
+  .rpt-crumb[aria-label] {
+    font-size: 12px !important;
+  }
+  /* 窄屏只保留「首页 › 当前页」：隐藏中间层按钮与其后的分隔箭头
+     （DOM 顺序：Home(1) Chev(2) 中间层(3) Chev(4) 当前页(5)） */
+  .prep-crumb[aria-label] > *:nth-child(3),
+  .prep-crumb[aria-label] > *:nth-child(4),
+  .proc-crumb[aria-label] > *:nth-child(3),
+  .proc-crumb[aria-label] > *:nth-child(4),
+  .rpt-crumb[aria-label] > *:nth-child(3),
+  .rpt-crumb[aria-label] > *:nth-child(4) {
+    display: none !important;
   }
 }
 

@@ -105,10 +105,10 @@ class FrontendTemplateStructureGuardTest {
         List<String> contentValues = rawCapture(src,
                 Pattern.compile("v-if=\"reportTab\\s*===\\s*'([a-zA-Z]+)'\""));
         assertEquals(5, contentValues.size(),
-                "报告页应为三层五 tab（概要/问题分析/追问预测/发展方向/对话回放），实际：" + contentValues);
+                "报告页应为五 tab（面试背景/概览评分/面试回放/逐题分析/改进建议），实际：" + contentValues);
 
         // 且必须包含方案 V1.3 §6.1 定义的 5 个 tab 值
-        for (String expected : List.of("summary", "analysis", "predict", "insight", "dialog")) {
+        for (String expected : List.of("bg", "overview", "dialog", "analysis", "advice")) {
             assertTrue(contentValues.contains(expected),
                     "缺少 tab：" + expected + "，实际：" + contentValues);
         }

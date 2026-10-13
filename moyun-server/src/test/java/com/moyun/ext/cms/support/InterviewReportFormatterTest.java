@@ -84,43 +84,55 @@ class InterviewReportFormatterTest {
     // ==================== buildImprovementSuggestions ====================
 
     @Test
-    @DisplayName("buildImprovementSuggestions：薄弱点≤3 条 + 自介不足补足到 5 条")
-    void buildSuggestionsFromWeakPointsAndIntro() {
+    @DisplayName("buildImprovementSuggestions：仅由自介不足生成，且不引用已废除的 weakPoints 入参")
+    void buildSuggestionsFromIntroWeaknesses() {
         VoiceInterviewReportVO.IntroScoreView intro = new VoiceInterviewReportVO.IntroScoreView();
         intro.setWeaknesses(List.of("结构松散", "缺少数据"));
 
-        List<String> s = InterviewReportFormatter.buildImprovementSuggestions(
-                List.of("并发", "JVM", "MySQL", "Redis"), intro);
+        List<String> s = InterviewReportFormatter.buildImprovementSuggestions(intro);
 
-        // 薄弱点最多 3 条
-        assertTrue(s.get(0).contains("并发"));
-        assertTrue(s.get(1).contains("JVM"));
-        assertTrue(s.get(2).contains("MySQL"));
-        assertFalse(s.stream().anyMatch(x -> x.contains("Redis")), "第 4 个薄弱点应被上限裁掉");
-        // 自介不足补足到 5 条
-        assertEquals(5, s.size());
-        assertTrue(s.get(3).contains("自我介绍改进：结构松散"));
-        assertTrue(s.get(4).contains("自我介绍改进：缺少数据"));
+        assertEquals(2, s.size(), "每个自介不足项各产出一条建议");
+        assertTrue(s.get(0).contains("自我介绍改进：结构松散"));
+        assertTrue(s.get(1).contains("自我介绍改进：缺少数据"));
     }
 
     @Test
-    @DisplayName("buildImprovementSuggestions：两者皆无时给正向文案 —— 保证建议区永不空白")
-    void buildSuggestionsNeverEmpty() {
-        assertFalse(InterviewReportFormatter.buildImprovementSuggestions(null, null).isEmpty());
-        assertFalse(InterviewReportFormatter.buildImprovementSuggestions(List.of(), null).isEmpty());
-        assertEquals(1, InterviewReportFormatter.buildImprovementSuggestions(List.of(), null).size());
-        // 自介 weaknesses 为空列表同样不炸
+    @DisplayName("buildImprovementSuggestions：自介不足超过上限时按上限裁剪（防建议区过长）")
+    void buildSuggestionsCappedAtMaxTotal() {
         VoiceInterviewReportVO.IntroScoreView intro = new VoiceInterviewReportVO.IntroScoreView();
-        intro.setWeaknesses(List.of());
-        assertFalse(InterviewReportFormatter.buildImprovementSuggestions(null, intro).isEmpty());
-        // 空串不足项应被过滤
-        // 注意口径：迁移自原实现，判空用 StringUtils.isNotEmpty（**不 trim**）——
-        // 故 ""（真空串）会被过滤，而 "  "（纯空格）算有效项。
-        // 这是既有行为（属小瑕疵：会产出「自我介绍改进：  」这类无意义条目），
-        // 本步拆分**只搬不改**，故如实断言既有行为，不擅自修改报告产出。
+        intro.setWeaknesses(List.of("一", "二", "三", "四", "五", "六", "七", "八"));
+
+        List<String> s = InterviewReportFormatter.buildImprovementSuggestions(intro);
+
+        assertEquals(5, s.size(), "上限 5 条（MAX_TOTAL_SUGGESTIONS）");
+        assertFalse(s.stream().anyMatch(x -> x.contains("六")), "第 6 项起应被裁掉");
+    }
+
+    @Test
+    @DisplayName("buildImprovementSuggestions：无自介不足时给正向文案 —— 保证建议区永不空白")
+    void buildSuggestionsNeverEmpty() {
+        // 自介评分整体为 null
+        assertFalse(InterviewReportFormatter.buildImprovementSuggestions(null).isEmpty());
+        assertEquals(1, InterviewReportFormatter.buildImprovementSuggestions(null).size());
+        // weaknesses 为空列表同样不炸
+        VoiceInterviewReportVO.IntroScoreView empty = new VoiceInterviewReportVO.IntroScoreView();
+        empty.setWeaknesses(List.of());
+        assertFalse(InterviewReportFormatter.buildImprovementSuggestions(empty).isEmpty());
+        assertEquals(1, InterviewReportFormatter.buildImprovementSuggestions(empty).size());
+    }
+
+    @Test
+    @DisplayName("buildImprovementSuggestions：真空串被过滤；纯空格按既有口径算有效项")
+    void buildSuggestionsBlankHandling() {
+        // 注意口径：判空用 StringUtils.isNotEmpty（**不 trim**）
+        // ⇒ ""（真空串）被过滤，"  "（纯空格）算有效项。
+        // 这是既有行为（小瑕疵：会产出「自我介绍改进：  」这类无意义条目），
+        // 本测试**如实断言既有行为**，不擅自改变报告产出。
         VoiceInterviewReportVO.IntroScoreView blank = new VoiceInterviewReportVO.IntroScoreView();
         blank.setWeaknesses(java.util.Arrays.asList("", "  ", "有效项"));
-        List<String> s = InterviewReportFormatter.buildImprovementSuggestions(null, blank);
+
+        List<String> s = InterviewReportFormatter.buildImprovementSuggestions(blank);
+
         assertEquals(2, s.size(), "真空串被过滤；纯空格按既有口径算有效项");
         assertTrue(s.stream().anyMatch(x -> x.contains("有效项")), "有效项必须被保留");
     }

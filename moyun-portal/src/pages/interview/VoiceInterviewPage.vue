@@ -33,6 +33,7 @@ import { getMyResumeList, getJobTemplates } from '@/api/interview';
 import { previewResumeParse, confirmResumeParse } from '@/api/resumeParse';
 import type { UserResumeVO, JobTemplateOptionVO, ResumePreviewVO } from '@/types/api';
 import { useUserStore } from '@/stores/user';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import type {
   VoiceInterviewVO,
   VoiceInterviewReportVO,
@@ -140,10 +141,11 @@ const currentSpeakText = ref('');
 
 // 报告
 const report = ref<VoiceInterviewReportVO | null>(null);
-// 六 tab（严格对齐静态页 面试报告v2.html，数据接口 Tab 为原型接口参考不落地）：
-//   🎯面试背景 → 📋概览评分 → 💬面试回放 → 🔍逐题分析 → 🎙️语音指标 → 🚀改进建议
+// 报告 Tab：五 tab（对齐静态页 面试报告v2.html；按需求去掉「语音指标」与「数据接口」）
+//   🎯面试背景 → 📋概览评分 → 💬面试回放 → 🔍逐题分析 → 🚀改进建议
 //   （advice 内含：发展方向 + 行动建议 + 追问预警 + 7 天补强计划）
-const reportTab = ref<'bg' | 'overview' | 'dialog' | 'analysis' | 'voice' | 'advice'>('bg');
+const reportTab = ref<'bg' | 'overview' | 'dialog' | 'analysis' | 'advice'>('bg');
+const overviewRadarCanvas = ref<HTMLCanvasElement | null>(null);
 const historyLoading = ref(false);
 
 // 结束后批量分析进度（前端轮询 analysis 接口驱动进度条）
@@ -1615,6 +1617,137 @@ async function loadHistoryReport(idStr: string) {
   }
 }
 
+// ========== 概览评分 Canvas 雷达图（六维能力模型） ==========
+function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
+function getScoreColorRadar(score: number) {
+  if (score < 60) return '#e11d48';
+  if (score < 80) return '#d97706';
+  return '#059669';
+}
+// 雷达数据：优先用能力剖面（competencyViews），回退六维评估维度
+const radarDimensions = computed(() => {
+  if (competencyItems.value.length) {
+    return competencyItems.value.map(c => ({ name: c.label || c.key || '', score: c.score ?? 0 }));
+  }
+  return DIMENSION_META.map((m, i) => ({ name: m.label, score: reportScores.value[i] ?? 0 }));
+});
+function drawOverviewRadar(progress: number) {
+  const canvas = overviewRadarCanvas.value;
+  if (!canvas) return;
+  const dims = radarDimensions.value;
+  if (!dims.length) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  if (cssW === 0 || cssH === 0) return;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const cx = cssW / 2;
+  const cy = cssH / 2;
+  const R = Math.min(cssW, cssH) * 0.30;
+  const n = dims.length;
+  const angleStep = (Math.PI * 2) / n;
+  const startAngle = -Math.PI / 2;
+  const vertex = (i: number, r: number) => {
+    const a = startAngle + i * angleStep;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a), angle: a };
+  };
+  // 4 层同心多边形网格
+  const layers = 4;
+  for (let l = 1; l <= layers; l++) {
+    const r = (R / layers) * l;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const v = vertex(i, r);
+      if (i === 0) ctx.moveTo(v.x, v.y); else ctx.lineTo(v.x, v.y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = l === layers ? '#d1d5db' : '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  // 轴线
+  for (let i = 0; i < n; i++) {
+    const v = vertex(i, R);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(v.x, v.y);
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  // 数据多边形
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const dataR = (dims[i].score / 100) * R * progress;
+    const v = vertex(i, dataR);
+    if (i === 0) ctx.moveTo(v.x, v.y); else ctx.lineTo(v.x, v.y);
+  }
+  ctx.closePath();
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  grad.addColorStop(0, 'rgba(225,29,72,0.35)');
+  grad.addColorStop(1, 'rgba(225,29,72,0.12)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = '#e11d48';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  // 顶点圆点
+  for (let i = 0; i < n; i++) {
+    const dataR = (dims[i].score / 100) * R * progress;
+    const v = vertex(i, dataR);
+    const color = getScoreColorRadar(dims[i].score);
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+  // 维度标签（名称在上，分数在下）
+  for (let i = 0; i < n; i++) {
+    const color = getScoreColorRadar(dims[i].score);
+    const labelR = R + 26;
+    const lv = vertex(i, labelR);
+    const cos = Math.cos(lv.angle);
+    let textAlign: CanvasTextAlign = 'center';
+    if (cos > 0.3) textAlign = 'left';
+    else if (cos < -0.3) textAlign = 'right';
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = 'middle';
+    ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = '#4b5563';
+    ctx.fillText(dims[i].name, lv.x, lv.y - 9);
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = color;
+    ctx.fillText(String(dims[i].score), lv.x, lv.y + 9);
+  }
+}
+let overviewRadarRAF = 0;
+function animateOverviewRadar() {
+  cancelAnimationFrame(overviewRadarRAF);
+  const duration = 950;
+  const startTime = performance.now();
+  const frame = (now: number) => {
+    const t = Math.min((now - startTime) / duration, 1);
+    drawOverviewRadar(easeOutCubic(t));
+    if (t < 1) overviewRadarRAF = requestAnimationFrame(frame);
+  };
+  overviewRadarRAF = requestAnimationFrame(frame);
+}
+function handleOverviewRadarResize() { drawOverviewRadar(1); }
+watch([() => report.value, () => reportTab.value], () => {
+  if (reportTab.value === 'overview' && overviewRadarCanvas.value && radarDimensions.value.length) {
+    nextTick(() => animateOverviewRadar());
+  }
+}, { flush: 'post' });
+
 onMounted(() => {
   const id = String(route.query.id ?? '').trim();
   if (id) loadHistoryReport(id);
@@ -1624,11 +1757,14 @@ onMounted(() => {
   document.addEventListener('visibilitychange', releaseOnHidden);
   // 浏览器关闭/刷新：无条件释放麦克风/播放器；面试进行中先触发浏览器离开确认
   window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener('resize', handleOverviewRadarResize);
 });
 
 onUnmounted(() => {
   document.removeEventListener('visibilitychange', releaseOnHidden);
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  window.removeEventListener('resize', handleOverviewRadarResize);
+  cancelAnimationFrame(overviewRadarRAF);
   // 卸载即丢弃：立即停麦克风/断 WS/停播报与计时，不等转写收尾（用户已离开页面，无需保留结果）
   releaseMediaResources();
   // 停止报告分析进度轮询（服务端继续生成，可从历史记录查看）
@@ -2226,6 +2362,84 @@ async function downloadReport() {
   toast.info('已打开打印窗口，可选择"另存为 PDF"');
   setTimeout(() => window.print(), 300);
 }
+/**
+ * HTML 转义（导出简历用；避免自我介绍里的尖括号破坏导出页结构）
+ */
+function escapeHtmlForExport(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * 导出简历 PDF（对齐静态页「📄 导出简历 PDF」）：
+ * 生成独立 A4 简历 HTML → 新窗口打开 → 自动调起打印，用户可「另存为 PDF」。
+ * 内容取候选人概要：姓名 / 目标岗位 / 经验年限 / 候选人ID / 导出日期 /
+ * 个人简介 / 技能标签 / 求职意向 / 面试口头自我介绍。
+ */
+function exportResumePdf() {
+  const c = candidateInfo.value as Record<string, any> | null | undefined;
+  if (!c) {
+    toast.warning('暂无候选人信息，无法导出简历');
+    return;
+  }
+  const esc = escapeHtmlForExport;
+  const name = esc(String(c.name || '面试者'));
+  const pos = esc(String(interview.value?.position || '未指定岗位'));
+  const years = c.yearsExp != null ? esc(String(c.yearsExp)) + ' 年' : '未填写';
+  const cid = esc(String(c.candidateId || '-'));
+  const today = new Date().toLocaleDateString('zh-CN');
+  const intro = esc(String(c.resumeSelfIntro || '-'));
+  const verbal = esc(String(c.interviewSelfIntro || '-'));
+  const skillChips = (candidateSkills.value || [])
+    .map((s: string) => '<span class="skill">' + esc(String(s)) + '</span>')
+    .join('');
+
+  const html = [
+    '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8" />',
+    '<title>简历 - ' + name + '</title>',
+    '<style>',
+    '  @page { size: A4; margin: 16mm 14mm; }',
+    '  * { box-sizing: border-box; }',
+    '  body { margin: 0; color: #1f2937; line-height: 1.75;',
+    '    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }',
+    '  .head { padding: 22px 24px; border-radius: 16px; color: #fff;',
+    '    background: linear-gradient(135deg, #5b4bd6, #7c3aed 55%, #a855f7); }',
+    '  .head h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px; }',
+    '  .head .pos { margin-top: 5px; font-size: 13.5px; opacity: .9; }',
+    '  .meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; font-size: 12px; opacity: .92; }',
+    '  h2 { margin: 22px 0 9px; padding-left: 10px; font-size: 14.5px; font-weight: 800;',
+    '    border-left: 3.5px solid #4f46e5; }',
+    '  p { margin: 0; font-size: 13px; color: #374151; white-space: pre-wrap; }',
+    '  .skill { display: inline-block; margin: 0 6px 6px 0; padding: 3px 11px; border-radius: 7px;',
+    '    font-size: 12px; background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }',
+    '  .box { padding: 13px 15px; border-radius: 10px; background: #f8f9fc; border: 1px solid #e8eaef; }',
+    '</style></head><body>',
+    '  <div class="head">',
+    '    <h1>' + name + '</h1>',
+    '    <div class="pos">求职意向：' + pos + '</div>',
+    '    <div class="meta"><span>经验年限：' + years + '</span><span>候选人 ID：' + cid + '</span>',
+    '      <span>导出日期：' + today + '</span></div>',
+    '  </div>',
+    '  <h2>个人简介</h2><div class="box"><p>' + intro + '</p></div>',
+    skillChips ? '  <h2>技能标签</h2><div>' + skillChips + '</div>' : '',
+    '  <h2>面试口头自我介绍</h2><div class="box"><p>' + verbal + '</p></div>',
+    '  <scr' + 'ipt>window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 260); });</scr' + 'ipt>',
+    '</body></html>'
+  ].join('\n');
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    toast.warning('浏览器拦截了新窗口，请允许弹窗后重试');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
 
 async function shareReport() {
   const id = interview.value?.id ?? report.value?.interviewId;
@@ -2269,14 +2483,20 @@ const chatStatus = computed(() => {
         <!-- 顶部工具行：标题 + 描述 + 操作。
              品牌 / 导航 / 面包屑由站点 Navbar 统一提供，页面内不再重复绘制
              （原自画顶栏造成"双重导航 + 双重留白"，v13.37 移除） -->
-        <div class="prep-toolbar">
-          <div class="prep-toolbar-main">
-            <h1 class="prep-toolbar-title">AI 语音面试准备</h1>
-            <p class="prep-toolbar-desc">完成以下准备步骤，开始你的模拟面试</p>
-          </div>
-          <div class="prep-toolbar-actions">
-            <button class="prep-ghost-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
-          </div>
+        <!-- 面包屑（替代原「AI 语音面试准备 + 描述 + 我的面试记录」工具行：
+             站点 Navbar 已提供「面试专区」入口，「我的面试记录」在报告页仍可进入） -->
+        <!-- 面包屑 + 历史入口（「我的面试记录」是本页唯一入口，必须保留；
+             标题与描述已由面包屑承担，不再重复文字） -->
+        <div class="prep-topline">
+          <Breadcrumb
+            class="prep-crumb"
+            :items="[
+              { label: '面试专区', path: '/interview' },
+              { label: 'AI 语音面试', path: '/interview/voice' },
+              { label: '面试准备' },
+            ]"
+          />
+          <button class="prep-ghost-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
         </div>
         <div class="prep-steps">
           <div class="prep-step">
@@ -2599,7 +2819,14 @@ const chatStatus = computed(() => {
     <div v-else-if="phase === 'interview'" class="interview-page">
       <div class="top-bar">
         <div class="top-bar-left">
-          <div class="top-bar-logo">🎙️ 旭林知行</div>
+          <Breadcrumb
+            class="proc-crumb"
+            :items="[
+              { label: '面试专区', path: '/interview' },
+              { label: 'AI 语音面试', path: '/interview/voice' },
+              { label: '面试进行中' },
+            ]"
+          />
           <div
             :class="['timer-display', { urgent: interviewRemainSec > 0 && interviewRemainSec <= 300 }]"
             :title="`已进行 ${formatElapsed(elapsedSec)}`"
@@ -2614,7 +2841,6 @@ const chatStatus = computed(() => {
           <button class="control-btn" @click="togglePause">
             {{ timerPaused ? '▶️ 继续' : '⏸️ 暂停' }}
           </button>
-          <button class="control-btn" :disabled="loading || submitting" @click="handleSkip">⏭️ 跳过本题</button>
           <button class="control-btn danger" @click="confirmEnd">⏹️ 结束面试</button>
         </div>
       </div>
@@ -2770,16 +2996,16 @@ const chatStatus = computed(() => {
     <!-- ==================== 复盘报告页 ==================== -->
     <div v-else class="report-page">
       <div class="report-container">
-        <div class="report-header">
-          <div class="report-title">
-            📊 面试复盘报告
-            <span v-if="historyLoading" class="report-loading">加载中...</span>
-          </div>
-          <div class="report-header-actions">
-            <button class="back-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
-            <button class="back-btn" @click="goHome">← 返回首页</button>
-          </div>
-        </div>
+        <!-- 面包屑（替代原「📊 面试复盘报告 + 我的面试记录 + 返回首页」标题区：
+             站点 Navbar 已提供首页/面试专区入口，页内不再重复导航文字与按钮） -->
+        <Breadcrumb
+          class="rpt-crumb"
+          :items="[
+            { label: '面试专区', path: '/interview' },
+            { label: 'AI 语音面试', path: '/interview/voice' },
+            { label: '评估报告' },
+          ]"
+        />
         <!-- 批量分析进度条（结束后轮询 analysis 接口驱动，完成自动拉取完整报告） -->
         <div v-if="analysisState.active" class="report-analysis-progress">
           <div class="rap-header">
@@ -2792,53 +3018,64 @@ const chatStatus = computed(() => {
           </div>
           <div class="rap-tip">深度分析需要一点时间，可先切换到「对话回放」浏览；完成后报告自动呈现</div>
         </div>
-        <!-- 报告总览横幅卡——综合分 + 等级 + 整场总评（LLM 复盘）+ 岗位匹配度（含依据） -->
-        <div v-if="report && !analysisState.active" class="report-banner-card">
-          <div class="banner-score">
-            <span class="banner-score-value" :style="{ color: scoreColor(report.totalScore ?? 0) }">
-              {{ report.totalScore ?? 0 }}
-            </span>
-            <span class="banner-score-label">综合得分</span>
-            <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
-            <!-- 水平定级徽章（LLM 结构化输出 levelEstimate；缺失则不展示） -->
-            <span v-if="levelBadge" :class="['level-estimate-badge', levelBadge.key]" :title="levelBadge.tip">
-              定级 · {{ levelBadge.text }}
-            </span>
+        <!-- ==================================================================
+             紫色 Hero + 悬浮评分卡（严格对齐静态页 面试报告v2.html）
+             Hero：135deg 紫渐变 + 两处光晕 + 玻璃按钮 + 元信息网格（5 项）
+             评分卡：-14px 负边距上浮与 Hero 重叠 + 56px 大分数 + 匹配度条
+             ================================================================== -->
+        <div class="rpt-hero">
+          <div class="rpt-hero-top">
+            <div>
+              <h1>AI 语音模拟面试评估报告</h1>
+              <div class="rpt-hero-sub">Voice Mock Interview Analysis Report</div>
+            </div>
+            <div class="rpt-hero-actions">
+              <button class="rpt-btn-glass" :disabled="!report" @click="exportResumePdf">📄 导出简历 PDF</button>
+              <button class="rpt-btn-glass" @click="shareReport">🔗 分享报告</button>
+            </div>
           </div>
-          <div class="banner-divider"></div>
-          <div class="banner-main">
-            <div class="banner-comment">{{ reportOverall || '本次面试尚未形成完整总结。' }}</div>
-            <div v-if="jobMatchReason" class="banner-match-reason">🎯 {{ jobMatchReason }}</div>
-          </div>
-          <div v-if="jobMatchRate != null" class="banner-match">
-            <span class="match-label">岗位匹配度</span>
-            <span class="match-rate" :style="{ color: scoreColor(jobMatchRate) }">{{ jobMatchRate }}%</span>
-            <div class="match-bar">
-              <div class="match-fill" :style="{ width: jobMatchRate + '%' }"></div>
+          <div class="rpt-hero-meta">
+            <div class="rpt-meta-item">
+              <div class="rpt-meta-label">候选人</div>
+              <div class="rpt-meta-value">{{ candidateInfo?.name || '面试者' }}</div>
+            </div>
+            <div class="rpt-meta-item">
+              <div class="rpt-meta-label">目标岗位</div>
+              <div class="rpt-meta-value">{{ interview?.position || '未指定' }}</div>
+            </div>
+            <div class="rpt-meta-item">
+              <div class="rpt-meta-label">面试时间</div>
+              <div class="rpt-meta-value">{{ interview?.createTime || '-' }}</div>
+            </div>
+            <div class="rpt-meta-item">
+              <div class="rpt-meta-label">面试时长</div>
+              <div class="rpt-meta-value">{{ interview?.durationMinutes != null ? interview.durationMinutes + ' 分钟' : '-' }}</div>
+            </div>
+            <div class="rpt-meta-item">
+              <div class="rpt-meta-label">面试编号</div>
+              <div class="rpt-meta-value">#{{ interview?.id ?? '-' }}</div>
             </div>
           </div>
         </div>
-        <!-- Hero 元信息条（对齐 v7：候选人 / 目标岗位 / 面试时间 / 面试时长 / 面试编号） -->
-        <div class="report-meta-bar">
-          <div class="meta-chip">
-            <span class="meta-label">候选人</span>
-            <span class="meta-value">{{ candidateInfo?.name || '面试者' }}</span>
-          </div>
-          <div class="meta-chip">
-            <span class="meta-label">目标岗位</span>
-            <span class="meta-value">{{ interview?.position || '未指定' }}</span>
-          </div>
-          <div class="meta-chip">
-            <span class="meta-label">面试时间</span>
-            <span class="meta-value">{{ interview?.createTime || '-' }}</span>
-          </div>
-          <div class="meta-chip">
-            <span class="meta-label">面试时长</span>
-            <span class="meta-value">{{ interview?.durationMinutes != null ? interview.durationMinutes + ' 分钟' : '-' }}</span>
-          </div>
-          <div class="meta-chip">
-            <span class="meta-label">面试编号</span>
-            <span class="meta-value">#{{ interview?.id ?? '-' }}</span>
+
+        <!-- 评分卡（-14px 负边距与 Hero 重叠；报告未就绪或分析中不渲染） -->
+        <div v-if="report && !analysisState.active" class="rpt-score-card">
+          <div class="rpt-score-flex">
+            <div class="rpt-score-block">
+              <div :class="['rpt-score-num', scoreClass(report.totalScore ?? 0)]">{{ report.totalScore ?? 0 }}</div>
+              <div class="rpt-score-label">综合得分</div>
+              <div :class="['rpt-score-badge', scoreClass(report.totalScore ?? 0)]">{{ scoreLevel.label }}</div>
+              <div v-if="levelBadge" class="rpt-level-badge" :title="levelBadge.tip">定级 · {{ levelBadge.text }}</div>
+            </div>
+            <div class="rpt-score-desc">
+              {{ reportOverall || '本次面试尚未形成完整总结。' }}
+              <span v-if="jobMatchReason" class="rpt-score-muted">🎯 {{ jobMatchReason }}</span>
+            </div>
+            <div v-if="jobMatchRate != null" class="rpt-match-block">
+              <div class="rpt-match-label">岗位匹配度</div>
+              <div :class="['rpt-match-num', scoreClass(jobMatchRate)]">{{ jobMatchRate }}%</div>
+              <div class="rpt-match-bar"><i :style="{ width: jobMatchRate + '%' }"></i></div>
+            </div>
           </div>
         </div>
         <!-- 六 tab（严格对齐静态页 面试报告v2.html）：背景 → 概览 → 回放 → 逐题 → 语音 → 建议 -->
@@ -2859,10 +3096,6 @@ const chatStatus = computed(() => {
             :class="['report-tab', { active: reportTab === 'analysis' }]"
             @click="reportTab = 'analysis'"
             >🔍 逐题分析</button>
-          <button
-            :class="['report-tab', { active: reportTab === 'voice' }]"
-            @click="reportTab = 'voice'"
-            >🎙️ 语音指标</button>
           <button
             :class="['report-tab', { active: reportTab === 'advice' }]"
             @click="reportTab = 'advice'"
@@ -2990,102 +3223,60 @@ const chatStatus = computed(() => {
             <button class="report-degraded-btn" @click="handleRegenerateReport()">重新生成报告</button>
           </div>
 
-          <!-- ---------- A 首屏：总分大数字 + 六维雷达 + 匹配度 + 定级徽章 ---------- -->
-          <div class="sum-hero">
-            <div class="sum-hero-score">
-              <svg class="radar-chart" viewBox="0 0 200 200" style="max-width: 170px;">
-                <polygon
-                  v-for="(p, i) in RADAR_GRID"
-                  :key="'hg' + i"
-                  :points="p"
-                  fill="none"
-                  stroke="var(--theme-border)"
-                  stroke-width="1"
-                />
-                <line
-                  v-for="(a, i) in RADAR_AXES"
-                  :key="'ha' + i"
-                  :x1="a.x1" :y1="a.y1" :x2="a.x2" :y2="a.y2"
-                  stroke="var(--theme-border)"
-                  stroke-width="1"
-                />
-                <polygon
-                  :points="reportRadarPoints"
-                  :fill="scoreColor(report?.totalScore ?? 0)"
-                  fill-opacity="0.22"
-                  :stroke="scoreColor(report?.totalScore ?? 0)"
-                  stroke-width="2"
-                />
-                <text
-                  v-for="(m, i) in DIMENSION_META"
-                  :key="'ht' + i"
-                  :x="m.textPos.x" :y="m.textPos.y" :text-anchor="m.textPos.anchor"
-                  font-size="9"
-                  fill="var(--theme-text-secondary)"
-                >{{ m.label }}</text>
-              </svg>
+          <!-- 1. 能力雷达 + 总分 + 定级 + 匹配度 -->
+          <div class="card">
+            <div class="card-title">
+              <span class="bar"></span>能力雷达
+              <span class="tip">六维能力模型</span>
+              <span class="overview-total">总分 <strong :style="{ color: scoreColor(report?.totalScore ?? 0) }">{{ report?.totalScore ?? 0 }}</strong> 分</span>
             </div>
-            <div class="sum-hero-meta">
-              <div class="sum-hero-total">
-                <span class="sum-hero-total-value" :style="{ color: scoreColor(report?.totalScore ?? 0) }">
-                  {{ report?.totalScore ?? 0 }}
-                </span>
-                <span class="sum-hero-total-unit">分</span>
+            <div class="overview-radar-wrap">
+              <div class="overview-radar">
+                <canvas ref="overviewRadarCanvas" class="overview-radar-canvas"></canvas>
               </div>
-              <div class="sum-hero-badges">
-                <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
-                <span
-                  v-if="levelBadge"
-                  :class="['level-estimate-badge', levelBadge.key]"
-                  :title="levelBadge.tip"
-                >定级 · {{ levelBadge.text }}</span>
-              </div>
-              <div v-if="jobMatchRate != null" class="sum-hero-match">
-                <span class="sum-hero-match-label">岗位匹配度</span>
-                <div class="match-bar sum-hero-match-bar">
-                  <div class="match-fill" :style="{ width: jobMatchRate + '%' }"></div>
+              <div class="overview-radar-meta">
+                <div class="overview-badges">
+                  <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
+                  <span v-if="levelBadge" :class="['level-estimate-badge', levelBadge.key]" :title="levelBadge.tip">定级 · {{ levelBadge.text }}</span>
                 </div>
-                <span class="sum-hero-match-value">{{ jobMatchRate }}%</span>
-              </div>
-              <div class="sum-hero-dim-legend">
-                <span v-for="(m, mi) in DIMENSION_META" :key="'hl' + m.key" class="sum-hero-dim-chip">
-                  {{ m.label }} <strong>{{ reportScores[mi] ?? 0 }}</strong>
-                </span>
+                <div v-if="jobMatchRate != null" class="overview-match">
+                  <span class="overview-match-label">岗位匹配度</span>
+                  <div class="match-bar overview-match-bar">
+                    <div class="match-fill" :style="{ width: jobMatchRate + '%' }"></div>
+                  </div>
+                  <span class="overview-match-value">{{ jobMatchRate }}%</span>
+                </div>
+                <div v-if="reportVerdict" class="overview-verdict">
+                  <span class="verdict-label">考察结论</span>
+                  <span class="verdict-text">{{ reportVerdict }}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- 考察结论判词（考察者视角一句话定性；旧报告隐藏） -->
-          <div v-if="reportVerdict" class="verdict-card">
-            <span class="verdict-label">考察结论</span>
-            <span class="verdict-text">{{ reportVerdict }}</span>
-          </div>
-
-          <!-- 五维能力剖面（考察者视角：技术深度/工程实践/系统设计/沟通表达/岗位匹配） -->
-          <div v-if="competencyItems.length" class="competency-card">
-            <div class="sum-zone-title">📊 能力剖面（考察者视角）</div>
-            <div class="competency-grid">
-              <div v-for="c in competencyItems" :key="c.key" class="competency-item">
-                <div class="competency-head">
-                  <span class="competency-label">{{ c.label || c.key }}</span>
-                  <span class="competency-score" :style="{ color: scoreColor(c.score ?? 0) }">{{ c.score ?? '-' }}</span>
+          <!-- 2. 维度评分明细 -->
+          <div v-if="competencyItems.length" class="card">
+            <div class="card-title"><span class="bar"></span>维度评分明细<span class="tip">共 {{ competencyItems.length }} 项</span></div>
+            <div class="dim-list">
+              <div v-for="c in competencyItems" :key="c.key" class="dim-row">
+                <div class="dim-row-head">
+                  <span class="dim-name">{{ c.label || c.key }}</span>
+                  <div class="dim-bar">
+                    <div :class="['dim-fill', scoreClass(c.score ?? 0)]" :style="{ width: (c.score ?? 0) + '%' }"></div>
+                  </div>
+                  <span :class="['dim-score', scoreClass(c.score ?? 0)]">{{ c.score ?? '-' }}</span>
                 </div>
-                <div class="competency-bar">
-                  <div :class="['score-fill', scoreClass(c.score ?? 0)]" :style="{ width: (c.score ?? 0) + '%' }"></div>
-                </div>
-                <div v-if="c.comment" class="competency-comment">{{ c.comment }}</div>
-                <div v-if="c.evidenceIdx?.length" class="competency-evidence">证据：第 {{ c.evidenceIdx.join('、') }} 题</div>
+                <div v-if="c.comment" class="dim-note">{{ c.comment }}</div>
+                <div v-if="c.evidenceIdx?.length" class="dim-evidence">证据：第 {{ c.evidenceIdx.join('、') }} 题</div>
               </div>
             </div>
           </div>
 
           <!-- 自我介绍评分（v7 从背景 Tab 移入概览评分 Tab） -->
-          <div v-if="introScoreView" class="archive-block">
-            <div class="archive-block-title">
-              🎤 自我介绍评分
-              <span class="intro-score-total" :style="{ color: scoreColor(introScoreView.total) }">
-                {{ introScoreView.total }} 分
-              </span>
+          <div v-if="introScoreView" class="card">
+            <div class="card-title">
+              <span class="bar"></span>🎤 自我介绍评分
+              <span class="tip">总分 <strong :style="{ color: scoreColor(introScoreView.total) }">{{ introScoreView.total }}</strong> 分</span>
             </div>
             <div class="intro-score-dims">
               <div v-for="d in introScoreView.dims" :key="d.key" class="intro-score-dim">
@@ -3099,78 +3290,35 @@ const chatStatus = computed(() => {
             <div v-if="introScoreView.comment" class="intro-score-comment">{{ introScoreView.comment }}</div>
           </div>
 
-          <!-- ---------- B 叙事区 + C 行动区（两栏：左=总评/亮点，右=薄弱点/建议） ---------- -->
-          <div class="sum-main-grid">
-            <!-- B 叙事区 -->
-            <div class="sum-zone">
-              <div class="sum-zone-title">📖 整场总评</div>
-              <p v-if="reportProfile" class="summary-paragraph profile-paragraph">🧑‍💼 {{ reportProfile }}</p>
-              <p class="summary-paragraph">{{ reportOverall || '本次面试尚未形成完整总结。' }}</p>
-              <div v-if="jobMatchReason" class="banner-match-reason">🎯 {{ jobMatchReason }}</div>
-
-              <div class="sum-zone-title sum-zone-title-spaced">✅ 亮点（{{ highlightItems.length }}）</div>
-              <div v-for="(p, i) in highlightItems.slice(0, 4)" :key="'hp' + i" class="pros-item">
-                <div class="pros-item-title">{{ p.title }}</div>
-                <div v-if="p.detail" class="pros-item-quote">{{ p.detail }}</div>
+          <!-- 3. 核心优势与待改进项（左右并排卡片） -->
+          <div class="overview-pros-cons">
+            <div class="card pros-card">
+              <div class="card-title"><span class="bar green"></span>核心优势<span class="tip">{{ highlightItems.length }} 项</span></div>
+              <div v-if="reportOverall || reportProfile" class="overview-summary">
+                <p v-if="reportProfile" class="summary-paragraph profile-paragraph">🧑‍💼 {{ reportProfile }}</p>
+                <p v-if="reportOverall" class="summary-paragraph">{{ reportOverall }}</p>
+              </div>
+              <div v-for="(p, i) in highlightItems" :key="'hp' + i" class="pros-item">
+                <span class="pros-check">✅</span>
+                <div class="pros-item-body">
+                  <div class="pros-item-title">{{ p.title }}</div>
+                  <div v-if="p.detail" class="pros-item-quote">{{ p.detail }}</div>
+                </div>
               </div>
               <div v-if="highlightItems.length === 0" class="empty-tip">暂无亮点数据</div>
             </div>
-
-            <!-- C 行动区：薄弱点简版（改进建议已移至「🚀 改进建议」tab） -->
-            <div class="sum-zone">
-              <div class="sum-zone-title">⚠️ 薄弱点（{{ weakPointItems.length }}）</div>
-              <div v-for="(c, i) in weakPointItems.slice(0, 4)" :key="'cw' + i" class="pros-item">
-                <div class="pros-item-title">{{ c.title }}</div>
-                <div v-if="c.detail" class="pros-item-quote">{{ c.detail }}</div>
+            <div class="card cons-card">
+              <div class="card-title"><span class="bar amber"></span>待改进项<span class="tip">{{ weakPointItems.length }} 项</span></div>
+              <div v-for="(c, i) in weakPointItems" :key="'cw' + i" class="cons-item">
+                <span class="cons-warn">⚠️</span>
+                <div class="cons-item-body">
+                  <div class="cons-item-title">{{ c.title }}</div>
+                  <div v-if="c.detail" class="cons-item-quote">{{ c.detail }}</div>
+                </div>
               </div>
               <div v-if="weakPointItems.length === 0" class="empty-tip">暂无薄弱点数据</div>
             </div>
           </div>
-        </div>
-
-        <!-- ==================================================================
-             Tab 5: 🎙️ 语音指标（v7 规范）—— 真实 VO 字段驱动的指标卡
-             （时长/作答轮数/流畅度/自介分，缺失隐藏）+ 逐轮心态趋势 + 可疑信号
-             （原概要归档区「过程信号」拆出独立成 tab）
-             ================================================================== -->
-        <div v-if="reportTab === 'voice'" class="tab-content active">
-          <div v-if="voiceMetricCards.length" class="card">
-            <div class="card-title"><span class="bar"></span>语音表现指标<span class="tip">声学信号分析</span></div>
-            <div class="voice-metric-grid">
-              <div v-for="(c, i) in voiceMetricCards" :key="'vm' + i" class="voice-metric-card">
-                <div class="vm-label">{{ c.label }}</div>
-                <div class="vm-value">
-                  {{ c.value }} <span class="vm-unit">{{ c.unit }}</span>
-                </div>
-                <div class="vm-tip">{{ c.tip }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 逐轮心态趋势（sentimentTrend：紧张/犹豫/平稳/自信） -->
-          <div v-if="report?.sentimentTrend?.length" class="card">
-            <div class="card-title"><span class="bar"></span>逐轮心态趋势<span class="tip">逐轮情绪</span></div>
-            <div class="voice-sentiment-list">
-              <div v-for="(s, i) in report.sentimentTrend" :key="'vs' + i" class="voice-sentiment-item">
-                <span class="vs-round">第 {{ i + 1 }} 轮</span>
-                <span :class="['sentiment-dot', s]"></span>
-                <span class="vs-label">{{ SENTIMENT_LABEL[s] || s }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 全场可疑信号 -->
-          <div v-if="report?.redFlags?.length" class="card">
-            <div class="card-title"><span class="bar"></span>全场可疑信号<span class="tip">{{ report.redFlags.length }} 项</span></div>
-            <div class="deep-review-flags">
-              <span v-for="(fg, i) in report.redFlags" :key="'vf' + i" class="redflag-item">⚠ {{ fg }}</span>
-            </div>
-          </div>
-
-          <div
-            v-if="!voiceMetricCards.length && !report?.sentimentTrend?.length && !report?.redFlags?.length"
-            class="empty-tip"
-          >本场暂无语音指标数据。</div>
         </div>
 
         <!-- ==================================================================
@@ -3320,15 +3468,13 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
+        <!-- 底部操作：分享/导出已在 Hero 提供，此处不再重复；
+             「重新生成报告」仅在 AI 复盘降级时出现（正常报告无需暴露） -->
         <div class="report-actions">
-          <button
-            class="report-btn"
-            :disabled="analysisState.active"
-            @click="handleRegenerateReport()"
-          >{{ analysisState.active ? '⏳ 报告生成中…' : '🔄 重新生成报告' }}</button>
-          <button class="report-btn" @click="addAllWeakToWrongBook">📚 薄弱点入错题本</button>
-          <button class="report-btn" @click="downloadReport">🖨️ 打印 / 另存为 PDF</button>
-          <button class="report-btn" @click="shareReport">🔗 分享报告</button>
+          <button v-if="reportReviewDegraded" class="report-btn" :disabled="analysisState.active" @click="handleRegenerateReport()">
+            {{ analysisState.active ? '⏳ 报告生成中…' : '🔄 重新生成报告' }}
+          </button>
+          <button v-if="weakPointItems.length" class="report-btn" @click="addAllWeakToWrongBook">📚 薄弱点入错题本</button>
           <button class="report-btn primary" @click="startNewInterview">🚀 开始新的面试</button>
         </div>
       </div>
@@ -4613,4 +4759,1660 @@ const chatStatus = computed(() => {
 .plan-table td { padding: 10px 11px; border-bottom: 1px solid var(--gray-100); vertical-align: top; line-height: 1.7; }
 .plan-table tr:last-child td { border-bottom: none; }
 .plan-table td.day { font-weight: 800; color: var(--primary); white-space: nowrap; }
+
+/* ========== 概览评分 Tab（能力雷达 + 维度明细 + 优势/待改进） ========== */
+.overview-total { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--sub); }
+.overview-total strong { font-size: 18px; }
+.overview-radar-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+.overview-radar { flex-shrink: 0; }
+.overview-radar-canvas { display: block; width: 280px; height: 300px; }
+.overview-radar-meta { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 12px; }
+.overview-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.overview-match { display: flex; align-items: center; gap: 8px; }
+.overview-match-label { flex-shrink: 0; font-size: 12px; color: var(--sub); }
+.overview-match-bar { flex: 1; max-width: 200px; }
+.overview-match-value { font-size: 13px; font-weight: 700; color: var(--gray-700); }
+.overview-verdict { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.06)); border-radius: 9px; }
+.card-title .bar.green { background: var(--success); }
+.card-title .bar.amber { background: var(--warning); }
+
+/* 维度评分明细 */
+.dim-list { }
+.dim-row { padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+.dim-row:last-child { border-bottom: none; }
+.dim-row-head { display: flex; align-items: center; gap: 12px; }
+.dim-name { width: 72px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--gray-800); }
+.dim-bar { flex: 1; height: 8px; background: var(--gray-100); border-radius: 99px; overflow: hidden; }
+.dim-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+.dim-fill.low { background: var(--error); }
+.dim-fill.mid { background: var(--warning); }
+.dim-fill.high { background: var(--success); }
+.dim-score { width: 32px; flex-shrink: 0; text-align: right; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dim-score.low { color: var(--error); }
+.dim-score.mid { color: var(--warning); }
+.dim-score.high { color: var(--success); }
+.dim-note { font-size: 12px; color: var(--gray-600); line-height: 1.7; margin-top: 5px; padding-left: 84px; }
+.dim-evidence { font-size: 11px; color: var(--gray-400); margin-top: 3px; padding-left: 84px; }
+
+/* 核心优势与待改进项（左右并排） */
+.overview-pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.overview-summary { padding: 10px 12px; background: var(--gray-50); border-radius: 9px; margin-bottom: 12px; }
+.pros-card { border-left: 3px solid var(--success); }
+.cons-card { border-left: 3px solid var(--warning); }
+.pros-item, .cons-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+.pros-check { flex-shrink: 0; font-size: 14px; line-height: 1.6; }
+.cons-warn { flex-shrink: 0; font-size: 14px; line-height: 1.6; }
+.pros-item-body, .cons-item-body { flex: 1; }
+.pros-item-title, .cons-item-title { font-size: 13px; font-weight: 700; color: var(--gray-800); line-height: 1.5; }
+.pros-item-quote, .cons-item-quote { font-size: 12px; color: var(--gray-600); line-height: 1.7; margin-top: 2px; }
+
+@media (max-width: 768px) {
+  .overview-pros-cons { grid-template-columns: 1fr; }
+  .overview-radar-wrap { flex-direction: column; }
+  .dim-name { width: 60px; }
+  .dim-note, .dim-evidence { padding-left: 0; }
+}
+
+/* ====================================================================
+   报告页视觉重构（严格对齐静态页 面试报告v2.html）
+   —— 局部覆写 --primary 系列为紫色：项目全局主色是红（--theme-primary），
+      而静态页的报告页视觉基调是紫（#4f46e5 / #7c3aed），故仅在报告页内覆写，
+      不影响站点其它页面；语义色（success/warning/danger）仍跟随站点三主题。
+   ==================================================================== */
+.report-page {
+  --primary: #4f46e5;
+  --primary-2: #7c3aed;
+  --primary-soft: #eef2ff;
+  --border: #e8eaef;
+  --border-2: #eef0f6;
+  --sub: #6b7280;
+  --amber: #d97706;
+  --amber-soft: #fffbeb;
+  --green: #059669;
+  --green-soft: #ecfdf5;
+  --red: #e11d48;
+  --red-soft: #fff1f3;
+  --rpt-card-bg: #fff;
+  --rpt-text: #1f2937;
+  --rpt-text-2: #374151;
+  --rpt-border: #e8eaef;
+}
+
+/* ---------- 紫色 Hero ---------- */
+.rpt-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 30px 32px 26px;
+  border-radius: 22px;
+  color: #fff;
+  background: linear-gradient(135deg, #5b4bd6 0%, #7c3aed 50%, #a855f7 100%);
+  box-shadow: 0 14px 36px -16px rgba(91, 75, 214, 0.65);
+}
+.rpt-hero::after {
+  content: "";
+  position: absolute;
+  right: -80px;
+  top: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+.rpt-hero::before {
+  content: "";
+  position: absolute;
+  right: 90px;
+  bottom: -120px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+.rpt-hero-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.rpt-hero h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1.35;
+}
+.rpt-hero-sub {
+  font-size: 12.5px;
+  opacity: 0.85;
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
+.rpt-hero-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.rpt-btn-glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(6px);
+  transition: background 0.2s ease;
+}
+.rpt-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+.rpt-btn-glass:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.rpt-hero-meta {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+.rpt-meta-item {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+}
+.rpt-meta-label {
+  font-size: 11px;
+  opacity: 0.82;
+  letter-spacing: 0.4px;
+}
+.rpt-meta-value {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin-top: 3px;
+  word-break: break-all;
+}
+
+/* ---------- 评分卡（上浮与 Hero 重叠） ---------- */
+.rpt-score-card {
+  position: relative;
+  z-index: 3;
+  margin-top: -14px;
+  padding: 24px 28px;
+  border-radius: 20px;
+  background: var(--rpt-card-bg);
+  border: 1px solid var(--rpt-border);
+  box-shadow: 0 8px 24px -18px rgba(16, 24, 40, 0.3);
+}
+.rpt-score-flex {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.rpt-score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 104px;
+}
+.rpt-score-num {
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -2px;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+.rpt-score-num.mid {
+  color: var(--amber);
+}
+.rpt-score-num.high {
+  color: var(--green);
+}
+.rpt-score-label {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 5px;
+}
+.rpt-score-badge {
+  margin-top: 8px;
+  padding: 3px 12px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--red);
+  background: var(--red-soft);
+  border: 1px solid #fecdd3;
+}
+.rpt-score-badge.mid {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+.rpt-score-badge.high {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: #a7f3d0;
+}
+.rpt-level-badge {
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid #c7d2fe;
+}
+.rpt-score-desc {
+  flex: 1;
+  min-width: 260px;
+  font-size: 13.5px;
+  color: var(--rpt-text-2);
+  line-height: 1.85;
+}
+.rpt-score-muted {
+  display: block;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--sub);
+}
+.rpt-match-block {
+  min-width: 132px;
+  text-align: right;
+}
+.rpt-match-label {
+  font-size: 12px;
+  color: var(--sub);
+}
+.rpt-match-num {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+.rpt-match-num.mid {
+  color: var(--amber);
+}
+.rpt-match-num.high {
+  color: var(--green);
+}
+.rpt-match-bar {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 99px;
+  background: #eef0f6;
+  overflow: hidden;
+}
+.rpt-match-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #fb7185, #e11d48);
+  transition: width 1.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------- Tab 栏（白底胶囊容器 + 激活紫色渐变） ---------- */
+.report-page .report-tabs {
+  display: flex;
+  gap: 5px;
+  margin-top: 18px;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--rpt-card-bg);
+  border: 1px solid var(--rpt-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.report-page .report-tabs::-webkit-scrollbar {
+  display: none;
+}
+.report-page .report-tab {
+  flex: 1;
+  min-width: 88px;
+  text-align: center;
+  white-space: nowrap;
+  padding: 9px 13px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sub);
+  transition: all 0.18s ease;
+  user-select: none;
+}
+.report-page .report-tab:hover {
+  background: #f6f7fb;
+  color: var(--rpt-text);
+}
+.report-page .report-tab.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 6px 14px -8px rgba(79, 70, 229, 0.7);
+}
+
+/* ---------- 内容卡片（对齐静态页 .card） ---------- */
+.report-page .card {
+  margin-top: 16px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: var(--rpt-card-bg);
+  border: 1px solid var(--rpt-border);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+.report-page .card-title {
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.report-page .card-title .bar {
+  width: 3.5px;
+  height: 16px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--primary), #a855f7);
+}
+.report-page .card-title .tip {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--sub);
+  margin-left: auto;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 820px) {
+  .rpt-hero {
+    padding: 24px 20px 22px;
+  }
+  .rpt-score-card {
+    padding: 20px 18px;
+  }
+  .rpt-match-block {
+    min-width: 0;
+    text-align: left;
+  }
+  .rpt-match-bar {
+    max-width: 200px;
+  }
+}
+@media (max-width: 760px) {
+  .rpt-hero h1 {
+    font-size: 19px;
+  }
+  .rpt-score-flex {
+    gap: 20px;
+  }
+  .rpt-score-num {
+    font-size: 46px;
+  }
+}
+
+/* ====================================================================
+   面包屑（三页统一：准备页 / 过程页 / 报告页）
+   对齐静态页 面试过程页v2.html 的 .breadcrumb 规范：
+   紫色悬停胶囊 + 灰色分隔符 › + 当前页深色加粗。
+   注：Breadcrumb 组件用 Tailwind 类 + 内联 style 渲染，
+       故用 nav[aria-label] 提高特异性以覆盖内联色值。
+   ==================================================================== */
+.prep-crumb,
+.proc-crumb,
+.rpt-crumb {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.prep-crumb nav[aria-label],
+.proc-crumb nav[aria-label],
+.rpt-crumb nav[aria-label] {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 13px;
+}
+/* 可点击层：紫色悬停胶囊 */
+.prep-crumb nav[aria-label] > button,
+.proc-crumb nav[aria-label] > button,
+.rpt-crumb nav[aria-label] > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+.prep-crumb nav[aria-label] > button:hover,
+.proc-crumb nav[aria-label] > button:hover,
+.rpt-crumb nav[aria-label] > button:hover {
+  color: #4f46e5;
+  background: #eef2ff;
+  opacity: 1;
+}
+/* 图标 */
+.prep-crumb nav[aria-label] svg,
+.proc-crumb nav[aria-label] svg,
+.rpt-crumb nav[aria-label] svg {
+  width: 13px;
+  height: 13px;
+  color: #9ca3af;
+}
+/* 分隔符（ChevronRight 图标）在 button/span 之后 */
+.prep-crumb nav[aria-label] > svg,
+.proc-crumb nav[aria-label] > svg,
+.rpt-crumb nav[aria-label] > svg {
+  width: 13px;
+  height: 13px;
+  color: #c7cbd8;
+  flex-shrink: 0;
+}
+/* 当前页（最后一个 span） */
+.prep-crumb nav[aria-label] > span,
+.proc-crumb nav[aria-label] > span,
+.rpt-crumb nav[aria-label] > span {
+  padding: 3px 6px;
+  color: #1f2937;
+  font-weight: 700;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .prep-crumb,
+  .proc-crumb,
+  .rpt-crumb {
+    margin-bottom: 9px;
+  }
+  /* 窄屏只保留「首页 › 当前页」：隐藏中间层与其后的分隔符 */
+  .prep-crumb nav[aria-label] > *:nth-child(3),
+  .prep-crumb nav[aria-label] > *:nth-child(4),
+  .proc-crumb nav[aria-label] > *:nth-child(3),
+  .proc-crumb nav[aria-label] > *:nth-child(4),
+  .rpt-crumb nav[aria-label] > *:nth-child(3),
+  .rpt-crumb nav[aria-label] > *:nth-child(4) {
+    display: none;
+  }
+}
+
+/* ====================================================================
+   准备页视觉重构（严格对齐静态页 面试准备页v2.html）
+   —— 局部覆写 --primary 系列为紫色（同报告页口径），
+      页面级径向光晕背景 + 卡片/步骤条/设备行/表单/主按钮全部按静态页重绘。
+   ==================================================================== */
+.prep-page {
+  --primary: #4f46e5;
+  --primary-2: #7c3aed;
+  --primary-soft: #eef2ff;
+  --green: #059669;
+  --green-soft: #ecfdf5;
+  --amber: #d97706;
+  --amber-soft: #fffbeb;
+  --red: #e11d48;
+  --red-soft: #fff1f3;
+  --red-2: #f43f5e;
+  --text: #1f2937;
+  --sub: #6b7280;
+  --muted: #9ca3af;
+  --border: #e8eaef;
+  --border-2: #eef0f6;
+  --card: #fff;
+  --rpt-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.04);
+  --rpt-shadow-md: 0 4px 16px -8px rgba(16, 24, 40, 0.12);
+
+  background-color: #f5f6f9;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(124, 58, 237, 0.05), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(79, 70, 229, 0.05), transparent 45%);
+  background-attachment: fixed;
+}
+
+/* ---------- 顶行：面包屑（左） + 历史入口（右） ---------- */
+.prep-page .prep-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.prep-page .prep-topline .prep-crumb {
+  margin-bottom: 0;
+}
+
+/* ---------- 顶部工具行 ---------- */
+.prep-page .prep-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.prep-page .prep-toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.prep-page .prep-toolbar-main::before {
+  content: "旭";
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 8px 18px -8px rgba(79, 70, 229, 0.85);
+}
+.prep-page .prep-toolbar-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.3;
+  color: var(--text);
+}
+.prep-page .prep-toolbar-desc {
+  font-size: 11.5px;
+  color: var(--sub);
+  margin-top: 1px;
+}
+.prep-page .prep-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.prep-page .prep-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #374151;
+  background: #fff;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+.prep-page .prep-ghost-btn:hover {
+  background: #f7f8fb;
+  border-color: #d5d9e2;
+  transform: translateY(-1px);
+}
+
+/* ---------- 步骤指示器（渐变卡 + 涟漪 + 流动光条） ---------- */
+.prep-page .prep-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 22px 30px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #fff 0%, #fbfbff 100%);
+  box-shadow: var(--rpt-shadow-sm);
+}
+.prep-page .prep-step {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: all 0.3s ease;
+}
+.prep-page .step-circle {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #9ca3af;
+  background: #f3f4f8;
+  transition: all 0.3s ease;
+}
+.prep-page .step-circle.completed {
+  color: #fff;
+  background: var(--green);
+  box-shadow: 0 4px 10px -4px rgba(5, 150, 105, 0.6);
+}
+.prep-page .step-circle.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 6px 14px -4px rgba(79, 70, 229, 0.75);
+}
+.prep-page .step-circle.active::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(79, 70, 229, 0.28);
+  animation: prep-ripple 2s infinite;
+}
+@keyframes prep-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+.prep-page .step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+.prep-page .step-label.active {
+  color: var(--text);
+  font-weight: 600;
+}
+.prep-page .step-connector {
+  flex: 1;
+  height: 2px;
+  min-width: 40px;
+  margin: 0 18px;
+  border-radius: 99px;
+  background: var(--border-2);
+  overflow: hidden;
+}
+.prep-page .step-connector.completed {
+  background: var(--green);
+}
+
+/* ---------- 卡片 ---------- */
+.prep-page .prep-card {
+  padding: 24px 26px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--rpt-shadow-sm);
+  transition: all 0.25s ease;
+}
+.prep-page .prep-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.prep-page .prep-card-title::before {
+  content: "";
+  width: 4px;
+  height: 17px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--primary), #a855f7);
+}
+.prep-page .prep-card-title .step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 4px 10px -4px rgba(79, 70, 229, 0.6);
+}
+.prep-page .prep-card-title .tip {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--sub);
+}
+
+/* ---------- 设备检测行 ---------- */
+.prep-page .device-check-list {
+  display: grid;
+  gap: 11px;
+}
+.prep-page .device-item {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 15px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  transition: all 0.25s ease;
+}
+.prep-page .device-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--green);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.prep-page .device-item:hover {
+  border-color: #c7d2fe;
+  background: linear-gradient(90deg, #fafbff, #fff);
+  transform: translateX(2px);
+  box-shadow: var(--rpt-shadow-md);
+}
+.prep-page .device-item:hover::before {
+  opacity: 1;
+}
+.prep-page .device-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 130px;
+}
+.prep-page .device-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  background: linear-gradient(135deg, #f3f4f8, #eceef6);
+  transition: all 0.25s ease;
+}
+.prep-page .device-item:hover .device-icon {
+  background: linear-gradient(135deg, var(--primary-soft), #e0e7ff);
+  transform: scale(1.05);
+}
+.prep-page .device-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.prep-page .device-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.prep-page .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.prep-page .status-badge.ok {
+  color: var(--green);
+  background: var(--green-soft);
+  border: 1px solid #a7f3d0;
+}
+.prep-page .status-badge.checking,
+.prep-page .status-badge.warn {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border: 1px solid #fde68a;
+}
+.prep-page .status-badge.error {
+  color: var(--red);
+  background: var(--red-soft);
+  border: 1px solid #fecdd3;
+}
+.prep-page .test-btn {
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #374151;
+  background: #fff;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+.prep-page .test-btn:hover:not(:disabled) {
+  background: #f7f8fb;
+  border-color: #c7d2fe;
+  color: var(--primary);
+}
+.prep-page .test-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.prep-page .device-select {
+  min-width: 190px;
+  flex-shrink: 0;
+  padding: 8px 13px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 12.5px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.prep-page .device-select:hover {
+  border-color: #c7d2fe;
+}
+.prep-page .device-tip {
+  display: flex;
+  gap: 11px;
+  padding: 13px 16px;
+  margin-top: 16px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #92400e;
+  background: linear-gradient(135deg, #fffbeb, #fff7ed);
+  border: 1px solid #fde68a;
+}
+.prep-page .noise-result {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #047857;
+  background: var(--green-soft);
+  border: 1px solid #a7f3d0;
+}
+.prep-page .noise-result.noisy {
+  color: #b45309;
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
+/* ---------- 表单（JD / 岗位 / 简历） ---------- */
+.prep-page .jd-textarea,
+.prep-page .form-input,
+.prep-page .form-select {
+  width: 100%;
+  padding: 12px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fafbfe;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+.prep-page .jd-textarea {
+  min-height: 120px;
+  line-height: 1.85;
+  resize: vertical;
+}
+.prep-page .jd-textarea:hover,
+.prep-page .form-input:hover,
+.prep-page .form-select:hover {
+  background: #f7f8fd;
+}
+.prep-page .jd-textarea:focus,
+.prep-page .form-input:focus,
+.prep-page .form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+.prep-page .jd-counter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.prep-page .jd-inline-btn {
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--sub);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.prep-page .jd-inline-btn:hover {
+  color: var(--red);
+  background: var(--red-soft);
+}
+.prep-page .jd-source-badge {
+  margin-left: 8px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid #c7d2fe;
+}
+
+/* ---------- 高级设置折叠 ---------- */
+.prep-page .advanced-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 17px 26px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: var(--rpt-shadow-sm);
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+.prep-page .advanced-card:hover {
+  border-color: #c7d2fe;
+  background: #fafbff;
+  transform: translateY(-1px);
+  box-shadow: var(--rpt-shadow-md);
+}
+.prep-page .advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.prep-page .advanced-toggle-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sub);
+}
+
+/* ---------- 断点续接横幅 ---------- */
+.prep-page .resume-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(135deg, #f5f7ff, #eef2ff);
+  box-shadow: var(--rpt-shadow-sm);
+}
+.prep-page .resume-banner-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.prep-page .resume-banner-meta {
+  font-size: 12px;
+  color: var(--sub);
+}
+.prep-page .resume-btn {
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.prep-page .resume-btn.primary {
+  color: #fff;
+  border: none;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 6px 14px -8px rgba(79, 70, 229, 0.7);
+}
+.prep-page .resume-btn.primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.prep-page .resume-btn.ghost {
+  color: #374151;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.prep-page .resume-btn.ghost:hover {
+  border-color: #d5d9e2;
+  background: #f7f8fb;
+}
+
+/* ---------- 主按钮（红色渐变 + 流光） ---------- */
+.prep-page .main-cta,
+.prep-page .prep-submit-btn {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 18px 24px;
+  border: none;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--red) 0%, var(--red-2) 100%);
+  box-shadow: 0 14px 32px -14px rgba(225, 29, 72, 0.75);
+  transition: all 0.25s ease;
+}
+.prep-page .main-cta::before,
+.prep-page .prep-submit-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.25) 50%, transparent 70%);
+  transition: transform 0.6s ease;
+}
+.prep-page .main-cta:hover::before,
+.prep-page .prep-submit-btn:hover::before {
+  transform: translateX(100%);
+}
+.prep-page .main-cta:hover,
+.prep-page .prep-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px -16px rgba(225, 29, 72, 0.95);
+}
+.prep-page .main-cta:disabled,
+.prep-page .prep-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 640px) {
+  .prep-page .prep-steps {
+    padding: 18px 14px;
+  }
+  .prep-page .prep-step {
+    gap: 7px;
+    font-size: 11.5px;
+  }
+  .prep-page .step-circle {
+    width: 26px;
+    height: 26px;
+    font-size: 11.5px;
+  }
+  .prep-page .step-connector {
+    min-width: 20px;
+    margin: 0 8px;
+  }
+  .prep-page .prep-card {
+    padding: 18px 16px;
+  }
+  .prep-page .device-select {
+    min-width: 0;
+    width: 100%;
+  }
+  .prep-page .prep-toolbar-title {
+    font-size: 16px;
+  }
+  .prep-page .main-cta,
+  .prep-page .prep-submit-btn {
+    font-size: 14px;
+    padding: 16px 20px;
+  }
+}
+
+/* ====================================================================
+   过程页视觉重构（严格对齐静态页 面试过程页v2.html）
+   —— 紫色口径 + 毛玻璃状态栏（面包屑 / 计时 / 播报 / 暂停 / 结束）+ 三栏布局。
+   ==================================================================== */
+.interview-page {
+  --primary: #4f46e5;
+  --primary-2: #7c3aed;
+  --primary-soft: #eef2ff;
+  --green: #059669;
+  --green-soft: #ecfdf5;
+  --amber: #d97706;
+  --amber-soft: #fffbeb;
+  --red: #e11d48;
+  --red-soft: #fff1f3;
+  --text: #1f2937;
+  --sub: #6b7280;
+  --border: #e8eaef;
+  --rpt-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.04);
+  --rpt-shadow-md: 0 4px 16px -8px rgba(16, 24, 40, 0.12);
+}
+
+/* ---------- 顶部悬浮栏（毛玻璃 + 底部细线） ---------- */
+.interview-page .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  margin: 0 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 4px 20px -14px rgba(16, 24, 40, 0.3);
+}
+.interview-page .top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.interview-page .top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* ---------- 计时胶囊（绿点脉冲 + 等宽数字） ---------- */
+.interview-page .timer-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: 0 2px 8px -6px rgba(16, 24, 40, 0.2);
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #374151;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.interview-page .timer-display > span:first-child {
+  font-size: 12px;
+}
+.interview-page .timer-display::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: proc-pulse 1.6s infinite;
+  flex-shrink: 0;
+}
+.interview-page .timer-display.urgent {
+  color: var(--red);
+  border-color: #fecdd3;
+  background: var(--red-soft);
+}
+.interview-page .timer-display.urgent::before {
+  background: var(--red);
+  animation-duration: 0.9s;
+}
+@keyframes proc-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+    box-shadow: 0 0 0 6px rgba(5, 150, 105, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
+  }
+}
+
+/* ---------- 顶栏操作按钮 ---------- */
+.interview-page .control-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.interview-page .control-btn:hover:not(:disabled) {
+  background: #f7f8fb;
+  border-color: #d5d9e2;
+  color: #1f2937;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -8px rgba(16, 24, 40, 0.3);
+}
+.interview-page .control-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.interview-page .control-btn.muted {
+  background: var(--primary-soft);
+  border-color: #c7d2fe;
+  color: var(--primary);
+}
+.interview-page .control-btn.danger {
+  color: var(--red);
+  border-color: #fecdd3;
+  font-weight: 700;
+}
+.interview-page .control-btn.danger:hover:not(:disabled) {
+  background: var(--red-soft);
+  border-color: #fda4af;
+}
+
+/* ---------- 三栏布局 ---------- */
+.interview-page .interview-main {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr) 288px;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 0 0;
+}
+.interview-page .left-panel,
+.interview-page .center-panel,
+.interview-page .right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ---------- 卡片统一（面试官 / 考察点 / 对话 / 背景 / 提示） ---------- */
+.interview-page .interviewer-card,
+.interview-page .progress-card,
+.interview-page .analysis-card,
+.interview-page .chat-container,
+.interview-page .chat-panel {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: var(--rpt-shadow-sm);
+}
+.interview-page .interviewer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 18px;
+  text-align: center;
+}
+.interview-page .interviewer-avatar {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  box-shadow: 0 10px 26px -14px rgba(37, 99, 235, 0.7);
+}
+.interview-page .interviewer-avatar::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid rgba(79, 70, 229, 0.22);
+}
+.interview-page .interviewer-avatar.speaking::after {
+  animation: proc-ripple 1.6s infinite;
+}
+@keyframes proc-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.14);
+    opacity: 0;
+  }
+}
+.interview-page .interviewer-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.interview-page .interviewer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  color: var(--sub);
+}
+
+/* 考察知识点 */
+.interview-page .progress-card {
+  padding: 16px 18px;
+}
+.interview-page .progress-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.interview-page .progress-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.interview-page .progress-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  color: #4b5563;
+  background: #f8f9fc;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.interview-page .progress-item:hover {
+  background: var(--primary-soft);
+  border-color: #c7d2fe;
+  color: var(--primary);
+}
+.interview-page .progress-item.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--red), var(--primary-2));
+  box-shadow: 0 6px 14px -8px rgba(225, 29, 72, 0.6);
+}
+
+/* ---------- 对话区 ---------- */
+.interview-page .chat-container,
+.interview-page .chat-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.interview-page .chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.interview-page .chat-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--green);
+}
+.interview-page .chat-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: proc-pulse 1.6s infinite;
+}
+.interview-page .chat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+/* 气泡：AI 灰底 / 我的回答浅红底 / 评分反馈灰底 */
+.interview-page .message {
+  display: flex;
+  gap: 10px;
+  max-width: 92%;
+}
+.interview-page .message.user {
+  flex-direction: row-reverse;
+  margin-left: auto;
+}
+.interview-page .message-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #f43f5e, #fb923c);
+}
+.interview-page .message.user .message-avatar {
+  background: linear-gradient(135deg, #94a3b8, #cbd5e1);
+}
+.interview-page .message-content {
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #374151;
+  background: #f3f4f8;
+  border: 1px solid var(--border);
+}
+.interview-page .message.user .message-content {
+  background: var(--red-soft);
+  border-color: #fecdd3;
+}
+.interview-page .message.question .message-content {
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
+/* 输入区 */
+.interview-page .chat-input-area {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  background: #fbfcfe;
+}
+.interview-page .input-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 9px;
+  font-size: 11.5px;
+  color: var(--sub);
+}
+.interview-page .input-textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 15px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--text);
+  resize: vertical;
+  transition: all 0.2s ease;
+}
+.interview-page .input-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+.interview-page .input-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.interview-page .action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #4b5563;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.interview-page .action-btn:hover:not(:disabled) {
+  background: #f7f8fb;
+  border-color: #d5d9e2;
+  color: #1f2937;
+}
+.interview-page .action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.interview-page .action-btn.primary {
+  margin-left: auto;
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 6px 14px -8px rgba(79, 70, 229, 0.7);
+}
+.interview-page .action-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+/* ---------- 右栏（面试背景 + 面试提示） ---------- */
+.interview-page .analysis-card {
+  padding: 16px 18px;
+}
+.interview-page .analysis-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+.interview-page .dimension-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.interview-page .dimension-legend-row {
+  display: flex;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.interview-page .legend-label {
+  flex-shrink: 0;
+  width: 64px;
+  color: var(--sub);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1024px) {
+  .interview-page .interview-main {
+    grid-template-columns: 1fr;
+  }
+  .interview-page .left-panel {
+    order: -1;
+  }
+}
+@media (max-width: 960px) {
+  .interview-page .top-bar {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .interview-page .timer-display {
+    padding: 5px 11px;
+    font-size: 12.5px;
+  }
+}
+@media (max-width: 768px) {
+  .interview-page .top-bar-left,
+  .interview-page .top-bar-right {
+    width: 100%;
+  }
+  .interview-page .top-bar-right {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .interview-page .control-btn {
+    justify-content: center;
+    padding: 8px 4px;
+    font-size: 11.5px;
+  }
+  .interview-page .action-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .interview-page .action-btn.primary {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .interview-page .message {
+    max-width: 96%;
+  }
+}
 </style>

@@ -3294,33 +3294,32 @@ const chatStatus = computed(() => {
             <div v-if="introScoreView.comment" class="intro-score-comment">{{ introScoreView.comment }}</div>
           </div>
 
-          <!-- 3. 核心优势与待改进项（左右并排卡片） -->
-          <div class="overview-pros-cons">
-            <div class="card pros-card">
-              <div class="card-title"><span class="bar green"></span>核心优势<span class="tip">{{ highlightItems.length }} 项</span></div>
-              <div v-if="reportOverall || reportProfile" class="overview-summary">
-                <p v-if="reportProfile" class="summary-paragraph profile-paragraph">🧑‍💼 {{ reportProfile }}</p>
-                <p v-if="reportOverall" class="summary-paragraph">{{ reportOverall }}</p>
-              </div>
-              <div v-for="(p, i) in highlightItems" :key="'hp' + i" class="pros-item">
-                <span class="pros-check">✅</span>
-                <div class="pros-item-body">
-                  <div class="pros-item-title">{{ p.title }}</div>
-                  <div v-if="p.detail" class="pros-item-quote">{{ p.detail }}</div>
-                </div>
-              </div>
-              <div v-if="highlightItems.length === 0" class="empty-tip">暂无亮点数据</div>
+          <!-- 3. 核心优势与待改进项（单卡片内双栏对比：左绿右橙，圆点列表） -->
+          <div class="card sw-card">
+            <div class="card-title radar-card-title">
+              <span class="bar"></span>核心优势与待改进项
             </div>
-            <div class="card cons-card">
-              <div class="card-title"><span class="bar amber"></span>待改进项<span class="tip">{{ weakPointItems.length }} 项</span></div>
-              <div v-for="(c, i) in weakPointItems" :key="'cw' + i" class="cons-item">
-                <span class="cons-warn">⚠️</span>
-                <div class="cons-item-body">
-                  <div class="cons-item-title">{{ c.title }}</div>
-                  <div v-if="c.detail" class="cons-item-quote">{{ c.detail }}</div>
-                </div>
-              </div>
-              <div v-if="weakPointItems.length === 0" class="empty-tip">暂无薄弱点数据</div>
+            <div class="sw-grid">
+              <section class="sw-panel sw-panel--pros">
+                <h4 class="sw-panel-title">✅ 核心优势</h4>
+                <ul v-if="highlightItems.length" class="sw-list">
+                  <li v-for="(p, i) in highlightItems" :key="'hp' + i">
+                    <span class="sw-dot" aria-hidden="true"></span>
+                    <span class="sw-text">{{ p.title }}<template v-if="p.detail">：{{ p.detail }}</template></span>
+                  </li>
+                </ul>
+                <div v-else class="empty-tip">暂无亮点数据</div>
+              </section>
+              <section class="sw-panel sw-panel--cons">
+                <h4 class="sw-panel-title">⚠️ 待改进项</h4>
+                <ul v-if="weakPointItems.length" class="sw-list">
+                  <li v-for="(c, i) in weakPointItems" :key="'cw' + i">
+                    <span class="sw-dot" aria-hidden="true"></span>
+                    <span class="sw-text">{{ c.title }}<template v-if="c.detail">：{{ c.detail }}</template></span>
+                  </li>
+                </ul>
+                <div v-else class="empty-tip">暂无薄弱点数据</div>
+              </section>
             </div>
           </div>
         </div>
@@ -4056,14 +4055,9 @@ const chatStatus = computed(() => {
 .total-score-box { display: flex; flex-direction: column; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-100); }
 .total-score-label { font-size: 0.75rem; color: var(--gray-400); margin-bottom: 0.25rem; }
 .total-score-value { font-size: 1.75rem; font-weight: 800; }
-.pros-cons-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
 .pros-cons-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.875rem; display: flex; align-items: center; gap: 0.375rem; }
 .pros-cons-title.cons { color: var(--error); }
 .pros-cons-title.pros { color: var(--success); }
-.cons-item, .pros-item { padding: 0.875rem; background: var(--gray-50); border-radius: var(--radius-md); margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
-.cons-item:hover, .pros-item:hover { background: var(--theme-bg-elevated); border-color: var(--gray-200); box-shadow: var(--shadow-sm); }
-.cons-item-title, .pros-item-title { font-size: 0.8125rem; font-weight: 500; color: var(--gray-800); margin-bottom: 0.375rem; }
-.cons-item-quote, .pros-item-quote { font-size: 0.75rem; color: var(--gray-400); font-style: italic; padding-left: 0.75rem; border-left: 2px solid var(--gray-200); line-height: 1.5; }
 
 .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
 .analysis-item { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
@@ -4808,6 +4802,79 @@ const chatStatus = computed(() => {
   color: var(--sub);
 }
 
+/* ========== 核心优势与待改进项（对齐静态页 .sw / .panel good|weak） ========== */
+/* 双栏等宽并排，间距 18px；<660px 堆叠为单栏（间距 16px） */
+.sw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.sw-panel {
+  padding: 18px 20px;
+  border-radius: 14px;
+  transition: box-shadow 0.25s ease;
+}
+.sw-panel--pros {
+  background: linear-gradient(180deg, #f0fdf9, #ecfdf5);
+  border: 1px solid #a7f3d0;
+}
+.sw-panel--cons {
+  background: linear-gradient(180deg, #fffbf5, #fffbeb);
+  border: 1px solid #fde68a;
+}
+.sw-panel:hover {
+  box-shadow: 0 8px 20px -16px rgba(0, 0, 0, 0.15);
+}
+.sw-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.sw-panel--pros .sw-panel-title { color: #047857; }
+.sw-panel--cons .sw-panel-title { color: #b45309; }
+/* 列表：圆点用 flex 占位实现（比绝对定位更稳，长文本换行时圆点与首行对齐） */
+.sw-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sw-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+.sw-list li + li { margin-top: 9px; }
+.sw-dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 50%;
+}
+.sw-panel--pros .sw-dot { background: #059669; }
+.sw-panel--cons .sw-dot { background: #d97706; }
+.sw-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #374151;
+  word-break: break-word;
+}
+@media (max-width: 660px) {
+  .sw-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .sw-panel {
+    padding: 16px 16px;
+  }
+}
+
 .overview-total { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--sub); }
 .overview-total strong { font-size: 18px; }
 .overview-radar-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
@@ -4841,20 +4908,8 @@ const chatStatus = computed(() => {
 .dim-note { font-size: 12px; color: var(--gray-600); line-height: 1.7; margin-top: 5px; padding-left: 84px; }
 .dim-evidence { font-size: 11px; color: var(--gray-400); margin-top: 3px; padding-left: 84px; }
 
-/* 核心优势与待改进项（左右并排） */
-.overview-pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.overview-summary { padding: 10px 12px; background: var(--gray-50); border-radius: 9px; margin-bottom: 12px; }
-.pros-card { border-left: 3px solid var(--success); }
-.cons-card { border-left: 3px solid var(--warning); }
-.pros-item, .cons-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
-.pros-check { flex-shrink: 0; font-size: 14px; line-height: 1.6; }
-.cons-warn { flex-shrink: 0; font-size: 14px; line-height: 1.6; }
-.pros-item-body, .cons-item-body { flex: 1; }
-.pros-item-title, .cons-item-title { font-size: 13px; font-weight: 700; color: var(--gray-800); line-height: 1.5; }
-.pros-item-quote, .cons-item-quote { font-size: 12px; color: var(--gray-600); line-height: 1.7; margin-top: 2px; }
 
 @media (max-width: 768px) {
-  .overview-pros-cons { grid-template-columns: 1fr; }
   .overview-radar-wrap { flex-direction: column; }
   .dim-name { width: 60px; }
   .dim-note, .dim-evidence { padding-left: 0; }

@@ -1646,9 +1646,9 @@ function drawOverviewRadar(progress: number) {
   canvas.height = cssH * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
+  const R = Math.max(40, Math.min(cssW * 0.30, (cssH - 58) / 2));
   const cx = cssW / 2;
-  const cy = cssH / 2;
-  const R = Math.min(cssW, cssH) * 0.30;
+  const cy = Math.max(R + 48, cssH / 2 - 8);
   const n = dims.length;
   const angleStep = (Math.PI * 2) / n;
   const startAngle = -Math.PI / 2;
@@ -3225,16 +3225,20 @@ const chatStatus = computed(() => {
 
           <!-- 1. 能力雷达 + 总分 + 定级 + 匹配度 -->
           <div class="card">
-            <div class="card-title">
+            <div class="card-title radar-card-title">
               <span class="bar"></span>能力雷达
               <span class="tip">六维能力模型</span>
-              <span class="overview-total">总分 <strong :style="{ color: scoreColor(report?.totalScore ?? 0) }">{{ report?.totalScore ?? 0 }}</strong> 分</span>
             </div>
             <div class="overview-radar-wrap">
               <div class="overview-radar">
                 <canvas ref="overviewRadarCanvas" class="overview-radar-canvas"></canvas>
               </div>
               <div class="overview-radar-meta">
+                <div class="overview-total-row">
+                  <span class="overview-total-label">总分</span>
+                  <strong :style="{ color: scoreColor(report?.totalScore ?? 0) }">{{ report?.totalScore ?? 0 }}</strong>
+                  <span class="overview-total-unit">分</span>
+                </div>
                 <div class="overview-badges">
                   <span :class="['score-level-badge', scoreLevel.cls]">{{ scoreLevel.label }}</span>
                   <span v-if="levelBadge" :class="['level-estimate-badge', levelBadge.key]" :title="levelBadge.tip">定级 · {{ levelBadge.text }}</span>
@@ -4761,11 +4765,54 @@ const chatStatus = computed(() => {
 .plan-table td.day { font-weight: 800; color: var(--primary); white-space: nowrap; }
 
 /* ========== 概览评分 Tab（能力雷达 + 维度明细 + 优势/待改进） ========== */
+/* --- 能力雷达标题区（按雷达图规范） ---
+   竖条 4×18px 圆角 2px #7c3aed；标题 18px 加粗 #1f2937；副标题右对齐 13px #9ca3af --- */
+.report-page .radar-card-title {
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+}
+.report-page .radar-card-title .bar {
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: #7c3aed;
+}
+.report-page .radar-card-title .tip {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 400;
+  color: #9ca3af;
+  text-align: right;
+}
+/* 总分（移入右侧 meta 面板） */
+.overview-total-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.overview-total-label {
+  font-size: 12px;
+  color: var(--sub);
+}
+.overview-total-row strong {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.overview-total-unit {
+  font-size: 12px;
+  color: var(--sub);
+}
+
 .overview-total { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--sub); }
 .overview-total strong { font-size: 18px; }
 .overview-radar-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
 .overview-radar { flex-shrink: 0; }
-.overview-radar-canvas { display: block; width: 280px; height: 300px; }
+.overview-radar-canvas { display: block; width: 100%; max-width: 420px; height: 360px; }
 .overview-radar-meta { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 12px; }
 .overview-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .overview-match { display: flex; align-items: center; gap: 8px; }

@@ -2,6 +2,82 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.66 (2026-10-13) 过程页「题目进度」→「本次考察知识点」（严格对齐静态页）
+
+### 语义修正（核心）
+
+原「题目进度」展示的是**固定出题顺序**（第 1 题 → 第 N 题），但 AI 面试官会依候选人回答
+**灵活追问**，不会严格按序出题 —— 该 UI 传达了错误预期。
+
+改为「**本次考察知识点**」：展示 AI 依 **岗位 JD + 简历**预设的**考察方向**，
+并**明确告知**「这是参考方向，面试官不一定按此顺序提问」。
+
+### 数据源（已存在，无需改后端）
+
+`interview.configJson.warmupPlan.interviewPlan.focusAreas`，每项：
+
+| 字段 | 含义 | 实测（interviewId=4） |
+|---|---|---|
+| `area` | 考察方向 | 「个人独立项目深挖」「Java集合框架」… |
+| `reason` | 为何考察 | 「验证独立开发能力和项目真实性」… |
+| `depth` | 深度 | `basic` / `intermediate` / `advanced` |
+
+实测该场共 **10** 个方向，与「10 个」计数胶囊一致。
+
+> ⚠️ **两处已知缺口（待后端补，本次前端已做优雅降级）**：
+> 1. **分类标签 `tag`**（如「自我介绍/项目经历/高并发」）：后端无此字段 ——
+>    前端暂按**关键词规则**（10 条正则）从 `area` 归类，后端补 `tag` 后可直接替换。
+> 2. **预设完整题目 `full`**：后端 warmup 未预生成 ——
+>    前端按「第 idx 个主问」取实际题面，未出到时**回退 `reason`**。
+
+### 视觉（严格对齐 `面试过程页v2.html` 的 `.knowledge-*`，逐值实现）
+
+| 项 | 值 |
+|---|---|
+| 卡片 | 白底 / `1px #e8eaef` / 圆角 16px / 内边距 `20px 18px` |
+| 标题 | 🎯 + 「本次考察知识点」13.5px/800；计数胶囊 `#eef2ff`/`#4f46e5`/11px/圆角 99px |
+| 提示条 | `linear-gradient(135deg,#fafbff,#f5f7fe)` + 左 2px 紫竖条 + 11px `#6b7280` |
+| 序号方块 | 24×24 / 圆角 7px / `#f3f4f8` / `#9ca3af` / 11px/800 |
+| 标题 | 12.5px/700 `#374151` + 单行省略号 |
+| 标签 | 10px/700 / `1px 7px` / 圆角 5px / `#f3f4f8`+`#6b7280` |
+| 当前项 | 标签→`#fee2e2`+`#b91c1c`；条目→`linear-gradient(90deg,#fff1f3,#fff5f7)`+`#fecdd3`；序号→红渐变；标题→`#e11d48` |
+| 悬停 | 浅紫渐变 + `#e0e7ff` 边框 + `translateX(2px)` + 阴影；序号→紫渐变白字 |
+| Tooltip | `left: calc(100% + 12px)` / 宽 280px / `#1f2937` / 圆角 12px / `14px 16px` / 阴影 `0 16px 40px -12px rgba(0,0,0,.55)`；45° 方块箭头；三层（`# tag` 胶囊 `#a5b4fc` / 白色加粗知识点 / `#cbd5e1` 题目）；`opacity + scale(.96→1)` 200ms |
+| 响应式 | `<1024px` Tooltip 由右侧弹出改为**下方展开** `width:100%`，箭头移到顶部 `left:24px` |
+
+### 交互
+
+| 交互 | 行为 |
+|---|---|
+| 悬停 | 右侧弹出 Tooltip（分类 + 完整知识点 + 预设题目） |
+| 点击 | Toast「第 N 个考察点：{point}」 |
+| 提交/跳过 | `currentIdx` 推进 → 下一项变当前高亮（`currentKpIndex` 与 `currentIdx` 对齐） |
+
+### 顺带清理（重构后无引用）
+
+- JS：`progressItems` 计算属性 + `truncate()`（仅前者使用）
+- CSS：`.progress-card/-title/-timeline/-item/-dot` 全部规则（含 `@media` 内 5 条）+ 「卡片统一」选择器组中一项 —— 共 **17 处**
+
+### ⚠️ 修复一处模板结构损坏（构建期才暴露）
+
+替换 `kp-card` 区块时**多吃了一行 `</div>`**（左栏 L2967/2968 出现连续两个闭合）
+⇒ `vite build` 报 `Invalid end tag (3573:3)`。
+
+**注意：`vue-tsc -b` 不检查模板结构，只有构建才报** —— 该缺陷若不做构建验证会漏过。
+已删除多余闭合标签；并用 `vue/compiler-sfc` 的 `parse` + `compileTemplate` 复核
+（`SFC parse: OK` + `template compile: OK`）。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `vue/compiler-sfc` parse + compileTemplate | ✅ 均 OK |
+| `vite build --mode development` | ✅ 构建成功（4054 modules） |
+| `npm run check`（vue-tsc -b） | ✅ 无类型错误 |
+| `FrontendTemplateStructureGuardTest` | ✅ 4/4 |
+| 孤儿类残留（`progress-*` / `kp-*`） | ✅ 全部 0 |
+
+
 ## v13.65 (2026-10-13) 修复面包屑样式完全未生效（三页）
 
 **现象**：准备页/过程页/报告页的面包屑无样式、错位。

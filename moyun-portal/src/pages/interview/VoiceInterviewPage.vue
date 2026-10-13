@@ -1099,26 +1099,91 @@ function stopCountdown() {
   }
 }
 
-// ==================== 题目进度时间线（时长制：题数软参考，动态扩展） ====================
-const progressItems = computed(() => {
-  if (!interview.value) return [];
-  // 时长制下题目无上限（问到时间结束为止），时间线按实际题数动态扩展
-  const total = Math.max(interview.value.totalQa || 0, (interview.value.qaList ?? []).length);
-  const current = interview.value.currentIdx || 0;
-  const qaList = interview.value.qaList ?? [];
-  const items: { idx: number; status: 'completed' | 'active' | 'pending'; title: string }[] = [];
-  for (let i = 1; i <= total; i++) {
-    const qa = qaList.find((q) => q.questionIdx === i);
-    const status: 'completed' | 'active' | 'pending' =
-      i < current ? 'completed' : i === current ? 'active' : 'pending';
-    const title = qa?.question ? truncate(qa.question, 12) : `第 ${i} 题`;
-    items.push({ idx: i, status, title });
-  }
-  return items;
-});
-function truncate(s: string, n: number) {
-  return s.length > n ? s.slice(0, n) + '…' : s;
+// ==================== 本次考察知识点（AI 依 JD + 简历预设的考察方向） ====================
+// 数据源：interview.configJson.warmupPlan.interviewPlan.focusAreas
+//   每项 { area（考察方向）, reason（为何考察）, depth（basic/intermediate/advanced） }
+// 明确语义：这是**参考方向**，面试官会依候选人回答灵活追问，不按此顺序固定出题。
+interface KnowledgePointRow {
+  point: string;
+  shortName: string;
+  tag: string;
+  full: string;
 }
+
+/** 分类标签推断（后端未产出 tag，先按关键词归类；后端补 tag 后可直接替换） */
+const KP_TAG_RULES: { tag: string; re: RegExp }[] = [
+  { tag: '自我介绍', re: /自我|个人背景|个人经历|口头介绍/ },
+  { tag: '项目管理', re: /项目管理|团队管理|协作|带队|管理/ },
+  { tag: '职业规划', re: /职业规划|规划|发展|成长|学习能力/ },
+  { tag: '高并发', re: /高并发|并发量|压测|削峰|限流|熔断|降级|性能/ },
+  { tag: '数据一致性', re: /一致性|分布式事务|事务|幂等/ },
+  { tag: '问题排查', re: /排查|定位|线上问题|故障|超时|异常处理/ },
+  { tag: '工程化', re: /工程化|消息队列|MQ|重试|告警|监控|CI|DevOps|部署/ },
+  { tag: '项目难点', re: /难点|挑战|复杂|瓶颈/ },
+  { tag: '项目经历', re: /项目|平台|系统|业务|经历|职责|角色/ },
+  { tag: '技术深度', re: /原理|源码|底层|深度|机制|选型/ },
+];
+function inferKpTag(area: string): string {
+  for (const r of KP_TAG_RULES) {
+    if (r.re.test(area)) return r.tag;
+  }
+  return '综合';
+}
+
+/** 解析 warmupPlan（configJson 为字符串；异常一律静默降级为空数组） */
+function parseWarmupFocusAreas(): { area: string; reason: string; depth: string }[] {
+  const raw = interview.value?.configJson;
+  if (!raw) return [];
+  try {
+    const cfg = JSON.parse(raw) as { warmupPlan?: { interviewPlan?: { focusAreas?: unknown } } };
+    const areas = cfg?.warmupPlan?.interviewPlan?.focusAreas;
+    if (!Array.isArray(areas)) return [];
+    return areas
+      .map((a) => {
+        const o = (a ?? {}) as Record<string, unknown>;
+        return {
+          area: String(o.area ?? '').trim(),
+          reason: String(o.reason ?? '').trim(),
+          depth: String(o.depth ?? '').trim(),
+        };
+      })
+      .filter((a) => a.area.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** 考察知识点列表（AI 预设方向；非出题顺序） */
+const knowledgePointList = computed<KnowledgePointRow[]>(() => {
+  const areas = parseWarmupFocusAreas();
+  if (!areas.length) return [];
+  const qaList = interview.value?.qaList ?? [];
+  return areas.map((a, idx) => {
+    // 预设完整题目：优先用第 idx 个主问（AI 按考察方向出题）；未出到时回退考察理由
+    const mainQa = qaList.find((q) => !q.parentQaId && q.questionIdx === idx + 1);
+    const full = (mainQa?.question || a.reason || a.area).trim();
+    return {
+      point: a.area,
+      shortName: a.area.length > 10 ? a.area.slice(0, 10) + '…' : a.area,
+      tag: inferKpTag(a.area),
+      full,
+    };
+  });
+});
+
+/** 当前考察项下标（与 currentIdx 对齐；越界则停在最后一项） */
+const currentKpIndex = computed(() => {
+  const n = knowledgePointList.value.length;
+  if (!n) return -1;
+  const cur = (interview.value?.currentIdx ?? 1) - 1;
+  return Math.max(0, Math.min(cur, n - 1));
+});
+
+/** 点击考察点：Toast 提示第 N 个考察点（对齐静态页交互） */
+function handleKpClick(kp: KnowledgePointRow, i: number) {
+  toast.info(`第 ${i + 1} 个考察点：${kp.point}`);
+}
+
 
 // ==================== 面试背景（右栏卡片） ====================
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -2865,18 +2930,38 @@ const chatStatus = computed(() => {
               <div v-else-if="submitting" class="interviewer-state thinking">🧠 分析中</div>
             </div>
           </div>
-          <div class="progress-card">
-            <div class="progress-title">题目进度</div>
-            <div class="progress-timeline">
-              <div
-                v-for="item in progressItems"
-                :key="item.idx"
-                :class="['progress-item', item.status]"
-          >
-                <div class="progress-dot">{{ item.status === 'completed' ? '✓' : item.idx }}</div>
-                <span>{{ item.title }}</span>
-              </div>
+          <!-- 本次考察知识点（对齐静态页 面试过程页v2.html 的 .knowledge-card）
+               语义：AI 依 JD + 简历预设的考察方向，非固定出题顺序；悬停右侧弹出 Tooltip -->
+          <div class="knowledge-card">
+            <h4>
+              <span class="ic">🎯</span>
+              本次考察知识点
+              <span v-if="knowledgePointList.length" class="count">{{ knowledgePointList.length }} 个</span>
+            </h4>
+            <div class="knowledge-sub">
+              <span class="ic">ℹ️</span>
+              <span>以下为本次面试的<b>预设考察方向</b>，面试官会根据你的回答灵活追问，不一定按此顺序提问。</span>
             </div>
+            <ul v-if="knowledgePointList.length" class="knowledge-list">
+              <li
+                v-for="(kp, i) in knowledgePointList"
+                :key="'kp' + i"
+                :class="['knowledge-item', { current: i === currentKpIndex }]"
+                @click="handleKpClick(kp, i)"
+              >
+                <span class="idx">{{ i + 1 }}</span>
+                <span class="body">
+                  <span class="title">{{ kp.point }}</span>
+                  <span class="tag">{{ kp.tag }}</span>
+                </span>
+                <span class="knowledge-tooltip" role="tooltip">
+                  <span class="tip-tag"># {{ kp.tag }}</span>
+                  <span class="tip-title">{{ kp.point }}</span>
+                  <span class="tip-q">{{ kp.full }}</span>
+                </span>
+              </li>
+            </ul>
+            <div v-else class="knowledge-empty">面试官正在准备考察方向…</div>
           </div>
         </div>
 
@@ -3851,16 +3936,6 @@ const chatStatus = computed(() => {
 @keyframes pulse-ring { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.05); } }
 .interviewer-name { font-size: 0.9375rem; font-weight: 600; color: var(--gray-800); margin-bottom: 0.375rem; }
 .interviewer-meta { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
-.progress-card { background: var(--theme-bg-elevated); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
-.progress-title { font-size: 0.8125rem; font-weight: 600; color: var(--gray-500); margin-bottom: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
-.progress-timeline { display: flex; flex-direction: column; gap: 0.25rem; }
-.progress-item { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 0.625rem; border-radius: var(--radius-md); font-size: 0.8125rem; cursor: pointer; transition: all 0.2s; color: var(--gray-500); }
-.progress-item:hover { background: var(--gray-50); }
-.progress-item.active { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
-.progress-dot { width: 22px; height: 22px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-size: 0.6875rem; font-weight: 600; flex-shrink: 0; }
-.progress-item.completed .progress-dot { background: var(--success); color: var(--theme-on-primary); }
-.progress-item.active .progress-dot { background: var(--primary); color: var(--theme-on-primary); animation: pulse-ring 2s ease-in-out infinite; }
-.progress-item.pending .progress-dot { background: var(--gray-200); color: var(--gray-400); }
 
 .center-panel { display: flex; flex-direction: column; background: var(--theme-bg-elevated); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; border: 1px solid var(--gray-100); }
 .chat-header { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; }
@@ -4191,12 +4266,7 @@ const chatStatus = computed(() => {
   .interviewer-avatar::after { inset: -2px; border-width: 2px; }
   .interviewer-name { margin-bottom: 0; font-size: 0.875rem; }
   .interviewer-meta { align-items: flex-start; gap: 0.25rem; }
-  .progress-card { flex: 1.4; min-width: 0; padding: 0.75rem 0.875rem; display: flex; flex-direction: column; justify-content: center; }
-  .progress-title { display: none; }
   /* 进度时间线：纵向列表 → 横向滑动（点在上、标题在下） */
-  .progress-timeline { flex-direction: row; overflow-x: auto; gap: 0.375rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .progress-timeline::-webkit-scrollbar { display: none; }
-  .progress-item { flex-shrink: 0; flex-direction: column; gap: 0.25rem; padding: 0.375rem 0.5rem; text-align: center; font-size: 0.6875rem; }
 
   /* --- 对话区：占满主视口高度，气泡放宽宽度 --- */
   .chat-header { padding: 0.625rem 0.875rem; }
@@ -6206,7 +6276,6 @@ const chatStatus = computed(() => {
 
 /* ---------- 卡片统一（面试官 / 考察点 / 对话 / 背景 / 提示） ---------- */
 .interview-page .interviewer-card,
-.interview-page .progress-card,
 .interview-page .analysis-card,
 .interview-page .chat-container,
 .interview-page .chat-panel {
@@ -6269,48 +6338,222 @@ const chatStatus = computed(() => {
   color: var(--sub);
 }
 
-/* 考察知识点 */
-.interview-page .progress-card {
-  padding: 16px 18px;
+/* ========== 本次考察知识点（严格对齐静态页 面试过程页v2.html 的 .knowledge-*） ========== */
+.interview-page .knowledge-card {
+  position: relative;
+  margin-top: 16px;
+  padding: 20px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: var(--rpt-shadow-sm, 0 1px 3px rgba(16, 24, 40, 0.04));
 }
-.interview-page .progress-title {
+.interview-page .knowledge-card h4 {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
+  margin: 0 0 6px;
   font-size: 13.5px;
   font-weight: 800;
   color: var(--text);
 }
-.interview-page .progress-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.interview-page .knowledge-card h4 .ic { font-size: 15px; }
+.interview-page .knowledge-card h4 .count {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4f46e5;
+  background: #eef2ff;
 }
-.interview-page .progress-item {
+/* 提示条：浅紫渐变 + 左侧 2px 紫竖条 */
+.interview-page .knowledge-sub {
   display: flex;
-  align-items: center;
-  gap: 9px;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 13px;
   padding: 8px 11px;
   border-radius: 9px;
+  border-left: 2px solid #4f46e5;
+  background: linear-gradient(135deg, #fafbff, #f5f7fe);
+  font-size: 11px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+.interview-page .knowledge-sub .ic {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.interview-page .knowledge-sub b { color: #4b5563; font-weight: 700; }
+/* 列表：可滚动，右侧留出 tooltip 弹出空间 */
+.interview-page .knowledge-list {
+  max-height: 400px;
+  margin: 0 -5px 0 0;
+  padding: 0 5px 0 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.interview-page .knowledge-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 5px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
   font-size: 12.5px;
   color: #4b5563;
-  background: #f8f9fc;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
   cursor: pointer;
+  transition: all 0.18s ease;
 }
-.interview-page .progress-item:hover {
-  background: var(--primary-soft);
-  border-color: #c7d2fe;
-  color: var(--primary);
+.interview-page .knowledge-item:hover {
+  background: linear-gradient(135deg, #fafbff, #f5f7fe);
+  border-color: #e0e7ff;
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px -8px rgba(79, 70, 229, 0.4);
 }
-.interview-page .progress-item.active {
+/* 序号方块 24×24 / 圆角 7px */
+.interview-page .knowledge-item .idx {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #9ca3af;
+  background: #f3f4f8;
+  transition: all 0.2s ease;
+}
+.interview-page .knowledge-item:hover .idx {
   color: #fff;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--red), var(--primary-2));
-  box-shadow: 0 6px 14px -8px rgba(225, 29, 72, 0.6);
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  box-shadow: 0 4px 10px -4px rgba(79, 70, 229, 0.6);
+}
+.interview-page .knowledge-item .body {
+  flex: 1;
+  min-width: 0;
+}
+.interview-page .knowledge-item .title {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.55;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s ease;
+}
+.interview-page .knowledge-item .tag {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #6b7280;
+  background: #f3f4f8;
+}
+/* 当前项（进行中）：浅红渐变 + 红序号 + 红标题 */
+.interview-page .knowledge-item.current {
+  background: linear-gradient(90deg, #fff1f3, #fff5f7);
+  border-color: #fecdd3;
+  box-shadow: 0 4px 12px -8px rgba(225, 29, 72, 0.4);
+}
+.interview-page .knowledge-item.current .idx {
+  color: #fff;
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
+  box-shadow: 0 4px 10px -4px rgba(225, 29, 72, 0.6);
+}
+.interview-page .knowledge-item.current .title { color: #e11d48; }
+.interview-page .knowledge-item.current .tag { color: #b91c1c; background: #fee2e2; }
+/* 悬停 Tooltip：右侧弹出 280px 深色卡 + 45° 方块箭头 */
+.interview-page .knowledge-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  z-index: 10;
+  width: 280px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #1f2937;
+  color: #e5e7eb;
+  font-size: 12px;
+  line-height: 1.8;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.96);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.interview-page .knowledge-tooltip::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: #1f2937;
+  transform: translateY(-50%) rotate(45deg);
+}
+.interview-page .knowledge-item:hover .knowledge-tooltip {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+.interview-page .knowledge-tooltip .tip-tag {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 1px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #a5b4fc;
+  background: rgba(255, 255, 255, 0.12);
+}
+.interview-page .knowledge-tooltip .tip-title {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #fff;
+}
+.interview-page .knowledge-tooltip .tip-q {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: #cbd5e1;
+}
+.interview-page .knowledge-empty {
+  padding: 14px 0;
+  font-size: 12px;
+  color: var(--sub);
+  text-align: center;
+}
+/* 窄屏（<1024px）：Tooltip 由「右侧弹出」改为「下方展开」 */
+@media (max-width: 1024px) {
+  .interview-page .knowledge-tooltip {
+    left: auto;
+    right: auto;
+    top: calc(100% + 8px);
+    width: 100%;
+    transform: translateY(0) scale(0.96);
+  }
+  .interview-page .knowledge-item:hover .knowledge-tooltip {
+    transform: translateY(0) scale(1);
+  }
+  .interview-page .knowledge-tooltip::before {
+    left: 24px;
+    top: -6px;
+    transform: rotate(45deg);
+  }
 }
 
 /* ---------- 对话区 ---------- */

@@ -28,7 +28,8 @@
               <text>{{ iconOf(c.icon) }}</text>
             </view>
             <text class="cat-name" :class="{ selected: form.categoryId === c.id }">{{ c.name }}</text>
-            <text v-if="c.isSystem === 0" class="cat-custom-tag">自</text>
+            <!-- 自定义分类：右上角 × 删除（不再显示「自」角标），@tap.stop 避免触发选分类 -->
+            <text v-if="c.isSystem === 0" class="cat-del-x" @tap.stop="onCategoryLongPress(c)">×</text>
           </view>
           <!-- 在当前大类下新增自定义分类（仅自己可见，可长按自定义分类删除） -->
           <view v-if="userStore.isLoggedIn" class="cat-cell" @tap="addCustomCategory">
@@ -744,7 +745,7 @@ export default {
 .cat-toggle { font-size: 22rpx; color: var(--text-sub); padding: 4rpx 12rpx; background: var(--surface); border-radius: 20rpx; }
 .cat-grid-wrap { max-height: 560rpx; }
 .cat-grid { display: flex; flex-wrap: wrap; }
-.cat-cell { width: 25%; display: flex; flex-direction: column; align-items: center; padding: 16rpx 0 20rpx; }
+.cat-cell { position: relative; width: 25%; display: flex; flex-direction: column; align-items: center; padding: 16rpx 0 20rpx; }
 .cat-icon {
   width: 80rpx; height: 80rpx; border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
@@ -764,6 +765,15 @@ export default {
   margin-top: 6rpx; font-size: 18rpx; color: #fff; background: #f0a020;
   border-radius: 12rpx; padding: 0 10rpx; line-height: 26rpx;
 }
+/* 自定义分类右上角删除 ×：热区 88rpx，与分类点击互不干扰 */
+.cat-del-x {
+  position: absolute; top: 0; right: 6rpx;
+  min-width: 64rpx; min-height: 64rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32rpx; line-height: 1; color: var(--text-muted);
+  border-radius: 50%;
+}
+.cat-del-x:active { background: var(--expense-bg); color: var(--expense); }
 
 /* 二级分类横滑 */
 .sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid #f5f5f7; }

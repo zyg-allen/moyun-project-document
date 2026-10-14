@@ -99,9 +99,9 @@ export default {
   right: 0;
   bottom: 0;
   left: 0;
-  /* 必须高于 H5 底部 TabBar（uni-tabbar z-index:998）与官方弹窗/Toast（999），
-     否则弹层打开时 Tab 栏不暗、仍可点击切走 */
-  z-index: 1000;
+  /* 必须高于 H5 底部 TabBar（uni-tabbar z-index:998）；
+     与 uni-app 官方弹窗/picker（999）同级，使 picker 后渲染时自然盖在上层 */
+  z-index: 999;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;

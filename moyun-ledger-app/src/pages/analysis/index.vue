@@ -381,18 +381,19 @@ export default {
     /** 报告预览：点击查看进入 */
     async openPreview(r) {
       if (!r || !r.id) return;
-      this.preview = { show: true, data: null, current: r };
+      // 默认全屏（原始诉求：报告看不完整 → 全屏 + 内部滚动），并统一维护 full 字段
+      this.preview = { show: true, data: null, current: r, full: true };
       try {
         const detail = await getAiReportDetail(r.id) || {};
         this.preview.data = detail;
       } catch (e) {
-        this.preview = { show: false, data: null, current: null }; /* 拦截器已提示 */
+        this.preview = { show: false, data: null, current: null, full: false }; /* 拦截器已提示 */
       }
     },
     /** 预览全屏/收起切换（全屏时内容区占满并内部滚动） */
     toggleFull() { this.preview.full = !this.preview.full; },
     closePreview() {
-      this.preview = { show: false, data: null, current: null };
+      this.preview = { show: false, data: null, current: null, full: false };
     },
     /** 删除报告（闭环终点，预览中可直达） */
     removeReport(r) {
@@ -527,7 +528,7 @@ export default {
 .empty-desc { font-size: 24rpx; color: var(--text-sub); line-height: 1.6; }
 
 /* 报告预览弹层 */
-.mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: flex-end; }
+.mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 999; display: flex; align-items: flex-end; }
 .preview-sheet {
   width: 100%; max-height: 86vh; background: var(--card); border-radius: 32rpx 32rpx 0 0;
   display: flex; flex-direction: column; padding: 32rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
@@ -542,6 +543,13 @@ export default {
 }
 .preview-sheet.full .pv-body { max-height: none; }
 .hint-full { font-size: 26rpx; color: var(--primary-strong); padding: 0 16rpx 0 8rpx; flex-shrink: 0; }
+/* 预览头部两个按钮：放大热区到 88rpx 以上，避免移动端点不中（"点击无反应"的直接原因之一） */
+.pv-head .hint-full,
+.pv-head .hint-close {
+  min-height: 88rpx; min-width: 88rpx;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 8rpx;
+}
 .pv-loading { text-align: center; padding: 80rpx 0; color: var(--text-sub); font-size: 26rpx; }
 .pv-meta { background: var(--surface); border-radius: 12rpx; padding: 8rpx 20rpx; margin-bottom: 20rpx; }
 .meta-row { display: flex; justify-content: space-between; gap: 20rpx; padding: 12rpx 0; font-size: 24rpx; border-bottom: 1rpx solid #f0f1f4; }

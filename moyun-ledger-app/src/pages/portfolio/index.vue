@@ -169,6 +169,7 @@
 </template>
 
 <script>
+import keyboardAware from '@/mixins/keyboardAware';
 import submitLock from '@/mixins/submitLock';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import { listAssets, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
@@ -196,7 +197,7 @@ const LIAB_TYPES = [
 ];
 
 export default {
-  mixins: [submitLock],
+  mixins: [keyboardAware, submitLock],
   components: { KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     return {
@@ -232,7 +233,10 @@ export default {
     liabTotalText() {
       const list = this.liabilities.filter(l => l.status === 1 && l.settleFlag !== 1 && l.includeInTotal === 1);
       return formatAmount(safeSum(list, 'balance'));
-    }
+    },
+    /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
+    assetSheetTitle() { return this.assetForm.id ? '编辑账户' : '新增资产账户'; },
+    liabSheetTitle() { return this.liabForm.id ? '编辑负债' : '新增负债'; }
   },
   onShow() {
     useThemeStore().restore();
@@ -242,11 +246,6 @@ export default {
   },
   onPullDownRefresh() {
     Promise.all([this.loadAssets(), this.loadLiabilities()]).finally(() => uni.stopPullDownRefresh());
-  },
-  computed: {
-    /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
-    assetSheetTitle() { return this.assetForm.id ? '编辑账户' : '新增资产账户'; },
-    liabSheetTitle() { return this.liabForm.id ? '编辑负债' : '新增负债'; }
   },
 
   methods: {
@@ -411,17 +410,42 @@ export default {
 }
 .seg-item.on { color: #fff; background: var(--primary); font-weight: 600; }
 
+/*
+ * 汇总卡配色（v13.68 改版）
+ *
+ * 原实现：资产用 var(--primary)（薄荷绿）+ 负债用红渐变 →
+ * 两块卡上下相邻形成"红配绿"，既刺眼又廉价，且绿在语义上并不代表"资产"。
+ *
+ * 现改为**中性卡面 + 左侧语义色竖条 + 数字用语义色**：
+ * 大面积用 --card 保持克制，只在关键数字上给颜色，信息层级反而更清楚，
+ * 同时天然适配日间/暗色/护眼三种外观。
+ */
 .summary {
-  background: var(--primary); color: #fff;
-  padding: 32rpx 40rpx 50rpx; margin-bottom: 24rpx;
+  position: relative;
+  background: var(--card);
+  color: var(--text-main);
+  border-radius: 20rpx;
+  padding: 32rpx 40rpx 40rpx;
+  margin: 0 24rpx 24rpx;
+  overflow: hidden;
 }
-/* 负债汇总卡：红橙警示系（资产=主题色正向，负债=风险色，一眼区分） */
-.summary.liability {
-  background: linear-gradient(135deg, #e8554d, #d93a31);
+/* 左侧语义色竖条：资产=收入色（青绿），负债=支出色（暖橙） */
+.summary::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 8rpx;
+  background: var(--income);
 }
-.summary-label { font-size: 26rpx; opacity: 0.85; }
-.summary-amount { font-size: 60rpx; font-weight: 700; margin: 12rpx 0; }
-.summary-sub { font-size: 24rpx; opacity: 0.8; }
+.summary.liability::before { background: var(--expense); }
+.summary-label { font-size: 26rpx; color: var(--text-sub); }
+.summary-amount {
+  font-size: 60rpx; font-weight: 700; margin: 12rpx 0;
+  /* 数字给语义色，一眼分辨资产/负债 */
+  color: var(--income);
+}
+.summary.liability .summary-amount { color: var(--expense); }
+.summary-sub { font-size: 24rpx; color: var(--text-sub); }
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 12rpx; }

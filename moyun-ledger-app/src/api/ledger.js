@@ -283,8 +283,8 @@ export const deleteSavingPlan = (id) => del('/portal/ledger/savings/' + id);
 export const listMemos = (limit) =>
   get('/portal/ledger/memos', limit ? { limit } : {});
 
-/** 新增待办 */
-export const createMemo = (content) => post('/portal/ledger/memos', { content });
+/** 新增待办（title/content/eventTime/remindEnabled/remindRule/importance 整体透传） */
+export const createMemo = (data) => post('/portal/ledger/memos', data);
 
 /** 更新待办（content/done 任意） */
 export const updateMemo = (id, data) => put('/portal/ledger/memos/' + id, data);

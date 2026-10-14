@@ -87,8 +87,7 @@ const TYPE_TABS = [
 ];
 
 export default {
-  mixins: [submitLock],
-  mixins: [keyboardAware],
+  mixins: [keyboardAware, submitLock],
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     currentTabLabel() {
@@ -108,7 +107,9 @@ export default {
       return Array.from(map.entries())
         .map(([name, items]) => ({ name, items, order: items[0].sortOrder || 0 }))
         .sort((a, b) => a.order - b.order);
-    }
+    },
+    /** 可选图标（来自统一图标映射，保证选择后能正确渲染） */
+    iconOptions() { return ICON_MAP; }
   },
   data() {
     return {
@@ -122,10 +123,6 @@ export default {
   },
   onShow() {
     this.load();
-  },
-  computed: {
-    /** 可选图标（来自统一图标映射，保证选择后能正确渲染） */
-    iconOptions() { return ICON_MAP; }
   },
 
   methods: {

@@ -173,11 +173,6 @@
                 </view>
               </view>
             </scroll-view>
-            <!-- 预览操作区：删除（PDF 导出后端暂未支持，待开放） -->
-            <view class="pv-foot">
-              <view class="pv-del" @tap="removeReport(preview.current)">删除此报告</view>
-              <view class="pv-close" @tap="closePreview">关闭</view>
-            </view>
           </template>
           <view class="pv-loading" v-else>报告加载中…</view>
         </view>
@@ -569,15 +564,6 @@ export default {
 .dot { width: 14rpx; height: 14rpx; border-radius: 7rpx; margin-top: 12rpx; flex-shrink: 0; }
 .dot.warn { background: #f59e0b; }
 .dot.good { background: #10b981; }
-.pv-foot { display: flex; gap: 20rpx; margin-top: 8rpx; }
-.pv-del {
-  flex: 1; height: 80rpx; line-height: 80rpx; text-align: center;
-  border: 1rpx solid #e5964f; color: #e5964f; border-radius: 40rpx; font-size: 26rpx;
-}
-.pv-close {
-  flex: 1; height: 80rpx; line-height: 80rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 40rpx; font-size: 26rpx; font-weight: 600;
-}
 
 /* 脚部 */
 .page-footer {

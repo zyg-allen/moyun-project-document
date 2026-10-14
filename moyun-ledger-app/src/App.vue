@@ -71,4 +71,27 @@ page {
 /* 收支语义色 */
 .text-income { color: var(--income); }
 .text-expense { color: var(--expense); }
+
+/* ============================================================
+ * 全局日期/时间选择器放大（uni-app H5 自定义滚轮）
+ *
+ * 背景：mode="time" 与移动端 mode="date" 走 uni-app 自绘滚轮，
+ * 默认单项高 34px / 字号 16px，滚轮列偏窄、手指点选/滑动不易命中。
+ * 这里统一放大到更舒适的尺寸，覆盖所有页面（记一笔/备忘录/明细/报表等）。
+ * ============================================================ */
+.uni-picker-container .uni-picker-item {
+  height: 46px;
+  line-height: 46px;
+  font-size: 20px;
+  padding: 0 10px;
+}
+.uni-picker-container .uni-picker-content {
+  height: 264px;
+}
+/* 桌面端原生日历的透明点击区（chrome）：放大覆盖整个触发元素，点击更易命中 */
+.uni-picker-system > .uni-picker-system_input.chrome {
+  width: 100%;
+  height: 100%;
+  font-size: 32px;
+}
 </style>

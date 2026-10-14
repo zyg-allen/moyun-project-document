@@ -204,14 +204,14 @@ export default {
   position: relative;   /* 供右上角删除 × 定位 */
   width: 25%; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center;
-  padding: 20rpx 0;
+  padding: 12rpx 0;
 }
 .cat-icon {
-  width: 80rpx; height: 80rpx; border-radius: 20rpx;
+  width: 72rpx; height: 72rpx; border-radius: 18rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 38rpx;
+  font-size: 34rpx;
 }
-.cat-name { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
+.cat-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 .empty { text-align: center; color: var(--text-muted); padding: 40rpx 0; font-size: 26rpx; }
 
 .cat-remove {

@@ -24,7 +24,7 @@
           <view v-for="c in sortedCategories" :key="c.id" class="cat-cell" @tap="pickCategoryCell(c)"
                 @longpress="onCategoryLongPress(c)">
             <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
-                  :style="form.categoryId === c.id ? '' : 'background:' + (c.color || '#BDC3C7')">
+                  :style="form.categoryId === c.id ? '' : 'background:' + softColor(c.color)">
               <text>{{ iconOf(c.icon) }}</text>
             </view>
             <text class="cat-name" :class="{ selected: form.categoryId === c.id }">{{ c.name }}</text>
@@ -183,7 +183,7 @@ import { createTransaction, listAssets, listLiabilities, listCategories, createC
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
-import { categoryIcon } from '@/utils/categoryIcon';
+import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
 
 const TYPE_DEFS = [
   { key: 'expense', label: '支出' },
@@ -314,6 +314,8 @@ export default {
   },
   methods: {
     iconOf(icon) { return categoryIcon(icon); },
+    /** 分类颜色 → 浅色底（与分类管理页一致，避免 emoji 撞色） */
+    softColor(color) { return toSoftColor(color); },
     promptLogin() {
       uni.showModal({
         title: '提示',
@@ -745,15 +747,15 @@ export default {
 .cat-toggle { font-size: 22rpx; color: var(--text-sub); padding: 4rpx 12rpx; background: var(--surface); border-radius: 20rpx; }
 .cat-grid-wrap { max-height: 560rpx; }
 .cat-grid { display: flex; flex-wrap: wrap; }
-.cat-cell { position: relative; width: 25%; display: flex; flex-direction: column; align-items: center; padding: 16rpx 0 20rpx; }
+.cat-cell { position: relative; width: 25%; display: flex; flex-direction: column; align-items: center; padding: 12rpx 0; }
 .cat-icon {
-  width: 80rpx; height: 80rpx; border-radius: 20rpx;
+  width: 72rpx; height: 72rpx; border-radius: 18rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 38rpx;
+  font-size: 34rpx;
   box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.08);
 }
 .cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }
-.cat-name { font-size: 24rpx; color: var(--text-sub); margin-top: 10rpx; }
+.cat-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 .cat-name.selected { color: var(--primary-strong); font-weight: 600; }
 .cat-empty { width: 100%; text-align: center; color: var(--text-muted); font-size: 26rpx; padding: 40rpx 0; }
 /* 添加自定义分类入口 + 自定义角标 */

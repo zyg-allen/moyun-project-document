@@ -120,18 +120,20 @@
         <picker mode="date" :value="exportEnd" @change="(e) => exportEnd = e.detail.value">
           <view class="export-date">{{ exportEnd || '结束日期(不限)' }}</view>
         </picker>
-        <view class="btn-export" @tap="doExport">导出</view>
+        <view class="btn-export" :class="{ disabled: submitting }" @tap="!submitting && doExport()">导出</view>
       </view>
     </view>
   </view>
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import { getReportOverview, exportTransactionsCsv } from '@/api/ledger';
 import { formatAmount, formatAbsAmount, toNum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
+  mixins: [submitLock],
   data() {
     return {
       year: new Date().getFullYear(),
@@ -201,10 +203,18 @@ export default {
       const { min, max } = this.nwRange;
       return Math.round(((val - min) / (max - min)) * 80) + 20;
     },
-    doExport() {
-      exportTransactionsCsv(this.exportStart || null, this.exportEnd || null).then(() => {
+    async doExport() {
+      // 导出同样需要防重复（会生成文件并触发下载）
+      // 这里用显式 try/finally 而非 withSubmitLock：导出走 .then 链，
+      // 若只 await 外层包裹函数，锁会在实际下载完成前就被释放
+      if (this.submitting) return;
+      this.submitting = true;
+      try {
+        await exportTransactionsCsv(this.exportStart || null, this.exportEnd || null);
         uni.showToast({ title: '已导出', icon: 'success' });
-      }).catch(() => { /* 已提示 */ });
+      } catch (e) { /* 拦截器已提示 */ } finally {
+        this.submitting = false;
+      }
     }
   }
 };
@@ -281,4 +291,6 @@ export default {
   margin-left: auto; padding: 10rpx 40rpx; background: var(--primary-strong); color: #fff;
   border-radius: 10rpx; font-size: 24rpx;
 }
+/* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
+.btn-export.disabled { opacity: 0.5; }
 </style>

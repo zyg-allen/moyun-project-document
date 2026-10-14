@@ -67,7 +67,7 @@
       </view>
       <view class="form-row">
         <text class="form-label">金额</text>
-        <input class="form-input amount" type="digit" v-model="form.amount" placeholder="0" />
+        <input class="form-input amount" type="digit" v-model="form.amount" placeholder="0" @input="onAmountInput" />
       </view>
       <view class="form-row">
         <text class="form-label">账户</text>
@@ -89,16 +89,19 @@
 
     <view class="preview" v-if="nextExecText">下次记账时间：{{ nextExecText }}</view>
 
-    <view class="submit-btn" @tap="save">确定</view>
+    <view class="submit-btn" :class="{ disabled: submitting }" @tap="!submitting && save()">确定</view>
   </view>
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { listCategories, listAssets, createScheduleTask } from '@/api/ledger';
+import { applyAmountInput } from '@/utils/money';
 
 export default {
+  mixins: [submitLock],
   components: { NavBar },
   data() {
     const today = new Date();
@@ -149,6 +152,8 @@ export default {
     this.loadOptions();
   },
   methods: {
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onAmountInput(e) { applyAmountInput(e, this, 'form.amount'); },
     async loadOptions() {
       try {
         const catData = await listCategories(this.form.type) || {};
@@ -202,34 +207,36 @@ export default {
       return '';
     },
     async save() {
-      const amount = parseFloat(this.form.amount);
-      if (!amount || amount <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return; }
-      if (!this.form.categoryId) { uni.showToast({ title: '请选择分类', icon: 'none' }); return; }
-      if (!this.form.accountId) { uni.showToast({ title: '请选择资产账户', icon: 'none' }); return; }
-      if (this.form.cycle === 'interval' && !(parseInt(this.form.intervalDays) > 0)) {
-        uni.showToast({ title: '请输入间隔天数', icon: 'none' }); return;
-      }
-      const payload = {
-        name: this.form.description ? this.form.description.slice(0, 50)
-              : (this.form.type === 'expense' ? '定时支出' : '定时收入'),
-        type: this.form.type,
-        amount,
-        categoryId: this.form.categoryId,
-        accountId: this.form.accountId,
-        description: this.form.description || null,
-        cycle: this.form.cycle,
-        dayOfWeek: this.form.cycle === 'weekly' ? this.form.dayOfWeek : null,
-        dayOfMonth: this.form.cycle === 'monthly' ? this.form.dayOfMonth : null,
-        intervalDays: this.form.cycle === 'interval' ? parseInt(this.form.intervalDays) : null,
-        execTime: this.form.execTime,
-        startDate: this.form.startDate,
-        endDate: this.form.endDate || null
-      };
-      try {
-        await createScheduleTask(payload);
-        uni.showToast({ title: '创建成功', icon: 'success' });
-        setTimeout(() => uni.navigateBack(), 600);
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              const amount = parseFloat(this.form.amount);
+              if (!amount || amount <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return; }
+              if (!this.form.categoryId) { uni.showToast({ title: '请选择分类', icon: 'none' }); return; }
+              if (!this.form.accountId) { uni.showToast({ title: '请选择资产账户', icon: 'none' }); return; }
+              if (this.form.cycle === 'interval' && !(parseInt(this.form.intervalDays) > 0)) {
+                uni.showToast({ title: '请输入间隔天数', icon: 'none' }); return;
+              }
+              const payload = {
+                name: this.form.description ? this.form.description.slice(0, 50)
+                      : (this.form.type === 'expense' ? '定时支出' : '定时收入'),
+                type: this.form.type,
+                amount,
+                categoryId: this.form.categoryId,
+                accountId: this.form.accountId,
+                description: this.form.description || null,
+                cycle: this.form.cycle,
+                dayOfWeek: this.form.cycle === 'weekly' ? this.form.dayOfWeek : null,
+                dayOfMonth: this.form.cycle === 'monthly' ? this.form.dayOfMonth : null,
+                intervalDays: this.form.cycle === 'interval' ? parseInt(this.form.intervalDays) : null,
+                execTime: this.form.execTime,
+                startDate: this.form.startDate,
+                endDate: this.form.endDate || null
+              };
+              try {
+                await createScheduleTask(payload);
+                uni.showToast({ title: '创建成功', icon: 'success' });
+                setTimeout(() => uni.navigateBack(), 600);
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     }
   }
 };
@@ -275,4 +282,6 @@ export default {
   background: var(--primary-strong); color: #fff;
   border-radius: 44rpx; font-size: 30rpx; font-weight: 600;
 }
+/* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
+.submit-btn.disabled { opacity: 0.5; }
 </style>

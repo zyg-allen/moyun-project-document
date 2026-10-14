@@ -47,7 +47,7 @@
           :cursor-spacing="24"
           adjust-position
         />
-        <view class="add-btn" @tap="addCat">添加</view>
+        <view class="add-btn" :class="{ disabled: submitting }" @tap="!submitting && addCat()">添加</view>
       </view>
       <!-- 图标选择面板（折叠，默认收起，不点不占位） -->
       <view v-if="iconPickerOpen" class="icon-panel">
@@ -71,6 +71,7 @@
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import keyboardAware from '@/mixins/keyboardAware';
 import { listCategories, createCategory, deleteCategory } from '@/api/ledger';
 import { useThemeStore } from '@/stores/theme';
@@ -86,6 +87,7 @@ const TYPE_TABS = [
 ];
 
 export default {
+  mixins: [submitLock],
   mixins: [keyboardAware],
   computed: {
     themeVars() { return useThemeStore().themeVars; },
@@ -144,20 +146,22 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     async addCat() {
-      if (!this.newName.trim()) {
-        uni.showToast({ title: '请输入分类名', icon: 'none' });
-        return;
-      }
-      try {
-        const payload = { name: this.newName.trim(), type: this.type };
-        // 图标选填：未选则不传，由后端保持默认
-        if (this.newIcon) payload.icon = this.newIcon;
-        await createCategory(payload);
-        this.newName = '';
-        this.newIcon = '';
-        this.iconPickerOpen = false;
-        this.load();
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              if (!this.newName.trim()) {
+                uni.showToast({ title: '请输入分类名', icon: 'none' });
+                return;
+              }
+              try {
+                const payload = { name: this.newName.trim(), type: this.type };
+                // 图标选填：未选则不传，由后端保持默认
+                if (this.newIcon) payload.icon = this.newIcon;
+                await createCategory(payload);
+                this.newName = '';
+                this.newIcon = '';
+                this.iconPickerOpen = false;
+                this.load();
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     },
     removeCat(c) {
       uni.showModal({
@@ -260,4 +264,6 @@ export default {
   flex: 1; background: #f5f6f8; border-radius: 44rpx; height: 80rpx;
   padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
+/* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
+.add-btn.disabled { opacity: 0.5; }
 </style>

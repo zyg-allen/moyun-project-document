@@ -93,7 +93,7 @@
         </scroll-view>
         <view class="form-actions">
           <view class="f-btn cancel" @tap="closeForm">取消</view>
-          <view class="f-btn ok" @tap="saveTodo">保存</view>
+          <view class="f-btn ok" :class="{ disabled: submitting }" @tap="!submitting && saveTodo()">保存</view>
         </view>
       </view>
     </view>
@@ -101,6 +101,7 @@
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import keyboardAware from '@/mixins/keyboardAware';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
@@ -112,6 +113,7 @@ const REMIND_KEYS = ['on_time', 'advance_30m', 'advance_1h', 'advance_2h', 'adva
 const REMIND_LABELS = { on_time: '准时提醒', advance_30m: '提前30分钟', advance_1h: '提前1小时', advance_2h: '提前2小时', advance_1d: '提前1天', advance_1d_9am: '提前一天上午9点' };
 
 export default {
+  mixins: [submitLock],
   mixins: [keyboardAware],
   components: { NavBar },
   data() {
@@ -182,34 +184,36 @@ export default {
     },
     closeForm() { this.formVisible = false; },
     async saveTodo() {
-      const title = this.form.title.trim();
-      const content = this.form.content.trim();
-      if (!title && !content) { uni.showToast({ title: '请输入事项或内容', icon: 'none' }); return; }
-      if (this.form.remindEnabled === 1 && !this.form.date) {
-        uni.showToast({ title: '开启提醒需设置事项时间', icon: 'none' });
-        return;
-      }
-      const eventTime = this.form.date
-        ? `${this.form.date} ${this.form.time || '09:00'}:00`
-        : null;
-      const payload = {
-        title: title || null,
-        content: content || null,
-        eventTime,
-        remindEnabled: this.form.remindEnabled,
-        remindRule: this.form.remindEnabled === 1 ? this.form.remindRule : null,
-        importance: this.form.importance
-      };
-      try {
-        if (this.editingId) {
-          await updateMemo(this.editingId, payload);
-        } else {
-          await createMemo(payload);
-        }
-        this.formVisible = false;
-        uni.showToast({ title: '保存成功', icon: 'success' });
-        this.load();
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              const title = this.form.title.trim();
+              const content = this.form.content.trim();
+              if (!title && !content) { uni.showToast({ title: '请输入事项或内容', icon: 'none' }); return; }
+              if (this.form.remindEnabled === 1 && !this.form.date) {
+                uni.showToast({ title: '开启提醒需设置事项时间', icon: 'none' });
+                return;
+              }
+              const eventTime = this.form.date
+                ? `${this.form.date} ${this.form.time || '09:00'}:00`
+                : null;
+              const payload = {
+                title: title || null,
+                content: content || null,
+                eventTime,
+                remindEnabled: this.form.remindEnabled,
+                remindRule: this.form.remindEnabled === 1 ? this.form.remindRule : null,
+                importance: this.form.importance
+              };
+              try {
+                if (this.editingId) {
+                  await updateMemo(this.editingId, payload);
+                } else {
+                  await createMemo(payload);
+                }
+                this.formVisible = false;
+                uni.showToast({ title: '保存成功', icon: 'success' });
+                this.load();
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     },
     async toggleTodo(t) {
       try { await toggleMemo(t.id); this.load(); } catch (e) { }
@@ -325,4 +329,6 @@ export default {
 }
 .f-btn.cancel { background: #f5f6f8; color: #666; }
 .f-btn.ok { background: var(--primary-strong); color: #fff; }
+/* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
+.f-btn.disabled { opacity: 0.5; }
 </style>

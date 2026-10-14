@@ -98,7 +98,7 @@
       </view>
       <view class="field" v-if="!assetForm.id">
         <text class="field-label">初始余额(元)</text>
-        <input v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input"
+        <input v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input" @input="onAssetBalanceInput"
           adjust-position
           :cursor-spacing="24"
          />
@@ -107,7 +107,7 @@
         <text class="field-label">计入总资产</text>
         <switch :checked="assetForm.includeInTotal === 1" @change="onAssetTotalChange" style="transform: scale(0.8)" />
       </view>
-      <view class="btn-primary" @tap="saveAsset">保存</view>
+      <view class="btn-primary" :class="{ disabled: submitting }" @tap="!submitting && saveAsset()">保存</view>
       <view class="btn-danger" v-if="assetForm.id" @tap="removeAsset">删除（归档，流水保留）</view>
       <view class="btn-cancel" @tap="assetEditing = false">取消</view>
     </KeyboardAwareSheet>
@@ -131,14 +131,14 @@
         </view>
         <view class="field" v-if="!liabForm.id">
           <text class="field-label">当前欠款(元)</text>
-          <input v-model="liabForm.initialBalance" type="digit" placeholder="0.00" class="field-input"
+          <input v-model="liabForm.initialBalance" type="digit" placeholder="0.00" class="field-input" @input="onLiabBalanceInput"
             adjust-position
             :cursor-spacing="24"
            />
         </view>
         <view class="field">
           <text class="field-label">月供(元)</text>
-          <input v-model="liabForm.monthlyPayment" type="digit" placeholder="选填" class="field-input"
+          <input v-model="liabForm.monthlyPayment" type="digit" placeholder="选填" class="field-input" @input="onLiabMonthlyInput"
             adjust-position
             :cursor-spacing="24"
            />
@@ -160,7 +160,7 @@
           <text class="field-label">计入总负债</text>
           <switch :checked="liabForm.includeInTotal === 1" @change="onLiabTotalChange" style="transform: scale(0.8)" />
         </view>
-        <view class="btn-primary" @tap="saveLiability">保存</view>
+        <view class="btn-primary" :class="{ disabled: submitting }" @tap="!submitting && saveLiability()">保存</view>
         <view class="btn-danger" v-if="liabForm.id" @tap="removeLiability">删除（归档，流水保留）</view>
         <view class="btn-cancel" @tap="liabEditing = false">取消</view>
       </view>
@@ -169,9 +169,10 @@
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import { listAssets, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
-import { formatAmount, toFixedYuan, toNum, safeSum } from '@/utils/money';
+import { formatAmount, toFixedYuan, toNum, safeSum, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 const ASSET_TYPES = [
@@ -195,6 +196,7 @@ const LIAB_TYPES = [
 ];
 
 export default {
+  mixins: [submitLock],
   components: { KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     return {
@@ -248,6 +250,12 @@ export default {
   },
 
   methods: {
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onAssetBalanceInput(e) { applyAmountInput(e, this, 'assetForm.initialBalance'); },
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onLiabBalanceInput(e) { applyAmountInput(e, this, 'liabForm.initialBalance'); },
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onLiabMonthlyInput(e) { applyAmountInput(e, this, 'liabForm.monthlyPayment'); },
     viewTxn(kind, item) {
       const p = [];
       if (kind === 'asset') { p.push('accountId=' + item.id); p.push('name=' + encodeURIComponent(item.name)); }
@@ -279,24 +287,26 @@ export default {
     onAssetTypeChange(e) { this.assetForm.type = ASSET_TYPES[e.detail.value][0]; },
     onAssetTotalChange(e) { this.assetForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveAsset() {
-      if (!this.assetForm.name.trim()) {
-        uni.showToast({ title: '请输入账户名称', icon: 'none' });
-        return;
-      }
-      try {
-        if (this.assetForm.id) {
-          await updateAsset(this.assetForm.id, {
-            name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal
-          });
-        } else {
-          await createAsset({
-            name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal,
-            initialBalance: toNum(this.assetForm.initialBalance)
-          });
-        }
-        this.assetEditing = false;
-        this.loadAssets();
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              if (!this.assetForm.name.trim()) {
+                uni.showToast({ title: '请输入账户名称', icon: 'none' });
+                return;
+              }
+              try {
+                if (this.assetForm.id) {
+                  await updateAsset(this.assetForm.id, {
+                    name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal
+                  });
+                } else {
+                  await createAsset({
+                    name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal,
+                    initialBalance: toNum(this.assetForm.initialBalance)
+                  });
+                }
+                this.assetEditing = false;
+                this.loadAssets();
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     },
     removeAsset() {
       uni.showModal({
@@ -341,30 +351,32 @@ export default {
     onDayChange(e) { this.liabForm.repaymentDay = e.detail.value + 1; },
     onLiabTotalChange(e) { this.liabForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveLiability() {
-      if (!this.liabForm.name.trim()) {
-        uni.showToast({ title: '请输入负债名称', icon: 'none' });
-        return;
-      }
-      try {
-        if (this.liabForm.id) {
-          await updateLiability(this.liabForm.id, {
-            name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
-            monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
-            repaymentDay: this.liabForm.repaymentDay || null,
-            totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
-          });
-        } else {
-          await createLiability({
-            name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
-            initialBalance: toNum(this.liabForm.initialBalance),
-            monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
-            repaymentDay: this.liabForm.repaymentDay || null,
-            totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
-          });
-        }
-        this.liabEditing = false;
-        this.loadLiabilities();
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              if (!this.liabForm.name.trim()) {
+                uni.showToast({ title: '请输入负债名称', icon: 'none' });
+                return;
+              }
+              try {
+                if (this.liabForm.id) {
+                  await updateLiability(this.liabForm.id, {
+                    name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
+                    monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
+                    repaymentDay: this.liabForm.repaymentDay || null,
+                    totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
+                  });
+                } else {
+                  await createLiability({
+                    name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
+                    initialBalance: toNum(this.liabForm.initialBalance),
+                    monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
+                    repaymentDay: this.liabForm.repaymentDay || null,
+                    totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
+                  });
+                }
+                this.liabEditing = false;
+                this.loadLiabilities();
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     },
     removeLiability() {
       uni.showModal({
@@ -464,4 +476,6 @@ export default {
   border-radius: 50%; background: #f5f6f8; color: #888; font-size: 22rpx;
 }
 .pencil-btn:active { background: #e8e8ea; }
+/* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
+.btn-primary.disabled { opacity: 0.5; }
 </style>

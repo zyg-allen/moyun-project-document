@@ -8,7 +8,7 @@
       </view>
       <view class="info-row">
         <text class="info-label">金额(元)</text>
-        <input v-model="amountYuan" type="digit" class="info-input" />
+        <input v-model="amountYuan" type="digit" class="info-input" @input="onAmountInput" />
       </view>
       <view class="info-row">
         <text class="info-label">备注</text>
@@ -43,18 +43,20 @@
         </view>
       </view>
       <view class="tip">提示：修改将冲正原记录并按新参数重放，余额以事务方式联动更新</view>
-      <view class="btn-primary" @tap="save">保存修改</view>
+      <view class="btn-primary" :class="{ disabled: submitting }" @tap="!submitting && save()">保存修改</view>
       <view class="btn-danger" @tap="remove">删除此流水</view>
     </view>
   </view>
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import { getTransaction, updateTransaction, deleteTransaction, uploadVoucher } from '@/api/ledger';
-import { toFixedYuan, toNum, typeText } from '@/utils/money';
+import { toFixedYuan, toNum, typeText, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
+  mixins: [submitLock],
   computed: {
     themeVars() { return useThemeStore().themeVars; }
   },
@@ -70,6 +72,8 @@ export default {
     this.load();
   },
   methods: {
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onAmountInput(e) { applyAmountInput(e, this, 'amountYuan'); },
     typeText,
     async load() {
       try {
@@ -90,29 +94,31 @@ export default {
     /** 时间选择（HH:mm） */
     onTimeChange(e) { this.txn.transactionTime = e.detail.value; },
     async save() {
-      const amountNum = toNum(this.amountYuan);
-      if (this.txn.type === 'adjust' ? amountNum === 0 : amountNum <= 0) {
-        uni.showToast({ title: '金额不合法', icon: 'none' });
-        return;
-      }
-      try {
-        await updateTransaction(this.id, {
-          type: this.txn.type,
-          amount: amountNum,
-          categoryId: this.txn.categoryId,
-          accountId: this.txn.accountId,
-          liabilityId: this.txn.liabilityId,
-          targetAccountId: this.txn.targetAccountId,
-          description: this.txn.description || null,
-          merchant: this.txn.merchant || null,
-          voucherUrl: this.txn.voucherUrl || '',
-          transactionDate: this.txn.transactionDate,
-          // 必须回传：服务端 transactionTime 为空时会取当前时间，导致原时间被静默改写
-          transactionTime: this.txn.transactionTime || null
-        });
-        uni.showToast({ title: '已修改', icon: 'success' });
-        setTimeout(() => uni.navigateBack(), 800);
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              const amountNum = toNum(this.amountYuan);
+              if (this.txn.type === 'adjust' ? amountNum === 0 : amountNum <= 0) {
+                uni.showToast({ title: '金额不合法', icon: 'none' });
+                return;
+              }
+              try {
+                await updateTransaction(this.id, {
+                  type: this.txn.type,
+                  amount: amountNum,
+                  categoryId: this.txn.categoryId,
+                  accountId: this.txn.accountId,
+                  liabilityId: this.txn.liabilityId,
+                  targetAccountId: this.txn.targetAccountId,
+                  description: this.txn.description || null,
+                  merchant: this.txn.merchant || null,
+                  voucherUrl: this.txn.voucherUrl || '',
+                  transactionDate: this.txn.transactionDate,
+                  // 必须回传：服务端 transactionTime 为空时会取当前时间，导致原时间被静默改写
+                  transactionTime: this.txn.transactionTime || null
+                });
+                uni.showToast({ title: '已修改', icon: 'success' });
+                setTimeout(() => uni.navigateBack(), 800);
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     },
     // ---------------- 凭证 ----------------
     chooseVoucher() {

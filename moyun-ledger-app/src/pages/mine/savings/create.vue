@@ -9,7 +9,7 @@
       </view>
       <view class="form-row">
         <text class="form-label">目标金额</text>
-        <input class="form-input" type="digit" v-model="form.targetAmount" placeholder="请输入目标金额" />
+        <input class="form-input" type="digit" v-model="form.targetAmount" placeholder="请输入目标金额" @input="onTargetAmountInput" />
       </view>
       <view class="form-row">
         <text class="form-label">存钱方式</text>
@@ -22,12 +22,12 @@
       </view>
       <view class="form-row" v-if="form.method === 'fixed' || form.method === 'monthly'">
         <text class="form-label">每期金额</text>
-        <input class="form-input" type="digit" v-model="form.periodAmount" placeholder="每期存入金额" />
+        <input class="form-input" type="digit" v-model="form.periodAmount" placeholder="每期存入金额" @input="onPeriodAmountInput" />
       </view>
       <block v-if="form.method === 'custom'">
         <view class="form-row">
           <text class="form-label">首期金额</text>
-          <input class="form-input" type="digit" v-model="form.periodAmount" placeholder="第1期存入金额" />
+          <input class="form-input" type="digit" v-model="form.periodAmount" placeholder="第1期存入金额" @input="onPeriodAmountInput" />
         </view>
         <view class="form-row">
           <text class="form-label">总期数</text>
@@ -35,7 +35,7 @@
         </view>
         <view class="form-row">
           <text class="form-label">每期递增</text>
-          <input class="form-input" type="digit" v-model="form.increaseStep" placeholder="每期比上期多存（可为0）" />
+          <input class="form-input" type="digit" v-model="form.increaseStep" placeholder="每期比上期多存（可为0）" @input="onIncreaseStepInput" />
         </view>
       </block>
       <view class="form-row">
@@ -67,16 +67,19 @@
       <text class="tip-desc">例如：首期¥100，每期递增¥50，共12期 → 累计¥4,500。最后一期自动按目标金额凑整。</text>
     </view>
 
-    <view class="submit-btn" @tap="save">保存计划</view>
+    <view class="submit-btn" :class="{ disabled: submitting }" @tap="!submitting && save()">保存计划</view>
   </view>
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { createSavingPlan } from '@/api/ledger';
+import { applyAmountInput } from '@/utils/money';
 
 export default {
+  mixins: [submitLock],
   components: { NavBar },
   data() {
     const today = new Date();
@@ -97,41 +100,49 @@ export default {
   computed: { themeVars() { return useThemeStore().themeVars; } },
   onShow() { useThemeStore().restore(); },
   methods: {
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onTargetAmountInput(e) { applyAmountInput(e, this, 'form.targetAmount'); },
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onPeriodAmountInput(e) { applyAmountInput(e, this, 'form.periodAmount'); },
+    /** 金额输入净化（见 utils/money.applyAmountInput） */
+    onIncreaseStepInput(e) { applyAmountInput(e, this, 'form.increaseStep', { allowNegative: true }); },
     gen52Week() {
       this.form.targetAmount = '13780';
       uni.showToast({ title: '已填入目标¥13,780', icon: 'none' });
     },
     async save() {
-      if (!this.form.name) { uni.showToast({ title: '请输入计划名称', icon: 'none' }); return; }
-      const target = parseFloat(this.form.targetAmount);
-      if (!target || target <= 0) { uni.showToast({ title: '请输入目标金额', icon: 'none' }); return; }
-      const payload = {
-        name: this.form.name.trim(),
-        targetAmount: target,
-        method: this.form.method,
-        startDate: this.form.startDate,
-        endDate: this.form.endDate || null,
-        remark: this.form.remark || null
-      };
-      if (this.form.method === 'fixed' || this.form.method === 'monthly' || this.form.method === 'custom') {
-        const period = parseFloat(this.form.periodAmount);
-        if (!period || period <= 0) {
-          uni.showToast({ title: this.form.method === 'custom' ? '请输入首期金额' : '请输入每期金额', icon: 'none' });
-          return;
-        }
-        payload.periodAmount = period;
-      }
-      if (this.form.method === 'custom') {
-        const count = parseInt(this.form.periodCount);
-        if (!count || count <= 0) { uni.showToast({ title: '请输入总期数', icon: 'none' }); return; }
-        payload.periodCount = count;
-        payload.increaseStep = parseFloat(this.form.increaseStep) || 0;
-      }
-      try {
-        await createSavingPlan(payload);
-        uni.showToast({ title: '创建成功', icon: 'success' });
-        setTimeout(() => uni.navigateBack(), 600);
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              if (!this.form.name) { uni.showToast({ title: '请输入计划名称', icon: 'none' }); return; }
+              const target = parseFloat(this.form.targetAmount);
+              if (!target || target <= 0) { uni.showToast({ title: '请输入目标金额', icon: 'none' }); return; }
+              const payload = {
+                name: this.form.name.trim(),
+                targetAmount: target,
+                method: this.form.method,
+                startDate: this.form.startDate,
+                endDate: this.form.endDate || null,
+                remark: this.form.remark || null
+              };
+              if (this.form.method === 'fixed' || this.form.method === 'monthly' || this.form.method === 'custom') {
+                const period = parseFloat(this.form.periodAmount);
+                if (!period || period <= 0) {
+                  uni.showToast({ title: this.form.method === 'custom' ? '请输入首期金额' : '请输入每期金额', icon: 'none' });
+                  return;
+                }
+                payload.periodAmount = period;
+              }
+              if (this.form.method === 'custom') {
+                const count = parseInt(this.form.periodCount);
+                if (!count || count <= 0) { uni.showToast({ title: '请输入总期数', icon: 'none' }); return; }
+                payload.periodCount = count;
+                payload.increaseStep = parseFloat(this.form.increaseStep) || 0;
+              }
+              try {
+                await createSavingPlan(payload);
+                uni.showToast({ title: '创建成功', icon: 'success' });
+                setTimeout(() => uni.navigateBack(), 600);
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     }
   }
 };
@@ -171,4 +182,6 @@ export default {
   background: var(--primary-strong); color: #fff;
   border-radius: 44rpx; font-size: 30rpx; font-weight: 600;
 }
+/* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
+.submit-btn.disabled { opacity: 0.5; }
 </style>

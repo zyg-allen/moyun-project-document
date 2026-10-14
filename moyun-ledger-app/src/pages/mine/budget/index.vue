@@ -12,9 +12,9 @@
       </view>
       <view class="field">
         <text class="field-label">月度总预算(元)</text>
-        <input v-model="totalBudgetYuan" type="digit" placeholder="留空或填 0 表示取消总预算" class="field-input" />
+        <input v-model="totalBudgetYuan" type="digit" placeholder="留空或填 0 表示取消总预算" class="field-input" @input="onTotalBudgetInput" />
       </view>
-      <view class="btn-primary" @tap="saveTotal">保存总预算</view>
+      <view class="btn-primary" :class="{ disabled: submitting }" @tap="!submitting && saveTotal()">保存总预算</view>
     </view>
 
     <view class="card">
@@ -24,17 +24,19 @@
         <input :value="budgetOf(c.id)" @input="(e) => setBudgetOf(c.id, e.detail.value)" type="digit"
                placeholder="留空或填 0 取消" class="field-input" />
       </view>
-      <view class="btn-primary" @tap="saveCategoryBudgets">保存分类预算</view>
+      <view class="btn-primary" :class="{ disabled: submitting }" @tap="!submitting && saveCategoryBudgets()">保存分类预算</view>
     </view>
   </view>
 </template>
 
 <script>
+import submitLock from '@/mixins/submitLock';
 import { listBudgets, saveBudget, deleteBudget, listCategories } from '@/api/ledger';
-import { toNum, toFixedYuan } from '@/utils/money';
+import { toNum, toFixedYuan, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
+  mixins: [submitLock],
   data() {
     const now = new Date();
     return {
@@ -56,6 +58,8 @@ export default {
     this.load();
   },
   methods: {
+    /** 总预算输入净化（见 utils/money.applyAmountInput） */
+    onTotalBudgetInput(e) { applyAmountInput(e, this, 'totalBudgetYuan'); },
     async load() {
       try {
         const [budgetRes, catRes] = await Promise.all([
@@ -82,58 +86,62 @@ export default {
       this.categoryBudgetInput[categoryId] = yuan;
     },
     async saveTotal() {
-      // 与服务端约束对齐：金额必须大于 0；因此「留空」或「填 0」表达的是"取消预算"，
-      // 而不是保存一个 0（后者会被后端拒绝，用户按提示填 0 反而报错）。
-      const raw = String(this.totalBudgetYuan == null ? '' : this.totalBudgetYuan).trim();
-      const wantCancel = raw === '' || toNum(raw) <= 0;
-      try {
-        if (wantCancel) {
-          await deleteBudget(this.year, this.month, null);
-          uni.showToast({ title: '已取消总预算', icon: 'none' });
-        } else {
-          await saveBudget({ categoryId: null, year: this.year, month: this.month, amount: toNum(raw) });
-          uni.showToast({ title: '已保存', icon: 'success' });
-        }
-        this.totalBudgetYuan = ''
-        this.load();
-      } catch (e) { /* 拦截器已提示 */ }
+      return this.withSubmitLock(async () => {
+              // 与服务端约束对齐：金额必须大于 0；因此「留空」或「填 0」表达的是"取消预算"，
+              // 而不是保存一个 0（后者会被后端拒绝，用户按提示填 0 反而报错）。
+              const raw = String(this.totalBudgetYuan == null ? '' : this.totalBudgetYuan).trim();
+              const wantCancel = raw === '' || toNum(raw) <= 0;
+              try {
+                if (wantCancel) {
+                  await deleteBudget(this.year, this.month, null);
+                  uni.showToast({ title: '已取消总预算', icon: 'none' });
+                } else {
+                  await saveBudget({ categoryId: null, year: this.year, month: this.month, amount: toNum(raw) });
+                  uni.showToast({ title: '已保存', icon: 'success' });
+                }
+                this.totalBudgetYuan = ''
+                this.load();
+              } catch (e) { /* 拦截器已提示 */ }
+      });
     },
     async saveCategoryBudgets() {
-      // 逐条容错：单个分类失败不影响其余（原实现一个 0 会中断整批，
-      // 导致"排在它后面的分类全部不保存"且无任何提示）。
-      const failed = [];
-      let saved = 0;
-      let cancelled = 0;
-      for (const c of this.expenseCategories) {
-        const yuan = this.categoryBudgetInput[c.id];
-        if (yuan === undefined) continue;   // 用户没动过这一项
-        const raw = String(yuan == null ? '' : yuan).trim();
-        const wantCancel = raw === '' || toNum(raw) <= 0;
-        try {
-          if (wantCancel) {
-            await deleteBudget(this.year, this.month, c.id);
-            cancelled++;
-          } else {
-            await saveBudget({ categoryId: c.id, year: this.year, month: this.month, amount: toNum(raw) });
-            saved++;
-          }
-        } catch (e) {
-          failed.push(c.name || ('分类' + c.id));
-        }
-      }
-      this.categoryBudgetInput = {};
-      this.load();
-      if (failed.length) {
-        uni.showModal({
-          title: '部分未保存',
-          content: '以下分类保存失败：' + failed.join('、'),
-          showCancel: false
-        });
-      } else if (cancelled && !saved) {
-        uni.showToast({ title: '已取消 ' + cancelled + ' 项', icon: 'none' });
-      } else {
-        uni.showToast({ title: '已保存', icon: 'success' });
-      }
+      return this.withSubmitLock(async () => {
+              // 逐条容错：单个分类失败不影响其余（原实现一个 0 会中断整批，
+              // 导致"排在它后面的分类全部不保存"且无任何提示）。
+              const failed = [];
+              let saved = 0;
+              let cancelled = 0;
+              for (const c of this.expenseCategories) {
+                const yuan = this.categoryBudgetInput[c.id];
+                if (yuan === undefined) continue;   // 用户没动过这一项
+                const raw = String(yuan == null ? '' : yuan).trim();
+                const wantCancel = raw === '' || toNum(raw) <= 0;
+                try {
+                  if (wantCancel) {
+                    await deleteBudget(this.year, this.month, c.id);
+                    cancelled++;
+                  } else {
+                    await saveBudget({ categoryId: c.id, year: this.year, month: this.month, amount: toNum(raw) });
+                    saved++;
+                  }
+                } catch (e) {
+                  failed.push(c.name || ('分类' + c.id));
+                }
+              }
+              this.categoryBudgetInput = {};
+              this.load();
+              if (failed.length) {
+                uni.showModal({
+                  title: '部分未保存',
+                  content: '以下分类保存失败：' + failed.join('、'),
+                  showCancel: false
+                });
+              } else if (cancelled && !saved) {
+                uni.showToast({ title: '已取消 ' + cancelled + ' 项', icon: 'none' });
+              } else {
+                uni.showToast({ title: '已保存', icon: 'success' });
+              }
+      });
     }
   }
 };

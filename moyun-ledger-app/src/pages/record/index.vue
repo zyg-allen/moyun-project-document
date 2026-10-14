@@ -229,6 +229,8 @@ export default {
         transactionTime: `${pad(today.getHours())}:${pad(today.getMinutes())}`
       },
       picker: { visible: false, mode: '', title: '', items: [], selectedId: null },
+      /** 账户/负债选项加载失败（与"确实没有账户"区分，避免误去重复建账户） */
+      optionsError: false,
       /** 保存进行中（防重复提交锁） */
       saving: false
     };
@@ -326,8 +328,11 @@ export default {
         const [assets, liabilities] = await Promise.all([listAssets(false), listLiabilities(false)]);
         this.assets = (assets && assets.records) || [];
         this.liabilities = ((liabilities && liabilities.records) || []).filter(l => l.settleFlag !== 1);
+        this.optionsError = false;
         this.loadCategories();
       } catch (e) {
+        // 失败标记：否则 picker 提示"暂无账户"，用户会真去建重复账户
+        this.optionsError = true;
         if (e && e.code === 401) this.promptLogin();
       }
     },
@@ -454,9 +459,14 @@ export default {
         target: '暂无可用账户，点击去「资产」页添加',
         liability: '暂无借款项目，可在上方快速补录'
       };
-      this.picker = { visible: true, mode, title, items, selectedId, empty: emptyMap[mode] || '暂无数据' };
+      const emptyText = this.optionsError
+        ? '账户/负债加载失败，点击重试'   // 失败态：给"重试"而非"去添加"
+        : (emptyMap[mode] || '暂无数据');
+      this.picker = { visible: true, mode, title, items, selectedId, empty: emptyText };
     },
     pickerEmptyTap() {
+      // 选项加载失败时点击应重试，而不是把用户带去「资产」页重复建账户
+      if (this.optionsError) { this.loadOptions(); this.picker.visible = false; uni.showToast({ title: '正在重新加载', icon: 'none' }); return; }
       const mode = this.picker.mode;
       this.picker.visible = false;
       uni.switchTab({ url: '/pages/portfolio/index' });
@@ -520,6 +530,10 @@ export default {
       this.amountYuan = v;
     },
     async save() {
+      // 入口即上锁（而非等到真正提交）：本方法在多个分支会先 await 确认弹窗，
+      // 原实现锁在提交方法里才置位 → 连点「保存」会叠出两个确认弹窗，
+      // 分别确认即产生两笔（clientUuid 每次新生成，后端按 uuid 去重拦不住）
+      if (this.saving) return;
       if (!this.canSave) return;
       if (!this.userStore.isLoggedIn) {
         uni.showToast({ title: '请先在「我的」登录', icon: 'none' });
@@ -528,10 +542,22 @@ export default {
       }
       const amountNum = toNum(this.amountYuan);
       const typeName = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' }[this.form.type];
-
+      this.saving = true;
+      try {
+        await this.saveInner(amountNum, typeName);
+      } finally {
+        // 覆盖所有 early return 分支（取消确认、余额不足引导、类型切换等）
+        // 注意：实际提交方法 saveTransaction 已不再自行加锁，锁统一由本方法收口
+        this.saving = false;
+      }
+    },
+    /**
+     * 保存的实际流程（拆分出来只为让 save() 能在入口统一上锁）。
+     * 所有 early return 都由 save() 的 finally 负责复位 saving。
+     */
+    async saveInner(amountNum, typeName) {
       // 类型最终确认（防 tab 误触）：校准/借款等特殊类型必须人工确认
       if (this.form.type === 'adjust' || this.form.type === 'borrow' || this.form.type === 'repayment') {
-        const that = this;
         const confirmed = await new Promise((resolve) => {
           uni.showModal({
             title: '确认保存' + typeName,
@@ -583,14 +609,14 @@ export default {
 
                 uni.showToast({ title: '已切换为收入，请补录资金来源', icon: 'none' });
               } else {
-                that.doSave(amountNum);
+                that.saveTransaction(amountNum);
               }
             }
           });
           return;
         }
       }
-      this.doSave(amountNum);
+      this.saveTransaction(amountNum);
     },
     /** 保存确认文案：按类型说清这笔账会怎么动账 */
     confirmText(amountNum) {
@@ -611,10 +637,13 @@ export default {
           return '';
       }
     },
-    async doSave(amountNum) {
-      // 防重复提交（资金铁律）：保存进行中直接忽略后续点击
-      if (this.saving) return;
-      this.saving = true;
+    /**
+     * 实际提交（**不加锁**）。
+     *
+     * 锁已由 `save()` 在入口统一持有并覆盖整个异步流程 —— 若此处再加
+     * `if (this.saving) return` 会因锁已被持有而永远直接返回（保存失效）。
+     */
+    async saveTransaction(amountNum) {
       // 客户端幂等键：后端按 clientUuid 查重（DB 唯一索引兜底），双击/网络重试不会重复入账
       const clientUuid = 'tx-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
       const data = {
@@ -654,9 +683,7 @@ export default {
         this.refreshRemark();
         const assets = await listAssets(false).catch(() => null);
         if (assets && assets.records) this.assets = assets.records;
-      } catch (e) { /* 拦截器已提示 */ } finally {
-        this.saving = false;
-      }
+      } catch (e) { /* 拦截器已提示 */ }
     },
     // ---------------- 凭证截图 ----------------
     chooseVoucher() {

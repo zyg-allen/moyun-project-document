@@ -57,7 +57,8 @@
 
       <!-- 流水列表（按日分组） -->
       <view class="card">
-        <view v-if="list.length === 0 && loaded" class="empty">暂无流水</view>
+        <view v-if="loadError && loaded" class="empty" @tap="reload">加载失败，点击重试</view>
+        <view v-else-if="list.length === 0 && loaded" class="empty">暂无流水</view>
         <view v-for="group in groups" :key="group.date" class="day-group">
           <view class="day-header">
             <text class="day-date">{{ group.date === today ? '今天' : group.date }}</text>
@@ -136,7 +137,8 @@
 
       <!-- 当日流水列表 -->
       <view class="card">
-        <view v-if="!dayItems.length && calLoaded" class="empty">当日暂无流水</view>
+        <view v-if="loadError && calLoaded" class="empty" @tap="loadMonth">加载失败，点击重试</view>
+        <view v-else-if="!dayItems.length && calLoaded" class="empty">当日暂无流水</view>
         <view v-for="(t, ti) in dayItems" :key="t.id" class="txn-row"
               :class="{ 'last-row': ti === dayItems.length - 1 }" @tap="goEdit(t)">
           <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
@@ -208,6 +210,7 @@ export default {
       pageSize: 20,
       total: 0,
       loaded: false,
+      loadError: false,   // 加载失败（与"真的没数据"区分，避免误导用户以为数据丢了）
       accountId: null,
       liabilityId: null,
       filterName: '',
@@ -417,7 +420,12 @@ export default {
         this.list = this.pageNum === 1 ? records : this.list.concat(records);
         this.total = (res && res.total) || 0;
         this.loaded = true;
-      } catch (e) { this.loaded = true; }
+        this.loadError = false;
+      } catch (e) {
+        // 失败必须与"确实没有流水"区分：否则网络抖动时用户以为数据丢了，会去重复录入
+        this.loaded = true;
+        this.loadError = true;
+      }
     },
     // ---- 日历视图方法 ----
     formatNet(net) {
@@ -450,6 +458,7 @@ export default {
         this.monthTxns = [];
       }
       this.calLoaded = true;
+      this.loadError = false;
     },
     goEdit(t) {
       if (t.status === 0) {

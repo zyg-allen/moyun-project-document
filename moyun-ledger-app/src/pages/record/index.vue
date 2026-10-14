@@ -354,12 +354,17 @@ export default {
       this.form.type = key;
       this.form.categoryId = null;
       this.form.subCategoryId = null;
+      // 切换类型后分类列表整体换批且已清空选择 → 自动展开，便于直接点选新类型的分类
+      this.catCollapsed = false;
       this.refreshRemark();
     },
     pickCategoryCell(c) {
-      this.form.categoryId = this.form.categoryId === c.id ? null : c.id;
+      const selecting = this.form.categoryId !== c.id;
+      this.form.categoryId = selecting ? c.id : null;
       this.form.subCategoryId = null;
       this.refreshRemark();
+      // 选中分类后自动收起宫格：把屏幕让给金额/备注等后续输入（再次点击同一分类=取消选中，保持展开）
+      if (selecting) this.catCollapsed = true;
     },
     pickSubCategory(s) {
       this.form.subCategoryId = this.form.subCategoryId === s.id ? null : s.id;
@@ -381,7 +386,11 @@ export default {
             const created = await createCategory({ name, type: this.form.type });
             await this.loadCategories();
             const id = created && created.id;
-            if (id) this.form.categoryId = id;
+            if (id) {
+              this.form.categoryId = id;
+              // 新增即选中：与「点选分类」保持一致，自动收起宫格
+              this.catCollapsed = true;
+            }
             this.refreshRemark();
             uni.showToast({ title: '已添加并选中', icon: 'success' });
           } catch (e) { /* 拦截器已提示 */ }
@@ -400,6 +409,8 @@ export default {
             await deleteCategory(c.id);
             if (this.form.categoryId === c.id) {
               this.form.categoryId = null;
+              // 选中的分类被删 → 展开宫格便于重新选择（否则收起状态下还得先点「展开」）
+              this.catCollapsed = false;
               this.refreshRemark();
             }
             await this.loadCategories();
@@ -692,6 +703,8 @@ export default {
         this.form.categoryId = null;
         this.form.subCategoryId = null;
         this.form.liabilityId = null;
+        // 分类已清空 → 展开宫格，下笔可直接点选（避免收起状态下还要先点一次「展开」）
+        this.catCollapsed = false;
         // 保存后重置备注为新的默认前缀（日期已可能变化）
         this.descEdited = false;
         const t = new Date();

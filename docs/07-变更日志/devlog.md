@@ -2,6 +2,97 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.67 (2026-10-13) 语音面试三页：面包屑回归全站一致 + 颜色跟随主题（移除硬编码紫）
+
+修复用户反馈的三个问题。**根因同源：我上一轮"严格对齐静态页"时引入的硬编码色值，
+把项目原有的主题跟随机制盖掉了。**
+
+### 问题 1：面包屑与平台其他地方不一致
+
+**根因**：平台其他地方（如 `/category/山河行吟` 的 `ListPage.vue:308`）就是**裸用**
+`<Breadcrumb :items="breadcrumbs" />` —— **没有任何自定义 class**，
+故天然跟随主题（组件内联 `color: var(--theme-text-secondary)`）。
+
+而我给它加了 `class="prep-crumb"` + 119 行自定义样式，**反而与全站分叉**。
+
+**修复**：删除整段自定义面包屑样式（119 行）+ `.prep-topline` 旧规则，
+回归组件默认外观，与全站一致。
+
+### 问题 3：整页未跟随主题（最关键）
+
+**根因**：`.vi-shell`（L3589+）**本来就正确映射主题**
+（`--primary: var(--theme-primary)`、`--success: var(--theme-success)` …），
+但我在三个页面作用域（`.report-page` / `.prep-page` / `.interview-page`）里
+**又用硬编码值覆写了它们**：
+
+```css
+.report-page { --primary: #4f46e5; --primary-2: #7c3aed; --border: #e8eaef; … }
+```
+
+⇒ 主题切换（light/dark/eye）在三页内全部失效。
+
+**修复（两步）**：
+
+1. **删除 46 行页面级硬编码变量声明** —— 主题映射回归 `.vi-shell` 的权威定义；
+2. **把 style 区内全部硬编码色值替换为主题变量**（共 25 组、约 110 处）：
+
+| 原色值 | 替换为 | 处数 |
+|---|---|---|
+| `#4f46e5` | `var(--theme-primary)` | 6 |
+| `#7c3aed` / `#a855f7` | `var(--theme-primary-hover)` | 10 |
+| `#5b4bd6` | `var(--theme-primary-active)` | 1 |
+| `#eef2ff` | `var(--theme-primary-soft)` | 2 |
+| `#c7d2fe` | `var(--theme-accent)` | 8 |
+| `#e11d48` | `var(--theme-danger)` | 5 |
+| `#fecdd3` | `var(--theme-danger-bg-strong)` | 6 |
+| `#059669` | `var(--theme-success)` | 3 |
+| `#a7f3d0` | `var(--theme-success-bg-strong)` | 4 |
+| `#d97706` | `var(--theme-warning)` | — |
+| `#fde68a` | `var(--theme-warning-bg-strong)` | 6 |
+| `#e8eaef` / `#eef0f6` | `var(--theme-border)` | 6 |
+| `#f3f4f8` | `var(--theme-surface)` | 5 |
+| `#1f2937` | `var(--theme-text)` | 6 |
+| `#374151` / `#4b5563` | `var(--theme-text-secondary)` | 12 |
+| `#6b7280` | `var(--theme-text-tertiary)` | — |
+| `#9ca3af` | `var(--theme-text-disabled)` | 5 |
+
+3. **Hero / 顶行渐变改为主题派生**（原来写死紫色三段）：
+   `linear-gradient(135deg, var(--theme-primary-active), var(--theme-primary), var(--theme-primary-hover))`
+   —— light 为红、dark 为亮红、eye 为绿，三主题各自成立。
+
+> **元素与排版位置一律未动**（按用户要求），只改颜色来源。
+
+### 问题 3 附带：雷达图 canvas 主题感知
+
+canvas **读不到 CSS 变量**，故原 `drawOverviewRadar` 里的字面色值（`#e11d48`/`#e5e7eb`/…）
+在主题切换后不会更新。修复：
+
+1. 在 `.vi-shell` 追加 **11 个图表专用变量**（`--chart-high/mid/low/grid/grid-strong/axis/vertex-fill/label/fill-start/fill-end/stroke`），
+   全部由主题变量派生（含 `color-mix` 生成半透明填充）；
+2. 新增 `readChartPalette()` —— 用 `getComputedStyle` 在**每次绘制时**取色，
+   取不到则回退字面默认值（保证任何环境都能画）；
+3. `getScoreColorRadar(score, pal)` 加参数；绘制函数 8 处改用 palette。
+
+### 问题 2：准备页加「📄 导出简历 PDF」（与报告页同款）
+
+- 准备页顶行加入 `.rpt-btn-glass` 样式的「📄 导出简历 PDF」+「📋 我的面试记录」；
+- 顶行改为**主题渐变条**（`padding: 12px 18px` + 圆角 14px + 主题色阴影），
+  使玻璃按钮（白字 + 半透明白底）有足够对比度；
+- 渐变条上的面包屑通过局部覆写 `--theme-text-secondary` / `--theme-text`
+  提亮为 `--theme-on-primary`，保证在主题色底上可读；
+- 导出按钮 `:disabled="!candidateInfo"`（该函数依赖候选人信息）。
+
+### 校验
+
+| 项 | 结果 |
+|---|---|
+| `vue/compiler-sfc` parse + compileTemplate | ✅ 均 OK |
+| `npm run check`（vue-tsc -b） | ✅ 无类型错误 |
+| `vite build --mode development` | ✅ 构建成功 |
+| `FrontendTemplateStructureGuardTest` | ✅ 4/4 |
+| style 区硬编码色值残留 | ✅ **0**（canvas 字面值按设计保留于 script 区） |
+
+
 ## v13.66 (2026-10-13) 过程页「题目进度」→「本次考察知识点」（严格对齐静态页）
 
 ### 语义修正（核心）

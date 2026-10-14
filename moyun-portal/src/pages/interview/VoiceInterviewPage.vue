@@ -1684,10 +1684,42 @@ async function loadHistoryReport(idStr: string) {
 
 // ========== 概览评分 Canvas 雷达图（六维能力模型） ==========
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
-function getScoreColorRadar(score: number) {
-  if (score < 60) return '#e11d48';
-  if (score < 80) return '#d97706';
-  return '#059669';
+/**
+ * 读取当前主题下的图表色值（canvas 无法直接使用 CSS 变量）。
+ *
+ * <p>在**每次绘制时**读取，故切换主题（light/dark/eye）后雷达图会随重绘一起更新。
+ * 取不到时回退到字面默认值，保证任何环境下都能画出来。</p>
+ */
+function readChartPalette() {
+  const fb = {
+    high: '#059669', mid: '#d97706', low: '#e11d48',
+    grid: '#e5e7eb', gridStrong: '#d1d5db', axis: '#e5e7eb',
+    vertexFill: '#ffffff', label: '#4b5563',
+    fillStart: 'rgba(220,38,38,0.28)', fillEnd: 'rgba(220,38,38,0.10)', stroke: '#dc2626',
+  };
+  const el = overviewRadarCanvas.value;
+  if (!el) return fb;
+  const cs = getComputedStyle(el);
+  const g = (name: string, fallback: string) => (cs.getPropertyValue(name) || '').trim() || fallback;
+  return {
+    high: g('--chart-high', fb.high),
+    mid: g('--chart-mid', fb.mid),
+    low: g('--chart-low', fb.low),
+    grid: g('--chart-grid', fb.grid),
+    gridStrong: g('--chart-grid-strong', fb.gridStrong),
+    axis: g('--chart-axis', fb.axis),
+    vertexFill: g('--chart-vertex-fill', fb.vertexFill),
+    label: g('--chart-label', fb.label),
+    fillStart: g('--chart-fill-start', fb.fillStart),
+    fillEnd: g('--chart-fill-end', fb.fillEnd),
+    stroke: g('--chart-stroke', fb.stroke),
+  };
+}
+type ChartPalette = ReturnType<typeof readChartPalette>;
+function getScoreColorRadar(score: number, p: ChartPalette) {
+  if (score < 60) return p.low;
+  if (score < 80) return p.mid;
+  return p.high;
 }
 // 雷达数据：优先用能力剖面（competencyViews），回退六维评估维度
 const radarDimensions = computed(() => {
@@ -1702,6 +1734,7 @@ function drawOverviewRadar(progress: number) {
   const dims = radarDimensions.value;
   if (!dims.length) return;
   const ctx = canvas.getContext('2d');
+  const pal = readChartPalette();
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth;
@@ -1731,7 +1764,7 @@ function drawOverviewRadar(progress: number) {
       if (i === 0) ctx.moveTo(v.x, v.y); else ctx.lineTo(v.x, v.y);
     }
     ctx.closePath();
-    ctx.strokeStyle = l === layers ? '#d1d5db' : '#e5e7eb';
+    ctx.strokeStyle = l === layers ? pal.gridStrong : pal.grid;
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -1741,7 +1774,7 @@ function drawOverviewRadar(progress: number) {
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(v.x, v.y);
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = pal.axis;
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -1754,11 +1787,11 @@ function drawOverviewRadar(progress: number) {
   }
   ctx.closePath();
   const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-  grad.addColorStop(0, 'rgba(225,29,72,0.35)');
-  grad.addColorStop(1, 'rgba(225,29,72,0.12)');
+  grad.addColorStop(0, pal.fillStart);
+  grad.addColorStop(1, pal.fillEnd);
   ctx.fillStyle = grad;
   ctx.fill();
-  ctx.strokeStyle = '#e11d48';
+  ctx.strokeStyle = pal.stroke;
   ctx.lineWidth = 2.5;
   ctx.lineJoin = 'round';
   ctx.stroke();
@@ -1766,10 +1799,10 @@ function drawOverviewRadar(progress: number) {
   for (let i = 0; i < n; i++) {
     const dataR = (dims[i].score / 100) * R * progress;
     const v = vertex(i, dataR);
-    const color = getScoreColorRadar(dims[i].score);
+    const color = getScoreColorRadar(dims[i].score, pal);
     ctx.beginPath();
     ctx.arc(v.x, v.y, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = pal.vertexFill;
     ctx.fill();
     ctx.strokeStyle = color;
     ctx.lineWidth = 2.5;
@@ -1777,7 +1810,7 @@ function drawOverviewRadar(progress: number) {
   }
   // 维度标签（名称在上，分数在下）
   for (let i = 0; i < n; i++) {
-    const color = getScoreColorRadar(dims[i].score);
+    const color = getScoreColorRadar(dims[i].score, pal);
     const labelR = R + 26;
     const lv = vertex(i, labelR);
     const cos = Math.cos(lv.angle);
@@ -1787,7 +1820,7 @@ function drawOverviewRadar(progress: number) {
     ctx.textAlign = textAlign;
     ctx.textBaseline = 'middle';
     ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = '#4b5563';
+    ctx.fillStyle = pal.label;
     ctx.fillText(dims[i].name, lv.x, lv.y - 9);
     ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillStyle = color;
@@ -2552,6 +2585,9 @@ const chatStatus = computed(() => {
              站点 Navbar 已提供「面试专区」入口，「我的面试记录」在报告页仍可进入） -->
         <!-- 面包屑 + 历史入口（「我的面试记录」是本页唯一入口，必须保留；
              标题与描述已由面包屑承担，不再重复文字） -->
+        <!-- 顶行：面包屑（左） + 导出/历史（右）。
+             顶行做成主题渐变条，使玻璃按钮（与报告页同款 .rpt-btn-glass）有足够对比度；
+             颜色全部走主题变量，随 light/dark/eye 切换。 -->
         <div class="prep-topline">
           <Breadcrumb
             class="prep-crumb"
@@ -2561,7 +2597,10 @@ const chatStatus = computed(() => {
               { label: '面试准备' },
             ]"
           />
-          <button class="prep-ghost-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
+          <div class="prep-topline-actions">
+            <button class="rpt-btn-glass" :disabled="!candidateInfo" title="导出当前简历为 A4 PDF" @click="exportResumePdf">📄 导出简历 PDF</button>
+            <button class="rpt-btn-glass" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
+          </div>
         </div>
         <div class="prep-steps">
           <div class="prep-step">
@@ -3640,6 +3679,18 @@ const chatStatus = computed(() => {
   --green-soft: var(--success-bg);
   --border-2: var(--gray-200);
   --primary-2: var(--theme-primary-hover);
+  /* 图表专用（canvas 读不到 CSS 变量，需 getComputedStyle 取值） */
+  --chart-high: var(--theme-success);
+  --chart-mid: var(--theme-warning);
+  --chart-low: var(--theme-danger);
+  --chart-grid: var(--theme-border);
+  --chart-grid-strong: var(--theme-border-strong);
+  --chart-axis: var(--theme-border);
+  --chart-vertex-fill: var(--theme-surface-elevated);
+  --chart-label: var(--theme-text-secondary);
+  --chart-fill-start: var(--theme-primary-soft);
+  --chart-fill-end: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+  --chart-stroke: var(--theme-primary);
 
   /* 宽度/内边距统一交给外层 Tailwind 规范类：max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
      （对齐《项目开发规范》§4.4⑤「主内容区域宽度规范」） */
@@ -3828,7 +3879,7 @@ const chatStatus = computed(() => {
 .weak-attrib-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.8125rem; color: var(--gray-600); line-height: 1.6; }
 .weak-attrib-label { flex-shrink: 0; padding: 0 0.375rem; background: var(--gray-100); color: var(--gray-500); border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; height: fit-content; }
 .weak-attrib-row.remedy { color: var(--gray-800); }
-.weak-attrib-row.remedy .weak-attrib-label { background: #ecfdf5; color: #059669; }
+.weak-attrib-row.remedy .weak-attrib-label { background: var(--theme-success-bg); color: var(--theme-success); }
 .self-intro-tag { flex-shrink: 0; padding: 0.125rem 0.4375rem; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; border-radius: var(--radius-sm); font-size: 0.6875rem; font-weight: 600; white-space: nowrap; }
 .review-fourpart { margin-top: 0.625rem; padding: 0.625rem 0.75rem; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); }
 .fourpart-row { display: flex; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.8125rem; color: var(--gray-600); line-height: 1.6; }
@@ -3837,7 +3888,7 @@ const chatStatus = computed(() => {
 .fourpart-label.intent { background: #eff6ff; color: #1d4ed8; }
 .fourpart-label.framework { background: #f0fdf4; color: #15803d; }
 .fourpart-label.gap { background: #fef2f2; color: #b91c1c; }
-.fourpart-label.advice { background: #ecfdf5; color: #059669; }
+.fourpart-label.advice { background: var(--theme-success-bg); color: var(--theme-success); }
 .fourpart-text { flex: 1; }
 .fourpart-framework { flex: 1; margin: 0; padding-left: 1.125rem; }
 .fourpart-framework li { margin: 0.125rem 0; }
@@ -3920,7 +3971,7 @@ const chatStatus = computed(() => {
 .top-bar-left { display: flex; align-items: center; gap: 1rem; }
 .top-bar-logo { font-size: 1.125rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem; }
 .timer-display { display: flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.875rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-full); font-family: var(--font-mono); font-size: 0.875rem; color: var(--gray-600); }
-.timer-display.urgent { background: var(--warning-bg, #fef3c7); border-color: var(--warning, #d97706); color: var(--warning, #b45309); font-weight: 600; }
+.timer-display.urgent { background: var(--warning-bg, #fef3c7); border-color: var(--warning, var(--theme-warning)); color: var(--warning, var(--theme-warning-hover)); font-weight: 600; }
 .top-bar-right { display: flex; align-items: center; gap: 0.625rem; }
 .control-btn { padding: 0.4375rem 0.875rem; border: 1px solid var(--gray-200); background: var(--theme-bg-elevated); border-radius: var(--radius-md); cursor: pointer; font-size: 0.8125rem; display: flex; align-items: center; gap: 0.375rem; transition: all 0.2s; color: var(--gray-600); font-weight: 500; }
 .control-btn:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-300); }
@@ -4421,7 +4472,7 @@ const chatStatus = computed(() => {
     border: 1px solid var(--gray-200); color: var(--gray-500); background: var(--gray-50);
     cursor: help;
   }
-  .level-estimate-badge.junior { border-color: var(--warning, #f59e0b); color: var(--warning); background: var(--warning-bg, #fffbeb); }
+  .level-estimate-badge.junior { border-color: var(--warning, #f59e0b); color: var(--warning); background: var(--warning-bg, var(--theme-warning-bg)); }
   .level-estimate-badge.mid { border-color: var(--primary, #3b82f6); color: var(--primary, #3b82f6); background: var(--info-bg, #eff6ff); }
   .level-estimate-badge.senior { border-color: var(--success, #22c55e); color: var(--success); background: var(--success-bg); }
 
@@ -4447,7 +4498,7 @@ const chatStatus = computed(() => {
     border: 1px solid var(--gray-200);
   }
   /* 分组 B（未被问到）视觉加重——它是本 tab 的核心价值 */
-  .predict-card.highlight { border-color: var(--warning, #f59e0b); background: var(--warning-bg, #fffbeb); }
+  .predict-card.highlight { border-color: var(--warning, #f59e0b); background: var(--warning-bg, var(--theme-warning-bg)); }
   .predict-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
   .predict-q { flex: 1; font-size: 0.875rem; font-weight: 600; color: var(--gray-800); line-height: 1.6; }
   .predict-score {
@@ -4503,7 +4554,7 @@ const chatStatus = computed(() => {
   .sd-tags { flex: 1; display: flex; flex-wrap: wrap; gap: 0.375rem; }
   .sd-tag { padding: 0.125rem 0.5rem; border-radius: var(--radius-full); font-size: 0.75rem; }
   .sd-tag.have { background: var(--success-bg); color: var(--success); }
-  .sd-tag.miss { background: var(--warning-bg, #fffbeb); color: var(--warning); }
+  .sd-tag.miss { background: var(--warning-bg, var(--theme-warning-bg)); color: var(--warning); }
   .sd-empty { font-size: 0.75rem; color: var(--gray-400); }
 
   .action-list { display: flex; flex-direction: column; gap: 0.625rem; }
@@ -4796,14 +4847,14 @@ const chatStatus = computed(() => {
 .dev-item { border: 1px solid var(--border); border-radius: 13px; padding: 16px 18px; margin-bottom: 12px; background: var(--theme-bg-elevated); transition: 0.2s; position: relative; overflow: hidden; }
 .dev-item:hover { border-color: var(--primary-border); box-shadow: 0 8px 22px -18px rgba(79,70,229,0.7); }
 .dev-item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
-.dev-item.p1::before { background: linear-gradient(180deg, #e11d48, #fb7185); }
-.dev-item.p2::before { background: linear-gradient(180deg, #d97706, #fbbf24); }
-.dev-item.p3::before { background: linear-gradient(180deg, #4f46e5, #a855f7); }
+.dev-item.p1::before { background: linear-gradient(180deg, var(--theme-danger), #fb7185); }
+.dev-item.p2::before { background: linear-gradient(180deg, var(--theme-warning), #fbbf24); }
+.dev-item.p3::before { background: linear-gradient(180deg, var(--theme-primary), var(--theme-primary-hover)); }
 .dev-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; flex-wrap: wrap; }
 .dev-rank { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0; }
-.p1 .dev-rank { background: linear-gradient(135deg, #e11d48, #fb7185); }
-.p2 .dev-rank { background: linear-gradient(135deg, #d97706, #fbbf24); }
-.p3 .dev-rank { background: linear-gradient(135deg, #4f46e5, #a855f7); }
+.p1 .dev-rank { background: linear-gradient(135deg, var(--theme-danger), #fb7185); }
+.p2 .dev-rank { background: linear-gradient(135deg, var(--theme-warning), #fbbf24); }
+.p3 .dev-rank { background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-hover)); }
 .dev-head h5 { font-size: 14px; font-weight: 800; margin: 0; }
 .dev-gain { margin-left: auto; font-size: 11.5px; font-weight: 800; color: var(--green); background: var(--green-soft); padding: 3px 10px; border-radius: 99px; border: 1px solid var(--green); }
 .dev-row { display: flex; gap: 9px; font-size: 12.5px; margin-top: 7px; line-height: 1.75; }
@@ -4830,25 +4881,25 @@ const chatStatus = computed(() => {
 
 /* ========== 概览评分 Tab（能力雷达 + 维度明细 + 优势/待改进） ========== */
 /* --- 能力雷达标题区（按雷达图规范） ---
-   竖条 4×18px 圆角 2px #7c3aed；标题 18px 加粗 #1f2937；副标题右对齐 13px #9ca3af --- */
+   竖条 4×18px 圆角 2px var(--theme-primary-hover)；标题 18px 加粗 var(--theme-text)；副标题右对齐 13px var(--theme-text-disabled) --- */
 .report-page .radar-card-title {
   gap: 10px;
   margin-bottom: 16px;
   font-size: 18px;
   font-weight: 800;
-  color: #1f2937;
+  color: var(--theme-text);
 }
 .report-page .radar-card-title .bar {
   width: 4px;
   height: 18px;
   border-radius: 2px;
-  background: #7c3aed;
+  background: var(--theme-primary-hover);
 }
 .report-page .radar-card-title .tip {
   margin-left: auto;
   font-size: 13px;
   font-weight: 400;
-  color: #9ca3af;
+  color: var(--theme-text-disabled);
   text-align: right;
 }
 /* 总分（移入右侧 meta 面板） */
@@ -4885,12 +4936,12 @@ const chatStatus = computed(() => {
   transition: box-shadow 0.25s ease;
 }
 .sw-panel--pros {
-  background: linear-gradient(180deg, #f0fdf9, #ecfdf5);
-  border: 1px solid #a7f3d0;
+  background: linear-gradient(180deg, var(--theme-success-bg), var(--theme-success-bg));
+  border: 1px solid var(--theme-success-bg-strong);
 }
 .sw-panel--cons {
-  background: linear-gradient(180deg, #fffbf5, #fffbeb);
-  border: 1px solid #fde68a;
+  background: linear-gradient(180deg, var(--theme-warning-bg), var(--theme-warning-bg));
+  border: 1px solid var(--theme-warning-bg-strong);
 }
 .sw-panel:hover {
   box-shadow: 0 8px 20px -16px rgba(0, 0, 0, 0.15);
@@ -4905,7 +4956,7 @@ const chatStatus = computed(() => {
   line-height: 1.4;
 }
 .sw-panel--pros .sw-panel-title { color: #047857; }
-.sw-panel--cons .sw-panel-title { color: #b45309; }
+.sw-panel--cons .sw-panel-title { color: var(--theme-warning-hover); }
 /* 列表：圆点用 flex 占位实现（比绝对定位更稳，长文本换行时圆点与首行对齐） */
 .sw-list {
   margin: 0;
@@ -4925,14 +4976,14 @@ const chatStatus = computed(() => {
   margin-top: 8px;
   border-radius: 50%;
 }
-.sw-panel--pros .sw-dot { background: #059669; }
-.sw-panel--cons .sw-dot { background: #d97706; }
+.sw-panel--pros .sw-dot { background: var(--theme-success); }
+.sw-panel--cons .sw-dot { background: var(--theme-warning); }
 .sw-text {
   flex: 1;
   min-width: 0;
   font-size: 13px;
   line-height: 1.75;
-  color: #374151;
+  color: var(--theme-text-secondary);
   word-break: break-word;
 }
 @media (max-width: 660px) {
@@ -4988,26 +5039,10 @@ const chatStatus = computed(() => {
 /* ====================================================================
    报告页视觉重构（严格对齐静态页 面试报告v2.html）
    —— 局部覆写 --primary 系列为紫色：项目全局主色是红（--theme-primary），
-      而静态页的报告页视觉基调是紫（#4f46e5 / #7c3aed），故仅在报告页内覆写，
+      而静态页的报告页视觉基调是紫（var(--theme-primary) / var(--theme-primary-hover)），故仅在报告页内覆写，
       不影响站点其它页面；语义色（success/warning/danger）仍跟随站点三主题。
    ==================================================================== */
 .report-page {
-  --primary: #4f46e5;
-  --primary-2: #7c3aed;
-  --primary-soft: #eef2ff;
-  --border: #e8eaef;
-  --border-2: #eef0f6;
-  --sub: #6b7280;
-  --amber: #d97706;
-  --amber-soft: #fffbeb;
-  --green: #059669;
-  --green-soft: #ecfdf5;
-  --red: #e11d48;
-  --red-soft: #fff1f3;
-  --rpt-card-bg: #fff;
-  --rpt-text: #1f2937;
-  --rpt-text-2: #374151;
-  --rpt-border: #e8eaef;
 }
 
 /* ---------- 紫色 Hero ---------- */
@@ -5017,7 +5052,7 @@ const chatStatus = computed(() => {
   padding: 30px 32px 26px;
   border-radius: 22px;
   color: #fff;
-  background: linear-gradient(135deg, #5b4bd6 0%, #7c3aed 50%, #a855f7 100%);
+  background: linear-gradient(135deg, var(--theme-primary-active) 0%, var(--theme-primary-hover) 50%, var(--theme-primary-hover) 100%);
   box-shadow: 0 14px 36px -16px rgba(91, 75, 214, 0.65);
 }
 .rpt-hero::after {
@@ -5165,17 +5200,17 @@ const chatStatus = computed(() => {
   font-weight: 700;
   color: var(--red);
   background: var(--red-soft);
-  border: 1px solid #fecdd3;
+  border: 1px solid var(--theme-danger-bg-strong);
 }
 .rpt-score-badge.mid {
   color: var(--amber);
   background: var(--amber-soft);
-  border-color: #fde68a;
+  border-color: var(--theme-warning-bg-strong);
 }
 .rpt-score-badge.high {
   color: var(--green);
   background: var(--green-soft);
-  border-color: #a7f3d0;
+  border-color: var(--theme-success-bg-strong);
 }
 .rpt-level-badge {
   margin-top: 6px;
@@ -5185,7 +5220,7 @@ const chatStatus = computed(() => {
   font-weight: 700;
   color: var(--primary);
   background: var(--primary-soft);
-  border: 1px solid #c7d2fe;
+  border: 1px solid var(--theme-accent);
 }
 .rpt-score-desc {
   flex: 1;
@@ -5225,7 +5260,7 @@ const chatStatus = computed(() => {
   height: 6px;
   margin-top: 8px;
   border-radius: 99px;
-  background: #eef0f6;
+  background: var(--theme-border);
   overflow: hidden;
 }
 .rpt-match-bar i {
@@ -5233,7 +5268,7 @@ const chatStatus = computed(() => {
   height: 100%;
   width: 0;
   border-radius: 99px;
-  background: linear-gradient(90deg, #fb7185, #e11d48);
+  background: linear-gradient(90deg, #fb7185, var(--theme-danger));
   transition: width 1.1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -5267,7 +5302,7 @@ const chatStatus = computed(() => {
   user-select: none;
 }
 .report-page .report-tab:hover {
-  background: #f6f7fb;
+  background: var(--theme-bg-elevated);
   color: var(--rpt-text);
 }
 .report-page .report-tab.active {
@@ -5294,7 +5329,7 @@ const chatStatus = computed(() => {
   width: 3.5px;
   height: 16px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--primary), #a855f7);
+  background: linear-gradient(180deg, var(--primary), var(--theme-primary-hover));
 }
 .report-page .card-title .tip {
   font-size: 11.5px;
@@ -5331,125 +5366,6 @@ const chatStatus = computed(() => {
   }
 }
 
-/* ====================================================================
-   面包屑（三页统一：准备页 / 过程页 / 报告页）
-   对齐静态页 面试过程页v2.html 的 .breadcrumb 规范：
-   紫色悬停胶囊 + 灰色分隔符 + 当前页深色加粗。
-
-   实现要点：Breadcrumb 组件的 class 落在其**根 <nav>** 上
-   （<nav class="flex items-center space-x-1 …" aria-label="面包屑导航">），
-   故必须直接选中根节点本身，不能写成 `nav[aria-label]` 的后代选择器
-   （那会落空）。组件内部子元素用的是 Tailwind 类 + 内联 color，
-   故用 !important 覆盖内联色值，避免影响全站其它 70+ 处面包屑。
-   ==================================================================== */
-.prep-crumb,
-.proc-crumb,
-.rpt-crumb {
-  margin-bottom: 12px;
-}
-
-/* 根 <nav>：横向排列 + 统一字号与颜色 */
-.prep-crumb[aria-label],
-.proc-crumb[aria-label],
-.rpt-crumb[aria-label] {
-  display: flex !important;
-  align-items: center !important;
-  gap: 2px;
-  overflow: hidden;
-  font-size: 13px !important;
-  line-height: 1.6;
-}
-
-/* 可点击层（首页按钮 + 中间层按钮）：紫色悬停胶囊 */
-.prep-crumb[aria-label] > button,
-.proc-crumb[aria-label] > button,
-.rpt-crumb[aria-label] > button {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 5px;
-  padding: 3px 7px !important;
-  border-radius: 7px;
-  color: #6b7280 !important;
-  font-weight: 500 !important;
-  line-height: 1.5;
-  white-space: nowrap;
-  transition: color 0.18s ease, background-color 0.18s ease;
-}
-.prep-crumb[aria-label] > button:hover,
-.proc-crumb[aria-label] > button:hover,
-.rpt-crumb[aria-label] > button:hover {
-  color: #4f46e5 !important;
-  background: #eef2ff !important;
-  opacity: 1 !important;
-}
-
-/* 当前页（末尾 span，无 path） */
-.prep-crumb[aria-label] > span,
-.proc-crumb[aria-label] > span,
-.rpt-crumb[aria-label] > span {
-  padding: 3px 6px !important;
-  color: #1f2937 !important;
-  font-weight: 700 !important;
-  white-space: nowrap;
-}
-
-/* 图标：首页小房子 + 分隔箭头 */
-.prep-crumb[aria-label] svg,
-.proc-crumb[aria-label] svg,
-.rpt-crumb[aria-label] svg {
-  width: 13px !important;
-  height: 13px !important;
-  flex-shrink: 0;
-}
-.prep-crumb[aria-label] > button > svg,
-.proc-crumb[aria-label] > button > svg,
-.rpt-crumb[aria-label] > button > svg {
-  color: #9ca3af !important;
-  stroke: currentColor;
-}
-/* 直接位于 nav 下的 svg = 分隔箭头（ChevronRight） */
-.prep-crumb[aria-label] > svg,
-.proc-crumb[aria-label] > svg,
-.rpt-crumb[aria-label] > svg {
-  color: #c7cbd8 !important;
-  stroke: currentColor;
-}
-
-/* 顶行（准备页）：面包屑左 + 历史入口右 */
-.prep-page .prep-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-.prep-page .prep-topline .prep-crumb {
-  margin-bottom: 0;
-}
-
-@media (max-width: 760px) {
-  .prep-crumb,
-  .proc-crumb,
-  .rpt-crumb {
-    margin-bottom: 9px;
-  }
-  .prep-crumb[aria-label],
-  .proc-crumb[aria-label],
-  .rpt-crumb[aria-label] {
-    font-size: 12px !important;
-  }
-  /* 窄屏只保留「首页 › 当前页」：隐藏中间层按钮与其后的分隔箭头
-     （DOM 顺序：Home(1) Chev(2) 中间层(3) Chev(4) 当前页(5)） */
-  .prep-crumb[aria-label] > *:nth-child(3),
-  .prep-crumb[aria-label] > *:nth-child(4),
-  .proc-crumb[aria-label] > *:nth-child(3),
-  .proc-crumb[aria-label] > *:nth-child(4),
-  .rpt-crumb[aria-label] > *:nth-child(3),
-  .rpt-crumb[aria-label] > *:nth-child(4) {
-    display: none !important;
-  }
-}
 
 /* ====================================================================
    准备页视觉重构（严格对齐静态页 面试准备页v2.html）
@@ -5457,43 +5373,51 @@ const chatStatus = computed(() => {
       页面级径向光晕背景 + 卡片/步骤条/设备行/表单/主按钮全部按静态页重绘。
    ==================================================================== */
 .prep-page {
-  --primary: #4f46e5;
-  --primary-2: #7c3aed;
-  --primary-soft: #eef2ff;
-  --green: #059669;
-  --green-soft: #ecfdf5;
-  --amber: #d97706;
-  --amber-soft: #fffbeb;
-  --red: #e11d48;
-  --red-soft: #fff1f3;
-  --red-2: #f43f5e;
-  --text: #1f2937;
-  --sub: #6b7280;
-  --muted: #9ca3af;
-  --border: #e8eaef;
-  --border-2: #eef0f6;
+  --muted: var(--theme-text-disabled);
   --card: #fff;
-  --rpt-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.04);
-  --rpt-shadow-md: 0 4px 16px -8px rgba(16, 24, 40, 0.12);
 
-  background-color: #f5f6f9;
+  background-color: var(--theme-bg-elevated);
   background-image:
     radial-gradient(circle at 15% 0%, rgba(124, 58, 237, 0.05), transparent 45%),
     radial-gradient(circle at 85% 100%, rgba(79, 70, 229, 0.05), transparent 45%);
   background-attachment: fixed;
 }
 
-/* ---------- 顶行：面包屑（左） + 历史入口（右） ---------- */
+.prep-page .prep-topline .prep-crumb {
+  margin-bottom: 0;
+}
+
+/* ---------- 顶行：面包屑（左） + 导出/历史（右）主题渐变条 ---------- */
 .prep-page .prep-topline {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  color: var(--theme-on-primary);
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary-active) 0%,
+    var(--theme-primary) 55%,
+    var(--theme-primary-hover) 100%
+  );
+  box-shadow: 0 10px 26px -16px var(--theme-primary);
 }
+.prep-page .prep-topline-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+/* 渐变条上的面包屑：取消外边距并提亮文字，保证在主题色底上可读 */
 .prep-page .prep-topline .prep-crumb {
   margin-bottom: 0;
+  --theme-text-secondary: var(--theme-on-primary);
+  --theme-text: var(--theme-on-primary);
 }
 
 /* ---------- 顶部工具行 ---------- */
@@ -5553,7 +5477,7 @@ const chatStatus = computed(() => {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  color: #374151;
+  color: var(--theme-text-secondary);
   background: #fff;
   border: 1px solid var(--border);
   transition: all 0.2s ease;
@@ -5598,8 +5522,8 @@ const chatStatus = computed(() => {
   place-items: center;
   font-size: 12.5px;
   font-weight: 800;
-  color: #9ca3af;
-  background: #f3f4f8;
+  color: var(--theme-text-disabled);
+  background: var(--theme-surface);
   transition: all 0.3s ease;
 }
 .prep-page .step-circle.completed {
@@ -5680,7 +5604,7 @@ const chatStatus = computed(() => {
   height: 17px;
   flex-shrink: 0;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--primary), #a855f7);
+  background: linear-gradient(180deg, var(--primary), var(--theme-primary-hover));
 }
 .prep-page .prep-card-title .step-badge {
   display: inline-flex;
@@ -5732,7 +5656,7 @@ const chatStatus = computed(() => {
   transition: opacity 0.25s ease;
 }
 .prep-page .device-item:hover {
-  border-color: #c7d2fe;
+  border-color: var(--theme-accent);
   background: linear-gradient(90deg, #fafbff, #fff);
   transform: translateX(2px);
   box-shadow: var(--rpt-shadow-md);
@@ -5756,11 +5680,11 @@ const chatStatus = computed(() => {
   display: grid;
   place-items: center;
   font-size: 17px;
-  background: linear-gradient(135deg, #f3f4f8, #eceef6);
+  background: linear-gradient(135deg, var(--theme-surface), #eceef6);
   transition: all 0.25s ease;
 }
 .prep-page .device-item:hover .device-icon {
-  background: linear-gradient(135deg, var(--primary-soft), #e0e7ff);
+  background: linear-gradient(135deg, var(--primary-soft), var(--theme-primary-soft-hover));
   transform: scale(1.05);
 }
 .prep-page .device-name {
@@ -5787,18 +5711,18 @@ const chatStatus = computed(() => {
 .prep-page .status-badge.ok {
   color: var(--green);
   background: var(--green-soft);
-  border: 1px solid #a7f3d0;
+  border: 1px solid var(--theme-success-bg-strong);
 }
 .prep-page .status-badge.checking,
 .prep-page .status-badge.warn {
   color: var(--amber);
   background: var(--amber-soft);
-  border: 1px solid #fde68a;
+  border: 1px solid var(--theme-warning-bg-strong);
 }
 .prep-page .status-badge.error {
   color: var(--red);
   background: var(--red-soft);
-  border: 1px solid #fecdd3;
+  border: 1px solid var(--theme-danger-bg-strong);
 }
 .prep-page .test-btn {
   padding: 8px 16px;
@@ -5806,14 +5730,14 @@ const chatStatus = computed(() => {
   font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
-  color: #374151;
+  color: var(--theme-text-secondary);
   background: #fff;
   border: 1px solid var(--border);
   transition: all 0.2s ease;
 }
 .prep-page .test-btn:hover:not(:disabled) {
   background: #f7f8fb;
-  border-color: #c7d2fe;
+  border-color: var(--theme-accent);
   color: var(--primary);
 }
 .prep-page .test-btn:disabled {
@@ -5828,12 +5752,12 @@ const chatStatus = computed(() => {
   border: 1px solid var(--border);
   background: #fff;
   font-size: 12.5px;
-  color: #4b5563;
+  color: var(--theme-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 .prep-page .device-select:hover {
-  border-color: #c7d2fe;
+  border-color: var(--theme-accent);
 }
 .prep-page .device-tip {
   display: flex;
@@ -5844,8 +5768,8 @@ const chatStatus = computed(() => {
   font-size: 12.5px;
   line-height: 1.75;
   color: #92400e;
-  background: linear-gradient(135deg, #fffbeb, #fff7ed);
-  border: 1px solid #fde68a;
+  background: linear-gradient(135deg, var(--theme-warning-bg), #fff7ed);
+  border: 1px solid var(--theme-warning-bg-strong);
 }
 .prep-page .noise-result {
   margin-top: 6px;
@@ -5854,12 +5778,12 @@ const chatStatus = computed(() => {
   font-size: 12.5px;
   color: #047857;
   background: var(--green-soft);
-  border: 1px solid #a7f3d0;
+  border: 1px solid var(--theme-success-bg-strong);
 }
 .prep-page .noise-result.noisy {
-  color: #b45309;
+  color: var(--theme-warning-hover);
   background: var(--amber-soft);
-  border-color: #fde68a;
+  border-color: var(--theme-warning-bg-strong);
 }
 
 /* ---------- 表单（JD / 岗位 / 简历） ---------- */
@@ -5870,7 +5794,7 @@ const chatStatus = computed(() => {
   padding: 12px 15px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #fafbfe;
+  background: var(--theme-bg-elevated);
   font-size: 13px;
   line-height: 1.7;
   color: var(--text);
@@ -5926,7 +5850,7 @@ const chatStatus = computed(() => {
   font-weight: 600;
   color: var(--primary);
   background: var(--primary-soft);
-  border: 1px solid #c7d2fe;
+  border: 1px solid var(--theme-accent);
 }
 
 /* ---------- 高级设置折叠 ---------- */
@@ -5945,7 +5869,7 @@ const chatStatus = computed(() => {
   overflow: hidden;
 }
 .prep-page .advanced-card:hover {
-  border-color: #c7d2fe;
+  border-color: var(--theme-accent);
   background: #fafbff;
   transform: translateY(-1px);
   box-shadow: var(--rpt-shadow-md);
@@ -5982,8 +5906,8 @@ const chatStatus = computed(() => {
   padding: 14px 20px;
   margin-bottom: 16px;
   border-radius: 14px;
-  border: 1px solid #c7d2fe;
-  background: linear-gradient(135deg, #f5f7ff, #eef2ff);
+  border: 1px solid var(--theme-accent);
+  background: linear-gradient(135deg, #f5f7ff, var(--theme-primary-soft));
   box-shadow: var(--rpt-shadow-sm);
 }
 .prep-page .resume-banner-title {
@@ -6015,7 +5939,7 @@ const chatStatus = computed(() => {
   transform: translateY(-1px);
 }
 .prep-page .resume-btn.ghost {
-  color: #374151;
+  color: var(--theme-text-secondary);
   background: #fff;
   border: 1px solid var(--border);
 }
@@ -6110,20 +6034,6 @@ const chatStatus = computed(() => {
    —— 紫色口径 + 毛玻璃状态栏（面包屑 / 计时 / 播报 / 暂停 / 结束）+ 三栏布局。
    ==================================================================== */
 .interview-page {
-  --primary: #4f46e5;
-  --primary-2: #7c3aed;
-  --primary-soft: #eef2ff;
-  --green: #059669;
-  --green-soft: #ecfdf5;
-  --amber: #d97706;
-  --amber-soft: #fffbeb;
-  --red: #e11d48;
-  --red-soft: #fff1f3;
-  --text: #1f2937;
-  --sub: #6b7280;
-  --border: #e8eaef;
-  --rpt-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.04);
-  --rpt-shadow-md: 0 4px 16px -8px rgba(16, 24, 40, 0.12);
 }
 
 /* ---------- 顶部悬浮栏（毛玻璃 + 底部细线） ---------- */
@@ -6173,7 +6083,7 @@ const chatStatus = computed(() => {
   font-size: 13.5px;
   font-weight: 800;
   letter-spacing: 0.3px;
-  color: #374151;
+  color: var(--theme-text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -6191,7 +6101,7 @@ const chatStatus = computed(() => {
 }
 .interview-page .timer-display.urgent {
   color: var(--red);
-  border-color: #fecdd3;
+  border-color: var(--theme-danger-bg-strong);
   background: var(--red-soft);
 }
 .interview-page .timer-display.urgent::before {
@@ -6225,7 +6135,7 @@ const chatStatus = computed(() => {
   border-radius: 9px;
   border: 1px solid var(--border);
   background: #fff;
-  color: #4b5563;
+  color: var(--theme-text-secondary);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -6234,7 +6144,7 @@ const chatStatus = computed(() => {
 .interview-page .control-btn:hover:not(:disabled) {
   background: #f7f8fb;
   border-color: #d5d9e2;
-  color: #1f2937;
+  color: var(--theme-text);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px -8px rgba(16, 24, 40, 0.3);
 }
@@ -6244,12 +6154,12 @@ const chatStatus = computed(() => {
 }
 .interview-page .control-btn.muted {
   background: var(--primary-soft);
-  border-color: #c7d2fe;
+  border-color: var(--theme-accent);
   color: var(--primary);
 }
 .interview-page .control-btn.danger {
   color: var(--red);
-  border-color: #fecdd3;
+  border-color: var(--theme-danger-bg-strong);
   font-weight: 700;
 }
 .interview-page .control-btn.danger:hover:not(:disabled) {
@@ -6364,8 +6274,8 @@ const chatStatus = computed(() => {
   border-radius: 99px;
   font-size: 11px;
   font-weight: 700;
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--theme-primary);
+  background: var(--theme-primary-soft);
 }
 /* 提示条：浅紫渐变 + 左侧 2px 紫竖条 */
 .interview-page .knowledge-sub {
@@ -6375,18 +6285,18 @@ const chatStatus = computed(() => {
   margin-bottom: 13px;
   padding: 8px 11px;
   border-radius: 9px;
-  border-left: 2px solid #4f46e5;
+  border-left: 2px solid var(--theme-primary);
   background: linear-gradient(135deg, #fafbff, #f5f7fe);
   font-size: 11px;
   line-height: 1.6;
-  color: #6b7280;
+  color: var(--theme-text-tertiary);
 }
 .interview-page .knowledge-sub .ic {
   flex-shrink: 0;
   font-size: 12px;
   line-height: 1.6;
 }
-.interview-page .knowledge-sub b { color: #4b5563; font-weight: 700; }
+.interview-page .knowledge-sub b { color: var(--theme-text-secondary); font-weight: 700; }
 /* 列表：可滚动，右侧留出 tooltip 弹出空间 */
 .interview-page .knowledge-list {
   max-height: 400px;
@@ -6405,13 +6315,13 @@ const chatStatus = computed(() => {
   border-radius: 10px;
   border: 1px solid transparent;
   font-size: 12.5px;
-  color: #4b5563;
+  color: var(--theme-text-secondary);
   cursor: pointer;
   transition: all 0.18s ease;
 }
 .interview-page .knowledge-item:hover {
   background: linear-gradient(135deg, #fafbff, #f5f7fe);
-  border-color: #e0e7ff;
+  border-color: var(--theme-primary-soft-hover);
   transform: translateX(2px);
   box-shadow: 0 4px 12px -8px rgba(79, 70, 229, 0.4);
 }
@@ -6425,13 +6335,13 @@ const chatStatus = computed(() => {
   place-items: center;
   font-size: 11px;
   font-weight: 800;
-  color: #9ca3af;
-  background: #f3f4f8;
+  color: var(--theme-text-disabled);
+  background: var(--theme-surface);
   transition: all 0.2s ease;
 }
 .interview-page .knowledge-item:hover .idx {
   color: #fff;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-hover));
   box-shadow: 0 4px 10px -4px rgba(79, 70, 229, 0.6);
 }
 .interview-page .knowledge-item .body {
@@ -6443,7 +6353,7 @@ const chatStatus = computed(() => {
   font-size: 12.5px;
   font-weight: 700;
   line-height: 1.55;
-  color: #374151;
+  color: var(--theme-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6457,21 +6367,21 @@ const chatStatus = computed(() => {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  color: #6b7280;
-  background: #f3f4f8;
+  color: var(--theme-text-tertiary);
+  background: var(--theme-surface);
 }
 /* 当前项（进行中）：浅红渐变 + 红序号 + 红标题 */
 .interview-page .knowledge-item.current {
-  background: linear-gradient(90deg, #fff1f3, #fff5f7);
-  border-color: #fecdd3;
+  background: linear-gradient(90deg, var(--theme-danger-bg), #fff5f7);
+  border-color: var(--theme-danger-bg-strong);
   box-shadow: 0 4px 12px -8px rgba(225, 29, 72, 0.4);
 }
 .interview-page .knowledge-item.current .idx {
   color: #fff;
-  background: linear-gradient(135deg, #e11d48, #f43f5e);
+  background: linear-gradient(135deg, var(--theme-danger), var(--theme-danger-hover));
   box-shadow: 0 4px 10px -4px rgba(225, 29, 72, 0.6);
 }
-.interview-page .knowledge-item.current .title { color: #e11d48; }
+.interview-page .knowledge-item.current .title { color: var(--theme-danger); }
 .interview-page .knowledge-item.current .tag { color: #b91c1c; background: #fee2e2; }
 /* 悬停 Tooltip：右侧弹出 280px 深色卡 + 45° 方块箭头 */
 .interview-page .knowledge-tooltip {
@@ -6482,7 +6392,7 @@ const chatStatus = computed(() => {
   width: 280px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: #1f2937;
+  background: var(--theme-text);
   color: #e5e7eb;
   font-size: 12px;
   line-height: 1.8;
@@ -6500,7 +6410,7 @@ const chatStatus = computed(() => {
   width: 12px;
   height: 12px;
   border-radius: 2px;
-  background: #1f2937;
+  background: var(--theme-text);
   transform: translateY(-50%) rotate(45deg);
 }
 .interview-page .knowledge-item:hover .knowledge-tooltip {
@@ -6617,7 +6527,7 @@ const chatStatus = computed(() => {
   font-size: 12px;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(135deg, #f43f5e, #fb923c);
+  background: linear-gradient(135deg, var(--theme-danger-hover), #fb923c);
 }
 .interview-page .message.user .message-avatar {
   background: linear-gradient(135deg, #94a3b8, #cbd5e1);
@@ -6627,17 +6537,17 @@ const chatStatus = computed(() => {
   border-radius: 12px;
   font-size: 13px;
   line-height: 1.8;
-  color: #374151;
-  background: #f3f4f8;
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface);
   border: 1px solid var(--border);
 }
 .interview-page .message.user .message-content {
   background: var(--red-soft);
-  border-color: #fecdd3;
+  border-color: var(--theme-danger-bg-strong);
 }
 .interview-page .message.question .message-content {
   background: var(--amber-soft);
-  border-color: #fde68a;
+  border-color: var(--theme-warning-bg-strong);
 }
 
 /* 输入区 */
@@ -6689,7 +6599,7 @@ const chatStatus = computed(() => {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #fff;
-  color: #4b5563;
+  color: var(--theme-text-secondary);
   font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -6698,7 +6608,7 @@ const chatStatus = computed(() => {
 .interview-page .action-btn:hover:not(:disabled) {
   background: #f7f8fb;
   border-color: #d5d9e2;
-  color: #1f2937;
+  color: var(--theme-text);
 }
 .interview-page .action-btn:disabled {
   opacity: 0.55;

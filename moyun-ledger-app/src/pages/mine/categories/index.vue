@@ -34,7 +34,7 @@
     </view>
 
     <!-- 添加自定义（图标选填） -->
-    <view class="add-bar">
+    <view class="add-bar" :style="kbBottomStyle">
       <view class="add-row">
         <!-- 图标按钮：显示当前选中图标，点击展开选择器 -->
         <view class="add-icon-btn" :class="{ on: iconPickerOpen }" @tap="iconPickerOpen = !iconPickerOpen">
@@ -71,6 +71,7 @@
 </template>
 
 <script>
+import keyboardAware from '@/mixins/keyboardAware';
 import { listCategories, createCategory, deleteCategory } from '@/api/ledger';
 import { useThemeStore } from '@/stores/theme';
 import { categoryIcon, softColor as toSoftColor, ICON_MAP } from '@/utils/categoryIcon';
@@ -85,6 +86,7 @@ const TYPE_TABS = [
 ];
 
 export default {
+  mixins: [keyboardAware],
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     currentTabLabel() {

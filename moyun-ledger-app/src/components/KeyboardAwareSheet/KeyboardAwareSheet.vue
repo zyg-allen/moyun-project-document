@@ -1,6 +1,6 @@
 <template>
   <view v-if="modelValue" class="kas-mask" :style="maskStyle" @tap="onMaskTap">
-    <view class="kas-sheet" :style="sheetStyle" @tap.stop>
+    <view class="kas-sheet" @tap.stop>
       <!-- 标题栏（可选关闭按钮） -->
       <view v-if="title || closable" class="kas-head">
         <text v-if="title" class="kas-title">{{ title }}</text>
@@ -24,23 +24,25 @@
 </template>
 
 <script>
+import keyboardAware from '@/mixins/keyboardAware';
+
 /**
  * 键盘安全底部弹层（uni-app H5 / 小程序 / PC 通用）
  *
  * 解决的痛点：手机端弹出系统键盘后，底部弹层里的输入框被键盘遮挡，
  * 用户看不到自己在输入什么（portfolio 新增资产/负债弹窗即为此问题）。
  *
- * 跨端策略：
- *  - **H5**：监听 visualViewport（不支持时回退 window resize），算出键盘高度，
- *           同时给弹层加 bottom 偏移并压缩内容区高度，输入框始终可见；
- *  - **小程序**：弹层不跟着键盘上移时，靠输入框自身的 `adjust-position` 自动上推，
- *           本组件只负责 max-height，避免内容超出屏幕无法滚动；
- *  - **PC / H5 无键盘**：kbHeight 恒为 0，行为与普通底部弹层完全一致。
+ * 跨端策略（键盘高度探测统一由 `@/mixins/keyboardAware` 提供）：
+ *  - **H5**：键盘弹出时给遮罩注入 padding-bottom 抬升，并收紧内容区高度保证可滚动；
+ *  - **小程序**：键盘不改变 window 尺寸，本组件 kbHeight 恒为 0，
+ *           改由输入框自身 `adjust-position` 自动上推（两者互补，不冲突）；
+ *  - **PC / H5 无键盘**：行为与普通底部弹层完全一致。
  *
- * 输入框建议同时加上：`adjust-position` 与 `:cursor-spacing="24"`（见 README 说明）。
+ * 使用方注意：内容里的 `<input>` 建议加 `adjust-position` 与 `:cursor-spacing="24"`。
  */
 export default {
   name: 'KeyboardAwareSheet',
+  mixins: [keyboardAware],
   props: {
     modelValue: { type: Boolean, default: false },
     title: { type: String, default: '' },
@@ -54,44 +56,27 @@ export default {
   emits: ['update:modelValue', 'close'],
   data() {
     return {
-      kbHeight: 0,
-      scrollTop: 0,
-      _baseHeight: 0
+      scrollTop: 0
     };
   },
   computed: {
+    /** 键盘弹出时把整个弹层抬到键盘上方 */
     maskStyle() {
-      // H5 有键盘时：把整个弹层抬到键盘上方，避免被遮挡
       return this.kbHeight > 0 ? { paddingBottom: this.kbHeight + 'px' } : {};
     },
-    sheetStyle() {
-      return {};
-    },
+    /** 键盘占位已在内容里，这里再收紧最大高度，保证内容可滚动 */
     bodyStyle() {
-      // 键盘占位已在内容里，这里再收紧最大高度，保证可滚动
       const vh = this.kbHeight > 0 ? Math.min(this.maxHeightVh, 40) : this.maxHeightVh;
       return { maxHeight: vh + 'vh' };
     }
   },
   watch: {
     modelValue(val) {
-      if (val) {
-        this.measure();
-        this.bindKeyboard();
-        // 打开时重置滚动位置
-        this.scrollTop = 0;
-      } else {
-        this.unbindKeyboard();
-        this.kbHeight = 0;
-      }
+      // 关闭时复位键盘高度，避免下次打开残留偏移
+      if (!val) this.kbHeight = 0;
+      // 打开时重置滚动位置
+      if (val) this.scrollTop = 0;
     }
-  },
-  beforeUnmount() {
-    this.unbindKeyboard();
-  },
-  // uni-app 页面卸载钩子（小程序端 beforeUnmount 可能不触发）
-  onUnload() {
-    this.unbindKeyboard();
   },
   methods: {
     close() {
@@ -100,40 +85,6 @@ export default {
     },
     onMaskTap() {
       if (this.maskClosable) this.close();
-    },
-    measure() {
-      // #ifdef H5
-      this._baseHeight = window.innerHeight || 0;
-      // #endif
-    },
-    /** H5：按 visualViewport 与 window 高度差推算键盘高度 */
-    onViewportResize() {
-      // #ifdef H5
-      const vv = window.visualViewport;
-      const winH = window.innerHeight || 0;
-      const visible = vv ? vv.height : winH;
-      // 键盘高度 ≈ 布局视口 - 可见视口；减去阈值过滤地址栏收缩等小幅变化
-      const diff = Math.max(0, (this._baseHeight || winH) - visible);
-      this.kbHeight = diff > 120 ? Math.round(diff) : 0;
-      // #endif
-    },
-    bindKeyboard() {
-      // #ifdef H5
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', this.onViewportResize);
-        window.visualViewport.addEventListener('scroll', this.onViewportResize);
-      }
-      window.addEventListener('resize', this.onViewportResize);
-      // #endif
-    },
-    unbindKeyboard() {
-      // #ifdef H5
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', this.onViewportResize);
-        window.visualViewport.removeEventListener('scroll', this.onViewportResize);
-      }
-      window.removeEventListener('resize', this.onViewportResize);
-      // #endif
     }
   }
 };
@@ -142,8 +93,15 @@ export default {
 <style scoped>
 .kas-mask {
   position: fixed;
-  inset: 0;
-  z-index: 99;
+  /* 用四边写法而非 inset 简写：inset 需 Safari ≥14.1 / Chrome ≥87，
+     旧 WKWebView 下不生效会导致遮罩塌缩成内容宽 */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  /* 必须高于 H5 底部 TabBar（uni-tabbar z-index:998）与官方弹窗/Toast（999），
+     否则弹层打开时 Tab 栏不暗、仍可点击切走 */
+  z-index: 1000;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;
@@ -172,18 +130,16 @@ export default {
 }
 .kas-close {
   position: absolute;
-  right: 0;
-  top: -8rpx;
-  width: 56rpx;
-  height: 56rpx;
-  line-height: 56rpx;
+  right: -12rpx;
+  top: -20rpx;
+  /* 热区 88rpx(=44px) 达到移动端可点最小尺寸，避免点不中 */
+  width: 88rpx;
+  height: 88rpx;
+  line-height: 88rpx;
   text-align: center;
   border-radius: 50%;
   font-size: 28rpx;
   color: var(--text-sub, #6b7280);
   background: var(--surface, #f0f2f6);
-}
-.kas-body {
-  /* max-height 由 JS 动态给出 */
 }
 </style>

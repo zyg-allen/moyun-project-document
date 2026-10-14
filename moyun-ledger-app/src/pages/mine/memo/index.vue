@@ -47,8 +47,8 @@
     <view class="fab" @tap="openForm">＋</view>
 
     <!-- 添加/编辑弹层 -->
-    <view class="form-mask" v-if="formVisible" @tap="closeForm">
-      <view class="form-panel" @tap.stop>
+    <view class="form-mask" :class="{ 'kb-open': kbHeight > 0 }" v-if="formVisible" @tap="closeForm">
+      <view class="form-panel" @tap.stop :style="kbMaxHeightStyle">
         <view class="form-title">{{ editingId ? '编辑待办' : '添加待办' }}</view>
         <scroll-view scroll-y class="form-scroll">
           <view class="f-row">
@@ -101,6 +101,7 @@
 </template>
 
 <script>
+import keyboardAware from '@/mixins/keyboardAware';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
@@ -111,6 +112,7 @@ const REMIND_KEYS = ['on_time', 'advance_30m', 'advance_1h', 'advance_2h', 'adva
 const REMIND_LABELS = { on_time: '准时提醒', advance_30m: '提前30分钟', advance_1h: '提前1小时', advance_2h: '提前2小时', advance_1d: '提前1天', advance_1d_9am: '提前一天上午9点' };
 
 export default {
+  mixins: [keyboardAware],
   components: { NavBar },
   data() {
     return {
@@ -278,9 +280,16 @@ export default {
 .fab:active { transform: scale(0.95); }
 
 .form-mask {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 99;
+  /* 四边写法而非 inset：旧 WKWebView 不支持 inset 简写 */
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  background: rgba(0,0,0,0.45);
+  /* 高于 H5 底部 TabBar(998) 与官方弹窗(999)，否则遮不住 Tab 栏 */
+  z-index: 1000;
   display: flex; align-items: center; justify-content: center;
+  /* 键盘弹出时贴底并抬高，避免弹层被键盘从下方顶住（居中弹层在手机上必被遮挡） */
+  transition: padding-bottom 0.18s ease;
 }
+.form-mask.kb-open { align-items: flex-end; padding-bottom: 24rpx; }
 .form-panel {
   width: 660rpx; max-height: 80vh; background: #fff; border-radius: 24rpx;
   padding: 32rpx; display: flex; flex-direction: column;

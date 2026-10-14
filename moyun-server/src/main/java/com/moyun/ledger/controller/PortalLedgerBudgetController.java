@@ -6,6 +6,7 @@ import com.moyun.ledger.service.ILedgerBudgetService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,5 +42,20 @@ public class PortalLedgerBudgetController {
         Long userId = PortalSecurityUtils.getUserId();
         budgetService.saveBudget(userId, budget);
         return AjaxResult.success("保存成功");
+    }
+
+    /**
+     * 取消预算（categoryId 为空表示取消月度总预算）。
+     *
+     * <p>前端"清空输入框"或"填 0"都映射到本接口 —— 后端金额校验只接受大于 0，
+     * 无法用 0 表达"取消"。</p>
+     */
+    @DeleteMapping
+    public AjaxResult remove(@RequestParam Integer year,
+                             @RequestParam Integer month,
+                             @RequestParam(required = false) Long categoryId) {
+        Long userId = PortalSecurityUtils.getUserId();
+        boolean removed = budgetService.removeBudget(userId, year, month, categoryId);
+        return AjaxResult.success(removed ? "已取消预算" : "该预算本就不存在");
     }
 }

@@ -69,4 +69,23 @@ public class LedgerBudgetServiceImpl extends ServiceImpl<LedgerBudgetMapper, Led
             updateById(exist);
         }
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean removeBudget(Long userId, Integer year, Integer month, Long categoryId) {
+        if (year == null || month == null) {
+            throw new IllegalArgumentException("预算年月不能为空");
+        }
+        LambdaQueryWrapper<LedgerBudget> qw = new LambdaQueryWrapper<>();
+        // 归属条件必须带 userId：防止越权删除他人预算
+        qw.eq(LedgerBudget::getUserId, userId)
+                .eq(LedgerBudget::getYear, year)
+                .eq(LedgerBudget::getMonth, month);
+        if (categoryId == null) {
+            qw.isNull(LedgerBudget::getCategoryId);
+        } else {
+            qw.eq(LedgerBudget::getCategoryId, categoryId);
+        }
+        return remove(qw);
+    }
 }

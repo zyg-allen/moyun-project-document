@@ -285,7 +285,7 @@ export default {
 
 /* 收银台（与打赏页同构） */
 .cashier-mask {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;background: rgba(0, 0, 0, 0.55);
   display: flex; align-items: center; justify-content: center; z-index: 999;
 }
 .cashier-panel {

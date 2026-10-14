@@ -132,10 +132,8 @@
       <view class="btn-save" :class="{ disabled: !canSave }" @tap="save">保存</view>
     </view>
 
-    <!-- 选择弹层 -->
-    <view class="mask" v-if="picker.visible" @tap="picker.visible = false">
-      <view class="sheet" @tap.stop>
-        <view class="sheet-title">{{ picker.title }}</view>
+    <!-- 选择弹层（键盘安全：H5 抬升 + 小程序 adjust-position + 内容可滚动） -->
+    <KeyboardAwareSheet v-model="pickerVisibleModel" :title="picker.title" :max-height-vh="78">
 
         <!-- 负债快速补录表单 -->
         <view v-if="picker.mode === 'liability' && !quickAdd.visible" class="quick-add-entry" @tap="quickAdd.visible = true">
@@ -146,11 +144,17 @@
           <view class="qa-tip">仅填写历史欠款（此前已借未还的部分）；本次要记的借款金额勿填在这里，保存记账时会自动累加到该项目，填了会双倍计入。</view>
           <view class="qa-row">
             <text class="qa-label">名称</text>
-            <input v-model="quickAdd.name" placeholder="如：向朋友A借款" class="qa-input" />
+            <input v-model="quickAdd.name" placeholder="如：向朋友A借款" class="qa-input"
+              adjust-position
+              :cursor-spacing="24"
+             />
           </view>
           <view class="qa-row">
             <text class="qa-label">历史欠款(元)</text>
-            <input v-model="quickAdd.balanceYuan" type="digit" placeholder="0.00（没有留空）" class="qa-input" />
+            <input v-model="quickAdd.balanceYuan" type="digit" placeholder="0.00（没有留空）" class="qa-input"
+              adjust-position
+              :cursor-spacing="24"
+             />
           </view>
           <view class="qa-actions">
             <view class="qa-btn cancel" @tap="quickAdd.visible = false">取消</view>
@@ -167,12 +171,13 @@
           </view>
         </scroll-view>
         <view class="picker-cancel" @tap="picker.visible = false">取消</view>
-      </view>
-    </view>
+    </KeyboardAwareSheet>
   </view>
 </template>
 
 <script>
+import keyboardAware from '@/mixins/keyboardAware';
+import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, uploadVoucher } from '@/api/ledger';
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
@@ -202,6 +207,8 @@ const TYPE_HINTS = {
 const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' };
 
 export default {
+  mixins: [keyboardAware],
+  components: { KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     const today = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -227,6 +234,11 @@ export default {
     };
   },
   computed: {
+    /** 弹层显隐代理（KeyboardAwareSheet 用 v-model，picker.visible 是对象字段） */
+    pickerVisibleModel: {
+      get() { return this.picker.visible; },
+      set(v) { this.picker.visible = v; }
+    },
     themeVars() { return useThemeStore().themeVars; },
     userStore() { return useUserStore(); },
     todayStr() {
@@ -798,10 +810,6 @@ export default {
 .voucher-add-icon { font-size: 36rpx; }
 .voucher-add-text { font-size: 20rpx; color: #999; margin-top: 4rpx; }
 
-/* 数字键盘（可收起） */
-  flex: 1; height: 96rpx; display: flex; align-items: center; justify-content: center;
-  font-size: 36rpx; font-weight: 500; border-top: 1rpx solid #f0f0f5; color: #333;
-}
 
 .save-bar { background: #fff; padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
 .btn-save {
@@ -811,10 +819,8 @@ export default {
 }
 .btn-save.disabled { opacity: 0.4; box-shadow: none; }
 
-.mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: flex; align-items: flex-end; }
 .sheet { width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0; padding: 28rpx 32rpx; max-height: 82vh; display: flex; flex-direction: column; }
-.sheet-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 16rpx; }
-.picker-list { max-height: 70vh; }
+.picker-list { max-height: 56vh; }
 .picker-cancel {
   margin-top: 20rpx; text-align: center; color: #999; font-size: 26rpx;
   height: 72rpx; line-height: 72rpx; border-top: 1rpx solid #f5f5f7;

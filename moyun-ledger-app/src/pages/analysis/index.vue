@@ -201,6 +201,9 @@ import { useThemeStore } from '@/stores/theme';
 
 const HINT_KEY = 'moyun_fin_hint_closed';
 
+/** 进行中的分析任务（持久化，用于切页回来后继续轮询，避免永久卡在"执行中"） */
+const TASK_KEY = 'ledger_analysis_task';
+
 /** 比率评级 → 展示（hint 文案与配色） */
 const LEVEL_HINT = { A: { text: '优秀', cls: 'good' }, B: { text: '良好', cls: 'warn' }, C: { text: '预警', cls: 'bad' } };
 
@@ -271,6 +274,14 @@ export default {
     if (!this.period) this.period = this.currentPeriod();
     this.hintClosed = !!uni.getStorageSync(HINT_KEY);
     if (useUserStore().isLoggedIn) this.load();
+    // 恢复上次未完成的分析：切页回来时轮询已被 onHide 停掉，若不恢复会永久显示"AI 分析执行中"
+    // （按钮被 v-if 顶掉，下拉刷新/切月都无法救回，只能整页刷新）。
+    const pending = uni.getStorageSync(TASK_KEY);
+    if (pending && pending.taskId) {
+      this.analyzing = true;
+      this.pollCount = Number(pending.pollCount) || 0;
+      this.pollTask(pending.taskId);
+    }
   },
   onHide() { this.stopPoll(); },
   onUnload() { this.stopPoll(); },
@@ -322,6 +333,7 @@ export default {
       try {
         const task = await submitAiAnalysisTask({ range: 'month' }) || {};
         if (task.taskId) {
+          uni.setStorageSync(TASK_KEY, { taskId: task.taskId, pollCount: 0 });
           this.pollTask(task.taskId);
         } else {
           this.analyzing = false;
@@ -336,25 +348,30 @@ export default {
         try {
           const t = await getAiAnalysisTask(taskId) || {};
           if (t.status === 'success') {
+            uni.removeStorageSync(TASK_KEY);
             this.analyzing = false;
             uni.showToast({ title: '分析完成', icon: 'success' });
             this.load(); // 刷新存在性 + 基础统计 + 列表
             return;
           }
           if (t.status === 'failed' || t.status === 'not_found') {
+            uni.removeStorageSync(TASK_KEY);
             this.analyzing = false;
             uni.showToast({ title: t.error || '分析失败，请稍后重试', icon: 'none' });
             return;
           }
           // pending/running 继续（间隔 5s，最长 10 分钟）
           if (++this.pollCount > 120) {
+            uni.removeStorageSync(TASK_KEY);
             this.analyzing = false;
             uni.showToast({ title: '生成超时，可下拉刷新查看结果', icon: 'none' });
             return;
           }
+          uni.setStorageSync(TASK_KEY, { taskId: taskId, pollCount: this.pollCount });
           this.pollTask(taskId);
         } catch (e) {
           this.analyzing = false; /* 网络异常终止轮询 */
+          uni.removeStorageSync(TASK_KEY);
         }
       }, 5000);
     },
@@ -510,7 +527,7 @@ export default {
 .empty-desc { font-size: 24rpx; color: #999; line-height: 1.6; }
 
 /* 报告预览弹层 */
-.mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: flex; align-items: flex-end; }
+.mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: flex-end; }
 .preview-sheet {
   width: 100%; max-height: 86vh; background: #fff; border-radius: 32rpx 32rpx 0 0;
   display: flex; flex-direction: column; padding: 32rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));

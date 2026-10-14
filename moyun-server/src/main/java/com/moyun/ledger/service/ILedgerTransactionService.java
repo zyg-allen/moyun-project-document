@@ -55,5 +55,18 @@ public interface ILedgerTransactionService extends IService<LedgerTransaction> {
      * @param query  查询条件
      * @return 分页结果（records/total）
      */
+    /**
+     * 查询单笔流水详情（含归属校验）。
+     *
+     * <p>存在的意义：编辑页原先只能从「最近 50 条」分页结果里 find，
+     * 导致翻到第 4 页以上再点编辑会误报「流水不存在或已删除」，
+     * 核心记账数据的可修改性被破坏。按 id 直查才能覆盖全部历史。</p>
+     *
+     * @param userId 当前用户
+     * @param id     流水 id
+     * @return 流水实体（含展示用名称）；不存在/无权/已删除时抛 IllegalArgumentException
+     */
+    LedgerTransaction getTransaction(Long userId, Long id);
+
     Map<String, Object> pageTransactions(Long userId, TransactionQuery query);
 }

@@ -25,6 +25,12 @@
         </picker>
       </view>
       <view class="info-row">
+        <text class="info-label">时间</text>
+        <picker mode="time" :value="txn.transactionTime || '00:00'" @change="onTimeChange">
+          <view class="info-value">{{ txn.transactionTime || '00:00' }} ▾</view>
+        </picker>
+      </view>
+      <view class="info-row">
         <text class="info-label">凭证</text>
         <view class="voucher-area">
           <image v-if="txn.voucherUrl" :src="txn.voucherUrl" mode="aspectFill" class="voucher-thumb"
@@ -44,7 +50,7 @@
 </template>
 
 <script>
-import { pageTransactions, updateTransaction, deleteTransaction, uploadVoucher } from '@/api/ledger';
+import { getTransaction, updateTransaction, deleteTransaction, uploadVoucher } from '@/api/ledger';
 import { toFixedYuan, toNum, typeText } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
@@ -67,18 +73,22 @@ export default {
     typeText,
     async load() {
       try {
-        const res = await pageTransactions({ pageNum: 1, pageSize: 50 });
-        const list = (res && res.records) || [];
-        const txn = list.find(t => String(t.id) === String(this.id));
-        if (!txn) {
+        // 按 id 直查单笔（原先从「最近 50 条」分页里 find，翻到第 4 页以上会误报"不存在"）
+        const res = await getTransaction(this.id);
+        const txn = (res && res.data) || res;
+        if (!txn || !txn.id) {
           uni.showToast({ title: '流水不存在或已删除', icon: 'none' });
           setTimeout(() => uni.navigateBack(), 1200);
           return;
         }
         this.txn = txn;
         this.amountYuan = toFixedYuan(txn.amount);
+        // 回填交易时间：原先不传会导致保存时被服务端改写为"当前时刻"
+        if (!this.txn.transactionTime) this.txn.transactionTime = '00:00';
       } catch (e) { /* 拦截器已提示 */ }
     },
+    /** 时间选择（HH:mm） */
+    onTimeChange(e) { this.txn.transactionTime = e.detail.value; },
     async save() {
       const amountNum = toNum(this.amountYuan);
       if (this.txn.type === 'adjust' ? amountNum === 0 : amountNum <= 0) {
@@ -96,7 +106,9 @@ export default {
           description: this.txn.description || null,
           merchant: this.txn.merchant || null,
           voucherUrl: this.txn.voucherUrl || '',
-          transactionDate: this.txn.transactionDate
+          transactionDate: this.txn.transactionDate,
+          // 必须回传：服务端 transactionTime 为空时会取当前时间，导致原时间被静默改写
+          transactionTime: this.txn.transactionTime || null
         });
         uni.showToast({ title: '已修改', icon: 'success' });
         setTimeout(() => uni.navigateBack(), 800);

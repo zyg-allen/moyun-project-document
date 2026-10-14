@@ -228,6 +228,20 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     }
 
     @Override
+    public LedgerTransaction getTransaction(Long userId, Long id) {
+        LedgerTransaction txn = getOwnedTransaction(userId, id);
+        if (txn == null) {
+            throw new IllegalArgumentException("流水不存在或无权查看");
+        }
+        if (LedgerTransaction.STATUS_DELETED == txn.getStatus()) {
+            throw new IllegalArgumentException("该流水已删除");
+        }
+        // 复用列表页的展示名填充，保证编辑页字段与列表一致
+        fillDisplayNames(java.util.Collections.singletonList(txn));
+        return txn;
+    }
+
+    @Override
     public Map<String, Object> pageTransactions(Long userId, TransactionQuery query) {
         LambdaQueryWrapper<LedgerTransaction> qw = new LambdaQueryWrapper<>();
         qw.eq(LedgerTransaction::getUserId, userId)

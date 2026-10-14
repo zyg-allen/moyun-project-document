@@ -52,6 +52,13 @@ public class PortalLedgerTransactionController {
         return AjaxResult.success(transactionService.pageTransactions(userId, query));
     }
 
+    /** 单笔流水详情（编辑页专用；按 id 直查，不受分页窗口限制） */
+    @GetMapping("/{id:[0-9]+}")
+    public AjaxResult detail(@PathVariable("id") Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        return AjaxResult.success(transactionService.getTransaction(userId, id));
+    }
+
     /** 修改记账（旧记录冲正 → 新记录重放） */
     @PutMapping("/{id:[0-9]+}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody TransactionCreateDTO dto) {

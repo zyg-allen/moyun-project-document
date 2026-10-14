@@ -75,6 +75,9 @@ export const deleteLiability = (id) => del('/portal/ledger/liabilities/' + id);
 /** 流水分页查询：{ type, accountId, liabilityId, categoryId, startDate, endDate, pageNum, pageSize } */
 export const pageTransactions = (query) => get('/portal/ledger/transactions', query);
 
+/** 单笔流水详情（编辑页专用；按 id 直查，不受分页窗口限制） */
+export const getTransaction = (id) => get('/portal/ledger/transactions/' + id);
+
 /** 新增记账（amount 单位元） */
 export const createTransaction = (data) => post('/portal/ledger/transactions', data);
 

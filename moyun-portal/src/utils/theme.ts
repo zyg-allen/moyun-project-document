@@ -63,8 +63,12 @@ export function setTheme(theme: Theme, updateUrl: boolean = false): void {
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
 
+  // 双通道设置，两种写法都能生效：
+  //  1) class（既有代码/样式的大量 :root//.dark/.eye 依赖它）
+  //  2) data-theme 属性（新规范；style.css 中已用 [data-theme='xxx'] 选择器对齐）
   root.classList.remove('light', 'dark', 'eye');
   root.classList.add(theme);
+  root.setAttribute('data-theme', theme);
 
   // body 背景色/颜色由 CSS 变量驱动，但首次加载或 SSR 兜底时同步一次
   document.body.style.backgroundColor = '';

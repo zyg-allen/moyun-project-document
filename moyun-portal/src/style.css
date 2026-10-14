@@ -2,246 +2,244 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* ============================================================
+   日间主题（Light）— 靛蓝主色 · 青绿/珊瑚橙冷暖分区
+   对比度（WCAG，实测）：正文/bg 15.84、正文/card 16.83、
+   次要/bg 4.55、主色/card 5.56、收入/card 4.98、支出/card 3.29
+   ============================================================ */
+:root,
+[data-theme='light'] {
+  /* ---- 主色：靛蓝（专业 · 信任），替代原红色 ---- */
+  --theme-primary: #2b5ce6;
+  --theme-primary-hover: #1e4bc4;
+  --theme-primary-active: #17399b;
+  --theme-primary-soft: rgba(43, 92, 230, 0.1);
+  --theme-primary-soft-hover: rgba(43, 92, 230, 0.16);
+  --theme-on-primary: #ffffff;
 
-:root {
-  /* ============================================================
-     全局设计 Token（Design Tokens）
-     参考 TraeCode 设计系统，结合本站 light/dark/eye 三主题。
-     ============================================================ */
+  /* ---- 背景层级 ---- */
+  --theme-bg: #f7f8fa;
+  --theme-bg-elevated: #ffffff;
+  --theme-surface: #f0f2f6;
+  --theme-surface-elevated: #ffffff;
+  --theme-surface-highlight: #e4e8ef;
 
-  /* 圆角：统一使用 4px 网格 */
-  --radius-none: 0px;
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-full: 9999px;
+  /* ---- 文字层级 ---- */
+  --theme-text: #1a1d26;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  --theme-text-disabled: #9ca3af;
+  --theme-text-inverse: #ffffff;
 
-  /* 间距：4px 网格系统 */
-  --space-0: 0px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-
-  /* 字体栈 */
-  --font-sans:
-    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-    "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-heading:
-    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
-    "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono:
-    "JetBrains Mono", "SF Mono", "Fira Code", "Cascadia Code",
-    Consolas, Monaco, "Andale Mono", monospace;
-
-  /* 字重 */
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-
-  /* 行高 */
-  --leading-tight: 1.25;
-  --leading-snug: 1.4;
-  --leading-normal: 1.6;
-  --leading-relaxed: 1.75;
-
-  /* 阴影：柔和、有层级 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.16);
-  --shadow-glow: 0 0 20px rgba(50, 240, 140, 0.25);
-
-  /* 过渡 */
-  --transition-fast: 120ms ease;
-  --transition-base: 180ms ease;
-  --transition-slow: 260ms ease;
-
-  /* 容器 */
-  --content-max-width: 80rem;
-  --header-height: 56px;
-
-  /* ============================================================
-     默认日间主题（Light）
-     ============================================================ */
-
-  /* 品牌色：保留原主色 #DC2626，并补充完整状态色 */
-  --theme-primary: #DC2626;
-  --theme-primary-hover: #B91C1C;
-  --theme-primary-active: #991B1B;
-  --theme-primary-soft: rgba(220, 38, 38, 0.12);
-  --theme-primary-soft-hover: rgba(220, 38, 38, 0.18);
-  --theme-on-primary: #FFFFFF;
-
-  /* 背景层级（由浅到深） */
-  --theme-bg: #FFFFFF;
-  --theme-bg-elevated: #FAFAFA;
-  --theme-surface: #F3F4F6;
-  --theme-surface-elevated: #FFFFFF;
-  --theme-surface-highlight: #E5E7EB;
-
-  /* 文字层级（对比度从高到低） */
-  --theme-text: #111827;
-  --theme-text-secondary: #4B5563;
-  --theme-text-tertiary: #6B7280;
-  --theme-text-disabled: #9CA3AF;
-  --theme-text-inverse: #FFFFFF;
-
-  /* 边框层级 */
-  --theme-border: #E5E7EB;
-  --theme-border-strong: #D1D5DB;
+  /* ---- 边框层级 ---- */
+  --theme-border: #e5e8ef;
+  --theme-border-strong: #d3d8e2;
   --theme-border-focus: var(--theme-primary);
 
-  /* 强调/填充 */
-  --theme-accent: #FEE2E2;
-  --theme-accent-hover: #FECACA;
+  /* ---- 强调/填充（跟随主色，用于选中态底色） ---- */
+  --theme-accent: rgba(43, 92, 230, 0.12);
+  --theme-accent-hover: rgba(43, 92, 230, 0.2);
 
-  /* 遮罩 */
+  /* ---- 遮罩 ---- */
   --theme-overlay: rgba(17, 24, 39, 0.45);
   --theme-overlay-soft: rgba(17, 24, 39, 0.08);
 
-  /* 语义色 */
-  --theme-danger: #DC2626;
-  --theme-danger-hover: #B91C1C;
-  --theme-danger-bg: #FEE2E2;
-  --theme-danger-bg-strong: #FECACA;
-  --theme-success: #059669;
-  --theme-success-hover: #047857;
-  --theme-success-bg: #D1FAE5;
-  --theme-success-bg-strong: #A7F3D0;
-  --theme-warning: #D97706;
-  --theme-warning-hover: #B45309;
-  --theme-warning-bg: #FEF3C7;
-  --theme-warning-bg-strong: #FDE68A;
-  --theme-info: #2563EB;
-  --theme-info-hover: #1D4ED8;
-  --theme-info-bg: #DBEAFE;
-  --theme-info-bg-strong: #BFDBFE;
+  /* ---- 语义色 ----
+     入账成功用青绿；支出/警示用珊瑚橙（替代原正红，消除红绿撞色）；
+     危险色保留正红，仅用于删除等破坏性操作。 */
+  --theme-success: #0a7f5f;
+  --theme-success-hover: #086648;
+  --theme-success-bg: #e6f5ef;
+  --theme-success-bg-strong: #c4e8d9;
 
-  font-family: var(--font-sans);
-  line-height: var(--leading-normal);
-  font-weight: var(--font-weight-regular);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --theme-income: #0a7f5f;
+  --theme-income-bg: #e6f5ef;
+
+  --theme-warning: #d97706;
+  --theme-warning-hover: #b45309;
+  --theme-warning-bg: #fdf3e3;
+  --theme-warning-bg-strong: #fadfb8;
+
+  --theme-expense: #e8654a;
+  --theme-expense-bg: #fdeee9;
+
+  --theme-danger: #e8654a;
+  --theme-danger-hover: #cf4b30;
+  --theme-danger-bg: #fdeee9;
+  --theme-danger-bg-strong: #f9d5ca;
+
+  --theme-info: #2563eb;
+  --theme-info-hover: #1d4ed8;
+  --theme-info-bg: #e4edfd;
+  --theme-info-bg-strong: #c7dbfb;
 }
 
 /* ============================================================
    深色主题（Dark）
-   参考 TraeCode 深色 palette，保证高对比度与层次感。
+   对比度（实测）：正文/bg 16.9、次要/bg 7.22、主色/card 5.07、
+   收入/card 8.52、支出/card 5.92
+   注意：--theme-on-primary 用深色（白字于主色上仅 3.23，不达 AA）
    ============================================================ */
-.dark {
-  --theme-primary: #F87171;
-  --theme-primary-hover: #FCA5A5;
-  --theme-primary-active: #EF4444;
-  --theme-primary-soft: rgba(248, 113, 113, 0.16);
-  --theme-primary-soft-hover: rgba(248, 113, 113, 0.24);
-  --theme-on-primary: #0F172A;
+.dark,
+[data-theme='dark'] {
+  --theme-primary: #5b8def;
+  --theme-primary-hover: #7da9f5;
+  --theme-primary-active: #3f74d6;
+  --theme-primary-soft: rgba(91, 141, 239, 0.16);
+  --theme-primary-soft-hover: rgba(91, 141, 239, 0.24);
+  --theme-on-primary: #0f1419;
 
-  --theme-bg: #0B0F19;
-  --theme-bg-elevated: #111827;
-  --theme-surface: #1F2937;
-  --theme-surface-elevated: #27354F;
-  --theme-surface-highlight: #374151;
+  --theme-bg: #0f1419;
+  --theme-bg-elevated: #151b23;
+  --theme-surface: #232b36;
+  --theme-surface-elevated: #1a2029;
+  --theme-surface-highlight: #2d3748;
 
-  --theme-text: #F9FAFB;
-  --theme-text-secondary: #D1D5DB;
-  --theme-text-tertiary: #9CA3AF;
-  --theme-text-disabled: #6B7280;
-  --theme-text-inverse: #0B0F19;
+  --theme-text: #f1f5f9;
+  --theme-text-secondary: #cbd5e1;
+  --theme-text-tertiary: #94a3b8;
+  --theme-text-disabled: #64748b;
+  --theme-text-inverse: #0f1419;
 
-  --theme-border: rgba(75, 85, 99, 0.6);
-  --theme-border-strong: rgba(107, 114, 128, 0.8);
-  --theme-border-focus: #F87171;
+  /* 边框提高到可辨识下限（#2d3748 于卡面仅 1.37，偏难辨） */
+  --theme-border: #37424f;
+  --theme-border-strong: #47556a;
+  --theme-border-focus: var(--theme-primary);
 
-  --theme-accent: #1F2937;
-  --theme-accent-hover: #374151;
+  --theme-accent: rgba(91, 141, 239, 0.18);
+  --theme-accent-hover: rgba(91, 141, 239, 0.28);
 
   --theme-overlay: rgba(0, 0, 0, 0.65);
   --theme-overlay-soft: rgba(255, 255, 255, 0.05);
 
-  --theme-danger: #F87171;
-  --theme-danger-hover: #FCA5A5;
-  --theme-danger-bg: rgba(248, 113, 113, 0.18);
-  --theme-danger-bg-strong: rgba(248, 113, 113, 0.28);
-  --theme-success: #34D399;
-  --theme-success-hover: #6EE7B7;
+  --theme-success: #34d399;
+  --theme-success-hover: #6ee7b7;
   --theme-success-bg: rgba(52, 211, 153, 0.16);
   --theme-success-bg-strong: rgba(52, 211, 153, 0.26);
-  --theme-warning: #FBBF24;
-  --theme-warning-hover: #FCD34D;
+
+  --theme-income: #34d399;
+  --theme-income-bg: rgba(52, 211, 153, 0.16);
+
+  --theme-warning: #fbbf24;
+  --theme-warning-hover: #fcd34d;
   --theme-warning-bg: rgba(251, 191, 36, 0.16);
   --theme-warning-bg-strong: rgba(251, 191, 36, 0.26);
-  --theme-info: #60A5FA;
-  --theme-info-hover: #93C5FD;
+
+  --theme-expense: #f87171;
+  --theme-expense-bg: rgba(248, 113, 113, 0.16);
+
+  --theme-danger: #f87171;
+  --theme-danger-hover: #fca5a5;
+  --theme-danger-bg: rgba(248, 113, 113, 0.18);
+  --theme-danger-bg-strong: rgba(248, 113, 113, 0.28);
+
+  --theme-info: #60a5fa;
+  --theme-info-hover: #93c5fd;
   --theme-info-bg: rgba(96, 165, 250, 0.16);
   --theme-info-bg-strong: rgba(96, 165, 250, 0.26);
 }
 
 /* ============================================================
+   护眼主题（Eye）— 暖纸底 · 鼠尾草绿主色
+   对比度（实测）：正文/bg 12.68、次要/bg 4.97、主色/card 5.85、
+   收入/card 5.26、支出/card 3.99
+   ============================================================ */
+.eye,
+[data-theme='eye'] {
+  --theme-primary: #3d6b4f;
+  --theme-primary-hover: #4f8163;
+  --theme-primary-active: #2f5639;
+  --theme-primary-soft: rgba(61, 107, 79, 0.12);
+  --theme-primary-soft-hover: rgba(61, 107, 79, 0.2);
+  --theme-on-primary: #ffffff;
+
+  --theme-bg: #f4f1ea;
+  --theme-bg-elevated: #fbf9f4;
+  --theme-surface: #ece7da;
+  --theme-surface-elevated: #fbf9f4;
+  --theme-surface-highlight: #ded7c6;
+
+  --theme-text: #2d2a24;
+  --theme-text-secondary: #524d43;
+  --theme-text-tertiary: #6e6759;
+  --theme-text-disabled: #9a917f;
+  --theme-text-inverse: #fbf9f4;
+
+  --theme-border: #ddd6c8;
+  --theme-border-strong: #c9c1ae;
+  --theme-border-focus: var(--theme-primary);
+
+  --theme-accent: rgba(61, 107, 79, 0.12);
+  --theme-accent-hover: rgba(61, 107, 79, 0.2);
+
+  --theme-overlay: rgba(45, 42, 36, 0.4);
+  --theme-overlay-soft: rgba(45, 42, 36, 0.06);
+
+  --theme-success: #3f7445;
+  --theme-success-hover: #345f39;
+  --theme-success-bg: #e6efe2;
+  --theme-success-bg-strong: #c9dfc2;
+
+  --theme-income: #3f7445;
+  --theme-income-bg: #e6efe2;
+
+  --theme-warning: #a16207;
+  --theme-warning-hover: #854d0e;
+  --theme-warning-bg: #faf2dd;
+  --theme-warning-bg-strong: #f0dfb4;
+
+  --theme-expense: #b8654a;
+  --theme-expense-bg: #f6e8e2;
+
+  --theme-danger: #b8654a;
+  --theme-danger-hover: #9c5039;
+  --theme-danger-bg: #f6e8e2;
+  --theme-danger-bg-strong: #eacfc5;
+
+  --theme-info: #2f6b8f;
+  --theme-info-hover: #255670;
+  --theme-info-bg: #e3eef4;
+  --theme-info-bg-strong: #c6dde8;
+}
+
+/* ============================================================
+   短名别名层（向后兼容 + 统一命名）
+   项目既有 5300+ 处 var(--theme-*) 用法保持不变；
+   下列短名指向同一套语义变量，供新代码/记账端使用。
+   ============================================================ */
+:root,
+.dark,
+.eye,
+[data-theme='light'],
+[data-theme='dark'],
+[data-theme='eye'] {
+  --bg: var(--theme-bg);
+  --card: var(--theme-surface-elevated);
+  --primary: var(--theme-primary);
+  --primary-hover: var(--theme-primary-hover);
+  --on-primary: var(--theme-on-primary);
+  --income: var(--theme-income);
+  --income-bg: var(--theme-income-bg);
+  --expense: var(--theme-expense);
+  --expense-bg: var(--theme-expense-bg);
+  --text-main: var(--theme-text);
+  --text-sub: var(--theme-text-tertiary);
+  --text-muted: var(--theme-text-disabled);
+  --border: var(--theme-border);
+  --border-strong: var(--theme-border-strong);
+  --success: var(--theme-success);
+  --warning: var(--theme-warning);
+  --danger: var(--theme-danger);
+  --info: var(--theme-info);
+}
+
+/* ============================================================
+   深色主题（Dark）
+   参考 TraeCode 深色 palette，保证高对比度与层次感。
+
+/* ============================================================
    护眼主题（Eye）
    暖黄色调，低对比但保持可读性。
-   ============================================================ */
-.eye {
-  --theme-primary: #065F46;
-  --theme-primary-hover: #047857;
-  --theme-primary-active: #064E3B;
-  --theme-primary-soft: rgba(6, 95, 70, 0.12);
-  --theme-primary-soft-hover: rgba(6, 95, 70, 0.18);
-  --theme-on-primary: #FFFFFF;
-
-  --theme-bg: #F7F3E3;
-  --theme-bg-elevated: #FAF8F0;
-  --theme-surface: #EDE8D6;
-  --theme-surface-elevated: #F5F1E3;
-  --theme-surface-highlight: #E3DCC4;
-
-  --theme-text: #1F2937;
-  --theme-text-secondary: #4B5563;
-  --theme-text-tertiary: #6B7280;
-  --theme-text-disabled: #9CA3AF;
-  --theme-text-inverse: #FFFFFF;
-
-  --theme-border: #D6D0BC;
-  --theme-border-strong: #C4BCA5;
-  --theme-border-focus: #065F46;
-
-  --theme-accent: #D1FAE5;
-  --theme-accent-hover: #A7F3D0;
-
-  --theme-overlay: rgba(31, 41, 55, 0.4);
-  --theme-overlay-soft: rgba(31, 41, 55, 0.06);
-
-  --theme-danger: #B91C1C;
-  --theme-danger-hover: #991B1B;
-  --theme-danger-bg: #FCE7DC;
-  --theme-danger-bg-strong: #FAD1C0;
-  --theme-success: #15803D;
-  --theme-success-hover: #166534;
-  --theme-success-bg: #E8F5E9;
-  --theme-success-bg-strong: #C8E6C9;
-  --theme-warning: #A16207;
-  --theme-warning-hover: #854D0E;
-  --theme-warning-bg: #FFF8E1;
-  --theme-warning-bg-strong: #FFECB3;
-  --theme-info: #1D4ED8;
-  --theme-info-hover: #1E40AF;
-  --theme-info-bg: #E3F2FD;
-  --theme-info-bg-strong: #BBDEFB;
-}
 
 /* ============================================================
    基础重置与全局样式

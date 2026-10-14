@@ -235,15 +235,40 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
     private Map<String, Object> executeOnce(LedgerScheduleTask task, LocalDate forcedExecDate) {
         LocalDate execDate = forcedExecDate != null ? forcedExecDate : task.getNextExecDate();
         Map<String, Object> result = new HashMap<>();
-        LedgerScheduleLog scheduleLog = new LedgerScheduleLog();
-        scheduleLog.setTaskId(task.getId());
-        scheduleLog.setUserId(task.getUserId());
-        scheduleLog.setExecDate(execDate);
-        scheduleLog.setAmount(task.getAmount());
+
+        // 日志幂等：DB 有唯一键 uk_task_date(task_id, exec_date)，同一执行日只能有一条日志。
+        // 为什么必须"先查旧日志"而不能直接 insert：
+        //   本方法在「流水已生成 → advance()/调用方 updateById 落库」之间不在同一事务，
+        //   若期间崩溃/重启（或调度并发触发），下一轮 runDueTasks 会再次扫到同一 execDate。
+        //   此时流水侧 clientUuid 已保证不重复入账，但日志 insert 会撞唯一键抛
+        //   DuplicateKeyException；该异常在 advance() 之前抛出，于是：
+        //     ① nextExecDate 永不推进；② 调用方 updateById 被跳过；
+        //     ③ 该任务此后每轮都抛同一个异常 —— 陷入"每轮必失败"的死循环。
+        LedgerScheduleLog scheduleLog = findLog(task.getId(), execDate);
+        boolean isNew = scheduleLog == null;
+        if (isNew) {
+            scheduleLog = new LedgerScheduleLog();
+            scheduleLog.setTaskId(task.getId());
+            scheduleLog.setUserId(task.getUserId());
+            scheduleLog.setExecDate(execDate);
+            scheduleLog.setAmount(task.getAmount());
+            scheduleLog.setRetryCount(0);
+        }
+
+        // 已有「成功」日志 = 该执行日早已入账 → 不重复记账，直接推进（幂等命中）
+        if (!isNew && LedgerScheduleLog.STATUS_SUCCESS == scheduleLog.getStatus()) {
+            result.put("success", true);
+            result.put("transactionId", scheduleLog.getTransactionId());
+            result.put("idempotent", true);
+            advance(task);
+            return result;
+        }
+
         try {
             Long txId = transactionService.createTransaction(task.getUserId(), buildDto(task, execDate));
             scheduleLog.setStatus(LedgerScheduleLog.STATUS_SUCCESS);
             scheduleLog.setTransactionId(txId);
+            scheduleLog.setFailReason(null);
             result.put("success", true);
             result.put("transactionId", txId);
         } catch (Exception e) {
@@ -252,13 +277,29 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
             result.put("success", false);
             result.put("failReason", e.getMessage());
         }
-        scheduleLog.setRetryCount(0);
-        logMapper.insert(scheduleLog);
+
+        if (isNew) {
+            logMapper.insert(scheduleLog);
+        } else {
+            // 复用旧日志：说明这是对同一执行日的重跑（上次失败，或崩溃后重扫），
+            // 累计重试次数，语义与 retryLog 一致。
+            scheduleLog.setRetryCount((scheduleLog.getRetryCount() == null ? 0 : scheduleLog.getRetryCount()) + 1);
+            logMapper.updateById(scheduleLog);
+        }
 
         if (Boolean.TRUE.equals(result.get("success"))) {
             advance(task);
         }
         return result;
+    }
+
+    /** 查同一 (taskId, execDate) 的执行日志（DB 唯一键 uk_task_date 保证至多一条） */
+    private LedgerScheduleLog findLog(Long taskId, LocalDate execDate) {
+        LambdaQueryWrapper<LedgerScheduleLog> q = new LambdaQueryWrapper<>();
+        q.eq(LedgerScheduleLog::getTaskId, taskId)
+                .eq(LedgerScheduleLog::getExecDate, execDate);
+        List<LedgerScheduleLog> list = logMapper.selectList(q);
+        return list.isEmpty() ? null : list.get(0);
     }
 
     /** 推进下次执行日期；end_date 到期自动停用 */

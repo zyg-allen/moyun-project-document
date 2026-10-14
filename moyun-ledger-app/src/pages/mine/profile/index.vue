@@ -23,9 +23,9 @@
         </view>
         <view class="field">
           <text class="field-label">生日</text>
-          <picker mode="date" fields="day" :value="editForm.birthday" :end="today" @change="onBirthdayChange">
+          <CalendarPicker :value="editForm.birthday" :end="today" @change="onBirthdayChange">
             <view class="field-picker">{{ editForm.birthday || '选择生日（推算年龄）' }} ▾</view>
-          </picker>
+          </CalendarPicker>
         </view>
         <view class="field">
           <text class="field-label">行业</text>
@@ -76,13 +76,14 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { getAiProfile, updateAiProfile } from '@/api/ledger';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
-  components: { NavBar },
+  components: { CalendarPicker,  NavBar },
   data() {
     return {
       saving: false,

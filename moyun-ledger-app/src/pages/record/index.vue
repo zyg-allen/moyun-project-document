@@ -98,9 +98,9 @@
       <!-- 日期 + 时间（合并同一行；日期支持历史补录，时间默认当前） -->
       <view class="pick-row pick-row-datetime">
         <text class="pick-label">日期时间</text>
-        <picker mode="date" fields="day" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
+        <CalendarPicker :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
           <view class="pick-value">{{ form.transactionDate }} ▾</view>
-        </picker>
+        </CalendarPicker>
         <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker pick-picker-time">
           <view class="pick-value">{{ form.transactionTime }} ▾</view>
         </picker>
@@ -175,6 +175,7 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import keyboardAware from '@/mixins/keyboardAware';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, uploadVoucher } from '@/api/ledger';
@@ -207,7 +208,7 @@ const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', re
 
 export default {
   mixins: [keyboardAware],
-  components: { KeyboardAwareSheet },  // 键盘安全弹层
+  components: { CalendarPicker,  KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     const today = new Date();
     const pad = (n) => String(n).padStart(2, '0');

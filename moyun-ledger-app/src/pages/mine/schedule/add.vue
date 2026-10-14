@@ -36,15 +36,15 @@
       </view>
       <view class="form-row">
         <text class="form-label">开始时间</text>
-        <picker mode="date" fields="day" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
+        <CalendarPicker :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
           <view class="form-value">{{ form.startDate }} ›</view>
-        </picker>
+        </CalendarPicker>
       </view>
       <view class="form-row">
         <text class="form-label">结束时间</text>
-        <picker mode="date" fields="day" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
+        <CalendarPicker :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
           <view class="form-value">{{ form.endDate || '不填表示永不结束' }} ›</view>
-        </picker>
+        </CalendarPicker>
       </view>
     </view>
 
@@ -94,6 +94,7 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
@@ -102,7 +103,7 @@ import { applyAmountInput } from '@/utils/money';
 
 export default {
   mixins: [submitLock],
-  components: { NavBar },
+  components: { CalendarPicker,  NavBar },
   data() {
     const today = new Date();
     return {

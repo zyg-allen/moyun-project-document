@@ -113,13 +113,13 @@
     <view class="card">
       <view class="chart-title">数据导出（CSV）</view>
       <view class="export-row">
-        <picker mode="date" fields="day" :value="exportStart" @change="(e) => exportStart = e.detail.value">
+        <CalendarPicker :value="exportStart" @change="(e) => exportStart = e.detail.value">
           <view class="export-date">{{ exportStart || '开始日期(不限)' }}</view>
-        </picker>
+        </CalendarPicker>
         <text class="export-sep">至</text>
-        <picker mode="date" fields="day" :value="exportEnd" @change="(e) => exportEnd = e.detail.value">
+        <CalendarPicker :value="exportEnd" @change="(e) => exportEnd = e.detail.value">
           <view class="export-date">{{ exportEnd || '结束日期(不限)' }}</view>
-        </picker>
+        </CalendarPicker>
         <view class="btn-export" :class="{ disabled: submitting }" @tap="!submitting && doExport()">导出</view>
       </view>
     </view>
@@ -127,12 +127,14 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import { getReportOverview, exportTransactionsCsv } from '@/api/ledger';
 import { formatAmount, formatAbsAmount, toNum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
+  components: { CalendarPicker },  // 自绘月历选择器
   mixins: [submitLock],
   data() {
     return {

@@ -20,9 +20,9 @@
       </view>
       <view class="info-row">
         <text class="info-label">日期</text>
-        <picker mode="date" fields="day" :value="txn.transactionDate" @change="(e) => txn.transactionDate = e.detail.value">
+        <CalendarPicker :value="txn.transactionDate" @change="(e) => txn.transactionDate = e.detail.value">
           <view class="info-value">{{ txn.transactionDate }} ▾</view>
-        </picker>
+        </CalendarPicker>
       </view>
       <view class="info-row">
         <text class="info-label">时间</text>
@@ -50,12 +50,14 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import { getTransaction, updateTransaction, deleteTransaction, uploadVoucher } from '@/api/ledger';
 import { toFixedYuan, toNum, typeText, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
+  components: { CalendarPicker },  // 自绘月历选择器
   mixins: [submitLock],
   computed: {
     themeVars() { return useThemeStore().themeVars; }

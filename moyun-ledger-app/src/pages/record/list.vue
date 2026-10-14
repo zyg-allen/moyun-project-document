@@ -36,12 +36,12 @@
         <picker :range="typeOptions" range-key="label" @change="onTypeChange">
           <view class="filter-item">{{ currentTypeLabel }} ▾</view>
         </picker>
-        <picker mode="date" fields="day" :value="startDate" @change="(e) => startDate = e.detail.value" @tap.stop>
+        <CalendarPicker :value="startDate" @change="(e) => startDate = e.detail.value" @tap.stop>
           <view class="filter-item">{{ startDate || '开始日期' }}</view>
-        </picker>
-        <picker mode="date" fields="day" :value="endDate" @change="(e) => endDate = e.detail.value">
+        </CalendarPicker>
+        <CalendarPicker :value="endDate" @change="(e) => endDate = e.detail.value">
           <view class="filter-item">{{ endDate || '结束日期' }}</view>
-        </picker>
+        </CalendarPicker>
         <view class="filter-btn" @tap="reload">查询</view>
         <view class="filter-btn reset" @tap="resetFilter">重置</view>
       </view>
@@ -171,6 +171,7 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import { pageTransactions } from '@/api/ledger';
 import { toFixedYuan, formatAmount, formatSigned, typeText, toNum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
@@ -189,6 +190,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const fmtDate = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
 
 export default {
+  components: { CalendarPicker },  // 自绘月历选择器
   data() {
     const now = new Date();
     const today = new Date();

@@ -61,9 +61,9 @@
           </view>
           <view class="f-row">
             <text class="f-label">时间</text>
-            <picker mode="date" fields="day" :value="form.date" @change="(e) => form.date = e.detail.value">
+            <CalendarPicker :value="form.date" @change="(e) => form.date = e.detail.value">
               <view class="f-value" :class="{ placeholder: !form.date }">{{ form.date || '选择日期' }}</view>
-            </picker>
+            </CalendarPicker>
             <picker mode="time" :value="form.time" @change="(e) => form.time = e.detail.value" style="margin-left: 20rpx;">
               <view class="f-value" :class="{ placeholder: !form.time }">{{ form.time || '选择时间' }}</view>
             </picker>
@@ -101,6 +101,7 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import keyboardAware from '@/mixins/keyboardAware';
 import NavBar from '@/components/NavBar/NavBar.vue';
@@ -114,7 +115,7 @@ const REMIND_LABELS = { on_time: '准时提醒', advance_30m: '提前30分钟', 
 
 export default {
   mixins: [keyboardAware, submitLock],
-  components: { NavBar },
+  components: { CalendarPicker,  NavBar },
   data() {
     return {
       todos: [],

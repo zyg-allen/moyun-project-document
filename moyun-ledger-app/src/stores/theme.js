@@ -68,7 +68,7 @@ export const APPEARANCES = {
     '--income': '#0A7F5F',
     '--income-bg': '#E6F5EF',
     '--expense': '#E8654A',
-    '--expense-bg': '#FDEEE9'
+    '--expense-bg': '#FDEEE9',
     '--warning': '#B45309',
     '--warning-bg': '#FEF3C7',
     '--info': '#1D4ED8',
@@ -87,7 +87,7 @@ export const APPEARANCES = {
     '--income': '#34D399',
     '--income-bg': 'rgba(52, 211, 153, 0.16)',
     '--expense': '#F87171',
-    '--expense-bg': 'rgba(248, 113, 113, 0.16)'
+    '--expense-bg': 'rgba(248, 113, 113, 0.16)',
     '--warning': '#FBBF24',
     '--warning-bg': 'rgba(251, 191, 36, 0.16)',
     '--info': '#60A5FA',
@@ -106,7 +106,7 @@ export const APPEARANCES = {
     '--income': '#3F7445',
     '--income-bg': '#E6EFE2',
     '--expense': '#B8654A',
-    '--expense-bg': '#F6E8E2'
+    '--expense-bg': '#F6E8E2',
     '--warning': '#8A5A22',
     '--warning-bg': '#F0E6D2',
     '--info': '#3F5E86',

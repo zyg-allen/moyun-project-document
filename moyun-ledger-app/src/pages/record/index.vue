@@ -298,6 +298,11 @@ export default {
       if (amountNum <= 0) return false;
       if (this.needTarget) return !!this.form.accountId && !!this.form.targetAccountId;
       if (this.needLiability) return  (this.form.type === 'borrow' || !!this.form.accountId);
+      // 收支类必须选分类：否则报表「分类 TOP」按 categoryId 聚合时会被跳过，
+      // 导致「收入/支出分类 TOP」缺数据（此前收入可无分类保存 → category_id=NULL）
+      if (this.form.type === 'expense' || this.form.type === 'income') {
+        return !!this.form.accountId && !!this.form.categoryId;
+      }
       return !!this.form.accountId;
     }
   },
@@ -537,7 +542,17 @@ export default {
       // 原实现锁在提交方法里才置位 → 连点「保存」会叠出两个确认弹窗，
       // 分别确认即产生两笔（clientUuid 每次新生成，后端按 uuid 去重拦不住）
       if (this.saving) return;
-      if (!this.canSave) return;
+      if (!this.canSave) {
+        // 给出缺失原因，避免按钮灰色但用户不知道缺什么
+        const amountNum = toNum(this.amountYuan);
+        if (amountNum <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return; }
+        if (!this.form.accountId) { uni.showToast({ title: '请选择账户', icon: 'none' }); return; }
+        if ((this.form.type === 'expense' || this.form.type === 'income') && !this.form.categoryId) {
+          uni.showToast({ title: '请选择分类', icon: 'none' }); return;
+        }
+        if (this.needTarget && !this.form.targetAccountId) { uni.showToast({ title: '请选择转入账户', icon: 'none' }); return; }
+        return;
+      }
       if (!this.userStore.isLoggedIn) {
         uni.showToast({ title: '请先在「我的」登录', icon: 'none' });
         uni.switchTab({ url: '/pages/mine/index' });

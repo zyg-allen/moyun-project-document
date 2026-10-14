@@ -21,7 +21,7 @@ page {
 }
 /* 主题变量默认值（页面根元素 :style 由 stores/theme.js 的 themeVars 注入覆盖）
    两层结构：
-     外观层（--bg/--card/--text-*/--border/--income/--expense）随日间/暗色/护眼切换；
+     外观层（--bg / --card / --text-main 等）随日间/暗色/护眼切换；
      强调色层（--primary 系列）随 5 套强调色切换。
    默认值取「日间 + 薄荷绿」，与改造前视觉一致。 */
 page {

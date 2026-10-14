@@ -231,6 +231,75 @@
   --warning: var(--theme-warning);
   --danger: var(--theme-danger);
   --info: var(--theme-info);
+  /* ============================================================
+     全局设计 Token（Design Tokens）—— 与主题色无关，三主题共用
+     圆角 / 间距 / 字体 / 字重 / 行高 / 阴影 / 过渡 / 容器
+     ============================================================ */
+
+  /* 圆角：统一使用 4px 网格 */
+  --radius-none: 0px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* 间距：4px 网格系统 */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 字体栈 */
+  --font-sans:
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading:
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SF Mono", "Fira Code", "Cascadia Code",
+    Consolas, Monaco, "Andale Mono", monospace;
+
+  /* 字重 */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* 行高 */
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  /* 阴影：柔和、有层级 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.16);
+  --shadow-glow: 0 0 20px rgba(50, 240, 140, 0.25);
+
+  /* 过渡 */
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+  --transition-slow: 260ms ease;
+
+  /* 容器（.content-container 依赖，勿删） */
+  --content-max-width: 80rem;
+  --header-height: 56px;
+
 }
 
 /* ============================================================

@@ -1,6 +1,6 @@
 <template>
   <view class="page" :style="themeVars">
-    <NavBar title="添加计划">
+    <NavBar :title="editId ? '编辑计划' : '添加计划'">
       <view class="nav-ok" @tap="save">确定</view>
     </NavBar>
 
@@ -98,7 +98,7 @@ import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { listCategories, listAssets, createScheduleTask } from '@/api/ledger';
+import { listCategories, listAssets, createScheduleTask, listScheduleTasks, updateScheduleTask } from '@/api/ledger';
 import { applyAmountInput } from '@/utils/money';
 
 export default {
@@ -127,7 +127,10 @@ export default {
         endDate: ''
       },
       categories: [],
-      accounts: []
+      accounts: [],
+      // 编辑模式：由列表页「编辑」经 url 传 id 进入
+      editId: null,
+      editLoaded: false
     };
   },
   computed: {
@@ -148,9 +151,19 @@ export default {
       return d ? `${d} ${this.form.execTime}` : '';
     }
   },
+  onLoad(options) {
+    // 列表页点「编辑」时带 id 进来；有 id 即进入编辑模式
+    if (options && options.id) this.editId = Number(options.id);
+  },
   onShow() {
     useThemeStore().restore();
     this.loadOptions();
+    // 编辑模式首次进入回填一次；用 editLoaded 兜住 onShow 的重复触发，
+    // 避免从其它页返回时把用户已修改的内容覆盖掉
+    if (this.editId && !this.editLoaded) {
+      this.editLoaded = true;
+      this.loadForEdit();
+    }
   },
   methods: {
     /** 金额输入净化（见 utils/money.applyAmountInput） */
@@ -164,6 +177,32 @@ export default {
         const accData = await listAssets() || {};
         this.accounts = accData.records || [];
       } catch (e) { }
+    },
+    /**
+     * 编辑模式：拉取任务列表并回填表单。
+     * 列表接口返回该用户全部未删除任务（无分页），按 id 查即可；
+     * 这样无需新增单条查询接口，也不会像"从分页列表里找"那样漏数据。
+     */
+    async loadForEdit() {
+      try {
+        const data = await listScheduleTasks() || {};
+        const t = (data.tasks || []).find(x => x.id === this.editId);
+        if (!t) { uni.showToast({ title: '任务不存在或已删除', icon: 'none' }); return; }
+        this.form.type = t.type || 'expense';
+        this.form.amount = t.amount != null ? String(t.amount) : '';
+        this.form.categoryId = t.categoryId || null;
+        this.form.accountId = t.accountId || null;
+        this.form.description = t.description || '';
+        this.form.cycle = t.cycle || 'daily';
+        this.form.dayOfWeek = t.dayOfWeek || 1;
+        this.form.dayOfMonth = t.dayOfMonth || 1;
+        this.form.intervalDays = t.intervalDays != null ? String(t.intervalDays) : '';
+        this.form.execTime = t.execTime || '08:00';
+        if (t.startDate) this.form.startDate = t.startDate;
+        this.form.endDate = t.endDate || '';
+        // 类型可能和默认值不同，按其重新拉分类，否则分类下拉对不上
+        this.loadOptions();
+      } catch (e) { /* 拦截器已提示 */ }
     },
     onCycleChange(e) {
       this.form.cycle = this.cycleKeys[e.detail.value];
@@ -233,8 +272,13 @@ export default {
                 endDate: this.form.endDate || null
               };
               try {
-                await createScheduleTask(payload);
-                uni.showToast({ title: '创建成功', icon: 'success' });
+                if (this.editId) {
+                  await updateScheduleTask(this.editId, payload);
+                  uni.showToast({ title: '已保存', icon: 'success' });
+                } else {
+                  await createScheduleTask(payload);
+                  uni.showToast({ title: '创建成功', icon: 'success' });
+                }
                 setTimeout(() => uni.navigateBack(), 600);
               } catch (e) { /* 拦截器已提示 */ }
       });

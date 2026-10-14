@@ -76,23 +76,11 @@
       </view>
     </view>
 
-    <!-- 账户/负债选择（次级卡片） -->
+    <!-- 账户/负债选择（次级卡片）
+         顺序：账户组 → 日期/时间 → 商户/凭证
+         账户紧邻金额：记账最自然的顺序是「多少钱 → 从/到哪个账户」，
+         而日期/时间默认即当下，通常无需改动，放其后不打断主流程 -->
     <view class="opt-card">
-      <!-- 日期选择（独立选择器，支持历史补录） -->
-      <view class="pick-row">
-        <text class="pick-label">日期</text>
-        <picker mode="date" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
-          <view class="pick-value">{{ form.transactionDate }} ▾</view>
-        </picker>
-        <view class="today-btn" @tap="setToday">今天</view>
-      </view>
-      <!-- 时间必填（独立选择器，默认当前时间） -->
-      <view class="pick-row">
-        <text class="pick-label">时间</text>
-        <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker">
-          <view class="pick-value">{{ form.transactionTime }} ▾</view>
-        </picker>
-      </view>
       <view class="pick-row" @tap="pickAsset">
         <text class="pick-label">{{ accountLabel }}</text>
         <text class="pick-value">{{ selectedAssetName || '选择账户' }} ▾</text>
@@ -107,6 +95,21 @@
           <text class="pick-value">{{ selectedLiabilityName || '选择借款项目' }} ▾</text>
           <text v-if="form.liabilityId" class="pick-clear" @tap.stop="clearLiability">✕ 清除</text>
         </view>
+      </view>
+      <!-- 日期选择（独立选择器，支持历史补录） -->
+      <view class="pick-row">
+        <text class="pick-label">日期</text>
+        <picker mode="date" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
+          <view class="pick-value">{{ form.transactionDate }} ▾</view>
+        </picker>
+        <view class="today-btn" @tap="setToday">今天</view>
+      </view>
+      <!-- 时间必填（独立选择器，默认当前时间） -->
+      <view class="pick-row">
+        <text class="pick-label">时间</text>
+        <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker">
+          <view class="pick-value">{{ form.transactionTime }} ▾</view>
+        </picker>
       </view>
       <view class="pick-row" v-if="form.type === 'expense'">
         <text class="pick-label">商户</text>

@@ -113,11 +113,11 @@
     <view class="card">
       <view class="chart-title">数据导出（CSV）</view>
       <view class="export-row">
-        <picker mode="date" :value="exportStart" @change="(e) => exportStart = e.detail.value">
+        <picker mode="date" fields="day" :value="exportStart" @change="(e) => exportStart = e.detail.value">
           <view class="export-date">{{ exportStart || '开始日期(不限)' }}</view>
         </picker>
         <text class="export-sep">至</text>
-        <picker mode="date" :value="exportEnd" @change="(e) => exportEnd = e.detail.value">
+        <picker mode="date" fields="day" :value="exportEnd" @change="(e) => exportEnd = e.detail.value">
           <view class="export-date">{{ exportEnd || '结束日期(不限)' }}</view>
         </picker>
         <view class="btn-export" :class="{ disabled: submitting }" @tap="!submitting && doExport()">导出</view>

@@ -36,13 +36,13 @@
       </view>
       <view class="form-row">
         <text class="form-label">开始时间</text>
-        <picker mode="date" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
+        <picker mode="date" fields="day" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
           <view class="form-value">{{ form.startDate }} ›</view>
         </picker>
       </view>
       <view class="form-row">
         <text class="form-label">结束时间</text>
-        <picker mode="date" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
+        <picker mode="date" fields="day" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
           <view class="form-value">{{ form.endDate || '不填表示永不结束' }} ›</view>
         </picker>
       </view>

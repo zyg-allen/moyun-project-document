@@ -23,7 +23,7 @@
         </view>
         <view class="field">
           <text class="field-label">生日</text>
-          <picker mode="date" :value="editForm.birthday" :end="today" @change="onBirthdayChange">
+          <picker mode="date" fields="day" :value="editForm.birthday" :end="today" @change="onBirthdayChange">
             <view class="field-picker">{{ editForm.birthday || '选择生日（推算年龄）' }} ▾</view>
           </picker>
         </view>

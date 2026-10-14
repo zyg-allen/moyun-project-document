@@ -36,10 +36,10 @@
         <picker :range="typeOptions" range-key="label" @change="onTypeChange">
           <view class="filter-item">{{ currentTypeLabel }} ▾</view>
         </picker>
-        <picker mode="date" :value="startDate" @change="(e) => startDate = e.detail.value" @tap.stop>
+        <picker mode="date" fields="day" :value="startDate" @change="(e) => startDate = e.detail.value" @tap.stop>
           <view class="filter-item">{{ startDate || '开始日期' }}</view>
         </picker>
-        <picker mode="date" :value="endDate" @change="(e) => endDate = e.detail.value">
+        <picker mode="date" fields="day" :value="endDate" @change="(e) => endDate = e.detail.value">
           <view class="filter-item">{{ endDate || '结束日期' }}</view>
         </picker>
         <view class="filter-btn" @tap="reload">查询</view>

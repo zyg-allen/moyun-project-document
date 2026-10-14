@@ -61,7 +61,7 @@
           </view>
           <view class="f-row">
             <text class="f-label">时间</text>
-            <picker mode="date" :value="form.date" @change="(e) => form.date = e.detail.value">
+            <picker mode="date" fields="day" :value="form.date" @change="(e) => form.date = e.detail.value">
               <view class="f-value" :class="{ placeholder: !form.date }">{{ form.date || '选择日期' }}</view>
             </picker>
             <picker mode="time" :value="form.time" @change="(e) => form.time = e.detail.value" style="margin-left: 20rpx;">

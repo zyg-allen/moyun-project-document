@@ -98,7 +98,7 @@
       <!-- 日期 + 时间（合并同一行；日期支持历史补录，时间默认当前） -->
       <view class="pick-row pick-row-datetime">
         <text class="pick-label">日期时间</text>
-        <picker mode="date" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
+        <picker mode="date" fields="day" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
           <view class="pick-value">{{ form.transactionDate }} ▾</view>
         </picker>
         <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker pick-picker-time">

@@ -20,7 +20,7 @@
       </view>
       <view class="info-row">
         <text class="info-label">日期</text>
-        <picker mode="date" :value="txn.transactionDate" @change="(e) => txn.transactionDate = e.detail.value">
+        <picker mode="date" fields="day" :value="txn.transactionDate" @change="(e) => txn.transactionDate = e.detail.value">
           <view class="info-value">{{ txn.transactionDate }} ▾</view>
         </picker>
       </view>

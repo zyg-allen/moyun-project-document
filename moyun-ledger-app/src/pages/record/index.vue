@@ -57,14 +57,11 @@
     </view>
 
     <!-- 金额区：原生数字输入（系统输入法自带、位置跟随，无需自绘键盘）
-         排版：币种用符号 ¥ 前置、单位「元」后置于数值之后，
-         不再写「币种 CNY ｜ 单位（元）」这类文字（符号表达已足够，且更简洁） -->
+         排版：金额（CNY）： 数值 元 —— 币种写进标签括号，单位后置于数值之后；
+         不用强调色底，与其它卡片一致的卡面，仅以左侧强调色竖条点出主次 -->
     <view class="amount-area">
-      <view class="amount-left">
-        <text class="amount-label">金额</text>
-      </view>
+      <text class="amount-label">金额（CNY）：</text>
       <view class="amount-right">
-        <text class="currency">¥</text>
         <input
           v-model="amountYuan"
           class="amount-input"
@@ -826,24 +823,25 @@ export default {
 .note-label { font-size: 28rpx; font-weight: 600; margin-right: 24rpx; }
 .note-input { flex: 1; font-size: 30rpx; }
 
-/* 金额区（突出，主色底） */
+/* 金额区
+   普通卡面（与 note-card / opt-card 一致，不用强调色底，避免大色块喧宾夺主）；
+   左侧 8rpx 强调色竖条作点缀 —— 与资产负债汇总卡同一视觉语言，
+   既点出主次，又不引入整块底色。 */
 .amount-area {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--primary); padding: 36rpx 40rpx; margin: 0 24rpx 20rpx;
+  display: flex; align-items: center;
+  background: var(--card);
+  padding: 30rpx 32rpx 30rpx 40rpx; margin: 0 24rpx 20rpx;
   border-radius: 20rpx;
-  /* 卡面是强调色：文字统一用 --text-main。
-     5 套强调色均为中浅色调，白字对比度最低仅 1.9:1（薄荷）不合格；
-     深字在各强调色上为 4.0~9:1，稳定可读，且标签与数字不再一白一黑。 */
-  color: var(--text-main);
+  border-left: 8rpx solid var(--primary-strong);
 }
-.amount-left { display: flex; flex-direction: column; flex-shrink: 0; }
-.amount-label { font-size: 26rpx; opacity: 0.75; }
-/* 右侧：¥ 前置（币种符号）· 数值（占满剩余宽度、右对齐）· 元 后置（单位） */
+.amount-label { font-size: 28rpx; color: var(--text-sub); flex-shrink: 0; }
+/* 数值占满剩余宽度并右对齐，单位「元」紧随数值之后 */
 .amount-right { display: flex; align-items: baseline; flex: 1; min-width: 0; justify-content: flex-end; }
-.currency { font-size: 40rpx; font-weight: 600; margin-right: 10rpx; color: var(--text-main); }
-.amount-input { flex: 1; min-width: 0; text-align: right; font-size: 60rpx; font-weight: 700; color: var(--text-main); }
-/* 单位「元」后置于数值之后 */
-.amount-suffix { font-size: 30rpx; font-weight: 600; margin-left: 10rpx; opacity: 0.8; flex-shrink: 0; }
+.amount-input {
+  flex: 1; min-width: 0; text-align: right;
+  font-size: 56rpx; font-weight: 700; color: var(--text-main);
+}
+.amount-suffix { font-size: 28rpx; color: var(--text-sub); margin-left: 8rpx; flex-shrink: 0; }
 
 /* 次级选择卡片 */
 .opt-card { background: var(--card); margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }

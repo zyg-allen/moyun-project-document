@@ -92,4 +92,64 @@ class ResourcesConfigCorsTest {
         assertFalse(ResourcesConfig.isPrivateNetworkOrigin("not-a-url"));
         assertFalse(ResourcesConfig.isPrivateNetworkOrigin(null));
     }
+
+    // ==================== 配置来源回退（v13.68） ====================
+
+    /**
+     * 配置读取优先级：系统环境变量 > Spring 配置项。
+     *
+     * <p>背景：原实现只读 {@code System.getenv}，导致"想在 application-dev.yaml 里开局域网调试"
+     * 做不到（必须改系统环境变量并重启 IDE）。本测试钉死回退语义，避免以后被改回单来源。</p>
+     */
+    @Test
+    @DisplayName("readConfig：环境变量优先于 Spring 配置项")
+    void readConfigPrefersEnvironmentVariable()
+    {
+        // 环境变量存在时（PATH 必然存在）应优先返回它，而不是 Spring 配置里的值
+        org.springframework.mock.env.MockEnvironment env =
+                new org.springframework.mock.env.MockEnvironment().withProperty("moyun.cors.allowed-origins", "https://from-yaml");
+        ResourcesConfig config = new ResourcesConfig();
+        config.setEnvironment(env);
+        try
+        {
+            assertEquals(System.getenv("PATH"), ResourcesConfig.readConfig("PATH", "moyun.cors.allowed-origins"),
+                    "环境变量存在时必须优先，保证 CI/容器注入能覆盖 yaml");
+        }
+        finally
+        {
+            config.setEnvironment(null);
+        }
+    }
+
+    @Test
+    @DisplayName("readConfig：环境变量缺失时回退 Spring 配置项（yaml 可开局域网调试）")
+    void readConfigFallsBackToSpringProperty()
+    {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment()
+                .withProperty("moyun.cors.allow-lan-dev-origins", "true");
+        ResourcesConfig config = new ResourcesConfig();
+        config.setEnvironment(env);
+        try
+        {
+            assertEquals("true",
+                    ResourcesConfig.readConfig("MOYUN_TEST_ABSENT_ENV_KEY", "moyun.cors.allow-lan-dev-origins"),
+                    "环境变量缺失时必须回退到 Spring 配置，否则 yaml 里开的开关无效");
+        }
+        finally
+        {
+            config.setEnvironment(null);
+        }
+    }
+
+    @Test
+    @DisplayName("readConfig：两处都没有时返回 null；springEnv 为 null（单测场景）不抛异常")
+    void readConfigReturnsNullWhenAbsent()
+    {
+        // springEnv 未注入（null）—— 单测直接调用静态方法时的场景
+        assertNull(ResourcesConfig.readConfig("MOYUN_TEST_ABSENT_ENV_KEY", "moyun.cors.allow-lan-dev-origins"),
+                "两者都缺失应返回 null，不得抛异常");
+        // 未注入 Environment 时读属性也不能炸
+        assertNull(ResourcesConfig.readConfig("MOYUN_TEST_ABSENT_ENV_KEY", null),
+                "propertyKey 为 null 时只读环境变量");
+    }
 }

@@ -25,8 +25,51 @@ import java.util.concurrent.TimeUnit;
  * @author allen-zyg
  */
 @Configuration
-public class ResourcesConfig implements WebMvcConfigurer
-{
+public class ResourcesConfig implements WebMvcConfigurer, org.springframework.context.EnvironmentAware {
+
+    /**
+     * Spring 环境（由 {@link #setEnvironment} 注入）。
+     *
+     * <p>存在的意义：原先只读 {@code System.getenv}，导致"想在 application-dev.yaml 里开
+     * 局域网调试"做不到，必须改系统环境变量并重启 IDE。现在支持两种来源：</p>
+     * <ol>
+     *   <li>系统环境变量（优先级高，便于 CI / 容器注入）</li>
+     *   <li>Spring 配置项（yaml / --key=value 均可）</li>
+     * </ol>
+     * <p>为 null 时（单测直接调用静态方法）只读系统环境变量，行为与改造前完全一致。</p>
+     */
+    private static org.springframework.core.env.Environment springEnv;
+
+    @Override
+    public void setEnvironment(org.springframework.core.env.Environment environment)
+    {
+        ResourcesConfig.springEnv = environment;
+    }
+
+    /**
+     * 读配置：先系统环境变量，再 Spring 配置项。
+     *
+     * @param envKey      环境变量名
+     * @param propertyKey Spring 配置键（null 表示无对应配置键）
+     * @return 配置值；都没有时返回 null
+     */
+    static String readConfig(String envKey, String propertyKey)
+    {
+        String fromEnv = System.getenv(envKey);
+        if (fromEnv != null && !fromEnv.isBlank())
+        {
+            return fromEnv;
+        }
+        if (propertyKey != null && springEnv != null)
+        {
+            String fromProp = springEnv.getProperty(propertyKey);
+            if (fromProp != null && !fromProp.isBlank())
+            {
+                return fromProp;
+            }
+        }
+        return null;
+    }
     private static final Logger log = LoggerFactory.getLogger(ResourcesConfig.class);
 
     @Autowired
@@ -80,7 +123,7 @@ public class ResourcesConfig implements WebMvcConfigurer
     @Bean
     public CorsFilter corsFilter()
     {
-        String envOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        String envOrigins = readConfig("CORS_ALLOWED_ORIGINS", "moyun.cors.allowed-origins");
         boolean lanDevAllowed = isLanDevOriginsAllowed();
         boolean prod = isProdProfile();
         CorsConfiguration config = buildCorsConfiguration(envOrigins, prod);
@@ -164,7 +207,10 @@ public class ResourcesConfig implements WebMvcConfigurer
     /** 内网放行开关：显式环境变量开启，且非生产 profile */
     private static boolean isLanDevOriginsAllowed()
     {
-        boolean enabled = "true".equalsIgnoreCase(String.valueOf(System.getenv("CORS_ALLOW_LAN_DEV_ORIGINS")).trim());
+        // 支持两种来源：系统环境变量 CORS_ALLOW_LAN_DEV_ORIGINS，或 Spring 配置
+        // moyun.cors.allow-lan-dev-origins（便于 application-dev.yaml 直接开）
+        boolean enabled = "true".equalsIgnoreCase(
+                String.valueOf(readConfig("CORS_ALLOW_LAN_DEV_ORIGINS", "moyun.cors.allow-lan-dev-origins")).trim());
         return enabled && !isProdProfile();
     }
 
@@ -200,7 +246,7 @@ public class ResourcesConfig implements WebMvcConfigurer
         {
             return false;
         }
-        String envOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        String envOrigins = readConfig("CORS_ALLOWED_ORIGINS", "moyun.cors.allowed-origins");
         if (envOrigins != null && !envOrigins.trim().isEmpty())
         {
             for (String allowed : envOrigins.split(","))
@@ -254,7 +300,7 @@ public class ResourcesConfig implements WebMvcConfigurer
 
     private static boolean isProdProfile()
     {
-        String profiles = System.getenv("SPRING_PROFILES_ACTIVE");
+        String profiles = readConfig("SPRING_PROFILES_ACTIVE", "spring.profiles.active");
         if (profiles == null || profiles.isBlank())
         {
             profiles = System.getProperty("spring.profiles.active", "");

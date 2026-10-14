@@ -56,11 +56,12 @@
       <input v-model="form.description" placeholder="点击补充说明" class="note-input" @input="onDescInput" />
     </view>
 
-    <!-- 金额区：原生数字输入（系统输入法自带、位置跟随，无需自绘键盘） -->
+    <!-- 金额区：原生数字输入（系统输入法自带、位置跟随，无需自绘键盘）
+         副标题展示币种与单位，不再重复日期时间（日期/时间有独立的字段行） -->
     <view class="amount-area">
       <view class="amount-left">
         <text class="amount-label">金额</text>
-        <text class="amount-date">{{ form.transactionDate }} {{ form.transactionTime }}</text>
+        <text class="amount-unit">币种 CNY ｜ 单位（元）</text>
       </view>
       <view class="amount-right">
         <text class="currency">¥</text>
@@ -828,13 +829,17 @@ export default {
 .amount-area {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--primary); padding: 36rpx 40rpx; margin: 0 24rpx 20rpx;
-  border-radius: 20rpx; color: #fff;
+  border-radius: 20rpx;
+  /* 卡面是强调色：文字统一用 --text-main。
+     5 套强调色均为中浅色调，白字对比度最低仅 1.9:1（薄荷）不合格；
+     深字在各强调色上为 4.0~9:1，稳定可读，且标签与数字不再一白一黑。 */
+  color: var(--text-main);
 }
 .amount-left { display: flex; flex-direction: column; }
-.amount-label { font-size: 26rpx; opacity: 0.85; }
-.amount-date { font-size: 24rpx; opacity: 0.7; margin-top: 8rpx; }
+.amount-label { font-size: 26rpx; opacity: 0.75; }
+.amount-unit { font-size: 22rpx; opacity: 0.65; margin-top: 6rpx; letter-spacing: 0.5px; }
 .amount-right { display: flex; align-items: baseline; }
-.currency { font-size: 40rpx; font-weight: 600; margin-right: 12rpx; }
+.currency { font-size: 40rpx; font-weight: 600; margin-right: 12rpx; color: var(--text-main); }
 .amount-input { flex: 1; min-width: 0; text-align: right; font-size: 60rpx; font-weight: 700; color: var(--text-main); }
 
 /* 次级选择卡片 */

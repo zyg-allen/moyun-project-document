@@ -35,10 +35,12 @@
     "backgroundColor": "#f5f6f8"
   },
   "tabBar": {
-    "color": "#999999",
+    "color": "#6B7280",
     "selectedColor": "#5FA77A",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
+    "height": "46px",
+    "fontSize": "12px",
     "list": [
       { "pagePath": "pages/dashboard/index", "text": "总览" },
       { "pagePath": "pages/portfolio/index", "text": "资产负债" },

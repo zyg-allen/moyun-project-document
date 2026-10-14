@@ -143,25 +143,40 @@ export const useThemeStore = defineStore('theme', {
     themeList() { return Object.keys(THEMES).map(k => ({ key: k, name: THEMES[k].name, color: THEMES[k]['--primary'] })); }
   },
   actions: {
+    /**
+     * 同步底部 TabBar 外观。
+     *
+     * 底色与未选中文字色跟随**外观层**（日间/暗色/护眼），选中色跟随**强调色层** ——
+     * 否则暗色模式下 TabBar 仍是白条，与整页割裂。
+     *
+     * 注：TabBar 不在 page 元素内，拿不到页面级 CSS 变量，只能经 setTabBarStyle 注入；
+     * 非 TabBar 页调用会失败，静默即可（切回 Tab 页时由 onShow 的 restore() 重新同步）。
+     */
+    syncTabBar() {
+      const a = APPEARANCES[this.appearanceKey] || APPEARANCES.light;
+      uni.setTabBarStyle({
+        color: a['--text-sub'],
+        selectedColor: this.theme['--primary-strong'],
+        backgroundColor: a['--card'],
+        // 该字段仅支持 black/white：深色底用浅边、浅色底用深边
+        borderStyle: this.appearanceKey === 'dark' ? 'white' : 'black',
+        fail: () => {}
+      });
+    },
     setTheme(key) {
       if (!THEMES[key]) return;
       this.current = key;
       uni.setStorageSync(KEY, key);
-      // TabBar 联动（H5/小程序均支持）；非 TabBar 页调用会失败，静默即可
-      // （切回 Tab 页时由各 Tab 页 onShow 的 restore() 重新同步）
-      const t = THEMES[key];
-      uni.setTabBarStyle({
-        selectedColor: t['--primary-strong'],
-        fail: () => {}
-      });
+      this.syncTabBar();
     },
-    /** 启动时恢复 TabBar 选中色 */
-    /** 切换外观（日间/暗色/护眼）；页面根元素由 themeVars 自动跟随 */
+    /** 切换外观（日间/暗色/护眼）；页面根元素由 themeVars 自动跟随，TabBar 同步刷新 */
     setAppearance(key) {
       if (!APPEARANCES[key]) return;
       this.appearance = key;
       uni.setStorageSync(APPEARANCE_KEY, key);
+      this.syncTabBar();
     },
+    /** 启动/回到 Tab 页时恢复 TabBar 外观（强调色 + 外观层一起同步） */
     restore() { this.setTheme(this.current); }
   }
 });

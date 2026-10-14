@@ -94,4 +94,25 @@ page {
   height: 100%;
   font-size: 32px;
 }
+
+/* ============================================================
+ * 底部 TabBar 样式
+ *
+ * 字号与高度由 pages.json 的 fontSize / height 控制（10px→12px、50px→46px，
+ * 「字体大一点 + 区域略缩小」）；底色/文字色/选中色由 stores/theme.js 的
+ * syncTabBar() 经 setTabBarStyle 注入，随外观与强调色联动。
+ *
+ * 这里只补 uni 配置项表达不了的部分：
+ *  - uni 未给选中项加 class（只改内联 color），故选中态仍靠颜色区分，
+ *    字重统一加粗以保证小字号下的可读性；
+ *  - 去掉硬边线，改用柔和上阴影做分隔，观感更轻。
+ * ============================================================ */
+.uni-tabbar__label {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.uni-tabbar-border { display: none; }
+.uni-tabbar-bottom .uni-tabbar {
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.06);
+}
 </style>

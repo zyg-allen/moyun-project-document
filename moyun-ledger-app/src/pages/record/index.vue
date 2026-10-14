@@ -57,11 +57,11 @@
     </view>
 
     <!-- 金额区：原生数字输入（系统输入法自带、位置跟随，无需自绘键盘）
-         副标题展示币种与单位，不再重复日期时间（日期/时间有独立的字段行） -->
+         排版：币种用符号 ¥ 前置、单位「元」后置于数值之后，
+         不再写「币种 CNY ｜ 单位（元）」这类文字（符号表达已足够，且更简洁） -->
     <view class="amount-area">
       <view class="amount-left">
         <text class="amount-label">金额</text>
-        <text class="amount-unit">币种 CNY ｜ 单位（元）</text>
       </view>
       <view class="amount-right">
         <text class="currency">¥</text>
@@ -74,6 +74,7 @@
           adjust-position
           @input="onAmountInput"
         />
+        <text class="amount-suffix">元</text>
       </view>
     </view>
 
@@ -835,12 +836,14 @@ export default {
      深字在各强调色上为 4.0~9:1，稳定可读，且标签与数字不再一白一黑。 */
   color: var(--text-main);
 }
-.amount-left { display: flex; flex-direction: column; }
+.amount-left { display: flex; flex-direction: column; flex-shrink: 0; }
 .amount-label { font-size: 26rpx; opacity: 0.75; }
-.amount-unit { font-size: 22rpx; opacity: 0.65; margin-top: 6rpx; letter-spacing: 0.5px; }
-.amount-right { display: flex; align-items: baseline; }
-.currency { font-size: 40rpx; font-weight: 600; margin-right: 12rpx; color: var(--text-main); }
+/* 右侧：¥ 前置（币种符号）· 数值（占满剩余宽度、右对齐）· 元 后置（单位） */
+.amount-right { display: flex; align-items: baseline; flex: 1; min-width: 0; justify-content: flex-end; }
+.currency { font-size: 40rpx; font-weight: 600; margin-right: 10rpx; color: var(--text-main); }
 .amount-input { flex: 1; min-width: 0; text-align: right; font-size: 60rpx; font-weight: 700; color: var(--text-main); }
+/* 单位「元」后置于数值之后 */
+.amount-suffix { font-size: 30rpx; font-weight: 600; margin-left: 10rpx; opacity: 0.8; flex-shrink: 0; }
 
 /* 次级选择卡片 */
 .opt-card { background: var(--card); margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }

@@ -38,7 +38,7 @@ export default {
 
 <style scoped>
 .navbar {
-  background: #fff;
+  background: var(--card);
   /* 小程序：--status-bar-height 固定 25px（沉浸式下必须留出，否则内容顶进状态栏）；
      H5：该变量为 0，行为与改造前一致 */
   padding-top: var(--status-bar-height);
@@ -67,7 +67,7 @@ export default {
 }
 .nav-title {
   flex: 1; text-align: center;
-  font-size: 32rpx; font-weight: 600; color: #333;
+  font-size: 32rpx; font-weight: 600; color: var(--text-main);
   /* 抵消右侧占位，保证视觉居中 */
   margin-right: 64rpx;
 }

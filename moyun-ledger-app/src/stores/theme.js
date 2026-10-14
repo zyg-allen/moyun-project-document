@@ -69,6 +69,10 @@ export const APPEARANCES = {
     '--income-bg': '#E6F5EF',
     '--expense': '#E8654A',
     '--expense-bg': '#FDEEE9'
+    '--warning': '#B45309',
+    '--warning-bg': '#FEF3C7',
+    '--info': '#1D4ED8',
+    '--info-bg': '#DBEAFE',
   },
   dark: {
     name: '暗色',
@@ -84,6 +88,10 @@ export const APPEARANCES = {
     '--income-bg': 'rgba(52, 211, 153, 0.16)',
     '--expense': '#F87171',
     '--expense-bg': 'rgba(248, 113, 113, 0.16)'
+    '--warning': '#FBBF24',
+    '--warning-bg': 'rgba(251, 191, 36, 0.16)',
+    '--info': '#60A5FA',
+    '--info-bg': 'rgba(96, 165, 250, 0.16)',
   },
   eye: {
     name: '护眼',
@@ -99,6 +107,10 @@ export const APPEARANCES = {
     '--income-bg': '#E6EFE2',
     '--expense': '#B8654A',
     '--expense-bg': '#F6E8E2'
+    '--warning': '#8A5A22',
+    '--warning-bg': '#F0E6D2',
+    '--info': '#3F5E86',
+    '--info-bg': '#DFE7F0',
   }
 };
 

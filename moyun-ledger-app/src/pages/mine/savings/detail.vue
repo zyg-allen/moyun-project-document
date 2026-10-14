@@ -159,52 +159,52 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 60rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 60rpx; min-height: 100vh; background: var(--surface); }
 .overview {
-  background: #fff; margin: 24rpx; border-radius: 20rpx; padding: 32rpx;
+  background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 32rpx;
 }
 .ov-row { display: flex; align-items: center; margin-bottom: 24rpx; }
 .ov-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .ov-val { font-size: 32rpx; font-weight: 700; color: var(--primary-strong); }
-.ov-lab { font-size: 22rpx; color: #999; margin-top: 8rpx; }
-.ov-divider { width: 1rpx; height: 48rpx; background: #eee; }
-.progress-bar { height: 16rpx; background: #f0f0f0; border-radius: 8rpx; overflow: hidden; }
+.ov-lab { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
+.ov-divider { width: 1rpx; height: 48rpx; background: var(--surface); }
+.progress-bar { height: 16rpx; background: var(--surface); border-radius: 8rpx; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--primary-strong); border-radius: 8rpx; transition: width 0.3s; }
 
 .stats-row { display: flex; gap: 20rpx; margin: 0 24rpx 24rpx; }
 .stat {
-  flex: 1; background: #fff; border-radius: 16rpx; padding: 24rpx;
+  flex: 1; background: var(--card); border-radius: 16rpx; padding: 24rpx;
   display: flex; flex-direction: column; align-items: center;
 }
 .stat-num { font-size: 36rpx; font-weight: 700; }
-.stat-lab { font-size: 22rpx; color: #999; margin-top: 4rpx; }
-.stat.success .stat-num { color: #52c41a; }
-.stat.fail .stat-num { color: #e57373; }
-.stat.pending .stat-num { color: #faad14; }
+.stat-lab { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
+.stat.success .stat-num { color: var(--income); }
+.stat.fail .stat-num { color: var(--expense); }
+.stat.pending .stat-num { color: var(--warning); }
 
 .period-list { margin: 0 24rpx; }
-.period-title { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 16rpx; }
+.period-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); margin-bottom: 16rpx; }
 .period-card {
-  background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
+  background: var(--card); border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
   display: flex; align-items: center; justify-content: space-between;
 }
-.p-no { font-size: 26rpx; font-weight: 600; color: #333; }
-.p-amount { font-size: 24rpx; color: #666; margin-top: 6rpx; }
-.p-date { font-size: 20rpx; color: #bbb; margin-top: 4rpx; }
-.p-reason { font-size: 20rpx; color: #e57373; margin-top: 4rpx; }
+.p-no { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
+.p-amount { font-size: 24rpx; color: var(--text-sub); margin-top: 6rpx; }
+.p-date { font-size: 20rpx; color: var(--text-muted); margin-top: 4rpx; }
+.p-reason { font-size: 20rpx; color: var(--expense); margin-top: 4rpx; }
 .p-right { display: flex; flex-direction: column; align-items: flex-end; }
 .p-status { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 16rpx; }
-.p-status.success { color: #52c41a; background: #f0fff0; }
-.p-status.failed { color: #e57373; background: #fff1f0; }
-.p-status.pending { color: #faad14; background: #fffbe6; }
+.p-status.success { color: var(--income); background: var(--income-bg); }
+.p-status.failed { color: var(--expense); background: var(--expense-bg); }
+.p-status.pending { color: var(--warning); background: var(--surface); }
 .p-actions { display: flex; gap: 12rpx; margin-top: 12rpx; }
 .p-btn { font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 20rpx; }
 .p-btn.ok { background: var(--primary-strong); color: #fff; }
-.p-btn.no { background: #fff1f0; color: #e57373; }
-.p-actual { font-size: 20rpx; color: #999; margin-top: 8rpx; }
+.p-btn.no { background: var(--expense-bg); color: var(--expense); }
+.p-actual { font-size: 20rpx; color: var(--text-sub); margin-top: 8rpx; }
 
 .delete-btn {
   margin: 40rpx 24rpx 0; text-align: center; padding: 24rpx;
-  background: #fff; border-radius: 16rpx; color: #e74c3c; font-size: 28rpx;
+  background: var(--card); border-radius: 16rpx; color: var(--expense); font-size: 28rpx;
 }
 </style>

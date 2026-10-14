@@ -277,26 +277,26 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 60rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 60rpx; min-height: 100vh; background: var(--surface); }
 
 .mode-bar {
-  display: flex; background: #fff; margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx;
+  display: flex; background: var(--card); margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx;
 }
 .mode {
-  flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: #666; border-radius: 16rpx;
+  flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: var(--text-sub); border-radius: 16rpx;
 }
 .mode.active { background: var(--primary-strong); color: #fff; font-weight: 600; }
 
-.card { background: #fff; margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx 40rpx; }
+.card { background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx 40rpx; }
 .row { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid #f5f5f7; gap: 16rpx; }
 .row:last-of-type { border-bottom: none; }
-.label { width: 150rpx; font-size: 26rpx; color: #333; flex-shrink: 0; }
+.label { width: 150rpx; font-size: 26rpx; color: var(--text-main); flex-shrink: 0; }
 .input {
-  flex: 1; font-size: 26rpx; background: #f8f9fa; border-radius: 12rpx;
+  flex: 1; font-size: 26rpx; background: var(--surface); border-radius: 12rpx;
   height: 72rpx; line-height: 72rpx; padding: 0 20rpx; box-sizing: border-box;
 }
 .code-input { flex: 1; min-width: 0; }
-.pwd-wrap { flex: 1; display: flex; align-items: center; background: #f8f9fa; border-radius: 12rpx; }
+.pwd-wrap { flex: 1; display: flex; align-items: center; background: var(--surface); border-radius: 12rpx; }
 .pwd-wrap .pwd-input { background: transparent; }
 .pwd-eye {
   flex-shrink: 0; font-size: 24rpx; color: var(--primary-strong);
@@ -306,7 +306,7 @@ export default {
   flex-shrink: 0; font-size: 24rpx; color: var(--primary-strong);
   border: 1rpx solid var(--primary-strong); border-radius: 28rpx; padding: 10rpx 24rpx;
 }
-.code-btn.disabled { color: #bbb; border-color: #e5e6e8; }
+.code-btn.disabled { color: var(--text-muted); border-color: var(--border); }
 .captcha-img { flex-shrink: 0; width: 180rpx; height: 72rpx; border-radius: 8rpx; }
 
 .btn-primary {
@@ -315,7 +315,7 @@ export default {
   font-size: 30rpx; font-weight: 600;
 }
 .btn-primary:active { opacity: 0.85; }
-.tip { font-size: 22rpx; color: #999; text-align: center; margin-top: 20rpx; }
+.tip { font-size: 22rpx; color: var(--text-sub); text-align: center; margin-top: 20rpx; }
 .link { font-size: 24rpx; color: var(--primary-strong); text-align: center; margin-top: 16rpx; padding: 10rpx; }
 
 /* 人机校验弹窗 */
@@ -325,13 +325,13 @@ export default {
   display: flex; align-items: center; justify-content: center;
 }
 .captcha-dialog {
-  width: 580rpx; background: #fff; border-radius: 24rpx; padding: 40rpx 36rpx 32rpx;
+  width: 580rpx; background: var(--card); border-radius: 24rpx; padding: 40rpx 36rpx 32rpx;
 }
-.dialog-title { font-size: 32rpx; font-weight: 600; color: #333; text-align: center; }
-.dialog-tip { font-size: 24rpx; color: #999; text-align: center; margin: 12rpx 0 28rpx; }
+.dialog-title { font-size: 32rpx; font-weight: 600; color: var(--text-main); text-align: center; }
+.dialog-tip { font-size: 24rpx; color: var(--text-sub); text-align: center; margin: 12rpx 0 28rpx; }
 .dialog-body { display: flex; align-items: center; gap: 16rpx; }
 .dialog-input {
-  flex: 1; font-size: 28rpx; background: #f8f9fa; border-radius: 12rpx;
+  flex: 1; font-size: 28rpx; background: var(--surface); border-radius: 12rpx;
   height: 80rpx; line-height: 80rpx; padding: 0 20rpx; box-sizing: border-box;
 }
 .dialog-img { flex-shrink: 0; width: 200rpx; height: 80rpx; border-radius: 8rpx; }
@@ -340,7 +340,7 @@ export default {
   flex: 1; height: 80rpx; line-height: 80rpx; text-align: center;
   border-radius: 40rpx; font-size: 28rpx;
 }
-.dialog-btn.cancel { background: #f2f3f5; color: #666; }
+.dialog-btn.cancel { background: var(--surface); color: var(--text-sub); }
 .dialog-btn.ok { background: var(--primary-strong); color: #fff; font-weight: 600; }
 .dialog-btn:active { opacity: 0.85; }
 </style>

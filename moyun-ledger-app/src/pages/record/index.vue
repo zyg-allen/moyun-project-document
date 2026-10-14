@@ -722,13 +722,13 @@ export default {
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.page { display: flex; flex-direction: column; min-height: 100vh; background: var(--surface); padding-bottom: env(safe-area-inset-bottom); }
 
 /* 顶部类型Tab（白底胶囊） */
-.type-bar { background: #fff; padding: calc(20rpx + var(--status-bar-height)) 24rpx 16rpx; }
-.type-bar-inner { display: flex; background: #f5f6f8; border-radius: 44rpx; padding: 8rpx; }
+.type-bar { background: var(--card); padding: calc(20rpx + var(--status-bar-height)) 24rpx 16rpx; }
+.type-bar-inner { display: flex; background: var(--surface); border-radius: 44rpx; padding: 8rpx; }
 .type-item {
-  flex: 1; text-align: center; color: #666; font-size: 28rpx;
+  flex: 1; text-align: center; color: var(--text-sub); font-size: 28rpx;
   padding: 14rpx 0; border-radius: 36rpx;
 }
 .type-item.active { background: var(--primary); color: #fff; font-weight: 600; }
@@ -737,11 +737,11 @@ export default {
 .type-hint { background: var(--primary-soft); color: var(--primary-strong); font-size: 22rpx; padding: 10rpx 32rpx; }
 
 /* 分类宫格 */
-.cat-section { background: #fff; margin: 20rpx 24rpx; border-radius: 20rpx; padding: 24rpx 12rpx 8rpx; }
+.cat-section { background: var(--card); margin: 20rpx 24rpx; border-radius: 20rpx; padding: 24rpx 12rpx 8rpx; }
 .cat-section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 20rpx 16rpx; font-size: 28rpx; font-weight: 600; }
 .cat-title-right { display: flex; align-items: center; }
 .cat-count { font-size: 22rpx; color: var(--primary-strong); font-weight: 400; margin-right: 16rpx; }
-.cat-toggle { font-size: 22rpx; color: #999; padding: 4rpx 12rpx; background: #f5f5f7; border-radius: 20rpx; }
+.cat-toggle { font-size: 22rpx; color: var(--text-sub); padding: 4rpx 12rpx; background: var(--surface); border-radius: 20rpx; }
 .cat-grid-wrap { max-height: 560rpx; }
 .cat-grid { display: flex; flex-wrap: wrap; }
 .cat-cell { width: 25%; display: flex; flex-direction: column; align-items: center; padding: 16rpx 0 20rpx; }
@@ -752,12 +752,12 @@ export default {
   box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.08);
 }
 .cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }
-.cat-name { font-size: 24rpx; color: #666; margin-top: 10rpx; }
+.cat-name { font-size: 24rpx; color: var(--text-sub); margin-top: 10rpx; }
 .cat-name.selected { color: var(--primary-strong); font-weight: 600; }
-.cat-empty { width: 100%; text-align: center; color: #bbb; font-size: 26rpx; padding: 40rpx 0; }
+.cat-empty { width: 100%; text-align: center; color: var(--text-muted); font-size: 26rpx; padding: 40rpx 0; }
 /* 添加自定义分类入口 + 自定义角标 */
 .cat-add-icon {
-  background: #f5f6f8; color: var(--primary-strong); font-size: 40rpx;
+  background: var(--surface); color: var(--primary-strong); font-size: 40rpx;
   border: 1rpx dashed #c8c8d0; box-shadow: none;
 }
 .cat-custom-tag {
@@ -768,14 +768,14 @@ export default {
 /* 二级分类横滑 */
 .sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid #f5f5f7; }
 .sub-cat-tag {
-  display: inline-block; font-size: 24rpx; color: #666;
-  background: #f5f6f8; border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
+  display: inline-block; font-size: 24rpx; color: var(--text-sub);
+  background: var(--surface); border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
 }
 .sub-cat-tag.active { background: var(--primary); color: #fff; }
 
 /* 备注行（突出） */
 .note-card {
-  display: flex; align-items: center; background: #fff;
+  display: flex; align-items: center; background: var(--card);
   margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 28rpx 32rpx;
 }
 .note-label { font-size: 28rpx; font-weight: 600; margin-right: 24rpx; }
@@ -795,19 +795,19 @@ export default {
 .amount-input { flex: 1; min-width: 0; text-align: right; font-size: 60rpx; font-weight: 700; color: var(--text-main); }
 
 /* 次级选择卡片 */
-.opt-card { background: #fff; margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
+.opt-card { background: var(--card); margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .pick-row {
   display: flex; align-items: center;
   padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
 .pick-row:last-child { border-bottom: none; }
-.pick-label { width: 200rpx; color: #666; font-size: 28rpx; }
+.pick-label { width: 200rpx; color: var(--text-sub); font-size: 28rpx; }
 .pick-value-area { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
 .pick-clear {
   margin-left: 16rpx; padding: 4rpx 16rpx; border-radius: 20rpx;
-  background: #f0f0f5; color: #e74c3c; font-size: 22rpx;
+  background: var(--surface); color: var(--expense); font-size: 22rpx;
 }
-.pick-value { flex: 1; text-align: right; color: #333; font-size: 28rpx; }
+.pick-value { flex: 1; text-align: right; color: var(--text-main); font-size: 28rpx; }
 .pick-input { flex: 1; text-align: right; font-size: 28rpx; }
 .pick-picker { flex: 1; display: flex; justify-content: flex-end; }
 .today-btn {
@@ -830,18 +830,18 @@ export default {
   min-width: 88rpx; min-height: 88rpx;
   display: flex; align-items: center; justify-content: center;
   position: absolute; top: -14rpx; right: -14rpx; width: 36rpx; height: 36rpx;
-  border-radius: 18rpx; background: #e74c3c; color: #fff; font-size: 24rpx;
+  border-radius: 18rpx; background: var(--expense); color: #fff; font-size: 24rpx;
   display: flex; align-items: center; justify-content: center; line-height: 1;
 }
 .voucher-add {
-  width: 120rpx; height: 120rpx; border-radius: 12rpx; background: #f5f6f8;
+  width: 120rpx; height: 120rpx; border-radius: 12rpx; background: var(--surface);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .voucher-add-icon { font-size: 36rpx; }
-.voucher-add-text { font-size: 20rpx; color: #999; margin-top: 4rpx; }
+.voucher-add-text { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }
 
 
-.save-bar { background: #fff; padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
+.save-bar { background: var(--card); padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
 .btn-save {
   background: var(--primary); color: #fff; border-radius: 44rpx; height: 84rpx;
   line-height: 84rpx; text-align: center; font-size: 32rpx; font-weight: 600;
@@ -849,10 +849,10 @@ export default {
 }
 .btn-save.disabled { opacity: 0.4; box-shadow: none; }
 
-.sheet { width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0; padding: 28rpx 32rpx; max-height: 82vh; display: flex; flex-direction: column; }
+.sheet { width: 100%; background: var(--card); border-radius: 32rpx 32rpx 0 0; padding: 28rpx 32rpx; max-height: 82vh; display: flex; flex-direction: column; }
 .picker-list { max-height: 56vh; }
 .picker-cancel {
-  margin-top: 20rpx; text-align: center; color: #999; font-size: 26rpx;
+  margin-top: 20rpx; text-align: center; color: var(--text-sub); font-size: 26rpx;
   height: 72rpx; line-height: 72rpx; border-top: 1rpx solid #f5f5f7;
 }
 .picker-item {
@@ -860,7 +860,7 @@ export default {
   padding: 20rpx 16rpx; border-bottom: 1rpx solid #f5f5f7; font-size: 28rpx;
 }
 .picker-item.active { color: var(--primary-strong); font-weight: 600; }
-.picker-sub { color: #999; font-size: 24rpx; }
+.picker-sub { color: var(--text-sub); font-size: 24rpx; }
 .picker-empty {
   padding: 60rpx 0; text-align: center; color: var(--primary-strong); font-size: 26rpx;
 }
@@ -875,17 +875,17 @@ export default {
 }
 .qa-title { font-size: 26rpx; font-weight: 600; color: var(--primary-strong); margin-bottom: 12rpx; }
 .qa-tip {
-  font-size: 22rpx; color: #e67e22; background: #fdf3e7;
+  font-size: 22rpx; color: var(--warning); background: #fdf3e7;
   border-radius: 8rpx; padding: 12rpx 16rpx; margin-bottom: 8rpx; line-height: 1.6;
 }
 .qa-row { display: flex; align-items: center; padding: 12rpx 0; }
-.qa-label { width: 190rpx; font-size: 25rpx; color: #666; }
+.qa-label { width: 190rpx; font-size: 25rpx; color: var(--text-sub); }
 .qa-input { flex: 1; font-size: 27rpx; text-align: right; }
 .qa-actions { display: flex; gap: 16rpx; margin-top: 12rpx; }
 .qa-btn {
   flex: 1; text-align: center; border-radius: 10rpx; padding: 14rpx 0; font-size: 26rpx;
 }
-.qa-btn.cancel { background: #eee; color: #666; }
+.qa-btn.cancel { background: var(--surface); color: var(--text-sub); }
 .qa-btn.ok { background: var(--primary); color: #fff; }
 .qa-btn.ok.disabled { opacity: 0.4; }
 </style>

@@ -100,7 +100,7 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 40rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 40rpx; min-height: 100vh; background: var(--surface); }
 .nav-add { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 .overview-card {
@@ -111,26 +111,26 @@ export default {
 .ov-amount { font-size: 52rpx; font-weight: 700; margin: 12rpx 0; }
 .ov-sub { display: flex; justify-content: space-between; font-size: 22rpx; opacity: 0.85; }
 
-.section-title { font-size: 28rpx; font-weight: 600; color: #333; padding: 8rpx 32rpx 16rpx; }
+.section-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); padding: 8rpx 32rpx 16rpx; }
 
 .plan-list { padding: 0 24rpx; }
 .plan-card {
-  background: #fff; border-radius: 20rpx; padding: 28rpx; margin-bottom: 20rpx;
+  background: var(--card); border-radius: 20rpx; padding: 28rpx; margin-bottom: 20rpx;
   border-left: 8rpx solid var(--primary-strong);
 }
 .plan-header { display: flex; justify-content: space-between; align-items: center; }
-.plan-name { font-size: 28rpx; font-weight: 600; color: #333; }
+.plan-name { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
 .plan-method { font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
 .plan-amount { font-size: 36rpx; font-weight: 700; color: var(--primary-strong); margin: 16rpx 0 12rpx; }
-.progress-bar { height: 16rpx; background: #f0f0f0; border-radius: 8rpx; overflow: hidden; }
+.progress-bar { height: 16rpx; background: var(--surface); border-radius: 8rpx; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--primary-strong); border-radius: 8rpx; transition: width 0.3s; }
-.plan-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12rpx; font-size: 22rpx; color: #999; }
-.plan-status.ok { color: #52c41a; }
-.plan-status.fail { color: #e57373; }
+.plan-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12rpx; font-size: 22rpx; color: var(--text-sub); }
+.plan-status.ok { color: var(--income); }
+.plan-status.fail { color: var(--expense); }
 
 .empty { display: flex; flex-direction: column; align-items: center; padding: 120rpx 0; }
 .empty-icon { font-size: 100rpx; margin-bottom: 24rpx; }
-.empty-text { font-size: 28rpx; color: #999; margin-bottom: 32rpx; }
+.empty-text { font-size: 28rpx; color: var(--text-sub); margin-bottom: 32rpx; }
 .empty-btn {
   padding: 16rpx 48rpx; background: var(--primary-strong); color: #fff;
   border-radius: 32rpx; font-size: 26rpx;

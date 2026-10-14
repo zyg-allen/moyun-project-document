@@ -229,64 +229,64 @@ export default {
 .year-arrow { font-size: 44rpx; padding: 0 24rpx; opacity: 0.85; }
 .year-text { font-size: 34rpx; font-weight: 700; }
 
-.card { background: #fff; border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
 .chart-title { font-size: 28rpx; font-weight: 600; margin: 8rpx 0 20rpx; }
-.empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 24rpx; }
+.empty { text-align: center; color: var(--text-muted); padding: 40rpx 0; font-size: 24rpx; }
 
 .year-summary { display: flex; align-items: center; margin-bottom: 24rpx; }
 .ys-col { flex: 1; text-align: center; }
-.ys-label { font-size: 22rpx; color: #999; margin-bottom: 6rpx; }
+.ys-label { font-size: 22rpx; color: var(--text-sub); margin-bottom: 6rpx; }
 .ys-value { font-size: 30rpx; font-weight: 700; }
-.ys-value.income { color: #27ae60; }
-.ys-value.expense { color: #e74c3c; }
-.ys-divider { width: 1rpx; height: 48rpx; background: #f0f0f5; }
+.ys-value.income { color: var(--income); }
+.ys-value.expense { color: var(--expense); }
+.ys-divider { width: 1rpx; height: 48rpx; background: var(--surface); }
 
 /* 月度柱状图 */
 .bar-chart { display: flex; align-items: flex-end; height: 200rpx; }
 .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .bar-pair { display: flex; align-items: flex-end; gap: 4rpx; height: 160rpx; }
 .bar { width: 14rpx; border-radius: 6rpx 6rpx 0 0; min-height: 4rpx; }
-.bar.income { background: #27ae60; }
-.bar.expense { background: #e74c3c; }
-.bar-label { font-size: 20rpx; color: #999; margin-top: 8rpx; }
+.bar.income { background: var(--income); }
+.bar.expense { background: var(--expense); }
+.bar-label { font-size: 20rpx; color: var(--text-sub); margin-top: 8rpx; }
 .chart-legend { display: flex; justify-content: center; gap: 8rpx; margin-top: 16rpx; }
 .dot { width: 16rpx; height: 16rpx; border-radius: 8rpx; }
-.dot.income { background: #27ae60; }
-.dot.expense { background: #e74c3c; }
-.legend-text { font-size: 22rpx; color: #999; margin-right: 16rpx; }
+.dot.income { background: var(--income); }
+.dot.expense { background: var(--expense); }
+.legend-text { font-size: 22rpx; color: var(--text-sub); margin-right: 16rpx; }
 
 /* 分类排名条 */
 .rank-row { display: flex; align-items: center; margin-bottom: 16rpx; }
-.rank-name { width: 140rpx; font-size: 24rpx; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank-bar { flex: 1; height: 16rpx; background: #f5f6f8; border-radius: 8rpx; overflow: hidden; margin: 0 16rpx; }
+.rank-name { width: 140rpx; font-size: 24rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-bar { flex: 1; height: 16rpx; background: var(--surface); border-radius: 8rpx; overflow: hidden; margin: 0 16rpx; }
 .rank-inner { height: 100%; border-radius: 8rpx; }
-.rank-inner.expense { background: #e74c3c; }
-.rank-inner.income { background: #27ae60; }
+.rank-inner.expense { background: var(--expense); }
+.rank-inner.income { background: var(--income); }
 .rank-inner.asset { background: var(--primary-strong); }
-.rank-amount { width: 130rpx; text-align: right; font-size: 22rpx; color: #666; }
+.rank-amount { width: 130rpx; text-align: right; font-size: 22rpx; color: var(--text-sub); }
 
 /* 净资产趋势 */
 .nw-row { display: flex; align-items: center; margin-bottom: 14rpx; }
-.nw-date { width: 150rpx; font-size: 20rpx; color: #999; }
+.nw-date { width: 150rpx; font-size: 20rpx; color: var(--text-sub); }
 .nw-bar-wrap { flex: 1; margin: 0 16rpx; }
 .nw-bar { height: 12rpx; background: linear-gradient(90deg, var(--primary-strong), var(--primary)); border-radius: 6rpx; }
-.nw-value { width: 150rpx; text-align: right; font-size: 22rpx; color: #333; }
+.nw-value { width: 150rpx; text-align: right; font-size: 22rpx; color: var(--text-main); }
 
 /* 负债 */
 .liab-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .liab-row:last-child { border-bottom: none; }
-.liab-name { font-size: 27rpx; color: #333; }
-.liab-sub { font-size: 20rpx; color: #999; margin-top: 4rpx; }
+.liab-name { font-size: 27rpx; color: var(--text-main); }
+.liab-sub { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }
 .liab-right { text-align: right; }
 .liab-balance { font-size: 28rpx; font-weight: 600; color: #a04000; }
 
 /* 导出 */
 .export-row { display: flex; align-items: center; gap: 12rpx; }
 .export-date {
-  padding: 10rpx 18rpx; background: #f5f6f8; border-radius: 10rpx;
-  font-size: 22rpx; color: #555;
+  padding: 10rpx 18rpx; background: var(--surface); border-radius: 10rpx;
+  font-size: 22rpx; color: var(--text-sub);
 }
-.export-sep { font-size: 22rpx; color: #999; }
+.export-sep { font-size: 22rpx; color: var(--text-sub); }
 .btn-export {
   margin-left: auto; padding: 10rpx 40rpx; background: var(--primary-strong); color: #fff;
   border-radius: 10rpx; font-size: 24rpx;

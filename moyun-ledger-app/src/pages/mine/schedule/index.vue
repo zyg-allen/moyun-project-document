@@ -151,37 +151,37 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
-.stat-bar { padding: 24rpx 32rpx 0; font-size: 24rpx; color: #999; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
+.stat-bar { padding: 24rpx 32rpx 0; font-size: 24rpx; color: var(--text-sub); }
 
 .task-list { padding: 0 24rpx; }
-.task-card { background: #fff; border-radius: 20rpx; padding: 28rpx; margin-top: 20rpx; }
+.task-card { background: var(--card); border-radius: 20rpx; padding: 28rpx; margin-top: 20rpx; }
 .t-head { display: flex; justify-content: space-between; align-items: center; }
-.t-name { font-size: 28rpx; font-weight: 600; color: #333; }
+.t-name { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
 .t-switch {
   font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 24rpx;
   background: var(--primary-soft); color: var(--primary-strong);
 }
-.t-switch.off { background: #f5f5f5; color: #bbb; }
+.t-switch.off { background: var(--surface); color: var(--text-muted); }
 .t-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 16rpx; }
 .t-amount { font-size: 34rpx; font-weight: 700; }
-.t-amount.income { color: #52c41a; }
-.t-amount.expense { color: #e57373; }
+.t-amount.income { color: var(--income); }
+.t-amount.expense { color: var(--expense); }
 .t-cycle { font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
-.t-info { font-size: 22rpx; color: #999; margin-top: 10rpx; display: flex; gap: 24rpx; flex-wrap: wrap; }
-.t-info.next { color: #666; }
+.t-info { font-size: 22rpx; color: var(--text-sub); margin-top: 10rpx; display: flex; gap: 24rpx; flex-wrap: wrap; }
+.t-info.next { color: var(--text-sub); }
 .t-actions { display: flex; gap: 16rpx; margin-top: 20rpx; justify-content: flex-end; }
 .t-btn {
   font-size: 22rpx; padding: 8rpx 24rpx; border-radius: 26rpx;
   background: var(--primary-soft); color: var(--primary-strong);
 }
-.t-btn.warn { background: #fff7e6; color: #d48806; }
-.t-btn.danger { background: #fff1f0; color: #e57373; }
+.t-btn.warn { background: var(--warning-bg); color: var(--warning); }
+.t-btn.danger { background: var(--expense-bg); color: var(--expense); }
 
 .empty { display: flex; flex-direction: column; align-items: center; padding: 160rpx 0; }
 .empty-icon { font-size: 100rpx; opacity: 0.5; margin-bottom: 24rpx; }
-.empty-text { font-size: 28rpx; color: #999; }
-.empty-sub { font-size: 22rpx; color: #bbb; margin-top: 12rpx; }
+.empty-text { font-size: 28rpx; color: var(--text-sub); }
+.empty-sub { font-size: 22rpx; color: var(--text-muted); margin-top: 12rpx; }
 
 .fab {
   position: fixed; right: 40rpx; bottom: calc(env(safe-area-inset-bottom) + 60rpx);
@@ -196,22 +196,22 @@ export default {
   display: flex; align-items: center; justify-content: center;
 }
 .log-panel {
-  width: 640rpx; max-height: 70vh; background: #fff; border-radius: 24rpx;
+  width: 640rpx; max-height: 70vh; background: var(--card); border-radius: 24rpx;
   padding: 32rpx; display: flex; flex-direction: column;
 }
 .log-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 20rpx; }
 .log-scroll { max-height: 50vh; }
 .log-item { padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .log-line { display: flex; justify-content: space-between; align-items: center; font-size: 24rpx; }
-.log-date { color: #666; }
-.log-status.ok { color: #52c41a; }
-.log-status.fail { color: #e57373; }
-.log-amount { color: #333; font-weight: 600; }
-.log-reason { display: flex; justify-content: space-between; align-items: center; font-size: 22rpx; color: #e57373; margin-top: 8rpx; }
+.log-date { color: var(--text-sub); }
+.log-status.ok { color: var(--income); }
+.log-status.fail { color: var(--expense); }
+.log-amount { color: var(--text-main); font-weight: 600; }
+.log-reason { display: flex; justify-content: space-between; align-items: center; font-size: 22rpx; color: var(--expense); margin-top: 8rpx; }
 .log-retry { color: var(--primary-strong); padding: 12rpx 20rpx; background: var(--primary-soft); border-radius: 8rpx; font-size: 22rpx; min-height: 88rpx; display: inline-flex; align-items: center; }
-.log-empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
+.log-empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 .log-close {
   margin-top: 24rpx; text-align: center; padding: 18rpx;
-  background: #f5f6f8; border-radius: 36rpx; font-size: 26rpx; color: #666;
+  background: var(--surface); border-radius: 36rpx; font-size: 26rpx; color: var(--text-sub);
 }
 </style>

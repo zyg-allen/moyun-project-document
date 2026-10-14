@@ -401,13 +401,13 @@ export default {
 /* 顶部 Tab 切换（吸顶，带安全区） */
 .seg {
   position: sticky; top: 0; z-index: 10;
-  display: flex; background: #fff;
+  display: flex; background: var(--card);
   padding: calc(var(--status-bar-height) + 16rpx) 24rpx 16rpx;
 }
 .seg-item {
-  flex: 1; text-align: center; font-size: 30rpx; color: #999;
+  flex: 1; text-align: center; font-size: 30rpx; color: var(--text-sub);
   padding: 16rpx 0; border-radius: 40rpx; margin: 0 8rpx;
-  background: #f5f5f7; transition: all 0.2s;
+  background: var(--surface); transition: all 0.2s;
 }
 .seg-item.on { color: #fff; background: var(--primary); font-weight: 600; }
 
@@ -423,10 +423,10 @@ export default {
 .summary-amount { font-size: 60rpx; font-weight: 700; margin: 12rpx 0; }
 .summary-sub { font-size: 24rpx; opacity: 0.8; }
 
-.card { background: #fff; border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 12rpx; }
 .link { color: var(--primary-strong); font-size: 26rpx; font-weight: 400; }
-.empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
+.empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 
 .row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .row-icon {
@@ -437,9 +437,9 @@ export default {
 /* 负债图标：暖橙系底（与资产主题蓝区分） */
 .row-icon.liab { background: linear-gradient(135deg, #f2913d, #e8703a); }
 .row-name { font-size: 28rpx; }
-.archived-tag { font-size: 20rpx; color: #fff; background: #bbb; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
-.settle-tag { font-size: 20rpx; color: #27ae60; border: 1rpx solid #27ae60; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
-.row-type { font-size: 22rpx; color: #bbb; margin-top: 4rpx; }
+.archived-tag { font-size: 20rpx; color: #fff; background: var(--text-muted); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid #27ae60; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.row-type { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .row-balance { font-size: 32rpx; font-weight: 600; }
 /* 负债金额：红色（欠的钱），资产金额保持默认 */
 .row-balance.liab { color: #d93a31; }
@@ -454,16 +454,16 @@ export default {
 
 .sheet-title { font-size: 34rpx; font-weight: 600; text-align: center; margin-bottom: 32rpx; }
 .field { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
-.field-label { width: 200rpx; font-size: 28rpx; color: #666; }
+.field-label { width: 200rpx; font-size: 28rpx; color: var(--text-sub); }
 .field-input { flex: 1; font-size: 28rpx; text-align: right; }
-.field-picker { flex: 1; font-size: 28rpx; text-align: right; color: #333; }
+.field-picker { flex: 1; font-size: 28rpx; text-align: right; color: var(--text-main); }
 .btn-primary { margin-top: 40rpx; }
 .btn-danger {
-  margin-top: 24rpx; text-align: center; color: #e74c3c; font-size: 28rpx;
+  margin-top: 24rpx; text-align: center; color: var(--expense); font-size: 28rpx;
   border: 1rpx solid #e74c3c; border-radius: 44rpx; height: 80rpx; line-height: 80rpx;
 }
 .btn-cancel {
-  margin-top: 20rpx; text-align: center; color: #999; font-size: 26rpx;
+  margin-top: 20rpx; text-align: center; color: var(--text-sub); font-size: 26rpx;
   height: 72rpx; line-height: 72rpx;
 }
 
@@ -473,9 +473,9 @@ export default {
   min-width: 88rpx; min-height: 88rpx;
   display: flex; align-items: center; justify-content: center;
   width: 52rpx; height: 52rpx; line-height: 52rpx; text-align: center;
-  border-radius: 50%; background: #f5f6f8; color: #888; font-size: 22rpx;
+  border-radius: 50%; background: var(--surface); color: var(--text-sub); font-size: 22rpx;
 }
-.pencil-btn:active { background: #e8e8ea; }
+.pencil-btn:active { background: var(--border); }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
 .btn-primary.disabled { opacity: 0.5; }
 </style>

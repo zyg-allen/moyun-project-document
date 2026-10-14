@@ -480,7 +480,7 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 40rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 40rpx; min-height: 100vh; background: var(--surface); }
 
 /* 合并顶栏（绿色主题底）：返回 | tab(居中) | 月份 */
 .header-bar {
@@ -507,7 +507,7 @@ export default {
   padding: 8rpx 28rpx; font-size: 26rpx; color: rgba(255,255,255,0.85);
   border-radius: 26rpx;
 }
-.sw-item.active { background: #fff; color: var(--primary-strong); font-weight: 600; }
+.sw-item.active { background: var(--card); color: var(--primary-strong); font-weight: 600; }
 .header-right { flex-shrink: 0; }
 .month-picker { display: flex; align-items: center; }
 .month-text { font-size: 28rpx; font-weight: 600; }
@@ -515,10 +515,10 @@ export default {
 
 /* 筛选栏 */
 .filter-bar {
-  display: flex; flex-wrap: wrap; gap: 12rpx; padding: 20rpx 24rpx; background: #fff;
+  display: flex; flex-wrap: wrap; gap: 12rpx; padding: 20rpx 24rpx; background: var(--card);
 }
 .filter-item {
-  padding: 8rpx 20rpx; background: #f5f6f8; border-radius: 28rpx; font-size: 24rpx; color: #555;
+  padding: 8rpx 20rpx; background: var(--surface); border-radius: 28rpx; font-size: 24rpx; color: var(--text-sub);
 }
 .filter-btn {
   padding: 8rpx 28rpx; background: var(--primary-strong); color: #fff; border-radius: 28rpx; font-size: 24rpx;
@@ -527,13 +527,13 @@ export default {
 
 .summary-bar {
   display: flex; justify-content: space-between; align-items: center;
-  margin: 16rpx 24rpx 0; padding: 0 8rpx; font-size: 22rpx; color: #999;
+  margin: 16rpx 24rpx 0; padding: 0 8rpx; font-size: 22rpx; color: var(--text-sub);
 }
 .summary-nums { display: flex; gap: 24rpx; }
-.summary-nums .income { color: #27ae60; }
-.summary-nums .expense { color: #e74c3c; }
+.summary-nums .income { color: var(--income); }
+.summary-nums .expense { color: var(--expense); }
 
-.card { background: #fff; border-radius: 20rpx; padding: 8rpx 24rpx; margin: 16rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 8rpx 24rpx; margin: 16rpx 24rpx; }
 
 .filter-banner {
   display: flex; align-items: center; gap: 16rpx;
@@ -547,18 +547,18 @@ export default {
 .banner-sub { font-size: 22rpx; color: #64748b; margin-top: 4rpx; }
 .banner-close {
   width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
-  border-radius: 50%; background: #fff; color: #94a3b8; font-size: 30rpx;
+  border-radius: 50%; background: var(--card); color: var(--text-sub); font-size: 30rpx;
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
 }
-.banner-close:active { background: #f1f5f9; }
-.empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
+.banner-close:active { background: var(--surface); }
+.empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 
 .day-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 20rpx 8rpx 8rpx; border-bottom: 1rpx solid #f0f0f5;
 }
-.day-date { font-size: 26rpx; font-weight: 600; color: #333; }
-.day-sub { font-size: 22rpx; color: #999; }
+.day-date { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
+.day-sub { font-size: 22rpx; color: var(--text-sub); }
 
 .txn-row { display: flex; align-items: center; padding: 14rpx 8rpx; border-bottom: 1rpx solid #f5f5f7; }
 .txn-row.last-row { border-bottom: none; }
@@ -567,22 +567,22 @@ export default {
   display: flex; align-items: center; justify-content: center;
   font-size: 24rpx; font-weight: 600; color: #fff; background: var(--primary-strong);
 }
-.txn-icon.expense { background: #e74c3c; }
-.txn-icon.income { background: #27ae60; }
+.txn-icon.expense { background: var(--expense); }
+.txn-icon.income { background: var(--income); }
 .txn-icon.transfer { background: #4a90d9; }
 .txn-icon.repayment { background: #a04000; }
 .txn-icon.borrow { background: #8e44ad; }
 .txn-icon.adjust { background: #95a5a6; }
 .txn-top { display: flex; justify-content: space-between; align-items: baseline; }
-.txn-name { font-size: 27rpx; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deleted-tag { font-size: 20rpx; color: #fff; background: #bbb; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.txn-name { font-size: 27rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deleted-tag { font-size: 20rpx; color: #fff; background: var(--text-muted); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .txn-amount { font-size: 28rpx; font-weight: 600; flex-shrink: 0; margin-left: 16rpx; }
-.txn-amount.income { color: #27ae60; }
-.txn-amount.expense { color: #e74c3c; }
+.txn-amount.income { color: var(--income); }
+.txn-amount.expense { color: var(--expense); }
 .txn-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4rpx; }
 .meta-tags { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta-tag {
-  display: inline-block; font-size: 20rpx; color: #888; background: #f5f6f8;
+  display: inline-block; font-size: 20rpx; color: var(--text-sub); background: var(--surface);
   border-radius: 6rpx; padding: 2rpx 10rpx; margin-right: 10rpx;
 }
 .meta-right { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; }
@@ -596,22 +596,22 @@ export default {
 }
 .pg-btn {
   width: 64rpx; height: 64rpx; line-height: 60rpx; text-align: center;
-  border-radius: 50%; background: #fff; color: var(--primary-strong);
+  border-radius: 50%; background: var(--card); color: var(--primary-strong);
   font-size: 36rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
 }
 .pg-btn:active { background: var(--primary-soft); }
 .pg-btn.disabled { opacity: 0.3; }
-.pg-info { font-size: 28rpx; color: #333; }
+.pg-info { font-size: 28rpx; color: var(--text-main); }
 .pg-current { font-weight: 700; color: var(--primary-strong); }
-.pg-sep { color: #ccc; }
-.pg-total { color: #999; }
-.pg-count { font-size: 22rpx; color: #999; margin-left: 8rpx; }
+.pg-sep { color: var(--text-muted); }
+.pg-total { color: var(--text-sub); }
+.pg-count { font-size: 22rpx; color: var(--text-sub); margin-left: 8rpx; }
 
 /* ============ 日历视图样式 ============ */
-.calendar-card { background: #fff; border-radius: 20rpx; margin: 16rpx 24rpx 0; padding: 20rpx 16rpx 8rpx; }
+.calendar-card { background: var(--card); border-radius: 20rpx; margin: 16rpx 24rpx 0; padding: 20rpx 16rpx 8rpx; }
 .week-row { display: flex; border-bottom: 1rpx solid #f5f5f7; }
-.week-cell { flex: 1; text-align: center; font-size: 24rpx; color: #999; padding: 12rpx 0; }
-.week-cell.weekend { color: #e74c3c; }
+.week-cell { flex: 1; text-align: center; font-size: 24rpx; color: var(--text-sub); padding: 12rpx 0; }
+.week-cell.weekend { color: var(--expense); }
 .grid { display: flex; flex-wrap: wrap; }
 .day-cell {
   width: 14.28%; height: 104rpx; display: flex; flex-direction: column;
@@ -619,14 +619,14 @@ export default {
 }
 .day-cell.empty { pointer-events: none; }
 .day-cell.selected { background: var(--primary-soft); border-radius: 12rpx; }
-.day-num { font-size: 26rpx; color: #333; }
-.day-cell.weekend .day-num { color: #e74c3c; }
+.day-num { font-size: 26rpx; color: var(--text-main); }
+.day-cell.weekend .day-num { color: var(--expense); }
 .day-cell.selected .day-num { color: var(--primary-strong); font-weight: 700; }
 .day-cell.today .day-num { color: var(--primary-strong); }
 .day-cell.today.weekend .day-num { color: var(--primary-strong); }
 .day-net { font-size: 18rpx; margin-top: 2rpx; transform: scale(0.9); }
-.day-net.in { color: #27ae60; }
-.day-net.out { color: #e74c3c; }
+.day-net.in { color: var(--income); }
+.day-net.out { color: var(--expense); }
 .day-dot { width: 8rpx; height: 8rpx; border-radius: 4rpx; background: #ccc; margin-top: 4rpx; }
 .day-cell.selected .day-dot { background: var(--primary-strong); }
 
@@ -635,18 +635,18 @@ export default {
   margin: 16rpx 32rpx 0;
 }
 .ds-left { display: flex; align-items: center; }
-.ds-date { font-size: 28rpx; font-weight: 600; color: #333; }
-.ds-right { display: flex; gap: 20rpx; font-size: 22rpx; color: #666; }
-.ds-in { color: #27ae60; }
-.ds-out { color: #e74c3c; }
+.ds-date { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
+.ds-right { display: flex; gap: 20rpx; font-size: 22rpx; color: var(--text-sub); }
+.ds-in { color: var(--income); }
+.ds-out { color: var(--expense); }
 
-.txn-time { font-size: 20rpx; color: #999; flex-shrink: 0; }
+.txn-time { font-size: 20rpx; color: var(--text-sub); flex-shrink: 0; }
 
 .month-summary {
   display: flex; justify-content: space-between; align-items: center;
-  margin: 16rpx 32rpx 0; font-size: 22rpx; color: #999;
+  margin: 16rpx 32rpx 0; font-size: 22rpx; color: var(--text-sub);
 }
 .ms-nums { display: flex; gap: 24rpx; }
-.ms-nums .in { color: #27ae60; }
-.ms-nums .out { color: #e74c3c; }
+.ms-nums .in { color: var(--income); }
+.ms-nums .out { color: var(--expense); }
 </style>

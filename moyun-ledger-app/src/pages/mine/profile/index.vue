@@ -198,32 +198,32 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 60rpx; min-height: 100vh; background: #f5f6f8; display: flex; flex-direction: column; }
+.page { padding-bottom: 60rpx; min-height: 100vh; background: var(--surface); display: flex; flex-direction: column; }
 
 .content { flex: 1; }
 
 .tip-card {
   margin: 24rpx 24rpx 0; padding: 20rpx 24rpx;
-  background: #f0f7ff; border-left: 6rpx solid var(--primary-strong);
-  border-radius: 12rpx; font-size: 24rpx; color: #55708c; line-height: 1.7;
+  background: var(--surface); border-left: 6rpx solid var(--primary-strong);
+  border-radius: 12rpx; font-size: 24rpx; color: var(--info); line-height: 1.7;
 }
 .completeness { display: flex; align-items: center; gap: 16rpx; margin-top: 16rpx; }
-.comp-bar { flex: 1; height: 14rpx; background: #e3ecf5; border-radius: 7rpx; overflow: hidden; }
+.comp-bar { flex: 1; height: 14rpx; background: var(--surface); border-radius: 7rpx; overflow: hidden; }
 .comp-inner { height: 100%; background: var(--primary-strong); border-radius: 7rpx; transition: width .3s; }
 .comp-text { font-size: 22rpx; color: var(--primary-strong); flex-shrink: 0; }
 
-.card { background: #fff; border-radius: 20rpx; padding: 24rpx 32rpx 8rpx; margin: 24rpx 24rpx 0; }
-.card-title { font-size: 28rpx; font-weight: 600; color: #333; padding-bottom: 8rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx 8rpx; margin: 24rpx 24rpx 0; }
+.card-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); padding-bottom: 8rpx; }
 .field { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .field.col { flex-direction: column; align-items: stretch; gap: 20rpx; }
 .field:last-of-type { border-bottom: none; }
-.field-label { width: 220rpx; font-size: 28rpx; color: #666; flex-shrink: 0; }
+.field-label { width: 220rpx; font-size: 28rpx; color: var(--text-sub); flex-shrink: 0; }
 .field-input { flex: 1; font-size: 28rpx; text-align: right; }
-.field-picker { flex: 1; font-size: 28rpx; text-align: right; color: #333; }
+.field-picker { flex: 1; font-size: 28rpx; text-align: right; color: var(--text-main); }
 
 .type-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .type-item {
-  font-size: 26rpx; color: #666; background: #f5f6f8; border-radius: 30rpx;
+  font-size: 26rpx; color: var(--text-sub); background: var(--surface); border-radius: 30rpx;
   padding: 12rpx 30rpx; border: 1rpx solid transparent;
 }
 .type-item.on { color: #fff; background: var(--primary-strong); }
@@ -238,6 +238,6 @@ export default {
 
 .footer {
   padding: 32rpx 0 calc(24rpx + env(safe-area-inset-bottom));
-  text-align: center; font-size: 22rpx; color: #c3c8cf;
+  text-align: center; font-size: 22rpx; color: var(--text-muted);
 }
 </style>

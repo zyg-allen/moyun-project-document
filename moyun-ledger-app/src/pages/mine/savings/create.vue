@@ -149,27 +149,27 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
-.form-card { background: #fff; margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
+.form-card { background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .form-row {
   display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
 .form-row:last-child { border-bottom: none; }
-.form-label { width: 180rpx; font-size: 28rpx; color: #333; flex-shrink: 0; }
+.form-label { width: 180rpx; font-size: 28rpx; color: var(--text-main); flex-shrink: 0; }
 .form-input { flex: 1; text-align: right; font-size: 28rpx; }
-.form-value { font-size: 28rpx; color: #333; }
+.form-value { font-size: 28rpx; color: var(--text-main); }
 .method-group { flex: 1; display: flex; gap: 16rpx; justify-content: flex-end; flex-wrap: wrap; }
 .method-tag {
   font-size: 24rpx; padding: 8rpx 20rpx; border-radius: 24rpx;
-  background: #f5f6f8; color: #666;
+  background: var(--surface); color: var(--text-sub);
 }
 .method-tag.active { background: var(--primary-soft); color: var(--primary-strong); }
 
 .tip-card {
-  background: #fffbe6; border: 1rpx solid #ffe58f;
+  background: var(--surface); border: 1rpx solid #ffe58f;
   margin: 0 24rpx; border-radius: 16rpx; padding: 24rpx;
 }
-.tip-title { font-size: 26rpx; font-weight: 600; color: #d48806; }
+.tip-title { font-size: 26rpx; font-weight: 600; color: var(--warning); }
 .tip-desc { display: block; font-size: 22rpx; color: #8c6d1f; line-height: 1.6; margin-top: 8rpx; }
 .gen-btn {
   margin-top: 16rpx; display: inline-block; padding: 8rpx 24rpx;

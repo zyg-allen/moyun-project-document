@@ -269,37 +269,37 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
 .tip-card {
-  background: #fff; margin: 24rpx; border-radius: 20rpx; padding: 24rpx 32rpx 8rpx;
+  background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 24rpx 32rpx 8rpx;
 }
-.amount-label { font-size: 28rpx; color: #333; padding: 8rpx 0 24rpx; }
+.amount-label { font-size: 28rpx; color: var(--text-main); padding: 8rpx 0 24rpx; }
 .amount-grid {
   display: flex; flex-wrap: wrap; gap: 20rpx;
   padding-bottom: 24rpx; border-bottom: 1rpx solid #f5f5f7;
 }
 .amount-cell {
   width: calc((100% - 60rpx) / 4); height: 88rpx;
-  border-radius: 16rpx; background: #f7f8fa;
+  border-radius: 16rpx; background: var(--bg);
   display: flex; align-items: center; justify-content: center;
   border: 2rpx solid transparent; box-sizing: border-box;
 }
 .amount-cell.active {
   background: rgba(64, 128, 255, 0.08); border-color: var(--primary-strong);
 }
-.amount-num { font-size: 28rpx; color: #333; font-weight: 500; }
+.amount-num { font-size: 28rpx; color: var(--text-main); font-weight: 500; }
 .amount-cell.active .amount-num { color: var(--primary-strong); font-weight: 600; }
 .tip-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
 .tip-row:last-child { border-bottom: none; }
-.tip-label { font-size: 28rpx; color: #333; }
+.tip-label { font-size: 28rpx; color: var(--text-main); }
 .tip-input { flex: 1; text-align: right; font-size: 28rpx; color: var(--primary-strong); }
-.tip-total { font-size: 28rpx; color: #333; }
+.tip-total { font-size: 28rpx; color: var(--text-main); }
 
-.pay-title { font-size: 28rpx; color: #333; padding: 16rpx 32rpx 8rpx; }
-.pay-card { background: #fff; margin: 0 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
+.pay-title { font-size: 28rpx; color: var(--text-main); padding: 16rpx 32rpx 8rpx; }
+.pay-card { background: var(--card); margin: 0 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .pay-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
@@ -311,8 +311,8 @@ export default {
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 30rpx; margin-right: 20rpx;
 }
-.pay-icon.wechat { background: #07c160; }
-.pay-name { font-size: 28rpx; color: #333; }
+.pay-icon.wechat { background: var(--income); }
+.pay-name { font-size: 28rpx; color: var(--text-main); }
 .pay-check {
   width: 36rpx; height: 36rpx; border-radius: 18rpx;
   border: 2rpx solid #ccc; display: flex; align-items: center; justify-content: center;
@@ -321,7 +321,7 @@ export default {
 .pay-check.checked { background: var(--primary-strong); border-color: var(--primary-strong); }
 
 .tip-note {
-  margin: 24rpx 32rpx; font-size: 22rpx; color: #999; line-height: 1.8;
+  margin: 24rpx 32rpx; font-size: 22rpx; color: var(--text-sub); line-height: 1.8;
 }
 .note-feedback { color: var(--primary-strong); }
 
@@ -335,21 +335,21 @@ export default {
 
 /* ===== 赞赏历史 ===== */
 .history-card {
-  background: #fff; margin: 0 24rpx 24rpx; border-radius: 20rpx; padding: 24rpx 32rpx;
+  background: var(--card); margin: 0 24rpx 24rpx; border-radius: 20rpx; padding: 24rpx 32rpx;
 }
-.history-title { font-size: 28rpx; color: #333; font-weight: 600; margin-bottom: 8rpx; }
+.history-title { font-size: 28rpx; color: var(--text-main); font-weight: 600; margin-bottom: 8rpx; }
 .history-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 20rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
 .history-row:last-child { border-bottom: none; }
 .history-left { display: flex; flex-direction: column; gap: 4rpx; }
-.history-amount { font-size: 28rpx; color: #333; font-weight: 500; }
-.history-time { font-size: 22rpx; color: #999; }
+.history-amount { font-size: 28rpx; color: var(--text-main); font-weight: 500; }
+.history-time { font-size: 22rpx; color: var(--text-sub); }
 .history-status { font-size: 24rpx; }
 .history-status.paid { color: #07c160; }
-.history-status.pending { color: #e6a23c; }
-.history-status.refunded, .history-status.closed { color: #999; }
+.history-status.pending { color: var(--warning); }
+.history-status.refunded, .history-status.closed { color: var(--text-sub); }
 
 /* ===== 收银台弹层 ===== */
 .cashier-mask {
@@ -357,18 +357,18 @@ export default {
   display: flex; align-items: center; justify-content: center; z-index: 999;
 }
 .cashier-panel {
-  width: 560rpx; background: #fff; border-radius: 24rpx; padding: 40rpx 32rpx;
+  width: 560rpx; background: var(--card); border-radius: 24rpx; padding: 40rpx 32rpx;
   display: flex; flex-direction: column; align-items: center;
 }
-.cashier-title { font-size: 32rpx; color: #333; font-weight: 600; }
-.cashier-amount { font-size: 48rpx; color: #333; font-weight: 700; margin: 16rpx 0 24rpx; }
+.cashier-title { font-size: 32rpx; color: var(--text-main); font-weight: 600; }
+.cashier-amount { font-size: 48rpx; color: var(--text-main); font-weight: 700; margin: 16rpx 0 24rpx; }
 .cashier-qr-wrap {
-  width: 360rpx; height: 360rpx; background: #fafafa;
+  width: 360rpx; height: 360rpx; background: var(--surface);
   border-radius: 16rpx; display: flex; align-items: center; justify-content: center;
 }
 .cashier-qr { width: 180px; height: 180px; }
-.cashier-tip { font-size: 24rpx; color: #999; margin-top: 20rpx; }
-.cashier-status { font-size: 26rpx; color: #e6a23c; margin-top: 12rpx; }
+.cashier-tip { font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
+.cashier-status { font-size: 26rpx; color: var(--warning); margin-top: 12rpx; }
 .cashier-status.paid { color: #07c160; }
 .cashier-actions {
   display: flex; gap: 24rpx; margin-top: 32rpx; width: 100%;
@@ -377,7 +377,7 @@ export default {
   flex: 1; height: 76rpx; line-height: 76rpx; text-align: center;
   border-radius: 38rpx; font-size: 28rpx;
 }
-.cashier-btn.ghost { background: #f2f3f5; color: #666; }
-.cashier-btn.primary { background: #07c160; color: #fff; font-weight: 500; }
+.cashier-btn.ghost { background: var(--surface); color: var(--text-sub); }
+.cashier-btn.primary { background: var(--income); color: #fff; font-weight: 500; }
 .cashier-btn:active { opacity: 0.85; }
 </style>

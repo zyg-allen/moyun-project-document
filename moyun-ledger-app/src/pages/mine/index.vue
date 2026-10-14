@@ -260,20 +260,20 @@ export default {
   font-size: 30rpx;
 }
 
-.card { background: #fff; border-radius: 20rpx; padding: 8rpx 32rpx; margin: 0 24rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 8rpx 32rpx; margin: 0 24rpx 24rpx; }
 .field { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7; }
-.field-label { width: 140rpx; font-size: 28rpx; color: #666; }
+.field-label { width: 140rpx; font-size: 28rpx; color: var(--text-sub); }
 .field-input { flex: 1; font-size: 28rpx; text-align: right; }
 .captcha-row { display: flex; align-items: center; gap: 16rpx; flex: 1; }
 .captcha-input { flex: 1; }
-.captcha-img { width: 200rpx; height: 72rpx; border-radius: 10rpx; background: #f5f5f5; flex-shrink: 0; }
-.captcha-loading { display: flex; align-items: center; justify-content: center; color: #999; font-size: 22rpx; }
+.captcha-img { width: 200rpx; height: 72rpx; border-radius: 10rpx; background: var(--surface); flex-shrink: 0; }
+.captcha-loading { display: flex; align-items: center; justify-content: center; color: var(--text-sub); font-size: 22rpx; }
 .btn-primary { margin: 32rpx 0 16rpx; }
-.login-tip { font-size: 22rpx; color: #999; padding-bottom: 16rpx; text-align: center; }
+.login-tip { font-size: 22rpx; color: var(--text-sub); padding-bottom: 16rpx; text-align: center; }
 
 /* 功能宫格 */
 .grid-card {
-  background: #fff; border-radius: 20rpx; padding: 24rpx 12rpx;
+  background: var(--card); border-radius: 20rpx; padding: 24rpx 12rpx;
   margin: 24rpx 24rpx 0;
   display: flex; flex-wrap: wrap;
 }
@@ -287,41 +287,41 @@ export default {
   display: flex; align-items: center; justify-content: center;
   font-size: 38rpx; background: var(--primary-soft);
 }
-.cell-label { font-size: 24rpx; color: #555; margin-top: 12rpx; }
+.cell-label { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
 .cell-badge {
   position: absolute; top: 12rpx; right: 16rpx;
-  font-size: 18rpx; color: #fff; background: #e57373;
+  font-size: 18rpx; color: #fff; background: var(--expense);
   border-radius: 16rpx; padding: 0 8rpx; line-height: 28rpx;
 }
 
 .section-title {
-  font-size: 28rpx; font-weight: 600; color: #333;
+  font-size: 28rpx; font-weight: 600; color: var(--text-main);
   padding: 32rpx 32rpx 12rpx;
 }
 
 .menu-item {
   display: flex; justify-content: center; align-items: center;
-  padding: 32rpx 0; font-size: 28rpx; color: #e74c3c;
+  padding: 32rpx 0; font-size: 28rpx; color: var(--expense);
 }
 /* 账号信息维护列表项 */
 .menu-item.with-icon {
-  justify-content: flex-start; color: #333; gap: 20rpx;
+  justify-content: flex-start; color: var(--text-main); gap: 20rpx;
   border-bottom: 1rpx solid #f5f5f7; padding: 30rpx 0;
 }
 .menu-item.with-icon:last-of-type { border-bottom: none; }
 .mi-icon { font-size: 36rpx; }
-.mi-sub { font-size: 22rpx; color: #e6a23c; }
-.mi-sub.ok { color: #52c41a; }
-.mi-arrow { font-size: 30rpx; color: #c3c8cf; }
+.mi-sub { font-size: 22rpx; color: var(--warning); }
+.mi-sub.ok { color: var(--income); }
+.mi-arrow { font-size: 30rpx; color: var(--text-muted); }
 .list-card { padding: 4rpx 32rpx; }
 
 .login-links { display: flex; justify-content: space-between; padding: 12rpx 0 4rpx; }
 .register-link { font-size: 26rpx; color: var(--primary-strong); }
-.forgot-link { font-size: 26rpx; color: #999; }
+.forgot-link { font-size: 26rpx; color: var(--text-sub); }
 
 /* 脚部 */
 .footer {
   padding: 40rpx 0 calc(32rpx + env(safe-area-inset-bottom));
-  text-align: center; font-size: 22rpx; color: #c3c8cf;
+  text-align: center; font-size: 22rpx; color: var(--text-muted);
 }
 </style>

@@ -153,11 +153,11 @@ export default {
   margin: 24rpx; padding: 20rpx 28rpx; background: var(--primary-soft); color: var(--primary-strong);
   border-radius: 16rpx; font-size: 24rpx;
 }
-.card { background: #fff; border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 8rpx; }
 .field { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .field:last-of-type { border-bottom: none; }
-.field-label { width: 260rpx; font-size: 28rpx; color: #666; }
+.field-label { width: 260rpx; font-size: 28rpx; color: var(--text-sub); }
 .field-value { flex: 1; text-align: right; font-size: 28rpx; }
 .field-input { flex: 1; text-align: right; font-size: 28rpx; }
 .btn-primary { margin: 32rpx 0 8rpx; }

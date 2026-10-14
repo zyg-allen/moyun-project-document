@@ -296,17 +296,17 @@ export default {
 .brand-slogan { font-size: 32rpx; margin-top: 20rpx; font-weight: 600; }
 .brand-sub { font-size: 24rpx; opacity: 0.75; margin-top: 12rpx; }
 .intro-card { padding: 28rpx; }
-.intro-title { font-size: 30rpx; font-weight: 700; color: #333; margin-bottom: 12rpx; }
+.intro-title { font-size: 30rpx; font-weight: 700; color: var(--text-main); margin-bottom: 12rpx; }
 .pain-item { display: flex; align-items: flex-start; padding: 18rpx 0; }
 .pain-icon { font-size: 40rpx; margin-right: 20rpx; }
-.pain-t { font-size: 28rpx; color: #333; font-weight: 600; }
-.pain-d { font-size: 23rpx; color: #999; margin-top: 4rpx; }
+.pain-t { font-size: 28rpx; color: var(--text-main); font-weight: 600; }
+.pain-d { font-size: 23rpx; color: var(--text-sub); margin-top: 4rpx; }
 .intro-action { margin: 8rpx 24rpx 24rpx; }
 .btn-login {
   background: var(--primary-strong); color: #fff; border-radius: 44rpx; height: 88rpx;
   line-height: 88rpx; text-align: center; font-size: 30rpx; font-weight: 600;
 }
-.intro-note { font-size: 22rpx; color: #999; text-align: center; margin-top: 16rpx; }
+.intro-note { font-size: 22rpx; color: var(--text-sub); text-align: center; margin-top: 16rpx; }
 
 /* ===== 登录后操作提示条 ===== */
 .tips-bar {
@@ -318,9 +318,9 @@ export default {
 
 /* 新手引导卡片 */
 .guide-card {
-  background: #fff; border-radius: 20rpx; margin: 24rpx 24rpx 0; padding: 28rpx;
+  background: var(--card); border-radius: 20rpx; margin: 24rpx 24rpx 0; padding: 28rpx;
 }
-.guide-title { font-size: 30rpx; font-weight: 700; color: #333; margin-bottom: 20rpx; }
+.guide-title { font-size: 30rpx; font-weight: 700; color: var(--text-main); margin-bottom: 20rpx; }
 .guide-step {
   display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
@@ -330,11 +330,11 @@ export default {
   font-size: 24rpx; font-weight: 600; display: flex; align-items: center; justify-content: center;
   margin-right: 20rpx; flex-shrink: 0;
 }
-.step-name { font-size: 27rpx; color: #333; }
-.step-desc { font-size: 22rpx; color: #999; margin-top: 4rpx; }
-.guide-card .arrow { color: #ccc; font-size: 32rpx; }
+.step-name { font-size: 27rpx; color: var(--text-main); }
+.step-desc { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
+.guide-card .arrow { color: var(--text-muted); font-size: 32rpx; }
 .guide-close {
-  margin-top: 16rpx; text-align: center; font-size: 24rpx; color: #999;
+  margin-top: 16rpx; text-align: center; font-size: 24rpx; color: var(--text-sub);
   padding-top: 16rpx; border-top: 1rpx solid #f5f5f7;
 }
 .hero {
@@ -357,23 +357,23 @@ export default {
 .cell-value { font-size: 34rpx; font-weight: 600; }
 .hero-divider { width: 1rpx; height: 48rpx; background: rgba(255,255,255,0.25); }
 
-.card { background: #fff; border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
 .link { color: var(--primary-strong); font-size: 26rpx; font-weight: 400; }
 .month-row { display: flex; }
 .month-col { flex: 1; }
-.month-label { font-size: 24rpx; color: #999; margin-bottom: 8rpx; }
+.month-label { font-size: 24rpx; color: var(--text-sub); margin-bottom: 8rpx; }
 .month-value { font-size: 40rpx; font-weight: 700; }
-.month-value.income { color: #27ae60; }
-.month-value.expense { color: #e74c3c; }
+.month-value.income { color: var(--income); }
+.month-value.expense { color: var(--expense); }
 .budget-line { margin-top: 24rpx; }
-.budget-text { display: flex; justify-content: space-between; font-size: 24rpx; color: #999; margin-bottom: 12rpx; }
-.budget-bar { height: 12rpx; background: #f0f0f5; border-radius: 6rpx; overflow: hidden; }
+.budget-text { display: flex; justify-content: space-between; font-size: 24rpx; color: var(--text-sub); margin-bottom: 12rpx; }
+.budget-bar { height: 12rpx; background: var(--surface); border-radius: 6rpx; overflow: hidden; }
 .budget-inner { height: 100%; background: var(--primary-strong); border-radius: 6rpx; }
-.budget-inner.over { background: #e74c3c; }
-.budget-text .over { color: #e74c3c; font-weight: 600; }
+.budget-inner.over { background: var(--expense); }
+.budget-text .over { color: var(--expense); font-weight: 600; }
 
-.empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
+.empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 .txn-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .txn-row:last-child { border-bottom: none; }
 .txn-icon {
@@ -381,15 +381,15 @@ export default {
   display: flex; align-items: center; justify-content: center;
   font-size: 28rpx; font-weight: 600; color: #fff; background: var(--primary-strong);
 }
-.txn-icon.expense { background: #e74c3c; }
-.txn-icon.income { background: #27ae60; }
+.txn-icon.expense { background: var(--expense); }
+.txn-icon.income { background: var(--income); }
 .txn-icon.transfer { background: #4a90d9; }
 .txn-icon.repayment { background: #a04000; }
 .txn-icon.borrow { background: #8e44ad; }
 .txn-icon.adjust { background: #95a5a6; }
 .txn-name { font-size: 28rpx; }
-.txn-date { font-size: 22rpx; color: #bbb; margin-top: 4rpx; }
+.txn-date { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .txn-amount { font-size: 30rpx; font-weight: 600; }
-.txn-amount.income { color: #27ae60; }
-.txn-amount.expense { color: #e74c3c; }
+.txn-amount.income { color: var(--income); }
+.txn-amount.expense { color: var(--expense); }
 </style>

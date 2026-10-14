@@ -118,42 +118,42 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 60rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 60rpx; min-height: 100vh; background: var(--surface); }
 
-.card { background: #fff; border-radius: 20rpx; margin: 24rpx; padding: 32rpx; }
+.card { background: var(--card); border-radius: 20rpx; margin: 24rpx; padding: 32rpx; }
 
 .field { margin-bottom: 24rpx; }
-.field-label { font-size: 26rpx; color: #666; margin-bottom: 8rpx; display: block; }
+.field-label { font-size: 26rpx; color: var(--text-sub); margin-bottom: 8rpx; display: block; }
 .field-input {
   height: 72rpx; line-height: 72rpx; padding: 0 20rpx;
-  background: #f5f6f8; border-radius: 12rpx; font-size: 28rpx;
+  background: var(--surface); border-radius: 12rpx; font-size: 28rpx;
 }
 
-.pwd-row { display: flex; align-items: center; background: #f5f6f8; border-radius: 12rpx; }
+.pwd-row { display: flex; align-items: center; background: var(--surface); border-radius: 12rpx; }
 .pwd-input { flex: 1; background: transparent; }
 .pwd-eye {
-  padding: 0 20rpx; font-size: 24rpx; color: #4f7cff; height: 72rpx; line-height: 72rpx;
+  padding: 0 20rpx; font-size: 24rpx; color: var(--primary-strong); height: 72rpx; line-height: 72rpx;
   flex-shrink: 0;
 }
 
 .captcha-row { display: flex; align-items: center; }
 .captcha-input { flex: 1; }
-.captcha-img { width: 200rpx; height: 72rpx; margin-left: 16rpx; border-radius: 12rpx; background: #eee; }
-.captcha-loading { display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: #999; }
+.captcha-img { width: 200rpx; height: 72rpx; margin-left: 16rpx; border-radius: 12rpx; background: var(--surface); }
+.captcha-loading { display: flex; align-items: center; justify-content: center; font-size: 22rpx; color: var(--text-sub); }
 
 .btn-primary {
   margin-top: 12rpx; height: 84rpx; line-height: 84rpx; text-align: center;
-  background: #4f7cff; color: #fff; border-radius: 16rpx; font-size: 32rpx; font-weight: 500;
+  background: var(--primary-strong); color: #fff; border-radius: 16rpx; font-size: 32rpx; font-weight: 500;
 }
 .btn-primary:active { opacity: .85; }
 
-.login-tip { text-align: center; font-size: 24rpx; color: #999; margin-top: 20rpx; }
+.login-tip { text-align: center; font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
 .login-links { display: flex; justify-content: space-between; padding: 16rpx 0 4rpx; }
-.register-link { font-size: 26rpx; color: #4f7cff; }
-.forgot-link { font-size: 26rpx; color: #999; }
+.register-link { font-size: 26rpx; color: var(--primary-strong); }
+.forgot-link { font-size: 26rpx; color: var(--text-sub); }
 
 .footer {
   padding: 40rpx 0 calc(24rpx + env(safe-area-inset-bottom));
-  text-align: center; font-size: 22rpx; color: #c3c8cf;
+  text-align: center; font-size: 22rpx; color: var(--text-muted);
 }
 </style>

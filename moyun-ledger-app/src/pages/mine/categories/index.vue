@@ -183,10 +183,10 @@ export default {
 .page { padding-bottom: 160rpx; }
 
 /* 类型 Tab（横滑） */
-.tabs { background: #fff; white-space: nowrap; margin-bottom: 16rpx; }
+.tabs { background: var(--card); white-space: nowrap; margin-bottom: 16rpx; }
 .tabs-inner { display: inline-flex; padding: 0 12rpx; }
 .tab {
-  text-align: center; padding: 24rpx 28rpx; font-size: 28rpx; color: #666; position: relative;
+  text-align: center; padding: 24rpx 28rpx; font-size: 28rpx; color: var(--text-sub); position: relative;
   white-space: nowrap;
 }
 .tab.active { color: var(--primary-strong); font-weight: 600; }
@@ -199,9 +199,9 @@ export default {
 .content { padding: 0 24rpx; }
 .group { margin-bottom: 24rpx; }
 .group-title {
-  font-size: 24rpx; font-weight: 600; color: #999; padding: 12rpx 8rpx;
+  font-size: 24rpx; font-weight: 600; color: var(--text-sub); padding: 12rpx 8rpx;
 }
-.group-card { background: #fff; border-radius: 20rpx; padding: 20rpx 12rpx; }
+.group-card { background: var(--card); border-radius: 20rpx; padding: 20rpx 12rpx; }
 .cat-grid { display: flex; flex-wrap: wrap; align-content: flex-start; }
 .cat-cell {
   position: relative;   /* 供右上角删除 × 定位 */
@@ -214,8 +214,8 @@ export default {
   display: flex; align-items: center; justify-content: center;
   font-size: 38rpx;
 }
-.cat-name { font-size: 24rpx; color: #555; margin-top: 12rpx; }
-.empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 26rpx; }
+.cat-name { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
+.empty { text-align: center; color: var(--text-muted); padding: 40rpx 0; font-size: 26rpx; }
 
 .cat-remove {
   position: absolute; top: 4rpx; right: 12rpx;
@@ -223,11 +223,11 @@ export default {
   border-radius: 50%; font-size: 26rpx; color: #fff;
   background: rgba(0, 0, 0, 0.28);
 }
-.cat-remove:active { background: #e74c3c; }
+.cat-remove:active { background: var(--expense); }
 
 .add-bar {
   position: fixed; left: 0; right: 0; bottom: 0;
-  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: var(--card);
   border-top: 1rpx solid #f0f0f5;
   display: flex; flex-direction: column;
 }
@@ -242,7 +242,7 @@ export default {
 .add-icon-btn.on { border-color: var(--primary-strong); background: var(--primary-soft, #eef2ff); }
 .add-icon-emoji { font-size: 36rpx; }
 .add-input {
-  flex: 1; background: #f5f6f8; border-radius: 44rpx; height: 80rpx;
+  flex: 1; background: var(--surface); border-radius: 44rpx; height: 80rpx;
   padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
 .add-btn {
@@ -251,7 +251,7 @@ export default {
 }
 /* 图标选择面板（折叠，默认收起） */
 .icon-panel { margin-top: 20rpx; }
-.icon-panel-title { font-size: 22rpx; color: #999; margin-bottom: 12rpx; }
+.icon-panel-title { font-size: 22rpx; color: var(--text-sub); margin-bottom: 12rpx; }
 .icon-scroll { max-height: 320rpx; }
 .icon-grid { display: flex; flex-wrap: wrap; }
 .icon-cell {
@@ -261,7 +261,7 @@ export default {
 }
 .icon-cell.on { background: var(--primary-soft, #eef2ff); }
 .add-input {
-  flex: 1; background: #f5f6f8; border-radius: 44rpx; height: 80rpx;
+  flex: 1; background: var(--surface); border-radius: 44rpx; height: 80rpx;
   padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */

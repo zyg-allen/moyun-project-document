@@ -232,19 +232,19 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
 .todo-section, .done-section { margin: 24rpx; }
-.sec-title { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 16rpx; }
-.sec-count { font-size: 22rpx; color: #999; font-weight: 400; margin-left: 8rpx; }
+.sec-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); margin-bottom: 16rpx; }
+.sec-count { font-size: 22rpx; color: var(--text-sub); font-weight: 400; margin-left: 8rpx; }
 
-.todo-list { background: #fff; border-radius: 16rpx; overflow: hidden; }
+.todo-list { background: var(--card); border-radius: 16rpx; overflow: hidden; }
 .todo-item {
   display: flex; align-items: flex-start; padding: 24rpx; border-bottom: 1rpx solid #f5f5f7;
 }
 .todo-item:last-child { border-bottom: none; }
-.todo-title { font-size: 28rpx; color: #333; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-title { font-size: 28rpx; color: var(--text-main); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-tags { display: flex; gap: 12rpx; flex-wrap: wrap; margin-top: 10rpx; align-items: center; }
-.time-tag { font-size: 20rpx; color: #666; background: #f5f6f8; padding: 2rpx 14rpx; border-radius: 14rpx; }
+.time-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); padding: 2rpx 14rpx; border-radius: 14rpx; }
 .todo-main { flex: 1; min-width: 0; display: flex; align-items: center; }
 .todo-title-row { flex: 1; min-width: 0; display: flex; align-items: center; }
 .todo-btns { display: flex; flex-direction: row; gap: 14rpx; flex-shrink: 0; margin-left: 16rpx; }
@@ -254,26 +254,26 @@ export default {
 }
 .del-btn {
   font-size: 22rpx; padding: 8rpx 20rpx; border-radius: 26rpx;
-  background: #fff1f0; color: #e57373;
+  background: var(--expense-bg); color: var(--expense);
 }
 .undo-btn {
   font-size: 22rpx; padding: 8rpx 20rpx; border-radius: 26rpx;
-  background: #f5f6f8; color: #666; border: 1rpx solid #e5e6e8;
+  background: var(--surface); color: var(--text-sub); border: 1rpx solid #e5e6e8;
 }
-.todo-item.done .todo-title { color: #bbb; text-decoration: line-through; font-weight: 400; }
-.todo-text { font-size: 24rpx; color: #666; margin-top: 6rpx; display: block; }
-.todo-meta { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 10rpx; font-size: 20rpx; color: #999; }
-.remind-tag { color: #d48806; }
-.reminded-tag { color: #52c41a; }
+.todo-item.done .todo-title { color: var(--text-muted); text-decoration: line-through; font-weight: 400; }
+.todo-text { font-size: 24rpx; color: var(--text-sub); margin-top: 6rpx; display: block; }
+.todo-meta { display: flex; gap: 16rpx; flex-wrap: wrap; margin-top: 10rpx; font-size: 20rpx; color: var(--text-sub); }
+.remind-tag { color: var(--warning); }
+.reminded-tag { color: var(--income); }
 .imp-tag {
   font-size: 20rpx; padding: 2rpx 14rpx; border-radius: 14rpx; flex-shrink: 0;
 }
-.imp-tag.urgent { color: #fff; background: #e57373; }
-.imp-tag.high { color: #d48806; background: #fff7e6; }
-.imp-tag.normal { color: #666; background: #f5f5f5; }
-.imp-tag.low { color: #999; background: #f5f5f5; }
+.imp-tag.urgent { color: #fff; background: var(--expense); }
+.imp-tag.high { color: var(--warning); background: var(--warning-bg); }
+.imp-tag.normal { color: var(--text-sub); background: var(--surface); }
+.imp-tag.low { color: var(--text-sub); background: var(--surface); }
 
-.empty-mini { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
+.empty-mini { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 
 .fab {
   position: fixed; right: 40rpx; bottom: calc(env(safe-area-inset-bottom) + 60rpx);
@@ -295,7 +295,7 @@ export default {
 }
 .form-mask.kb-open { align-items: flex-end; padding-bottom: 24rpx; }
 .form-panel {
-  width: 660rpx; max-height: 80vh; background: #fff; border-radius: 24rpx;
+  width: 660rpx; max-height: 80vh; background: var(--card); border-radius: 24rpx;
   padding: 32rpx; display: flex; flex-direction: column;
 }
 .form-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 20rpx; }
@@ -305,29 +305,29 @@ export default {
 }
 .f-row:last-child { border-bottom: none; }
 .f-row.col { flex-direction: column; align-items: flex-start; gap: 16rpx; }
-.f-label { width: 150rpx; font-size: 26rpx; color: #333; flex-shrink: 0; }
+.f-label { width: 150rpx; font-size: 26rpx; color: var(--text-main); flex-shrink: 0; }
 .f-row.col .f-label { width: auto; }
 .f-input { flex: 1; font-size: 26rpx; }
-.f-value { font-size: 26rpx; color: #333; }
-.f-value.placeholder { color: #bbb; }
+.f-value { font-size: 26rpx; color: var(--text-main); }
+.f-value.placeholder { color: var(--text-muted); }
 .f-textarea {
-  width: 100%; min-height: 100rpx; font-size: 26rpx; background: #f8f9fa;
+  width: 100%; min-height: 100rpx; font-size: 26rpx; background: var(--surface);
   border-radius: 12rpx; padding: 16rpx; box-sizing: border-box;
 }
 .switch-group { display: flex; gap: 16rpx; }
 .switch-tag {
   font-size: 24rpx; padding: 8rpx 28rpx; border-radius: 28rpx;
-  background: #f5f5f5; color: #666;
+  background: var(--surface); color: var(--text-sub);
 }
 .switch-tag.active { background: var(--primary-strong); color: #fff; }
 .imp-group { flex: 1; display: flex; gap: 12rpx; justify-content: flex-end; flex-wrap: wrap; }
 .imp-tag.active { outline: 2rpx solid var(--primary-strong); }
-.f-tip { font-size: 22rpx; color: #d48806; padding: 16rpx 0; }
+.f-tip { font-size: 22rpx; color: var(--warning); padding: 16rpx 0; }
 .form-actions { display: flex; gap: 20rpx; margin-top: 24rpx; }
 .f-btn {
   flex: 1; text-align: center; padding: 18rpx; border-radius: 36rpx; font-size: 28rpx;
 }
-.f-btn.cancel { background: #f5f6f8; color: #666; }
+.f-btn.cancel { background: var(--surface); color: var(--text-sub); }
 .f-btn.ok { background: var(--primary-strong); color: #fff; }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
 .f-btn.disabled { opacity: 0.5; }

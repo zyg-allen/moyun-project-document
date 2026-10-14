@@ -228,11 +228,11 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
 
 /* 状态卡 */
 .status-card {
-  background: #fff; margin: 24rpx; border-radius: 20rpx; padding: 32rpx;
+  background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 32rpx;
   display: flex; align-items: center;
 }
 .status-card.vip {
@@ -241,25 +241,25 @@ export default {
 .status-left { display: flex; align-items: center; gap: 20rpx; }
 .status-icon { font-size: 56rpx; }
 .status-text { display: flex; flex-direction: column; gap: 6rpx; }
-.status-title { font-size: 32rpx; color: #333; font-weight: 600; }
+.status-title { font-size: 32rpx; color: var(--text-main); font-weight: 600; }
 .status-card.vip .status-title { color: #e6c07a; }
-.status-sub { font-size: 24rpx; color: #999; }
+.status-sub { font-size: 24rpx; color: var(--text-sub); }
 .status-card.vip .status-sub { color: #b3a58a; }
 
 /* 权益 */
 .benefit-card {
-  background: #fff; margin: 0 24rpx 24rpx; border-radius: 20rpx; padding: 24rpx 32rpx;
+  background: var(--card); margin: 0 24rpx 24rpx; border-radius: 20rpx; padding: 24rpx 32rpx;
 }
-.benefit-title { font-size: 28rpx; color: #333; font-weight: 600; margin-bottom: 12rpx; }
+.benefit-title { font-size: 28rpx; color: var(--text-main); font-weight: 600; margin-bottom: 12rpx; }
 .benefit-row { display: flex; align-items: center; gap: 12rpx; padding: 12rpx 0; }
 .benefit-check { color: #07c160; font-size: 26rpx; font-weight: 700; }
-.benefit-name { font-size: 26rpx; color: #555; }
-.benefit-note { display: block; font-size: 22rpx; color: #999; margin-top: 8rpx; line-height: 1.6; }
+.benefit-name { font-size: 26rpx; color: var(--text-sub); }
+.benefit-note { display: block; font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; line-height: 1.6; }
 
 /* 套餐 */
-.pkg-title { font-size: 28rpx; color: #333; padding: 8rpx 32rpx; }
+.pkg-title { font-size: 28rpx; color: var(--text-main); padding: 8rpx 32rpx; }
 .pkg-card {
-  position: relative; background: #fff; margin: 0 24rpx 20rpx; border-radius: 20rpx;
+  position: relative; background: var(--card); margin: 0 24rpx 20rpx; border-radius: 20rpx;
   padding: 28rpx 32rpx; border: 3rpx solid transparent;
 }
 .pkg-card.active { border-color: var(--primary-strong); }
@@ -267,13 +267,13 @@ export default {
   position: absolute; top: 0; right: 0; background: #e6a23c; color: #fff;
   font-size: 20rpx; padding: 6rpx 16rpx; border-radius: 0 16rpx 0 16rpx;
 }
-.pkg-name { font-size: 32rpx; color: #333; font-weight: 600; }
-.pkg-duration { font-size: 24rpx; color: #999; margin-top: 4rpx; }
+.pkg-name { font-size: 32rpx; color: var(--text-main); font-weight: 600; }
+.pkg-duration { font-size: 24rpx; color: var(--text-sub); margin-top: 4rpx; }
 .pkg-price { display: flex; align-items: baseline; gap: 12rpx; margin-top: 12rpx; }
 .pkg-price-num { font-size: 44rpx; color: var(--primary-strong); font-weight: 700; }
-.pkg-price-original { font-size: 24rpx; color: #ccc; text-decoration: line-through; }
+.pkg-price-original { font-size: 24rpx; color: var(--text-muted); text-decoration: line-through; }
 .pkg-desc { font-size: 24rpx; color: #777; margin-top: 8rpx; }
-.pkg-empty { text-align: center; font-size: 26rpx; color: #999; padding: 40rpx 0; }
+.pkg-empty { text-align: center; font-size: 26rpx; color: var(--text-sub); padding: 40rpx 0; }
 
 .pay-btn {
   position: fixed; bottom: 40rpx; left: 24rpx; right: 24rpx;
@@ -289,26 +289,26 @@ export default {
   display: flex; align-items: center; justify-content: center; z-index: 999;
 }
 .cashier-panel {
-  width: 560rpx; background: #fff; border-radius: 24rpx; padding: 40rpx 32rpx;
+  width: 560rpx; background: var(--card); border-radius: 24rpx; padding: 40rpx 32rpx;
   display: flex; flex-direction: column; align-items: center;
 }
-.cashier-title { font-size: 32rpx; color: #333; font-weight: 600; }
-.cashier-pkg { font-size: 24rpx; color: #999; margin-top: 8rpx; }
-.cashier-amount { font-size: 48rpx; color: #333; font-weight: 700; margin: 12rpx 0 24rpx; }
+.cashier-title { font-size: 32rpx; color: var(--text-main); font-weight: 600; }
+.cashier-pkg { font-size: 24rpx; color: var(--text-sub); margin-top: 8rpx; }
+.cashier-amount { font-size: 48rpx; color: var(--text-main); font-weight: 700; margin: 12rpx 0 24rpx; }
 .cashier-qr-wrap {
-  width: 360rpx; height: 360rpx; background: #fafafa;
+  width: 360rpx; height: 360rpx; background: var(--surface);
   border-radius: 16rpx; display: flex; align-items: center; justify-content: center;
 }
 .cashier-qr { width: 180px; height: 180px; }
-.cashier-tip { font-size: 24rpx; color: #999; margin-top: 20rpx; }
-.cashier-status { font-size: 26rpx; color: #e6a23c; margin-top: 12rpx; }
+.cashier-tip { font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
+.cashier-status { font-size: 26rpx; color: var(--warning); margin-top: 12rpx; }
 .cashier-status.paid { color: #07c160; }
 .cashier-actions { display: flex; gap: 24rpx; margin-top: 32rpx; width: 100%; }
 .cashier-btn {
   flex: 1; height: 76rpx; line-height: 76rpx; text-align: center;
   border-radius: 38rpx; font-size: 28rpx;
 }
-.cashier-btn.ghost { background: #f2f3f5; color: #666; }
-.cashier-btn.primary { background: #07c160; color: #fff; font-weight: 500; }
+.cashier-btn.ghost { background: var(--surface); color: var(--text-sub); }
+.cashier-btn.primary { background: var(--income); color: #fff; font-weight: 500; }
 .cashier-btn:active { opacity: 0.85; }
 </style>

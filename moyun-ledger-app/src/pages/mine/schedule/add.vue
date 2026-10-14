@@ -243,32 +243,32 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
 .nav-ok { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
-.form-card { background: #fff; margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx 32rpx; }
+.form-card { background: var(--card); margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .form-row {
   display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
 .form-row:last-child { border-bottom: none; }
 .form-row.col { flex-direction: column; align-items: flex-start; gap: 20rpx; }
-.form-label { width: 180rpx; font-size: 28rpx; color: #333; flex-shrink: 0; }
+.form-label { width: 180rpx; font-size: 28rpx; color: var(--text-main); flex-shrink: 0; }
 .form-row.col .form-label { width: auto; }
 .form-input { flex: 1; text-align: right; font-size: 28rpx; }
 .form-input.amount { font-size: 34rpx; font-weight: 700; color: var(--primary-strong); }
-.form-value { font-size: 28rpx; color: #333; }
-.form-value.placeholder { color: #bbb; }
+.form-value { font-size: 28rpx; color: var(--text-main); }
+.form-value.placeholder { color: var(--text-muted); }
 
 .type-group { display: flex; gap: 16rpx; }
 .type-tag {
   font-size: 26rpx; padding: 10rpx 40rpx; border-radius: 32rpx;
-  background: #f5f6f8; color: #666;
+  background: var(--surface); color: var(--text-sub);
 }
 .type-tag.active { background: var(--primary-strong); color: #fff; }
 
 .form-textarea {
-  width: 100%; min-height: 120rpx; font-size: 26rpx; color: #333;
-  background: #f8f9fa; border-radius: 12rpx; padding: 20rpx; box-sizing: border-box;
+  width: 100%; min-height: 120rpx; font-size: 26rpx; color: var(--text-main);
+  background: var(--surface); border-radius: 12rpx; padding: 20rpx; box-sizing: border-box;
 }
 
 .preview {

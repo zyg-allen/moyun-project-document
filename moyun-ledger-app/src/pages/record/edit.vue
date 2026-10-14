@@ -161,23 +161,23 @@ export default {
 
 <style scoped>
 .page { padding: 24rpx; }
-.card { background: #fff; border-radius: 20rpx; padding: 24rpx 32rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; }
 .info-row {
   display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
-.info-label { width: 180rpx; color: #666; font-size: 28rpx; }
+.info-label { width: 180rpx; color: var(--text-sub); font-size: 28rpx; }
 .info-value { flex: 1; text-align: right; font-size: 28rpx; }
 .info-input { flex: 1; text-align: right; font-size: 28rpx; }
-.tip { font-size: 22rpx; color: #999; padding: 24rpx 0; line-height: 1.6; }
+.tip { font-size: 22rpx; color: var(--text-sub); padding: 24rpx 0; line-height: 1.6; }
 .voucher-area { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
 .voucher-thumb { width: 110rpx; height: 110rpx; border-radius: 12rpx; border: 1rpx solid #eee; }
 .voucher-none { font-size: 24rpx; color: var(--primary-strong); }
 .voucher-ops { display: flex; flex-direction: column; margin-left: 16rpx; gap: 8rpx; }
 .voucher-op { font-size: 22rpx; color: var(--primary-strong); line-height: 1.4; }
-.voucher-op.danger { color: #e74c3c; }
+.voucher-op.danger { color: var(--expense); }
 .btn-primary { margin-top: 24rpx; }
 .btn-danger {
-  margin-top: 24rpx; text-align: center; color: #e74c3c; font-size: 28rpx;
+  margin-top: 24rpx; text-align: center; color: var(--expense); font-size: 28rpx;
   border: 1rpx solid #e74c3c; border-radius: 44rpx; height: 80rpx; line-height: 80rpx;
 }
 </style>

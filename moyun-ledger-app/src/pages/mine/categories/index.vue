@@ -19,12 +19,12 @@
         <view class="group-card">
           <view class="cat-grid">
             <view v-for="c in g.items" :key="c.id" class="cat-cell">
+              <!-- 自定义分类：右上角删除 ×（仅图标，不占文字位） -->
+              <text v-if="c.isSystem !== 1" class="cat-remove" @tap.stop="removeCat(c)">×</text>
               <view class="cat-icon" :style="{ background: softColor(c.color) }">
                 <text>{{ iconOf(c.icon) }}</text>
               </view>
               <text class="cat-name">{{ c.name }}</text>
-              <text v-if="c.isSystem === 1" class="sys-tag">系统</text>
-              <text v-else class="cat-del" @tap="removeCat(c)">删除</text>
             </view>
           </view>
           <view v-if="g.items.length === 0" class="empty">暂无分类</view>
@@ -33,10 +33,39 @@
       <view v-if="grouped.length === 0" class="empty" style="padding:80rpx 0">暂无分类</view>
     </view>
 
-    <!-- 添加自定义 -->
+    <!-- 添加自定义（图标选填） -->
     <view class="add-bar">
-      <input v-model="newName" :placeholder="'新' + currentTabLabel + '分类名'" class="add-input" />
-      <view class="add-btn" @tap="addCat">添加</view>
+      <view class="add-row">
+        <!-- 图标按钮：显示当前选中图标，点击展开选择器 -->
+        <view class="add-icon-btn" :class="{ on: iconPickerOpen }" @tap="iconPickerOpen = !iconPickerOpen">
+          <text class="add-icon-emoji">{{ iconOf(newIcon) }}</text>
+        </view>
+        <input
+          v-model="newName"
+          :placeholder="'新' + currentTabLabel + '分类名（图标选填）'"
+          class="add-input"
+          :cursor-spacing="24"
+          adjust-position
+        />
+        <view class="add-btn" @tap="addCat">添加</view>
+      </view>
+      <!-- 图标选择面板（折叠，默认收起，不点不占位） -->
+      <view v-if="iconPickerOpen" class="icon-panel">
+        <view class="icon-panel-title">选择图标（选填，不选则用默认标签）</view>
+        <scroll-view class="icon-scroll" scroll-y>
+          <view class="icon-grid">
+            <view
+              v-for="(emoji, key) in iconOptions"
+              :key="key"
+              class="icon-cell"
+              :class="{ on: newIcon === key }"
+              @tap="pickIcon(key)"
+            >
+              <text>{{ emoji }}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
     </view>
   </view>
 </template>
@@ -44,7 +73,7 @@
 <script>
 import { listCategories, createCategory, deleteCategory } from '@/api/ledger';
 import { useThemeStore } from '@/stores/theme';
-import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
+import { categoryIcon, softColor as toSoftColor, ICON_MAP } from '@/utils/categoryIcon';
 
 const TYPE_TABS = [
   { key: 'expense',   label: '支出' },
@@ -82,14 +111,25 @@ export default {
       typeTabs: TYPE_TABS,
       type: 'expense',
       list: [],
-      newName: ''
+      newName: '',
+      newIcon: '',        // 选填；空则后端用默认图标
+      iconPickerOpen: false,
     };
   },
   onShow() {
     this.load();
   },
+  computed: {
+    /** 可选图标（来自统一图标映射，保证选择后能正确渲染） */
+    iconOptions() { return ICON_MAP; }
+  },
+
   methods: {
     iconOf(icon) { return categoryIcon(icon); },
+    /** 选择/取消选择图标（再点一次取消，保持"选填"语义） */
+    pickIcon(key) {
+      this.newIcon = this.newIcon === key ? '' : key;
+    },
     softColor(color) { return toSoftColor(color); },
     switchType(key) {
       this.type = key;
@@ -107,8 +147,13 @@ export default {
         return;
       }
       try {
-        await createCategory({ name: this.newName.trim(), type: this.type });
+        const payload = { name: this.newName.trim(), type: this.type };
+        // 图标选填：未选则不传，由后端保持默认
+        if (this.newIcon) payload.icon = this.newIcon;
+        await createCategory(payload);
         this.newName = '';
+        this.newIcon = '';
+        this.iconPickerOpen = false;
         this.load();
       } catch (e) { /* 拦截器已提示 */ }
     },
@@ -153,6 +198,7 @@ export default {
 .group-card { background: #fff; border-radius: 20rpx; padding: 20rpx 12rpx; }
 .cat-grid { display: flex; flex-wrap: wrap; align-content: flex-start; }
 .cat-cell {
+  position: relative;   /* 供右上角删除 × 定位 */
   width: 25%; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center;
   padding: 20rpx 0;
@@ -163,21 +209,53 @@ export default {
   font-size: 38rpx;
 }
 .cat-name { font-size: 24rpx; color: #555; margin-top: 12rpx; }
-.sys-tag { font-size: 18rpx; color: #999; border: 1rpx solid #ddd; border-radius: 8rpx; padding: 2rpx 10rpx; margin-top: 6rpx; }
-.cat-del { color: #e74c3c; font-size: 22rpx; margin-top: 6rpx; padding: 4rpx 16rpx; }
 .empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 26rpx; }
+
+.cat-remove {
+  position: absolute; top: 4rpx; right: 12rpx;
+  width: 36rpx; height: 36rpx; line-height: 32rpx; text-align: center;
+  border-radius: 50%; font-size: 26rpx; color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+}
+.cat-remove:active { background: #e74c3c; }
 
 .add-bar {
   position: fixed; left: 0; right: 0; bottom: 0;
-  display: flex; padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff;
   border-top: 1rpx solid #f0f0f5;
+  display: flex; flex-direction: column;
 }
+.add-row { display: flex; align-items: center; }
+/* 图标按钮（选填入口）：默认显示"默认标签"图标 */
+.add-icon-btn {
+  width: 80rpx; height: 80rpx; flex-shrink: 0; margin-right: 16rpx;
+  border-radius: 20rpx; background: var(--surface, #f5f6f8);
+  display: flex; align-items: center; justify-content: center;
+  border: 1rpx solid transparent;
+}
+.add-icon-btn.on { border-color: var(--primary-strong); background: var(--primary-soft, #eef2ff); }
+.add-icon-emoji { font-size: 36rpx; }
 .add-input {
   flex: 1; background: #f5f6f8; border-radius: 44rpx; height: 80rpx;
   padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
 .add-btn {
-  width: 160rpx; background: var(--primary-strong); color: #fff; border-radius: 44rpx;
+  width: 160rpx; flex-shrink: 0; background: var(--primary-strong); color: #fff; border-radius: 44rpx;
   text-align: center; line-height: 80rpx; font-size: 28rpx;
+}
+/* 图标选择面板（折叠，默认收起） */
+.icon-panel { margin-top: 20rpx; }
+.icon-panel-title { font-size: 22rpx; color: #999; margin-bottom: 12rpx; }
+.icon-scroll { max-height: 320rpx; }
+.icon-grid { display: flex; flex-wrap: wrap; }
+.icon-cell {
+  width: 12.5%; box-sizing: border-box; padding: 12rpx 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36rpx; border-radius: 12rpx;
+}
+.icon-cell.on { background: var(--primary-soft, #eef2ff); }
+.add-input {
+  flex: 1; background: #f5f6f8; border-radius: 44rpx; height: 80rpx;
+  padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
 </style>

@@ -55,16 +55,23 @@
       <input v-model="form.description" placeholder="点击补充说明" class="note-input" @input="onDescInput" />
     </view>
 
-    <!-- 金额区（突出） -->
-    <view class="amount-area" @tap="kbVisible = true">
+    <!-- 金额区：原生数字输入（系统输入法自带、位置跟随，无需自绘键盘） -->
+    <view class="amount-area">
       <view class="amount-left">
         <text class="amount-label">金额</text>
         <text class="amount-date">{{ form.transactionDate }} {{ form.transactionTime }}</text>
       </view>
       <view class="amount-right">
         <text class="currency">¥</text>
-        <text class="amount-text">{{ amountYuan || '0.00' }}</text>
-        <text v-if="!kbVisible" class="kb-open-btn">⌨</text>
+        <input
+          v-model="amountYuan"
+          class="amount-input"
+          type="digit"
+          placeholder="0.00"
+          :cursor-spacing="24"
+          adjust-position
+          @input="onAmountInput"
+        />
       </view>
     </view>
 
@@ -119,18 +126,6 @@
       </view>
     </view>
 
-    <!-- 数字键盘（可收起） -->
-    <view class="keyboard" v-if="kbVisible">
-      <view class="kb-handle" @tap="kbVisible = false">
-        <text class="kb-handle-text">收起键盘 ∨</text>
-      </view>
-      <view class="kb-row" v-for="(row, i) in keys" :key="i">
-        <view v-for="k in row" :key="k" class="kb-key" :class="{ 'kb-fn': k === 'del' }" @tap="tapKey(k)">
-          <text v-if="k !== 'del'">{{ k }}</text>
-          <text v-else class="kb-del">⌫</text>
-        </view>
-      </view>
-    </view>
 
     <!-- 保存 -->
     <view class="save-bar">
@@ -217,7 +212,6 @@ export default {
       assets: [],
       liabilities: [],
       categories: [],
-      kbVisible: true,
       quickAdd: { visible: false, name: '', balanceYuan: '' },
       /** 用户是否手动改过备注（未改过时自动跟随类型/分类/日期刷新默认前缀） */
       descEdited: false,
@@ -227,12 +221,6 @@ export default {
         transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
         transactionTime: `${pad(today.getHours())}:${pad(today.getMinutes())}`
       },
-      keys: [
-        ['1', '2', '3'],
-        ['4', '5', '6'],
-        ['7', '8', '9'],
-        ['.', '0', 'del']
-      ],
       picker: { visible: false, mode: '', title: '', items: [], selectedId: null },
       /** 保存进行中（防重复提交锁） */
       saving: false
@@ -500,21 +488,24 @@ export default {
       const liabilities = await listLiabilities(false);
       this.liabilities = ((liabilities && liabilities.records) || []).filter(l => l.settleFlag !== 1);
     },
-    tapKey(k) {
-      if (k === 'del') {
-        this.amountYuan = this.amountYuan.slice(0, -1);
-        return;
+    /**
+     * 金额输入（原生 input type=digit）：
+     * 只保留数字与一个小数点，最多两位小数，避免用户输入非法金额。
+     */
+    onAmountInput(e) {
+      let v = String((e && e.detail && e.detail.value) || '').replace(/[^0-9.]/g, '');
+      const firstDot = v.indexOf('.');
+      if (firstDot >= 0) {
+        // 只保留第一个小数点
+        v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+        // 最多两位小数
+        const intPart = v.slice(0, firstDot);
+        const decPart = v.slice(firstDot + 1, firstDot + 3);
+        v = intPart + '.' + decPart;
       }
-      const v = this.amountYuan;
-      if (k === '.') {
-        if (v.includes('.')) return;
-        this.amountYuan = v === '' ? '0.' : v + '.';
-        return;
-      }
-      if (v.includes('.') && v.split('.')[1].length >= 2) return;
-      if (v === '0' && k !== '.') { this.amountYuan = k; return; }
-      if (v.replace('.', '').length >= 10) return;
-      this.amountYuan = v + k;
+      // 去掉多余前导 0（保留 "0." 形态）
+      if (/^0[0-9]/.test(v)) v = v.replace(/^0+/, '');
+      this.amountYuan = v;
     },
     async save() {
       if (!this.canSave) return;
@@ -577,7 +568,7 @@ export default {
             success: (r) => {
               if (r.confirm) {
                 that.form.type = 'income';
-                that.kbVisible = true;
+
                 uni.showToast({ title: '已切换为收入，请补录资金来源', icon: 'none' });
               } else {
                 that.doSave(amountNum);
@@ -762,8 +753,7 @@ export default {
 .amount-date { font-size: 24rpx; opacity: 0.7; margin-top: 8rpx; }
 .amount-right { display: flex; align-items: baseline; }
 .currency { font-size: 40rpx; font-weight: 600; margin-right: 12rpx; }
-.amount-text { font-size: 64rpx; font-weight: 700; letter-spacing: 2rpx; }
-.kb-open-btn { font-size: 32rpx; margin-left: 16rpx; opacity: 0.8; }
+.amount-input { flex: 1; min-width: 0; text-align: right; font-size: 60rpx; font-weight: 700; color: var(--text-main); }
 
 /* 次级选择卡片 */
 .opt-card { background: #fff; margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
@@ -809,16 +799,9 @@ export default {
 .voucher-add-text { font-size: 20rpx; color: #999; margin-top: 4rpx; }
 
 /* 数字键盘（可收起） */
-.keyboard { background: #fff; padding-bottom: env(safe-area-inset-bottom); }
-.kb-handle { display: flex; justify-content: center; padding: 8rpx 0; }
-.kb-handle-text { font-size: 22rpx; color: #999; padding: 4rpx 24rpx; }
-.kb-row { display: flex; }
-.kb-key {
   flex: 1; height: 96rpx; display: flex; align-items: center; justify-content: center;
   font-size: 36rpx; font-weight: 500; border-top: 1rpx solid #f0f0f5; color: #333;
 }
-.kb-key:active { background: var(--primary-soft); }
-.kb-del { font-size: 40rpx; }
 
 .save-bar { background: #fff; padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
 .btn-save {

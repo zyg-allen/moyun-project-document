@@ -81,41 +81,47 @@
     <!-- 添加按钮（随 Tab 切换） -->
     <view class="fab" @tap="activeTab === 'asset' ? addAsset() : addLiability()">＋</view>
 
-    <!-- 资产弹层 -->
-    <view class="mask" v-if="assetEditing" @tap="assetEditing = false">
-      <view class="sheet" @tap.stop>
-        <view class="sheet-title">{{ assetForm.id ? '编辑账户' : '新增资产账户' }}</view>
-        <view class="field">
-          <text class="field-label">名称</text>
-          <input v-model="assetForm.name" placeholder="如：招商银行储蓄卡" class="field-input" />
-        </view>
-        <view class="field">
-          <text class="field-label">类型</text>
-          <picker :range="assetTypeNames" @change="onAssetTypeChange">
-            <view class="field-picker">{{ assetTypeText(assetForm.type) }} ▾</view>
-          </picker>
-        </view>
-        <view class="field" v-if="!assetForm.id">
-          <text class="field-label">初始余额(元)</text>
-          <input v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input" />
-        </view>
-        <view class="field">
-          <text class="field-label">计入总资产</text>
-          <switch :checked="assetForm.includeInTotal === 1" @change="onAssetTotalChange" style="transform: scale(0.8)" />
-        </view>
-        <view class="btn-primary" @tap="saveAsset">保存</view>
-        <view class="btn-danger" v-if="assetForm.id" @tap="removeAsset">删除（归档，流水保留）</view>
-        <view class="btn-cancel" @tap="assetEditing = false">取消</view>
+    <!-- 资产弹层（键盘安全：H5 抬升 + 小程序 adjust-position + 内容可滚动） -->
+    <KeyboardAwareSheet v-model="assetEditing" :title="assetSheetTitle">
+      <view class="field">
+        <text class="field-label">名称</text>
+        <input v-model="assetForm.name" placeholder="如：招商银行储蓄卡" class="field-input"
+          adjust-position
+          :cursor-spacing="24"
+         />
       </view>
-    </view>
+      <view class="field">
+        <text class="field-label">类型</text>
+        <picker :range="assetTypeNames" @change="onAssetTypeChange">
+          <view class="field-picker">{{ assetTypeText(assetForm.type) }} ▾</view>
+        </picker>
+      </view>
+      <view class="field" v-if="!assetForm.id">
+        <text class="field-label">初始余额(元)</text>
+        <input v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input"
+          adjust-position
+          :cursor-spacing="24"
+         />
+      </view>
+      <view class="field">
+        <text class="field-label">计入总资产</text>
+        <switch :checked="assetForm.includeInTotal === 1" @change="onAssetTotalChange" style="transform: scale(0.8)" />
+      </view>
+      <view class="btn-primary" @tap="saveAsset">保存</view>
+      <view class="btn-danger" v-if="assetForm.id" @tap="removeAsset">删除（归档，流水保留）</view>
+      <view class="btn-cancel" @tap="assetEditing = false">取消</view>
+    </KeyboardAwareSheet>
 
-    <!-- 负债弹层 -->
-    <view class="mask" v-if="liabEditing" @tap="liabEditing = false">
-      <view class="sheet" @tap.stop>
+    <!-- 负债弹层（键盘安全：同资产弹层） -->
+    <KeyboardAwareSheet v-model="liabEditing" :title="liabSheetTitle">
         <view class="sheet-title">{{ liabForm.id ? '编辑负债' : '新增负债' }}</view>
+      <view class="sheet" @tap.stop>
         <view class="field">
           <text class="field-label">名称</text>
-          <input v-model="liabForm.name" placeholder="如：招行信用卡" class="field-input" />
+          <input v-model="liabForm.name" placeholder="如：招行信用卡" class="field-input"
+            adjust-position
+            :cursor-spacing="24"
+           />
         </view>
         <view class="field">
           <text class="field-label">类型</text>
@@ -125,11 +131,17 @@
         </view>
         <view class="field" v-if="!liabForm.id">
           <text class="field-label">当前欠款(元)</text>
-          <input v-model="liabForm.initialBalance" type="digit" placeholder="0.00" class="field-input" />
+          <input v-model="liabForm.initialBalance" type="digit" placeholder="0.00" class="field-input"
+            adjust-position
+            :cursor-spacing="24"
+           />
         </view>
         <view class="field">
           <text class="field-label">月供(元)</text>
-          <input v-model="liabForm.monthlyPayment" type="digit" placeholder="选填" class="field-input" />
+          <input v-model="liabForm.monthlyPayment" type="digit" placeholder="选填" class="field-input"
+            adjust-position
+            :cursor-spacing="24"
+           />
         </view>
         <view class="field">
           <text class="field-label">还款日</text>
@@ -139,7 +151,10 @@
         </view>
         <view class="field">
           <text class="field-label">总期数</text>
-          <input v-model="liabForm.totalTerms" type="number" placeholder="选填" class="field-input" />
+          <input v-model="liabForm.totalTerms" type="number" placeholder="选填" class="field-input"
+            adjust-position
+            :cursor-spacing="24"
+           />
         </view>
         <view class="field">
           <text class="field-label">计入总负债</text>
@@ -149,11 +164,12 @@
         <view class="btn-danger" v-if="liabForm.id" @tap="removeLiability">删除（归档，流水保留）</view>
         <view class="btn-cancel" @tap="liabEditing = false">取消</view>
       </view>
-    </view>
+    </KeyboardAwareSheet>
   </view>
 </template>
 
 <script>
+import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import { listAssets, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
 import { formatAmount, toFixedYuan, toNum, safeSum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
@@ -179,6 +195,7 @@ const LIAB_TYPES = [
 ];
 
 export default {
+  components: { KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     return {
       activeTab: 'asset',
@@ -224,6 +241,12 @@ export default {
   onPullDownRefresh() {
     Promise.all([this.loadAssets(), this.loadLiabilities()]).finally(() => uni.stopPullDownRefresh());
   },
+  computed: {
+    /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
+    assetSheetTitle() { return this.assetForm.id ? '编辑账户' : '新增资产账户'; },
+    liabSheetTitle() { return this.liabForm.id ? '编辑负债' : '新增负债'; }
+  },
+
   methods: {
     viewTxn(kind, item) {
       const p = [];
@@ -417,8 +440,6 @@ export default {
   box-shadow: 0 8rpx 24rpx var(--primary-shadow);
 }
 
-.mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: flex; align-items: flex-end; }
-.sheet { width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0; padding: 40rpx 32rpx calc(40rpx + env(safe-area-inset-bottom)); }
 .sheet-title { font-size: 34rpx; font-weight: 600; text-align: center; margin-bottom: 32rpx; }
 .field { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .field-label { width: 200rpx; font-size: 28rpx; color: #666; }

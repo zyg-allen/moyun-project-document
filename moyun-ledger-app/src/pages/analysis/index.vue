@@ -122,10 +122,11 @@
 
       <!-- ==================== 报告预览（查看报告闭环） ==================== -->
       <view class="mask" v-if="preview.show" @tap="closePreview">
-        <view class="preview-sheet" @tap.stop>
+        <view class="preview-sheet" :class="{ full: preview.full }" @tap.stop>
           <template v-if="preview.data">
             <view class="pv-head">
               <view class="pv-title">报告预览</view>
+              <text class="hint-full" @tap="toggleFull">{{ preview.full ? '收起' : '全屏' }}</text>
               <text class="hint-close" @tap="closePreview">✕</text>
             </view>
             <scroll-view scroll-y class="pv-body">
@@ -221,7 +222,7 @@ export default {
       pollCount: 0,
       loading: false,
       /** 报告预览弹层 */
-      preview: { show: false, data: null, current: null }
+      preview: { show: false, data: null, current: null, full: false }
     };
   },
   computed: {
@@ -371,6 +372,8 @@ export default {
         this.preview = { show: false, data: null, current: null }; /* 拦截器已提示 */
       }
     },
+    /** 预览全屏/收起切换（全屏时内容区占满并内部滚动） */
+    toggleFull() { this.preview.full = !this.preview.full; },
     closePreview() {
       this.preview = { show: false, data: null, current: null };
     },
@@ -514,7 +517,14 @@ export default {
 }
 .pv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
 .pv-title { font-size: 34rpx; font-weight: 700; }
-.pv-body { flex: 1; min-height: 0; max-height: 60vh; }
+/* 预览内容区：默认占据可用高度并内部滚动；全屏时铺满 */
+.pv-body { flex: 1; min-height: 0; }
+.preview-sheet.full {
+  max-height: 100vh; height: 100vh; border-radius: 0;
+  padding-top: calc(32rpx + env(safe-area-inset-top));
+}
+.preview-sheet.full .pv-body { max-height: none; }
+.hint-full { font-size: 26rpx; color: var(--primary-strong); padding: 0 16rpx 0 8rpx; flex-shrink: 0; }
 .pv-loading { text-align: center; padding: 80rpx 0; color: #999; font-size: 26rpx; }
 .pv-meta { background: #f9fafb; border-radius: 12rpx; padding: 8rpx 20rpx; margin-bottom: 20rpx; }
 .meta-row { display: flex; justify-content: space-between; gap: 20rpx; padding: 12rpx 0; font-size: 24rpx; border-bottom: 1rpx solid #f0f1f4; }

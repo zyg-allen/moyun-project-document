@@ -95,20 +95,16 @@
           <text v-if="form.liabilityId" class="pick-clear" @tap.stop="clearLiability">✕ 清除</text>
         </view>
       </view>
-      <!-- 日期选择（独立选择器，支持历史补录） -->
+      <!-- 日期 + 时间（合并同一行；日期支持历史补录，时间默认当前） -->
       <view class="pick-row">
-        <text class="pick-label">日期</text>
+        <text class="pick-label">日期时间</text>
         <picker mode="date" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
           <view class="pick-value">{{ form.transactionDate }} ▾</view>
         </picker>
-        <view class="today-btn" @tap="setToday">今天</view>
-      </view>
-      <!-- 时间必填（独立选择器，默认当前时间） -->
-      <view class="pick-row">
-        <text class="pick-label">时间</text>
-        <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker">
+        <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker pick-picker-time">
           <view class="pick-value">{{ form.transactionTime }} ▾</view>
         </picker>
+        <view class="today-btn" @tap="setToday">今天</view>
       </view>
       <view class="pick-row" v-if="form.type === 'expense'">
         <text class="pick-label">商户</text>
@@ -859,9 +855,13 @@ export default {
 .pick-value { flex: 1; text-align: right; color: var(--text-main); font-size: 28rpx; }
 .pick-input { flex: 1; text-align: right; font-size: 28rpx; }
 .pick-picker { flex: 1; display: flex; justify-content: flex-end; }
+/* 日期与时间同行：日期占剩余宽度（右对齐后自然贴近时间），时间按内容宽度紧随其后 */
+.pick-picker-time { flex: none; margin-left: 12rpx; }
+.pick-picker-time .pick-value { flex: none; white-space: nowrap; }
 .today-btn {
   margin-left: 16rpx; padding: 6rpx 24rpx; border-radius: 24rpx;
   background: var(--primary-soft); color: var(--primary-strong); font-size: 24rpx;
+  flex-shrink: 0;
 }
 
 /* 凭证截图行 */

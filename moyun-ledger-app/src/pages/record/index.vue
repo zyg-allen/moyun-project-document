@@ -96,7 +96,7 @@
         </view>
       </view>
       <!-- 日期 + 时间（合并同一行；日期支持历史补录，时间默认当前） -->
-      <view class="pick-row">
+      <view class="pick-row pick-row-datetime">
         <text class="pick-label">日期时间</text>
         <picker mode="date" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
           <view class="pick-value">{{ form.transactionDate }} ▾</view>
@@ -854,10 +854,17 @@ export default {
 }
 .pick-value { flex: 1; text-align: right; color: var(--text-main); font-size: 28rpx; }
 .pick-input { flex: 1; text-align: right; font-size: 28rpx; }
-.pick-picker { flex: 1; display: flex; justify-content: flex-end; }
+.pick-picker { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
 /* 日期与时间同行：日期占剩余宽度（右对齐后自然贴近时间），时间按内容宽度紧随其后 */
 .pick-picker-time { flex: none; margin-left: 12rpx; }
 .pick-picker-time .pick-value { flex: none; white-space: nowrap; }
+/* 日期时间行：合并成一行后单个选择器变窄、可点高度只有一行文字，
+   手指容易点不中。这里把「标签宽度」与「行内上下空隙」都让给选择器：
+   - 标签仅 4 字，宽度 200rpx→140rpx，释放 60rpx 给两个选择器
+   - 行 padding 24rpx→12rpx，让出的高度给选择器本身（min-height 76rpx ≈ 38px） */
+.pick-row-datetime { padding: 12rpx 0; }
+.pick-row-datetime .pick-label { width: 140rpx; }
+.pick-row-datetime .pick-picker { min-height: 76rpx; }
 .today-btn {
   margin-left: 16rpx; padding: 6rpx 24rpx; border-radius: 24rpx;
   background: var(--primary-soft); color: var(--primary-strong); font-size: 24rpx;

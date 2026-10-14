@@ -349,3 +349,12 @@ DROP TABLE IF EXISTS `archived_20261003_portal_tip_order`;
 DROP TABLE IF EXISTS `archived_20261003_ledger_tip_order`;
 DROP TABLE IF EXISTS `archived_20261003_portal_creator_settlement`;
 */
+
+-- =====================================================================
+-- pay 模块补充（v11.105 支付/钱包整改 · 2026-09-22）：
+-- 提现闭环增加冻结金额——申请即冻结（可用余额 = balance - frozen_amount），
+-- 审核通过原子扣减（balance/frozen_amount/total_withdraw 三联动），驳回解冻。
+-- 金额口径：元 DECIMAL(18,2)，与 20260908-03 分/元统一迁移同口径。
+-- =====================================================================
+ALTER TABLE `pay_user_account`
+    ADD COLUMN `frozen_amount` DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '冻结金额（元，提现审核中占用）' AFTER `total_withdraw`;

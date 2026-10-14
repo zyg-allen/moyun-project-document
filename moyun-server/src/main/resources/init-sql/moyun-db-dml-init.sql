@@ -804,49 +804,7 @@ INSERT INTO sys_user_post (user_id,post_id,create_by,create_time,update_by,updat
 INSERT INTO sys_user_role (user_id,role_id,create_by,create_time,update_by,update_time,remark) VALUES
 	 (1,1,'admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL),
 	 (2,2,'',NULL,'',NULL,NULL);
-	 ('/portal/interview/voice/start','POST','com.moyun.portal.controller.PortalVoiceInterviewController','start','portal','interview_unlimited',1,'免费面试次数已用完，语音面试为会员专属功能，请开通会员',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47'),
-	 ('/portal/ledger/ai/analysis/task','POST','com.moyun.ledger.controller.PortalLedgerAiController','submitTask','ledger','ai_analysis',1,'本月免费分析次数已用完，请开通记账VIP',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47'),
-	 ('/portal/resume/optimize/deep/{resumeId}/{jobTargetId}','POST','com.moyun.portal.controller.PortalResumeOptimizeController','deepOptimize','portal','resume_optimize',1,'简历深度优化次数已用完，请开通会员',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47'),
-	 ('/portal/resume/optimize/deep/{resumeId}/{jobTargetId}/async','POST','com.moyun.portal.controller.PortalResumeOptimizeController','deepOptimizeAsync','portal','resume_optimize',1,'简历深度优化次数已用完，请开通会员',NULL,1,'2026-09-17 18:03:47','2026-09-17 18:03:47','2026-09-17 18:03:47');
-	 ('portal','interview_unlimited','语音面试','不限次 AI 语音面试',1,'2026-09-17 17:53:20'),
-	 ('portal','resume_optimize','简历深度优化','AI 逐项建议/前后对比/采纳保存',2,'2026-09-17 17:53:20'),
-	 ('portal','report_share','报告分享','面试报告分享导出',3,'2026-09-17 17:53:20'),
-	 ('portal','priority_queue','优先队列','面试优先调度',4,'2026-09-17 17:53:20'),
-	 ('portal','reading_unlimited','读书空间','不限次阅读',5,'2026-09-17 17:53:20'),
-	 ('portal','article_paid','付费文章','免费阅读付费文章',6,'2026-09-17 17:53:20'),
-	 ('ledger','bill_parse','账单识别','每月账单截图识别次数',1,'2026-09-17 17:53:20'),
-	 ('ledger','ai_analysis','AI 分析','AI 财务分析次数',2,'2026-09-17 17:53:20');
-	 ('portal','free','免费版',0,0.00,NULL,0,'基础体验额度',1,1,'2026-09-17 17:53:20'),
-	 ('portal','monthly','月卡会员',30,49.00,69.00,0,'全功能月度畅用',2,1,'2026-09-17 17:53:20'),
-	 ('portal','yearly','年卡会员',365,399.00,588.00,1,'最受欢迎，全年畅用',3,1,'2026-09-17 17:53:20'),
-	 ('portal','permanent','永久会员',-1,1299.00,1999.00,0,'一次买断终身可用',4,1,'2026-09-17 17:53:20'),
-	 ('ledger','free','免费版',0,0.00,NULL,0,'基础记账体验',1,1,'2026-09-17 17:53:20'),
-	 ('ledger','yearly','年卡会员',365,199.00,299.00,1,'智能账单识别 + AI 分析',2,1,'2026-09-17 17:53:20');
-	 ('portal','free','interview_unlimited','2','unlimited','2026-09-17 17:53:20'),
-	 ('portal','free','resume_optimize','1','month','2026-09-17 17:53:20'),
-	 ('portal','free','reading_unlimited','3','month','2026-09-17 17:53:20'),
-	 ('portal','monthly','interview_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','monthly','resume_optimize','5','month','2026-09-17 17:53:20'),
-	 ('portal','monthly','report_share','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','monthly','reading_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','monthly','article_paid','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','yearly','interview_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','yearly','resume_optimize','20','month','2026-09-17 17:53:20');
-	 ('portal','yearly','report_share','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','yearly','priority_queue','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','yearly','reading_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','yearly','article_paid','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','permanent','interview_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','permanent','resume_optimize','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','permanent','report_share','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','permanent','priority_queue','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','permanent','reading_unlimited','unlimited','unlimited','2026-09-17 17:53:20'),
-	 ('portal','permanent','article_paid','unlimited','unlimited','2026-09-17 17:53:20');
-	 ('ledger','free','bill_parse','5','month','2026-09-17 17:53:21'),
-	 ('ledger','free','ai_analysis','3','month','2026-09-17 17:53:21'),
-	 ('ledger','yearly','bill_parse','100','month','2026-09-17 17:53:21'),
-	 ('ledger','yearly','ai_analysis','unlimited','unlimited','2026-09-17 17:53:21');
-SET FOREIGN_KEY_CHECKS = 1;
+
 
 -- =====================================================================
 -- v14.72 AI统一收口治理批次1（2026-10-05）：工作流 Agent 节点网关治理场景行。

@@ -390,7 +390,7 @@ export default {
 .seg {
   position: sticky; top: 0; z-index: 10;
   display: flex; background: #fff;
-  padding: calc(env(safe-area-inset-top) + 16rpx) 24rpx 16rpx;
+  padding: calc(var(--status-bar-height) + 16rpx) 24rpx 16rpx;
 }
 .seg-item {
   flex: 1; text-align: center; font-size: 30rpx; color: #999;
@@ -457,6 +457,9 @@ export default {
 
 .row-actions { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; }
 .pencil-btn {
+  /* 热区 88rpx(=44px)：原 52rpx(26px) 偏小 */
+  min-width: 88rpx; min-height: 88rpx;
+  display: flex; align-items: center; justify-content: center;
   width: 52rpx; height: 52rpx; line-height: 52rpx; text-align: center;
   border-radius: 50%; background: #f5f6f8; color: #888; font-size: 22rpx;
 }

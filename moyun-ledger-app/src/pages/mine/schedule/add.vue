@@ -237,7 +237,7 @@ export default {
 
 <style scoped>
 .page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
-.nav-ok { font-size: 26rpx; color: var(--primary-strong); }
+.nav-ok { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 .form-card { background: #fff; margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .form-row {

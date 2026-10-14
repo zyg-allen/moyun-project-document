@@ -518,7 +518,7 @@ export default {
 .rp-score.mid { color: #faad14; }
 .rp-score.bad { color: #e57373; }
 .rp-view { font-size: 22rpx; color: var(--primary-strong); }
-.rp-del { font-size: 22rpx; color: #e5964f; }
+.rp-del { font-size: 24rpx; color: var(--expense, #e8654a); padding: 8rpx 16rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 /* 空态 */
 .empty { text-align: center; padding: 60rpx 40rpx; }
@@ -538,7 +538,7 @@ export default {
 .pv-body { flex: 1; min-height: 0; }
 .preview-sheet.full {
   max-height: 100vh; height: 100vh; border-radius: 0;
-  padding-top: calc(32rpx + env(safe-area-inset-top));
+  padding-top: calc(32rpx + var(--status-bar-height));
 }
 .preview-sheet.full .pv-body { max-height: none; }
 .hint-full { font-size: 26rpx; color: var(--primary-strong); padding: 0 16rpx 0 8rpx; flex-shrink: 0; }

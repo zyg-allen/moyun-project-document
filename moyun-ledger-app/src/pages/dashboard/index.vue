@@ -291,7 +291,7 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 /* ===== 未登录品牌与价值展示 ===== */
-.brand-hero { text-align: center; padding-top: calc(env(safe-area-inset-top) + 100rpx); padding-bottom: 80rpx; }
+.brand-hero { text-align: center; padding-top: calc(var(--status-bar-height) + 100rpx); padding-bottom: 80rpx; }
 .brand-name { font-size: 52rpx; font-weight: 800; letter-spacing: 4rpx; }
 .brand-slogan { font-size: 32rpx; margin-top: 20rpx; font-weight: 600; }
 .brand-sub { font-size: 24rpx; opacity: 0.75; margin-top: 12rpx; }
@@ -340,7 +340,7 @@ export default {
 .hero {
   background: var(--primary);
   color: #fff; padding: 60rpx 40rpx 40rpx; margin-bottom: 24rpx;
-  padding-top: calc(env(safe-area-inset-top) + 50rpx); }
+  padding-top: calc(var(--status-bar-height) + 50rpx); }
 .hero-label { font-size: 26rpx; opacity: 0.8; }
 .hero-top { display: flex; justify-content: space-between; align-items: center; }
 .privacy-toggle {

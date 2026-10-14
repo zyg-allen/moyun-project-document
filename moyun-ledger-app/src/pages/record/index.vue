@@ -698,7 +698,7 @@ export default {
 .page { display: flex; flex-direction: column; min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
 
 /* 顶部类型Tab（白底胶囊） */
-.type-bar { background: #fff; padding: calc(20rpx + env(safe-area-inset-top)) 24rpx 16rpx; }
+.type-bar { background: #fff; padding: calc(20rpx + var(--status-bar-height)) 24rpx 16rpx; }
 .type-bar-inner { display: flex; background: #f5f6f8; border-radius: 44rpx; padding: 8rpx; }
 .type-item {
   flex: 1; text-align: center; color: #666; font-size: 28rpx;
@@ -799,6 +799,9 @@ export default {
   width: 120rpx; height: 120rpx; border-radius: 12rpx; border: 1rpx solid #eee;
 }
 .voucher-remove {
+  /* 热区 88rpx(=44px)：原 36rpx(18px) 远低于可点最小值，删除类按钮尤其容易误触 */
+  min-width: 88rpx; min-height: 88rpx;
+  display: flex; align-items: center; justify-content: center;
   position: absolute; top: -14rpx; right: -14rpx; width: 36rpx; height: 36rpx;
   border-radius: 18rpx; background: #e74c3c; color: #fff; font-size: 24rpx;
   display: flex; align-items: center; justify-content: center; line-height: 1;

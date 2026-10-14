@@ -101,7 +101,7 @@ export default {
 
 <style scoped>
 .page { padding-bottom: 40rpx; min-height: 100vh; background: #f5f6f8; }
-.nav-add { font-size: 26rpx; color: var(--primary-strong); }
+.nav-add { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 .overview-card {
   background: var(--primary); color: #fff;

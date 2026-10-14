@@ -241,7 +241,7 @@ export default {
 .user-card {
   display: flex; align-items: center; background: var(--primary);
   color: #fff; padding: 60rpx 40rpx 32rpx;
-  padding-top: calc(env(safe-area-inset-top) + 60rpx);
+  padding-top: calc(var(--status-bar-height) + 60rpx);
 }
 .avatar {
   width: 110rpx; height: 110rpx; border-radius: 55rpx; background: rgba(255,255,255,0.25);

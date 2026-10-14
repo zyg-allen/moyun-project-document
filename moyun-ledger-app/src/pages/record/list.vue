@@ -477,7 +477,7 @@ export default {
 .header-bar {
   display: flex; align-items: center;
   background: var(--primary);
-  padding: calc(env(safe-area-inset-top) + 16rpx) 24rpx 20rpx;
+  padding: calc(var(--status-bar-height) + 16rpx) 24rpx 20rpx;
   color: #fff;
 }
 .header-back {

@@ -208,7 +208,7 @@ export default {
 .log-status.fail { color: #e57373; }
 .log-amount { color: #333; font-weight: 600; }
 .log-reason { display: flex; justify-content: space-between; align-items: center; font-size: 22rpx; color: #e57373; margin-top: 8rpx; }
-.log-retry { color: var(--primary-strong); padding: 4rpx 16rpx; background: var(--primary-soft); border-radius: 18rpx; }
+.log-retry { color: var(--primary-strong); padding: 12rpx 20rpx; background: var(--primary-soft); border-radius: 8rpx; font-size: 22rpx; min-height: 88rpx; display: inline-flex; align-items: center; }
 .log-empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
 .log-close {
   margin-top: 24rpx; text-align: center; padding: 18rpx;

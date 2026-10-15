@@ -83,14 +83,18 @@ export const APPEARANCES = {
   },
   dark: {
     name: '暗色',
-    '--bg': '#0F1419',
-    '--card': '#1A2029',
-    '--surface': '#232B36',
-    '--border': '#37424F',
-    '--border-strong': '#47556A',
+    /* 整体亮度较首版（bg #0F1419 / card #1A2029）抬升约一倍：首版过深，
+       卡片与背景几乎糊在一起。现值实测 card/bg=1.18、surface/card=1.21
+       （首版 1.13 / 1.15），层次更清楚；文字对比度也一并提升
+       （--text-sub 5.78→6.73、--text-muted 3.12→4.39）。 */
+    '--bg': '#1B2129',
+    '--card': '#262E39',
+    '--surface': '#313B48',
+    '--border': '#44505F',
+    '--border-strong': '#566476',
     '--text-main': '#F1F5F9',
-    '--text-sub': '#94A3B8',
-    '--text-muted': '#64748B',
+    '--text-sub': '#AAB7C8',
+    '--text-muted': '#8593A6',
     '--income': '#34D399',
     '--income-bg': 'rgba(52, 211, 153, 0.16)',
     '--expense': '#F87171',
@@ -228,6 +232,47 @@ export const useThemeStore = defineStore('theme', {
   },
   actions: {
     /**
+     * 把主题变量同步到**最外层容器**。
+     *
+     * 为什么必须做：themeVars 是绑在各页根元素 `:style` 上的，而最外层容器
+     * （H5 的 `uni-page-body`、小程序的 `page`）在所有页面之外，只能吃到
+     * App.vue 里 `page{}` 的**静态默认值（日间）**。于是切到暗色后，
+     * 内容未铺满的地方（页尾、滚动回弹区）会露出日间浅色甚至白底 —— 对比极强。
+     *
+     * H5 与小程序分流：`uni.setBackgroundColor` 在 H5 端**没有实现**，
+     * 故 H5 直接写 DOM 上的 CSS 变量 + background。
+     */
+    applyToPageBody() {
+      const vars = this.themeVars;
+      const bg = vars['--bg'];
+      const fg = vars['--text-main'];
+      // #ifdef H5
+      if (typeof document !== 'undefined') {
+        const el = document.querySelector('uni-page-body');
+        if (el) {
+          Object.keys(vars).forEach((k) => el.style.setProperty(k, vars[k]));
+          el.style.background = bg;
+          // 基础文字色：未显式声明 color 的元素都会继承它。
+          // 不设则继承浏览器默认黑色 —— 深色卡面上的卡片标题会直接看不见。
+          el.style.color = fg;
+        }
+        // 超滚动区域由 body 承载，一并设置，避免回弹时闪白
+        if (document.body) {
+          document.body.style.background = bg;
+          document.body.style.color = fg;
+        }
+      }
+      // #endif
+      // #ifndef H5
+      if (uni.setBackgroundColor) {
+        uni.setBackgroundColor({
+          backgroundColor: bg, backgroundColorTop: bg, backgroundColorBottom: bg,
+          fail: () => {}
+        });
+      }
+      // #endif
+    },
+    /**
      * 同步底部 TabBar 外观。
      *
      * 底色与未选中文字色跟随**外观层**（日间/暗色/护眼），选中色跟随**强调色层** ——
@@ -252,13 +297,15 @@ export const useThemeStore = defineStore('theme', {
       this.current = key;
       uni.setStorageSync(KEY, key);
       this.syncTabBar();
+      this.applyToPageBody();
     },
-    /** 切换外观（日间/暗色/护眼）；页面根元素由 themeVars 自动跟随，TabBar 同步刷新 */
+    /** 切换外观（日间/暗色/护眼）；页面根元素由 themeVars 自动跟随，TabBar 与最外层容器同步刷新 */
     setAppearance(key) {
       if (!APPEARANCES[key]) return;
       this.appearance = key;
       uni.setStorageSync(APPEARANCE_KEY, key);
       this.syncTabBar();
+      this.applyToPageBody();
     },
     /** 启动/回到 Tab 页时恢复 TabBar 外观（强调色 + 外观层一起同步） */
     restore() { this.setTheme(this.current); }

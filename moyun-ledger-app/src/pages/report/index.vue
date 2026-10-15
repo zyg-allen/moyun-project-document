@@ -280,7 +280,7 @@ export default {
 .liab-name { font-size: 27rpx; color: var(--text-main); }
 .liab-sub { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }
 .liab-right { text-align: right; }
-.liab-balance { font-size: 28rpx; font-weight: 600; color: #a04000; }
+.liab-balance { font-size: 28rpx; font-weight: 600; color: var(--type-repayment); }
 
 /* 导出 */
 .export-row { display: flex; align-items: center; gap: 12rpx; }

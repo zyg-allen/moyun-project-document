@@ -195,7 +195,7 @@ export default {
 .fb-type.bug { background: var(--expense-bg); color: var(--expense); }
 .fb-status { font-size: 22rpx; }
 .fb-status.pending { color: var(--warning); }
-.fb-status.processing { color: #1677ff; }
+.fb-status.processing { color: var(--info); }
 .fb-status.resolved { color: var(--income); }
 .fb-status.rejected { color: var(--text-sub); }
 .fb-subject {

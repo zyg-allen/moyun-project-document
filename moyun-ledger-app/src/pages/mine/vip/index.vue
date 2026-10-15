@@ -252,7 +252,7 @@ export default {
 }
 .benefit-title { font-size: 28rpx; color: var(--text-main); font-weight: 600; margin-bottom: 12rpx; }
 .benefit-row { display: flex; align-items: center; gap: 12rpx; padding: 12rpx 0; }
-.benefit-check { color: #07c160; font-size: 26rpx; font-weight: 700; }
+.benefit-check { color: var(--income); font-size: 26rpx; font-weight: 700; }
 .benefit-name { font-size: 26rpx; color: var(--text-sub); }
 .benefit-note { display: block; font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; line-height: 1.6; }
 
@@ -302,7 +302,7 @@ export default {
 .cashier-qr { width: 180px; height: 180px; }
 .cashier-tip { font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
 .cashier-status { font-size: 26rpx; color: var(--warning); margin-top: 12rpx; }
-.cashier-status.paid { color: #07c160; }
+.cashier-status.paid { color: var(--income); }
 .cashier-actions { display: flex; gap: 24rpx; margin-top: 32rpx; width: 100%; }
 .cashier-btn {
   flex: 1; height: 76rpx; line-height: 76rpx; text-align: center;

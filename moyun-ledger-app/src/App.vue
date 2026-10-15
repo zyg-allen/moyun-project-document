@@ -44,6 +44,17 @@ page {
   --primary-strong: #5FA77A;
   --primary-soft: #E9F5EE;
   --primary-shadow: rgba(127, 191, 148, 0.35);
+
+  /* 最外层容器（H5 下即 uni-page-body）此前**没有任何 background / color 声明**，
+     于是背景用浏览器默认白色、文字用默认黑色。
+     主题变量只注入在各页根视图上，它拿不到 —— 切到暗色后：
+       · 页尾/回弹区露出白底；
+       · **凡是没显式声明 color 的元素（如卡片标题 .card-title）都继承黑色，
+         在深色卡面上直接看不见**。
+     这里给出基础色，运行时再由 theme store 的 applyToPageBody() 覆盖
+     （H5 走 DOM 变量，小程序走 uni.setBackgroundColor）。 */
+  background: var(--bg);
+  color: var(--text-main);
 }
 /* 通用工具类 */
 .flex-row { display: flex; flex-direction: row; align-items: center; }

@@ -171,7 +171,7 @@ export default {
   margin: 0 24rpx; border-radius: 16rpx; padding: 24rpx;
 }
 .tip-title { font-size: 26rpx; font-weight: 600; color: var(--warning); }
-.tip-desc { display: block; font-size: 22rpx; color: #8c6d1f; line-height: 1.6; margin-top: 8rpx; }
+.tip-desc { display: block; font-size: 22rpx; color: var(--warning); line-height: 1.6; margin-top: 8rpx; }
 .gen-btn {
   margin-top: 16rpx; display: inline-block; padding: 8rpx 24rpx;
   background: var(--primary-strong); color: var(--on-primary); border-radius: 24rpx; font-size: 24rpx;

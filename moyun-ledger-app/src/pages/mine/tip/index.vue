@@ -353,7 +353,7 @@ export default {
 .history-amount { font-size: 28rpx; color: var(--text-main); font-weight: 500; }
 .history-time { font-size: 22rpx; color: var(--text-sub); }
 .history-status { font-size: 24rpx; }
-.history-status.paid { color: #07c160; }
+.history-status.paid { color: var(--income); }
 .history-status.pending { color: var(--warning); }
 .history-status.refunded, .history-status.closed { color: var(--text-sub); }
 
@@ -375,7 +375,7 @@ export default {
 .cashier-qr { width: 180px; height: 180px; }
 .cashier-tip { font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
 .cashier-status { font-size: 26rpx; color: var(--warning); margin-top: 12rpx; }
-.cashier-status.paid { color: #07c160; }
+.cashier-status.paid { color: var(--income); }
 .cashier-actions {
   display: flex; gap: 24rpx; margin-top: 32rpx; width: 100%;
 }

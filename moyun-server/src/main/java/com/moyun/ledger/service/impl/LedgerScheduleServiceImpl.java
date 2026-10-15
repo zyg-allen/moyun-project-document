@@ -334,6 +334,14 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         } else {
             // 复用旧日志：说明这是对同一执行日的重跑（上次失败，或崩溃后重扫），
             // 累计重试次数，语义与 retryLog 一致。
+            //
+            // ⚠️ 必须同步**任务侧快照**（金额 / 触发来源）。
+            // 这条日志描述的是**本次**执行结果，而两次执行之间用户可能改过金额 ——
+            // 只更新 status/transactionId 不同步 amount，就会留下
+            // 「流水记了 200，日志却仍写着 2000000000」这种自相矛盾的数据
+            // （线上实测：日志 48 amount=2000000.00，而同一条日志指向的流水 713 是 200.00）。
+            scheduleLog.setAmount(task.getAmount());
+            scheduleLog.setTriggerType(triggerType);
             scheduleLog.setRetryCount((scheduleLog.getRetryCount() == null ? 0 : scheduleLog.getRetryCount()) + 1);
             logMapper.updateById(scheduleLog);
         }

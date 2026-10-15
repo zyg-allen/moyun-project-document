@@ -46,7 +46,7 @@
     </view>
 
     <view class="card">
-      <view class="about">墨韵记账 v1.0.0</view>
+      <view class="about">{{ appVersionText }}</view>
       <view class="about-sub">个人资产管理 · 一个数字看清全部身家</view>
       <view class="about-sub">数据与墨韵门户账号云端同步</view>
     </view>
@@ -55,6 +55,7 @@
 
 <script>
 import { useThemeStore } from '@/stores/theme';
+import { APP_VERSION_TEXT } from '@/utils/appInfo';
 
 export default {
   computed: {
@@ -62,7 +63,9 @@ export default {
     themeList() { return useThemeStore().themeList; },
     appearanceList() { return useThemeStore().appearanceList; },
     appearanceKey() { return useThemeStore().appearanceKey; },
-    current() { return useThemeStore().themeKey; }
+    current() { return useThemeStore().themeKey; },
+    /** 版本号统一来自 utils/appInfo.js（此前这里与「我的」页各写一份且不一致） */
+    appVersionText() { return APP_VERSION_TEXT; }
   },
   data() {
     return { privacy: false };

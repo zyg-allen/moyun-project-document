@@ -1,6 +1,10 @@
 <template>
-  <view class="page" :style="themeVars" v-if="plan">
-    <NavBar :title="plan.name" />
+  <view class="page" :style="themeVars">
+    <!-- NavBar 必须在 v-if 之外：原先整页（含导航栏）都在 v-if="plan" 内，
+         加载中或加载失败时页面全白且**没有任何返回入口**，用户会被卡住 -->
+    <NavBar :title="plan ? plan.name : '计划详情'" />
+
+    <template v-if="plan">
 
     <!-- 概览 -->
     <view class="overview">
@@ -66,6 +70,10 @@
 
     <!-- 删除计划 -->
     <view class="delete-btn" @tap="delPlan">删除计划</view>
+    </template>
+
+    <!-- 加载中 / 加载失败占位：有 NavBar 兜底，用户始终能返回 -->
+    <view v-else class="detail-placeholder">{{ loadFailed ? '计划不存在或已删除' : '加载中…' }}</view>
   </view>
 </template>
 
@@ -78,7 +86,7 @@ import { toFixedYuan } from '@/utils/money';
 export default {
   components: { NavBar },
   data() {
-    return { planId: null, plan: null, records: [] };
+    return { planId: null, plan: null, records: [], loadFailed: false };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
@@ -106,7 +114,12 @@ export default {
         const data = await getSavingPlan(this.planId) || {};
         this.plan = data.plan || null;
         this.records = data.records || [];
-      } catch (e) { /* 拦截器已提示 */ }
+        // 接口成功但没返回 plan（如已被删除）也算失败，避免永远停在"加载中…"
+        this.loadFailed = !this.plan;
+      } catch (e) {
+        this.loadFailed = true;
+        /* 拦截器已提示 */
+      }
     },
     deposit(r) {
       uni.showModal({
@@ -206,5 +219,10 @@ export default {
 .delete-btn {
   margin: 40rpx 24rpx 0; text-align: center; padding: 24rpx;
   background: var(--card); border-radius: 16rpx; color: var(--expense); font-size: 28rpx;
+}
+/* 加载中 / 加载失败占位（与 NavBar 一起保证页面不会全白无出口） */
+.detail-placeholder {
+  padding: 160rpx 0; text-align: center;
+  color: var(--text-muted); font-size: 28rpx;
 }
 </style>

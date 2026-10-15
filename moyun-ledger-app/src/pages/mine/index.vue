@@ -82,7 +82,7 @@
     </block>
 
     <!-- ==================== 脚部：版本信息 ==================== -->
-    <view class="footer">墨韵记账 v11.76 · 与墨韵门户共用账号体系</view>
+    <view class="footer">{{ appVersionText }} · 与墨韵门户共用账号体系</view>
   </view>
 </template>
 
@@ -91,6 +91,7 @@ import { login, getCaptchaImage, getAppFeatures, getAiProfile } from '@/api/ledg
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 import { storage } from '@/utils/storage';
+import { APP_VERSION_TEXT } from '@/utils/appInfo';
 
 export default {
   data() {
@@ -121,7 +122,9 @@ export default {
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
-    userStore() { return useUserStore(); }
+    userStore() { return useUserStore(); },
+    /** 版本号统一来自 utils/appInfo.js（此前这里写死 v11.76，与设置页的 v1.0.0 矛盾） */
+    appVersionText() { return APP_VERSION_TEXT; }
   },
   onShow() {
     useThemeStore().restore();

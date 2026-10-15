@@ -25,7 +25,7 @@
     { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } },
     { "path": "pages/mine/forgot-password/index", "style": { "navigationBarTitleText": "找回密码" } },
     { "path": "pages/mine/profile/index", "style": { "navigationBarTitleText": "个人信息维护" } },
-    { "path": "pages/webview/index", "style": { "navigationBarTitleText": "外部链接" } }
+    { "path": "pages/webview/index", "style": { "navigationBarTitleText": "外部链接", "navigationStyle": "default" } }
   ],
   "globalStyle": {
     "navigationStyle": "custom",

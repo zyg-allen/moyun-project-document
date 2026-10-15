@@ -204,8 +204,13 @@ export default {
     }
   },
   onLoad(options) {
-    // 列表页点「编辑」时带 id 进来；有 id 即进入编辑模式
-    if (options && options.id) this.editId = Number(options.id);
+    // 列表页点「编辑」时带 id 进来；有 id 即进入编辑模式。
+    // ⚠️ 必须保持**字符串**，不要 Number()：后端 ApplicationConfig 配了
+    // `serializerByType(Long.class, ToStringSerializer.instance)`，
+    // 所有 Long 都序列化成 JSON 字符串（防 JS 精度丢失），
+    // 于是 tasks[].id 是 "1" 而 Number(options.id) 是 1 —— 用 === 比较永远不成立，
+    // 表现为"后端明明有数据，前端却提示任务不存在或已删除"、表单完全不回填。
+    if (options && options.id) this.editId = String(options.id);
   },
   onShow() {
     useThemeStore().restore();
@@ -273,7 +278,9 @@ export default {
     async loadForEdit() {
       try {
         const data = await listScheduleTasks() || {};
-        const t = (data.tasks || []).find(x => x.id === this.editId);
+        // 两侧统一 String()：后端 Long 序列化为字符串，而 URL 参数类型不定，
+        // 直接 === 会因 "1" vs 1 失配（详见 onLoad 注释）
+        const t = (data.tasks || []).find(x => String(x.id) === String(this.editId));
         if (!t) { uni.showToast({ title: '任务不存在或已删除', icon: 'none' }); return; }
         this.form.type = t.type || 'expense';
         this.form.amount = t.amount != null ? String(t.amount) : '';

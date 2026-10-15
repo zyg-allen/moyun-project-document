@@ -348,7 +348,7 @@ export default {
 .log-back + .log-title { text-align: left; }
 .log-hint { font-size: 20rpx; color: var(--text-muted); text-align: center; margin: 6rpx 0 20rpx; }
 .log-scroll { max-height: 50vh; }
-.log-item { padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.log-item { padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .log-more { font-size: 28rpx; color: var(--text-muted); margin-left: 12rpx; }
 .log-line { display: flex; justify-content: space-between; align-items: center; font-size: 24rpx; }
 /* 日期占满左侧，状态/金额/箭头统一贴右（4 个子项用 space-between 会被摊开） */

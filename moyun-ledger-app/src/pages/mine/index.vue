@@ -103,20 +103,20 @@ export default {
       profileDone: false,
       // 主功能宫格（内置兜底=仅已上线功能；运行时由后台配置覆盖）
       mainMenus: [
-        { key: 'category', icon: '☰', label: '分类管理', color: '#7fbf94' },
-        { key: 'setting', icon: '⚙️', label: '记账设置', color: '#7fbf94' },
-        { key: 'savings', icon: '🏦', label: '存钱计划', color: '#7fbf94' },
-        { key: 'schedule', icon: '⏰', label: '定时记账', color: '#7fbf94' },
-        { key: 'feedback', icon: '💬', label: '意见反馈', color: '#7fbf94' },
-        { key: 'tip', icon: '🎁', label: '赞赏', color: '#7fbf94' },
+        { key: 'category', icon: '☰', label: '分类管理', color: '' },
+        { key: 'setting', icon: '⚙️', label: '记账设置', color: '' },
+        { key: 'savings', icon: '🏦', label: '存钱计划', color: '' },
+        { key: 'schedule', icon: '⏰', label: '定时记账', color: '' },
+        { key: 'feedback', icon: '💬', label: '意见反馈', color: '' },
+        { key: 'tip', icon: '🎁', label: '赞赏', color: '' },
         { key: 'vip', icon: '👑', label: '记账VIP', color: '#e6a23c', badge: 'VIP' },
         { key: 'personalize', icon: '🎨', label: '个性化', color: '#e57373', badge: 'NEW' },
-        { key: 'catIcon', icon: '🎭', label: '分类图标', color: '#7fbf94', badge: 'NEW' }
+        { key: 'catIcon', icon: '🎭', label: '分类图标', color: '', badge: 'NEW' }
       ],
       // 推荐小功能（内置兜底=仅已上线功能）
       recommendMenus: [
-        { key: 'memo', icon: '📝', label: '备忘录', color: '#7fbf94' },
-        { key: 'list', icon: '☑', label: '清单', color: '#7fbf94' }
+        { key: 'memo', icon: '📝', label: '备忘录', color: '' },
+        { key: 'list', icon: '☑', label: '清单', color: '' }
       ]
     };
   },
@@ -154,7 +154,7 @@ export default {
         if (!Array.isArray(rows) || !rows.length) return;
         const toMenu = (r) => ({
           key: r.featureKey, icon: r.icon, label: r.featureName,
-          color: r.iconColor || '#7fbf94', badge: r.badge || undefined,
+          color: r.iconColor || '', badge: r.badge || undefined,
           link: r.remark || '' // 链接型入口（如墨韵社区）：remark 承载跳转 URL，后台可视化配置
         });
         const main = rows.filter(r => r.groupType === 'main').map(toMenu);
@@ -269,7 +269,7 @@ export default {
 }
 
 .card { background: var(--card); border-radius: 20rpx; padding: 8rpx 32rpx; margin: 0 24rpx 24rpx; }
-.field { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.field { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid var(--border); }
 .field-label { width: 140rpx; font-size: 28rpx; color: var(--text-sub); }
 .field-input { flex: 1; font-size: 28rpx; text-align: right; }
 .captcha-row { display: flex; align-items: center; gap: 16rpx; flex: 1; }
@@ -294,6 +294,9 @@ export default {
   width: 80rpx; height: 80rpx; border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
   font-size: 38rpx; background: var(--primary-soft);
+  /* 默认图标前景色跟随强调色（列表里 color 留空时生效）；
+     API 下发的 iconColor 仍以内联样式优先覆盖 */
+  color: var(--primary-text);
 }
 .cell-label { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
 .cell-badge {
@@ -314,7 +317,7 @@ export default {
 /* 账号信息维护列表项 */
 .menu-item.with-icon {
   justify-content: flex-start; color: var(--text-main); gap: 20rpx;
-  border-bottom: 1rpx solid #f5f5f7; padding: 30rpx 0;
+  border-bottom: 1rpx solid var(--border); padding: 30rpx 0;
 }
 .menu-item.with-icon:last-of-type { border-bottom: none; }
 .mi-icon { font-size: 36rpx; }

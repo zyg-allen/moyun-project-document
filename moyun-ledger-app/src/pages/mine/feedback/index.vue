@@ -160,7 +160,7 @@ export default {
 }
 
 .form-card { background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx 32rpx; }
-.f-row { padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.f-row { padding: 24rpx 0; border-bottom: 1rpx solid var(--border); }
 .f-row:last-child { border-bottom: none; }
 .f-row.col { display: flex; flex-direction: column; gap: 16rpx; }
 .f-label { font-size: 26rpx; color: var(--text-main); }

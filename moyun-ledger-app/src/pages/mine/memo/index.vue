@@ -239,7 +239,7 @@ export default {
 
 .todo-list { background: var(--card); border-radius: 16rpx; overflow: hidden; }
 .todo-item {
-  display: flex; align-items: flex-start; padding: 24rpx; border-bottom: 1rpx solid #f5f5f7;
+  display: flex; align-items: flex-start; padding: 24rpx; border-bottom: 1rpx solid var(--border);
 }
 .todo-item:last-child { border-bottom: none; }
 .todo-title { font-size: 28rpx; color: var(--text-main); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -301,7 +301,7 @@ export default {
 .form-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 20rpx; }
 .form-scroll { max-height: 55vh; }
 .f-row {
-  display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .f-row:last-child { border-bottom: none; }
 .f-row.col { flex-direction: column; align-items: flex-start; gap: 16rpx; }

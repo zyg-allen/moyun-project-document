@@ -276,7 +276,7 @@ export default {
 .amount-label { font-size: 28rpx; color: var(--text-main); padding: 8rpx 0 24rpx; }
 .amount-grid {
   display: flex; flex-wrap: wrap; gap: 20rpx;
-  padding-bottom: 24rpx; border-bottom: 1rpx solid #f5f5f7;
+  padding-bottom: 24rpx; border-bottom: 1rpx solid var(--border);
 }
 .amount-cell {
   width: calc((100% - 60rpx) / 4); height: 88rpx;
@@ -291,7 +291,7 @@ export default {
 .amount-cell.active .amount-num { color: var(--primary-text); font-weight: 600; }
 .tip-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  padding: 28rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .tip-row:last-child { border-bottom: none; }
 .tip-label { font-size: 28rpx; color: var(--text-main); }
@@ -302,7 +302,7 @@ export default {
 .pay-card { background: var(--card); margin: 0 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .pay-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  padding: 28rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .pay-row:last-child { border-bottom: none; }
 .pay-left { display: flex; align-items: center; }
@@ -317,7 +317,7 @@ export default {
 .pay-name { font-size: 28rpx; color: var(--text-main); }
 .pay-check {
   width: 36rpx; height: 36rpx; border-radius: 18rpx;
-  border: 2rpx solid #ccc; display: flex; align-items: center; justify-content: center;
+  border: 2rpx solid var(--border-strong); display: flex; align-items: center; justify-content: center;
   font-size: 22rpx;
 }
 .pay-check.checked {
@@ -346,7 +346,7 @@ export default {
 .history-title { font-size: 28rpx; color: var(--text-main); font-weight: 600; margin-bottom: 8rpx; }
 .history-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 20rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  padding: 20rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .history-row:last-child { border-bottom: none; }
 .history-left { display: flex; flex-direction: column; gap: 4rpx; }

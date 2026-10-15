@@ -205,7 +205,7 @@ export default {
 }
 
 .card { background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx 40rpx; }
-.row { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid #f5f5f7; gap: 16rpx; }
+.row { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid var(--border); gap: 16rpx; }
 .row:last-of-type { border-bottom: none; }
 .label { width: 150rpx; font-size: 26rpx; color: var(--text-main); flex-shrink: 0; }
 .input {

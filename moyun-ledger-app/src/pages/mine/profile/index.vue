@@ -215,7 +215,7 @@ export default {
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx 8rpx; margin: 24rpx 24rpx 0; }
 .card-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); padding-bottom: 8rpx; }
-.field { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.field { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid var(--border); }
 .field.col { flex-direction: column; align-items: stretch; gap: 20rpx; }
 .field:last-of-type { border-bottom: none; }
 .field-label { width: 220rpx; font-size: 28rpx; color: var(--text-sub); flex-shrink: 0; }

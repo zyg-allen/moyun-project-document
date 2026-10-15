@@ -452,7 +452,7 @@ export default {
 .link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 
-.row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid var(--border); }
 .row-icon {
   width: 72rpx; height: 72rpx; border-radius: 36rpx; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
@@ -462,11 +462,11 @@ export default {
 .row-icon.liab { background: linear-gradient(135deg, #f2913d, #e8703a); }
 .row-name { font-size: 28rpx; }
 .archived-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
-.settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid #27ae60; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid var(--income); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .row-type { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .row-balance { font-size: 32rpx; font-weight: 600; }
 /* 负债金额：红色（欠的钱），资产金额保持默认 */
-.row-balance.liab { color: #d93a31; }
+.row-balance.liab { color: var(--expense); }
 
 .fab {
   position: fixed; right: 40rpx; bottom: 200rpx;
@@ -477,14 +477,14 @@ export default {
 }
 
 .sheet-title { font-size: 34rpx; font-weight: 600; text-align: center; margin-bottom: 32rpx; }
-.field { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.field { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid var(--border); }
 .field-label { width: 200rpx; font-size: 28rpx; color: var(--text-sub); }
 .field-input { flex: 1; font-size: 28rpx; text-align: right; }
 .field-picker { flex: 1; font-size: 28rpx; text-align: right; color: var(--text-main); }
 .btn-primary { margin-top: 40rpx; }
 .btn-danger {
   margin-top: 24rpx; text-align: center; color: var(--expense); font-size: 28rpx;
-  border: 1rpx solid #e74c3c; border-radius: 44rpx; height: 80rpx; line-height: 80rpx;
+  border: 1rpx solid var(--expense); border-radius: 44rpx; height: 80rpx; line-height: 80rpx;
 }
 .btn-cancel {
   margin-top: 20rpx; text-align: center; color: var(--text-sub); font-size: 26rpx;

@@ -153,7 +153,7 @@ export default {
 .page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
 .form-card { background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .form-row {
-  display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .form-row:last-child { border-bottom: none; }
 .form-label { width: 180rpx; font-size: 28rpx; color: var(--text-main); flex-shrink: 0; }

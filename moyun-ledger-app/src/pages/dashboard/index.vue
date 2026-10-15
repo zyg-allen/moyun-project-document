@@ -327,7 +327,7 @@ export default {
 }
 .guide-title { font-size: 30rpx; font-weight: 700; color: var(--text-main); margin-bottom: 20rpx; }
 .guide-step {
-  display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .guide-step:last-of-type { border-bottom: none; }
 .step-num {
@@ -340,7 +340,7 @@ export default {
 .guide-card .arrow { color: var(--text-muted); font-size: 32rpx; }
 .guide-close {
   margin-top: 16rpx; text-align: center; font-size: 24rpx; color: var(--text-sub);
-  padding-top: 16rpx; border-top: 1rpx solid #f5f5f7;
+  padding-top: 16rpx; border-top: 1rpx solid var(--border);
 }
 /* 净资产主卡：与 NavBar 统一为「白卡」语言（原为强调色底 + 白字）。
    为什么改：强调色底 + 白字在 5 套强调色上对比度仅 1.9~4.3:1，无一达到
@@ -385,7 +385,7 @@ export default {
 .budget-text .over { color: var(--expense); font-weight: 600; }
 
 .empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
-.txn-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.txn-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid var(--border); }
 .txn-row:last-child { border-bottom: none; }
 .txn-icon {
   width: 72rpx; height: 72rpx; border-radius: 36rpx; margin-right: 20rpx;

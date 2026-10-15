@@ -155,7 +155,7 @@ export default {
 }
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 8rpx; }
-.field { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.field { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid var(--border); }
 .field:last-of-type { border-bottom: none; }
 .field-label { width: 260rpx; font-size: 28rpx; color: var(--text-sub); }
 .field-value { flex: 1; text-align: right; font-size: 28rpx; }

@@ -789,7 +789,7 @@ export default {
 /* 添加自定义分类入口 + 自定义角标 */
 .cat-add-icon {
   background: var(--surface); color: var(--primary-text); font-size: 40rpx;
-  border: 1rpx dashed #c8c8d0; box-shadow: none;
+  border: 1rpx dashed var(--border-strong); box-shadow: none;
 }
 /* 自定义分类右上角删除 ×：热区 88rpx，与分类点击互不干扰 */
 .cat-del-x {
@@ -802,7 +802,7 @@ export default {
 .cat-del-x:active { background: var(--expense-bg); color: var(--expense); }
 
 /* 二级分类横滑 */
-.sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid #f5f5f7; }
+.sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid var(--border); }
 .sub-cat-tag {
   display: inline-block; font-size: 24rpx; color: var(--text-sub);
   background: var(--surface); border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
@@ -841,7 +841,7 @@ export default {
 .opt-card { background: var(--card); margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .pick-row {
   display: flex; align-items: center;
-  padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  padding: 24rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .pick-row:last-child { border-bottom: none; }
 .pick-label { width: 200rpx; color: var(--text-sub); font-size: 28rpx; }
@@ -872,7 +872,7 @@ export default {
 /* 凭证截图行 */
 .voucher-row {
   display: flex; align-items: center;
-  padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  padding: 24rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .voucher-row:last-child { border-bottom: none; }
 .voucher-area { flex: 1; display: flex; justify-content: flex-end; position: relative; }
@@ -907,11 +907,11 @@ export default {
 .picker-list { max-height: 56vh; }
 .picker-cancel {
   margin-top: 20rpx; text-align: center; color: var(--text-sub); font-size: 26rpx;
-  height: 72rpx; line-height: 72rpx; border-top: 1rpx solid #f5f5f7;
+  height: 72rpx; line-height: 72rpx; border-top: 1rpx solid var(--border);
 }
 .picker-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 20rpx 16rpx; border-bottom: 1rpx solid #f5f5f7; font-size: 28rpx;
+  padding: 20rpx 16rpx; border-bottom: 1rpx solid var(--border); font-size: 28rpx;
 }
 .picker-item.active { color: var(--primary-text); font-weight: 600; }
 .picker-sub { color: var(--text-sub); font-size: 24rpx; }

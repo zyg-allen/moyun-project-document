@@ -225,7 +225,7 @@ export default {
 .add-bar {
   position: fixed; left: 0; right: 0; bottom: 0;
   padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: var(--card);
-  border-top: 1rpx solid #f0f0f5;
+  border-top: 1rpx solid var(--border);
   display: flex; flex-direction: column;
 }
 .add-row { display: flex; align-items: center; }

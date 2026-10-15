@@ -585,12 +585,12 @@ export default {
 
 .day-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 20rpx 8rpx 8rpx; border-bottom: 1rpx solid #f0f0f5;
+  padding: 20rpx 8rpx 8rpx; border-bottom: 1rpx solid var(--border);
 }
 .day-date { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
 .day-sub { font-size: 22rpx; color: var(--text-sub); }
 
-.txn-row { display: flex; align-items: center; padding: 14rpx 8rpx; border-bottom: 1rpx solid #f5f5f7; }
+.txn-row { display: flex; align-items: center; padding: 14rpx 8rpx; border-bottom: 1rpx solid var(--border); }
 .txn-row.last-row { border-bottom: none; }
 .txn-icon {
   width: 56rpx; height: 56rpx; border-radius: 28rpx; margin-right: 16rpx; flex-shrink: 0;
@@ -639,7 +639,7 @@ export default {
 
 /* ============ 日历视图样式 ============ */
 .calendar-card { background: var(--card); border-radius: 20rpx; margin: 16rpx 24rpx 0; padding: 20rpx 16rpx 8rpx; }
-.week-row { display: flex; border-bottom: 1rpx solid #f5f5f7; }
+.week-row { display: flex; border-bottom: 1rpx solid var(--border); }
 .week-cell { flex: 1; text-align: center; font-size: 24rpx; color: var(--text-sub); padding: 12rpx 0; }
 .week-cell.weekend { color: var(--expense); }
 .grid { display: flex; flex-wrap: wrap; }
@@ -657,7 +657,7 @@ export default {
 .day-net { font-size: 18rpx; margin-top: 2rpx; transform: scale(0.9); }
 .day-net.in { color: var(--income); }
 .day-net.out { color: var(--expense); }
-.day-dot { width: 8rpx; height: 8rpx; border-radius: 4rpx; background: #ccc; margin-top: 4rpx; }
+.day-dot { width: 8rpx; height: 8rpx; border-radius: 4rpx; background: var(--border-strong); margin-top: 4rpx; }
 .day-cell.selected .day-dot { background: var(--primary-strong); }
 
 .day-summary {

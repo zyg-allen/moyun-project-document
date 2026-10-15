@@ -275,7 +275,7 @@ export default {
 .nw-value { width: 150rpx; text-align: right; font-size: 22rpx; color: var(--text-main); }
 
 /* 负债 */
-.liab-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.liab-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .liab-row:last-child { border-bottom: none; }
 .liab-name { font-size: 27rpx; color: var(--text-main); }
 .liab-sub { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }

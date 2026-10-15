@@ -293,7 +293,7 @@ export default {
 
 .form-card { background: var(--card); margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .form-row {
-  display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
+  display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid var(--border);
 }
 .form-row:last-child { border-bottom: none; }
 .form-row.col { flex-direction: column; align-items: flex-start; gap: 20rpx; }

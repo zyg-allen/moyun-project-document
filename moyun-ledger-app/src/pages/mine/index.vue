@@ -242,24 +242,29 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 .user-card {
-  display: flex; align-items: center; background: var(--primary);
-  color: #fff; padding: 60rpx 40rpx 32rpx;
+  /* 与 NavBar 统一为「白卡头部」：原为强调色底 + 白字，
+     而强调色底 + 白字在 5 套强调色上对比度仅 1.9~4.3:1，无一达到小字 AA */
+  display: flex; align-items: center; background: var(--card);
+  color: var(--text-main); padding: 60rpx 40rpx 32rpx;
   padding-top: calc(var(--status-bar-height) + 60rpx);
 }
 .avatar {
-  width: 110rpx; height: 110rpx; border-radius: 55rpx; background: rgba(255,255,255,0.25);
-  display: flex; align-items: center; justify-content: center; font-size: 44rpx; margin-right: 24rpx;
+  width: 110rpx; height: 110rpx; border-radius: 55rpx;
+  background: var(--primary-soft); color: var(--primary-strong);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44rpx; font-weight: 600; margin-right: 24rpx;
 }
-.user-name { font-size: 34rpx; font-weight: 600; }
-.user-sub { font-size: 22rpx; opacity: 0.85; margin-top: 8rpx; }
+.user-name { font-size: 34rpx; font-weight: 600; color: var(--text-main); }
+.user-sub { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 .user-right { display: flex; align-items: center; gap: 16rpx; }
 .sign-btn {
   font-size: 24rpx; padding: 8rpx 24rpx; border-radius: 28rpx;
-  background: rgba(255,255,255,0.25); color: #fff;
+  background: var(--primary-soft); color: var(--primary-strong);
 }
 .setting-btn {
   width: 56rpx; height: 56rpx; border-radius: 28rpx;
-  background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--text-sub);
+  display: flex; align-items: center; justify-content: center;
   font-size: 30rpx;
 }
 

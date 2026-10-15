@@ -103,13 +103,16 @@ export default {
 .page { padding-bottom: 40rpx; min-height: 100vh; background: var(--surface); }
 .nav-add { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
+/* 总览卡：与头部统一为「白卡」语言（原为强调色底 + 白字，白字对比度不足），
+   沿用资产负债汇总卡与记一笔金额卡的做法：中性卡面 + 左侧强调色竖条点出主次 */
 .overview-card {
-  background: var(--primary); color: #fff;
+  background: var(--card); color: var(--text-main);
   margin: 24rpx; border-radius: 20rpx; padding: 32rpx;
+  border-left: 8rpx solid var(--primary-strong);
 }
-.ov-label { font-size: 24rpx; opacity: 0.85; }
-.ov-amount { font-size: 52rpx; font-weight: 700; margin: 12rpx 0; }
-.ov-sub { display: flex; justify-content: space-between; font-size: 22rpx; opacity: 0.85; }
+.ov-label { font-size: 24rpx; color: var(--text-sub); }
+.ov-amount { font-size: 52rpx; font-weight: 700; margin: 12rpx 0; color: var(--text-main); }
+.ov-sub { display: flex; justify-content: space-between; font-size: 22rpx; color: var(--text-sub); }
 
 .section-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); padding: 8rpx 32rpx 16rpx; }
 

@@ -295,10 +295,11 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 /* ===== 未登录品牌与价值展示 ===== */
+/* 未登录品牌区：白卡底，品牌名用强调色做识别，副文案走次级灰 */
 .brand-hero { text-align: center; padding-top: calc(var(--status-bar-height) + 100rpx); padding-bottom: 80rpx; }
-.brand-name { font-size: 52rpx; font-weight: 800; letter-spacing: 4rpx; }
-.brand-slogan { font-size: 32rpx; margin-top: 20rpx; font-weight: 600; }
-.brand-sub { font-size: 24rpx; opacity: 0.75; margin-top: 12rpx; }
+.brand-name { font-size: 52rpx; font-weight: 800; letter-spacing: 4rpx; color: var(--primary-strong); }
+.brand-slogan { font-size: 32rpx; margin-top: 20rpx; font-weight: 600; color: var(--text-main); }
+.brand-sub { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
 .intro-card { padding: 28rpx; }
 .intro-title { font-size: 30rpx; font-weight: 700; color: var(--text-main); margin-bottom: 12rpx; }
 .pain-item { display: flex; align-items: flex-start; padding: 18rpx 0; }
@@ -341,25 +342,31 @@ export default {
   margin-top: 16rpx; text-align: center; font-size: 24rpx; color: var(--text-sub);
   padding-top: 16rpx; border-top: 1rpx solid #f5f5f7;
 }
+/* 净资产主卡：与 NavBar 统一为「白卡」语言（原为强调色底 + 白字）。
+   为什么改：强调色底 + 白字在 5 套强调色上对比度仅 1.9~4.3:1，无一达到
+   小字 AA 的 4.5:1（薄荷最低 1.9:1）；强调色改为用在真正需要强调的地方。 */
 .hero {
-  background: var(--primary);
-  color: #fff; padding: 60rpx 40rpx 40rpx; margin-bottom: 24rpx;
-  padding-top: calc(var(--status-bar-height) + 50rpx); }
-.hero-label { font-size: 26rpx; opacity: 0.8; }
+  background: var(--card);
+  color: var(--text-main);
+  padding: 60rpx 40rpx 40rpx; margin-bottom: 24rpx;
+  padding-top: calc(var(--status-bar-height) + 50rpx);
+}
+.hero-label { font-size: 26rpx; color: var(--text-sub); }
 .hero-top { display: flex; justify-content: space-between; align-items: center; }
 .privacy-toggle {
-  font-size: 22rpx; color: #fff; background: rgba(255,255,255,0.18);
+  font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft);
   border-radius: 24rpx; padding: 6rpx 20rpx;
 }
 .hero-amount { font-size: 72rpx; font-weight: 700; margin: 16rpx 0 8rpx; }
 .hero-change { font-size: 24rpx; margin-bottom: 24rpx; }
-.hero-change.up { color: #d4ffd4; }
-.hero-change.down { color: #ffd4d4; }
-.hero-row { display: flex; align-items: center; background: rgba(255,255,255,0.12); border-radius: 16rpx; padding: 24rpx 0; }
+/* 涨跌改用语义色（原 #d4ffd4 / #ffd4d4 是"浅色底上的浅色字"，白卡上不可读） */
+.hero-change.up { color: var(--income); }
+.hero-change.down { color: var(--expense); }
+.hero-row { display: flex; align-items: center; background: var(--surface); border-radius: 16rpx; padding: 24rpx 0; }
 .hero-cell { flex: 1; text-align: center; }
-.cell-label { font-size: 24rpx; opacity: 0.8; margin-bottom: 8rpx; }
+.cell-label { font-size: 24rpx; color: var(--text-sub); margin-bottom: 8rpx; }
 .cell-value { font-size: 34rpx; font-weight: 600; }
-.hero-divider { width: 1rpx; height: 48rpx; background: rgba(255,255,255,0.25); }
+.hero-divider { width: 1rpx; height: 48rpx; background: var(--border); }
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }

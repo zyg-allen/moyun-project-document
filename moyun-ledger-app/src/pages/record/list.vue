@@ -507,36 +507,41 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; min-height: 100vh; background: var(--surface); }
 
-/* 合并顶栏（绿色主题底）：返回 | tab(居中) | 月份 */
+/* 合并顶栏：返回 | 日历/流水切换(居中) | 月份
+   与 NavBar 统一为「白卡头部」（原为强调色底 + 白字）。
+   原因：强调色底 + 白字在 5 套强调色上对比度仅 1.9~4.3:1，
+   没有一套达到小字 AA 的 4.5:1（薄荷最低 1.9:1）。 */
 .header-bar {
   display: flex; align-items: center;
-  background: var(--primary);
+  background: var(--card);
   padding: calc(var(--status-bar-height) + 16rpx) 24rpx 20rpx;
-  color: #fff;
+  border-bottom: 1rpx solid var(--border);
 }
+/* 返回键与 NavBar 对齐：浅强调色圆底 + 强调色箭头 */
 .header-back {
-  width: 60rpx; height: 60rpx; border-radius: 30rpx;
+  width: 60rpx; height: 60rpx; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.22); flex-shrink: 0;
+  background: var(--primary-soft); flex-shrink: 0;
 }
-.header-back:active { background: rgba(255,255,255,0.35); }
-.back-icon { font-size: 44rpx; color: #fff; margin-top: -4rpx; line-height: 1; }
+.header-back:active { opacity: 0.7; }
+.back-icon { font-size: 44rpx; color: var(--primary-strong); margin-top: -4rpx; line-height: 1; }
 .header-switch {
   flex: 1; display: flex; justify-content: center;
 }
+/* 分段控件：浅灰轨道 + 白底选中态（原为白色半透明，仅适用于彩色底） */
 .header-switch-inner {
-  display: flex; background: rgba(255,255,255,0.22);
+  display: flex; background: var(--surface);
   border-radius: 32rpx; padding: 6rpx;
 }
 .sw-item {
-  padding: 8rpx 28rpx; font-size: 26rpx; color: rgba(255,255,255,0.85);
+  padding: 8rpx 28rpx; font-size: 26rpx; color: var(--text-sub);
   border-radius: 26rpx;
 }
 .sw-item.active { background: var(--card); color: var(--primary-strong); font-weight: 600; }
 .header-right { flex-shrink: 0; }
 .month-picker { display: flex; align-items: center; }
-.month-text { font-size: 28rpx; font-weight: 600; }
-.month-arrow { font-size: 22rpx; margin-left: 6rpx; opacity: 0.85; }
+.month-text { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
+.month-arrow { font-size: 22rpx; margin-left: 6rpx; color: var(--primary-strong); }
 
 /* 筛选栏 */
 .filter-bar {

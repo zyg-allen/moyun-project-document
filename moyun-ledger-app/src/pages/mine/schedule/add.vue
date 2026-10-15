@@ -102,6 +102,18 @@
       </view>
     </view>
 
+    <!-- 邮件提醒：默认关。用途不是"每次执行都通知"（那会变成轰炸），
+         而是当任务长期无人过问时提醒一次，避免"以为已取消其实还在跑"。 -->
+    <view class="form-card">
+      <view class="form-row">
+        <view class="flex-1 min-w-0">
+          <text class="form-label block">邮件提醒</text>
+          <text class="switch-hint">执行失败时及时通知；长期未登录时提醒任务仍在执行</text>
+        </view>
+        <switch :checked="form.notifyEnabled === 1" @change="onNotifyChange" style="transform: scale(0.85)" />
+      </view>
+    </view>
+
     <view class="preview" v-if="nextExecText">下次记账时间：{{ nextExecText }}</view>
 
     <view class="submit-btn" :class="{ disabled: submitting }" @tap="!submitting && save()">确定</view>
@@ -140,7 +152,10 @@ export default {
         intervalDays: '',
         execTime: '08:00',
         startDate: `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`,
-        endDate: ''
+        endDate: '',
+        // 邮件提醒开关：默认 0（关）。定时任务可能每天执行，
+        // 默认发信会变成每日轰炸，必须用户逐任务显式开启。
+        notifyEnabled: 0
       },
       categories: [],
       accounts: [],
@@ -250,6 +265,8 @@ export default {
       if (this.descEdited) return;
       this.form.description = this.buildRemarkPrefix();
     },
+    /** 切换本任务的邮件提醒开关（仅改表单值，随「确定」一起提交） */
+    onNotifyChange(e) { this.form.notifyEnabled = e.detail.value ? 1 : 0; },
     /** 用户一旦手动改过备注，就不再自动覆盖 */
     onDescInput() { this.descEdited = true; },
     onStartDateChange(e) {
@@ -296,6 +313,8 @@ export default {
         this.form.endDate = t.endDate || '';
         // 后端 listTasks 已回填 accountName，存下来做兜底显示
         this.fallbackAccountName = t.accountName || '';
+        // notifyEnabled 是 tinyint，序列化为数字，故用 === 1
+        this.form.notifyEnabled = t.notifyEnabled === 1 ? 1 : 0;
         // 编辑反显：分类宫格默认收起，让已保存的值一眼可见（点标题栏可展开重选）。
         // 同时标记备注已被用户"接管"，避免后续联动把存过的备注覆盖掉。
         this.catCollapsed = true;
@@ -369,7 +388,8 @@ export default {
                 intervalDays: this.form.cycle === 'interval' ? parseInt(this.form.intervalDays) : null,
                 execTime: this.form.execTime,
                 startDate: this.form.startDate,
-                endDate: this.form.endDate || null
+                endDate: this.form.endDate || null,
+                notifyEnabled: this.form.notifyEnabled ? 1 : 0
               };
               try {
                 if (this.editId) {
@@ -430,6 +450,10 @@ export default {
 }
 .cat-name.selected { color: var(--primary-text); font-weight: 600; }
 .cat-empty { width: 100%; font-size: 24rpx; color: var(--text-muted); padding: 16rpx 0; }
+
+/* 邮件提醒开关行 */
+.form-label.block { display: block; width: auto; }
+.switch-hint { display: block; font-size: 22rpx; color: var(--text-muted); margin-top: 6rpx; line-height: 1.4; }
 
 .type-group { display: flex; gap: 16rpx; }
 .type-tag {

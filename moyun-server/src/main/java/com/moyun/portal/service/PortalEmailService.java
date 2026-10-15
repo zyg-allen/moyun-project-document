@@ -58,4 +58,18 @@ public interface PortalEmailService {
      * @return 重置结果
      */
     AjaxResult resetPassword(String email, String code, String newPassword);
+
+    /**
+     * 发送业务通知邮件（非验证码）。
+     * <p>
+     * 与 {@link #sendCode} 的差别：<b>不写 Redis、不限流、不返回 AjaxResult</b>。
+     * 通知邮件是"尽力而为"的旁路 —— 定时记账业务不能因为邮件发不出去而失败，
+     * 所以这里只回 boolean 供日志记录，调用方忽略返回值即可。
+     *
+     * @param to      收件邮箱
+     * @param subject 主题
+     * @param content 正文（纯文本）
+     * @return true=已投递；false=未绑定邮箱、通道未就绪或发送异常
+     */
+    boolean sendNotification(String to, String subject, String content);
 }

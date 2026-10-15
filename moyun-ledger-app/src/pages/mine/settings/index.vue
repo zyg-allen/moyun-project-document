@@ -45,6 +45,32 @@
       </view>
     </view>
 
+    <!-- 邮件提醒：定时记账执行结果的邮件推送 -->
+    <view class="card">
+      <view class="setting-row">
+        <view class="flex-1">
+          <view class="setting-name">邮件提醒</view>
+          <view class="setting-sub">定时记账执行成功或失败（如余额不足）时发邮件通知</view>
+        </view>
+        <switch :checked="mailNotify" @change="onMailNotifyChange" style="transform: scale(0.85)" />
+      </view>
+
+      <view class="mail-row">
+        <text class="mail-label">接收邮箱</text>
+        <text class="mail-value" :class="{ empty: !email }">{{ email || '未绑定' }}</text>
+      </view>
+      <view class="mail-tip" v-if="!email">未绑定邮箱则收不到提醒，请先绑定</view>
+
+      <view class="mail-edit" v-if="editingMail">
+        <input class="mail-input" v-model="emailInput" placeholder="请输入邮箱地址" />
+        <view class="mail-btn" @tap="saveEmail">保存</view>
+        <view class="mail-btn ghost" @tap="cancelEditMail">取消</view>
+      </view>
+      <view class="mail-edit" v-else>
+        <view class="mail-btn" @tap="startEditMail">{{ email ? '修改邮箱' : '绑定邮箱' }}</view>
+      </view>
+    </view>
+
     <view class="card">
       <view class="about">{{ appVersionText }}</view>
       <view class="about-sub">个人资产管理 · 一个数字看清全部身家</view>
@@ -55,7 +81,9 @@
 
 <script>
 import { useThemeStore } from '@/stores/theme';
+import { useUserStore } from '@/stores/user';
 import { APP_VERSION_TEXT } from '@/utils/appInfo';
+import { getUserInfo, updateProfile } from '@/api/ledger';
 
 export default {
   computed: {
@@ -68,12 +96,79 @@ export default {
     appVersionText() { return APP_VERSION_TEXT; }
   },
   data() {
-    return { privacy: false };
+    return {
+      privacy: false,
+      // 邮件提醒（定时记账执行结果推送）
+      email: '',
+      mailNotify: false,
+      editingMail: false,
+      emailInput: ''
+    };
   },
   onShow() {
     this.privacy = uni.getStorageSync('ledger_privacy') === '1';
+    this.loadMailSettings();
   },
   methods: {
+    /**
+     * 读取邮箱与邮件提醒开关。
+     * 必须现调 /portal/user/me：stores/user 只持久化 token，userInfo 冷启动即丢失，
+     * 不能依赖登录时那一份（否则会误显示"未绑定"）。
+     */
+    async loadMailSettings() {
+      if (!useUserStore().isLoggedIn) return;
+      try {
+        const u = await getUserInfo();
+        if (!u) return;
+        this.email = u.email || '';
+        this.mailNotify = u.notifySchedule === true;
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    async onMailNotifyChange(e) {
+      const on = e.detail.value;
+      // 未绑邮箱时不允许打开开关 ——「显示已开启却收不到」是最糟的状态，
+      // 直接展开输入框引导绑定（开关由 :checked 受控，不更新就不会亮）
+      if (on && !this.email) {
+        this.editingMail = true;
+        uni.showToast({ title: '请先绑定接收邮箱', icon: 'none' });
+        return;
+      }
+      await this.saveNotify(on);
+    },
+    async saveNotify(on) {
+      try {
+        await updateProfile({ notifySchedule: on });
+        this.mailNotify = on;
+        uni.showToast({ title: on ? '已开启邮件提醒' : '已关闭邮件提醒', icon: 'none' });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    startEditMail() {
+      this.emailInput = this.email;
+      this.editingMail = true;
+    },
+    cancelEditMail() {
+      this.editingMail = false;
+      this.emailInput = '';
+    },
+    async saveEmail() {
+      const v = (this.emailInput || '').trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        uni.showToast({ title: '邮箱格式不正确', icon: 'none' });
+        return;
+      }
+      try {
+        await updateProfile({ email: v });
+        this.email = v;
+        this.editingMail = false;
+        // 用户点「绑定邮箱」本就是为了收提醒：绑定成功后顺手开启（仅在未开时）
+        if (!this.mailNotify) {
+          await this.saveNotify(true);
+          uni.showToast({ title: '已绑定并开启提醒', icon: 'success' });
+        } else {
+          uni.showToast({ title: '已保存', icon: 'success' });
+        }
+      } catch (e) { /* 拦截器已提示（含邮箱已被占用） */ }
+    },
     pickTheme(key) {
       useThemeStore().setTheme(key);
       uni.showToast({ title: '已切换主题', icon: 'none' });
@@ -113,6 +208,26 @@ export default {
 .theme-name.selected { color: var(--primary-text); font-weight: 600; }
 .about { text-align: center; font-size: 30rpx; font-weight: 600; padding: 24rpx 0 12rpx; }
 .about-sub { text-align: center; font-size: 22rpx; color: var(--text-sub); padding: 4rpx 0; }
+
+/* ---- 邮件提醒 ---- */
+.mail-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 20rpx; margin-top: 16rpx; border-top: 1rpx solid var(--border);
+}
+.mail-label { font-size: 26rpx; color: var(--text-sub); }
+.mail-value { font-size: 26rpx; color: var(--text-main); }
+.mail-value.empty { color: var(--text-muted); }
+.mail-tip { font-size: 22rpx; color: var(--warning); padding-top: 10rpx; }
+.mail-edit { display: flex; align-items: center; gap: 16rpx; padding-top: 20rpx; }
+.mail-input {
+  flex: 1; min-width: 0; font-size: 26rpx; padding: 16rpx 20rpx;
+  background: var(--surface); border-radius: 12rpx; color: var(--text-main);
+}
+.mail-btn {
+  flex-shrink: 0; font-size: 26rpx; padding: 16rpx 28rpx; border-radius: 12rpx;
+  background: var(--primary); color: var(--on-primary);
+}
+.mail-btn.ghost { background: var(--surface); color: var(--text-sub); }
 
 /* ---------- 外观模式选择（日间/暗色/护眼） ---------- */
 .appearance-grid { display: flex; gap: 24rpx; margin-top: 24rpx; }

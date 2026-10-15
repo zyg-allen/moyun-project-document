@@ -11,6 +11,17 @@ import { useUserStore } from '@/stores/user';
 export const login = (data) => post('/portal/login', data);
 
 /**
+ * 当前登录用户的完整资料（后端每次现查数据库，非缓存）。
+ * 返回 PortalUser 全字段，其中与本端相关的是 email 与 notifySchedule。
+ * 注意：stores/user 只持久化 token，userInfo 每次冷启动都是 null，
+ * 所以「设置」页读邮箱/开关必须现调本接口，不能依赖登录时那一份。
+ */
+export const getUserInfo = () => get('/portal/user/me');
+
+/** 更新个人资料（部分更新；绑定邮箱即传 { email }，切换邮件提醒传 { notifySchedule }） */
+export const updateProfile = (data) => put('/portal/user/profile', data);
+
+/**
  * 图形验证码（复用后端 /captchaImage，响应顶层返回 captchaEnabled/uuid/img）
  * 注意：字段位于响应顶层而非 data 内（且 data 为 null），
  * 不能复用通用 get()（其 resolve body.data 会得到 null），须独立请求。

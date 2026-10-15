@@ -141,6 +141,12 @@ public class PortalUser extends BaseEntity {
     /** 是否接收系统通知 */
     private Boolean notifySystem;
 
+    /**
+     * 是否接收定时记账执行结果邮件。
+     * 默认 0（关）—— 发信属主动打扰，必须用户显式开启，不能默认打开。
+     */
+    private Boolean notifySchedule;
+
     /** 是否允许被关注 */
     private Boolean privacyFollow;
 

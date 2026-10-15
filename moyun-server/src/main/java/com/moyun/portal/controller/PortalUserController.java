@@ -210,6 +210,10 @@ public class PortalUserController extends BaseController {
         if (params.containsKey("notifySystem")) {
             user.setNotifySystem(Boolean.TRUE.equals(params.get("notifySystem")));
         }
+        // 定时记账执行结果邮件提醒（默认关，需用户显式开启）
+        if (params.containsKey("notifySchedule")) {
+            user.setNotifySchedule(Boolean.TRUE.equals(params.get("notifySchedule")));
+        }
         // 隐私设置
         if (params.containsKey("privacyFollow")) {
             user.setPrivacyFollow(Boolean.TRUE.equals(params.get("privacyFollow")));

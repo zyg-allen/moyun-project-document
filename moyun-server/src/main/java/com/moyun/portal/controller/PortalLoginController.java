@@ -286,6 +286,8 @@ public class PortalLoginController {
         private String phone;
         private String role;
         private LocalDateTime createTime;
+        /** 定时记账执行结果邮件提醒开关（前端「设置-邮件提醒」用） */
+        private Boolean notifySchedule;
 
         // Getters and Setters
         public Long getId() { return id; }
@@ -308,6 +310,9 @@ public class PortalLoginController {
 
         public String getRole() { return role; }
         public void setRole(String role) { this.role = role; }
+
+        public Boolean getNotifySchedule() { return notifySchedule; }
+        public void setNotifySchedule(Boolean notifySchedule) { this.notifySchedule = notifySchedule; }
 
         public LocalDateTime getCreateTime() { return createTime; }
         public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }

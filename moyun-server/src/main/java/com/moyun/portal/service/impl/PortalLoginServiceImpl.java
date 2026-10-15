@@ -205,6 +205,8 @@ public class PortalLoginServiceImpl {
         vo.setPhone(user.getPhone());
         vo.setRole(user.getRole());
         vo.setCreateTime(user.getCreateTime());
+        // 定时记账邮件提醒开关：前端「设置-邮件提醒」需要它渲染开关初始态
+        vo.setNotifySchedule(user.getNotifySchedule());
         return vo;
     }
 }

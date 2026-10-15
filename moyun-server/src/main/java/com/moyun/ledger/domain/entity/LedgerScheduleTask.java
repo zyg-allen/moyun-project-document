@@ -92,6 +92,14 @@ public class LedgerScheduleTask {
 
     /** 启用状态：1=启用 0=停用 */
     private Integer enabled;
+    /**
+     * 是否对该任务发送邮件提醒。默认 0（关）——
+     * 定时任务可能每天执行，默认发信会变成每日轰炸，必须用户逐任务显式开启。
+     */
+    private Integer notifyEnabled;
+
+    /** 上次发送提醒邮件的时间：用于节流，避免同一任务反复发信 */
+    private LocalDateTime lastNotifyAt;
 
     /** 状态：1=正常 0=已删除 */
     private Integer status;

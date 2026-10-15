@@ -224,4 +224,39 @@ public class PortalEmailServiceImpl implements PortalEmailService {
                 + "如非本人操作，请忽略此邮件。\n\n"
                 + "—— 旭林知行";
     }
+
+    /**
+     * 发送业务通知邮件（非验证码）。
+     *
+     * <p>刻意做成"尽力而为"：**任何失败都只记日志、返回 false，绝不抛异常**。
+     * 调用方是定时记账的执行链路，邮件发不出去不能让记账失败或回滚 ——
+     * 那会因一封邮件把用户的账目搞乱，代价完全不对等。</p>
+     */
+    @Override
+    public boolean sendNotification(String to, String subject, String content) {
+        if (to == null || to.isBlank()) {
+            log.debug("📧 跳过通知邮件：未绑定邮箱");
+            return false;
+        }
+        String notReady = mailChannelStatus.unavailableReason();
+        if (notReady != null) {
+            log.warn("📧 邮件通道未就绪，跳过通知邮件: to={}, 原因={}", to, notReady);
+            return false;
+        }
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(mailChannelStatus.from());
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(content);
+            mailChannelStatus.sender().send(message);
+            log.info("📧 通知邮件已发送: to={}, subject={}", to, subject);
+            return true;
+        } catch (Exception e) {
+            // 含 MailAuthenticationException：授权码失效属服务端配置问题，
+            // 但通知邮件同样不应把异常抛回记账链路
+            log.error("📧 通知邮件发送失败: to={}, subject={}", to, subject, e);
+            return false;
+        }
+    }
 }

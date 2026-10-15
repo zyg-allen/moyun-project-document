@@ -14,6 +14,9 @@ import com.moyun.ledger.mapper.LedgerScheduleLogMapper;
 import com.moyun.ledger.mapper.LedgerScheduleTaskMapper;
 import com.moyun.ledger.service.ILedgerScheduleService;
 import com.moyun.ledger.service.ILedgerTransactionService;
+import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.mapper.PortalUserMapper;
+import com.moyun.portal.service.PortalEmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +45,15 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
 
     private static final Logger log = LoggerFactory.getLogger(LedgerScheduleServiceImpl.class);
 
+    /** 成功提醒最小间隔（天）：同一任务每周最多一次，避免轰炸 */
+    private static final int NOTIFY_INTERVAL_DAYS = 7;
+
+    /** 失败提醒最小间隔（天）：每天最多一次 */
+    private static final int FAIL_NOTIFY_INTERVAL_DAYS = 1;
+
+    /** 用户多久未登录才发「任务还在跑」的成功提醒（天） */
+    private static final int INACTIVE_DAYS = 7;
+
     @Autowired
     private LedgerScheduleLogMapper logMapper;
 
@@ -52,6 +65,14 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
 
     @Autowired
     private ILedgerTransactionService transactionService;
+
+    /** 读取用户的邮箱与「邮件提醒」开关（portal_user） */
+    @Autowired
+    private PortalUserMapper portalUserMapper;
+
+    /** 发通知邮件（尽力而为，失败只记日志） */
+    @Autowired
+    private PortalEmailService portalEmailService;
 
     @Override
     public Long createTask(Long userId, LedgerScheduleTask task) {
@@ -90,6 +111,8 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         db.setExecTime(task.getExecTime());
         db.setStartDate(task.getStartDate());
         db.setEndDate(task.getEndDate());
+        // 任务级邮件提醒开关：必须显式拷贝，否则前端改了开关也存不进去
+        db.setNotifyEnabled(task.getNotifyEnabled() == null ? 0 : task.getNotifyEnabled());
         db.setNextExecDate(firstExecDate(task, task.getStartDate()));
         this.updateById(db);
     }
@@ -318,7 +341,132 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         if (Boolean.TRUE.equals(result.get("success"))) {
             advance(task);
         }
+
+        // 提醒邮件放在最后：日志已落库、日程已推进。
+        // 顺序很关键 —— advance 可能因 end_date 到期把任务 enabled 置 0，
+        // 而「任务结束/停用不发信」是明确需求，所以必须在 advance 之后再判定。
+        sendExecutionMail(task, scheduleLog, triggerType, Boolean.TRUE.equals(result.get("success")));
+
         return result;
+    }
+
+    /**
+     * 定时记账执行结果的邮件提醒。
+     *
+     * <p>三重闸门，**全部通过才发信**：</p>
+     * <ol>
+     *   <li>任务仍有效 —— 未删除、未停用；到期被 advance 自动停用同样算"任务结束"，不发；</li>
+     *   <li>用户已绑定邮箱；</li>
+     *   <li>用户在「设置 - 邮件提醒」中显式开启（notify_schedule，默认关）。</li>
+     * </ol>
+     *
+     * <p>成功与失败都发（失败尤其是余额不足，用户最需要知道）。
+     * 邮件通道未就绪由 sendNotification 自己判定并记日志，这里不重复判断。</p>
+     *
+     * <p>整个方法**不抛异常**：提醒是旁路，绝不能因为一封信把记账结果带崩。</p>
+     */
+    private void sendExecutionMail(LedgerScheduleTask task, LedgerScheduleLog scheduleLog,
+                                   int triggerType, boolean success) {
+        try {
+            // ① 任务有效性：删除 / 停用 / 已结束 → 一律不发
+            if (task.getStatus() == null || LedgerScheduleTask.STATUS_DELETED == task.getStatus()) {
+                return;
+            }
+            if (task.getEnabled() == null || task.getEnabled() != 1) {
+                return;
+            }
+
+            // ② 每次都现查用户：邮箱与开关随时可能在设置里被改，缓存会发错人
+            PortalUser user = portalUserMapper.selectById(task.getUserId());
+            if (user == null) {
+                return;
+            }
+            if (user.getEmail() == null || user.getEmail().isBlank()) {
+                return;
+            }
+
+            // ③ 全局开关：非 true 一律不发（含 null —— 老数据没这列时视为关）
+            if (!Boolean.TRUE.equals(user.getNotifySchedule())) {
+                return;
+            }
+
+            // ④ 任务级开关：默认关。定时任务可能每天执行，必须逐任务显式开启，
+            //    否则「邮件提醒」会退化成每日轰炸，反而被用户第一时间关掉。
+            if (task.getNotifyEnabled() == null || task.getNotifyEnabled() != 1) {
+                return;
+            }
+
+            // ⑤ 节流 + 不活跃判定
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime last = task.getLastNotifyAt();
+            if (success) {
+                // 成功提醒的唯一用途：告诉「很久没打开 App」的用户「这个任务还在替你跑」，
+                // 以便发现「以为已经取消了，其实还在跑」。
+                //   · 用户近期登录过 → 不发（他自己看得到，发信就是骚扰）
+                //   · 同一任务 7 天内最多一次
+                if (last != null && last.isAfter(now.minusDays(NOTIFY_INTERVAL_DAYS))) {
+                    return;
+                }
+                LocalDateTime loginDate = user.getLoginDate();
+                if (loginDate != null && loginDate.isAfter(now.minusDays(INACTIVE_DAYS))) {
+                    return;
+                }
+            } else {
+                // 失败（尤其余额不足）必须尽快知道，但同样不能刷屏：同一任务每天最多一次
+                if (last != null && last.isAfter(now.minusDays(FAIL_NOTIFY_INTERVAL_DAYS))) {
+                    return;
+                }
+            }
+
+            boolean sent = portalEmailService.sendNotification(user.getEmail(),
+                    buildMailSubject(success),
+                    buildMailContent(task, scheduleLog, triggerType, success));
+            if (sent) {
+                // 只记在对象上：由调用方 (executeOnce → runNow / runDueTasks) 的
+                // updateById(task) 一并持久化，避免这里多发一条 UPDATE。
+                task.setLastNotifyAt(now);
+            }
+        } catch (Exception e) {
+            log.warn("定时记账提醒邮件发送异常（已忽略，不影响记账）: taskId={}", task.getId(), e);
+        }
+    }
+
+    /** 邮件主题：一眼区分成功/失败 */
+    private String buildMailSubject(boolean success) {
+        return success ? "旭林知行 - 定时记账已执行" : "旭林知行 - 定时记账执行失败";
+    }
+
+    /** 邮件正文：说清「哪个任务、哪天、多少钱、从哪扣、结果如何、为什么」 */
+    private String buildMailContent(LedgerScheduleTask task, LedgerScheduleLog scheduleLog,
+                                    int triggerType, boolean success) {
+        String typeName = "income".equals(task.getType()) ? "收入" : "支出";
+        String source = triggerType == LedgerScheduleLog.TRIGGER_MANUAL ? "页面主动执行" : "自动调度";
+        StringBuilder sb = new StringBuilder();
+        sb.append("您好！\n\n");
+        sb.append("定时记账任务已").append(success ? "执行成功" : "执行失败").append("：\n\n");
+        sb.append("    任务名称：").append(task.getName()).append('\n');
+        sb.append("    记账日期：").append(scheduleLog.getExecDate()).append('\n');
+        sb.append("    类型：").append(typeName).append('\n');
+        sb.append("    金额：").append(task.getAmount()).append(" 元\n");
+        sb.append("    触发方式：").append(source).append('\n');
+        if (success) {
+            sb.append("    执行结果：已成功记账");
+            if (scheduleLog.getTransactionId() != null) {
+                sb.append("（流水号 ").append(scheduleLog.getTransactionId()).append("）");
+            }
+            sb.append('\n');
+            if (scheduleLog.getRetryCount() != null && scheduleLog.getRetryCount() > 0) {
+                sb.append("    重试次数：").append(scheduleLog.getRetryCount()).append(" 次\n");
+            }
+        } else {
+            sb.append("    失败原因：").append(
+                    scheduleLog.getFailReason() == null ? "未知原因" : scheduleLog.getFailReason()).append('\n');
+            sb.append("\n请及时处理（如余额不足请先充值对应账户），");
+            sb.append("处理后可到「定时记账 - 执行日志」中重试。\n");
+        }
+        sb.append("\n如不想再收到此类提醒，可在「设置 - 邮件提醒」中关闭。\n\n");
+        sb.append("—— 旭林知行");
+        return sb.toString();
     }
 
     /** 查同一 (taskId, execDate) 的执行日志（DB 唯一键 uk_task_date 保证至多一条） */

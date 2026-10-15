@@ -252,9 +252,17 @@ public class PortalEmailServiceImpl implements PortalEmailService {
             mailChannelStatus.sender().send(message);
             log.info("📧 通知邮件已发送: to={}, subject={}", to, subject);
             return true;
+        } catch (MailAuthenticationException e) {
+            // 认证失败 = **服务端配置问题**，与收件人无关。
+            // 必须单独点明去查哪个变量：原先统一按"发送失败"记，运维会先去怀疑收件地址
+            // 或网络，方向被带偏（与 sendCode 的处理口径保持一致）。
+            log.error("📧 通知邮件认证失败: host={}, username={} —— 请检查 MAIL_USERNAME / MAIL_PASSWORD；"
+                    + "MAIL_PASSWORD 必须是 163 的【授权码】（mail.163.com → 设置 → POP3/SMTP/IMAP 生成），"
+                    + "不是登录密码，且改密后会失效需重新生成",
+                    mailChannelStatus.host(), mailChannelStatus.from(), e);
+            return false;
         } catch (Exception e) {
-            // 含 MailAuthenticationException：授权码失效属服务端配置问题，
-            // 但通知邮件同样不应把异常抛回记账链路
+            // 通知邮件不应把异常抛回记账链路：一封邮件不值得把用户的账目搞乱
             log.error("📧 通知邮件发送失败: to={}, subject={}", to, subject, e);
             return false;
         }

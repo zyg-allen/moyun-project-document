@@ -164,7 +164,7 @@ export default {
     },
     openForm() {
       if (!useUserStore().isLoggedIn) {
-        uni.showToast({ title: '请先在「我的」页登录', icon: 'none' });
+        uni.showToast({ title: '请先登录后再操作', icon: 'none' });
         return;
       }
       this.editingId = null;

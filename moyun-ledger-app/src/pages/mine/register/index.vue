@@ -272,7 +272,7 @@ export default {
         const data = await register(payload);
         const token = data && data.token;
         if (!token) { uni.showToast({ title: '注册失败：未获取到令牌', icon: 'none' }); return; }
-        // 注册即登录：写 token 并跳回「我的」
+        // 注册即登录：写 token 并跳回「更多」
         useUserStore().setToken(token);
         useUserStore().setUserInfo(data.user || { username: payload.username });
         uni.showToast({ title: '注册成功', icon: 'success' });

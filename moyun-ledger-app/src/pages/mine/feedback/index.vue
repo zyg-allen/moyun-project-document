@@ -100,7 +100,7 @@ export default {
     },
     async load(reset) {
       if (!useUserStore().isLoggedIn) {
-        uni.showToast({ title: '请先在「我的」页登录', icon: 'none' });
+        uni.showToast({ title: '请先登录后再操作', icon: 'none' });
         return;
       }
       if (reset) { this.page = 1; this.records = []; }
@@ -118,7 +118,7 @@ export default {
     },
     async submit() {
       if (!useUserStore().isLoggedIn) {
-        uni.showToast({ title: '请先在「我的」页登录', icon: 'none' });
+        uni.showToast({ title: '请先登录后再操作', icon: 'none' });
         return;
       }
       const desc = this.form.description.trim();

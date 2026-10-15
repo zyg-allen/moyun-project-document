@@ -171,7 +171,7 @@ export default {
     },
     async doTip() {
       if (!useUserStore().isLoggedIn) {
-        uni.showToast({ title: '请先在「我的」页登录', icon: 'none' });
+        uni.showToast({ title: '请先登录后再操作', icon: 'none' });
         return;
       }
       const num = this.effectiveAmount;

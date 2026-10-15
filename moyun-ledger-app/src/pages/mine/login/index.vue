@@ -99,7 +99,7 @@ export default {
         useUserStore().setToken(token);
         useUserStore().setUserInfo(data.user || { username: payload.username });
         uni.showToast({ title: '登录成功', icon: 'success' });
-        // 登录成功后回「我的」页（tab 页用 switchTab）
+        // 登录成功后回「更多」页（tab 页用 switchTab）
         setTimeout(() => uni.switchTab({ url: '/pages/mine/index' }), 600);
       } catch (e) {
         // 拦截器已提示；验证码已消费，刷新图形码

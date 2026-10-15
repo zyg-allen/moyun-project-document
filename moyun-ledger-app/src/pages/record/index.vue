@@ -565,7 +565,7 @@ export default {
         return;
       }
       if (!this.userStore.isLoggedIn) {
-        uni.showToast({ title: '请先在「我的」登录', icon: 'none' });
+        uni.showToast({ title: '请先登录后再操作', icon: 'none' });
         uni.switchTab({ url: '/pages/mine/index' });
         return;
       }

@@ -64,7 +64,7 @@ export default {
     appearanceList() { return useThemeStore().appearanceList; },
     appearanceKey() { return useThemeStore().appearanceKey; },
     current() { return useThemeStore().themeKey; },
-    /** 版本号统一来自 utils/appInfo.js（此前这里与「我的」页各写一份且不一致） */
+    /** 版本号统一来自 utils/appInfo.js（此前这里与「更多」页各写一份且不一致） */
     appVersionText() { return APP_VERSION_TEXT; }
   },
   data() {

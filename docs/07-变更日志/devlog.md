@@ -460,6 +460,57 @@ const cy = Math.max(R + 48, cssH / 2 - 8);                        // 顶部预�
 
 ---
 
+## v14.76 (2026-10-03) 多环境配置治理：三种场景最小改动 + 彻底隔离（附运维手册）
+
+**背景**：内网穿透联调暴露两类环境问题 —— ① 前端直连 `localhost:8080` 被 Chrome
+Private Network Access 拦截（`more-private address space loopback`）；② 后端 CORS 精确白名单
+fail-closed，公网域名 Origin 被判 **403 Forbidden**。借此把四端环境配置统一为
+「**一份代码 + 模式/Profile 驱动**」。
+
+### 一、统一设计原则
+
+| 原则 | 落地 |
+|---|---|
+| **同源优先** | 前端一律请求相对路径 `/api`，由 dev server 或 Nginx 反代 ⇒ 无跨源、无需维护 CORS 白名单 |
+| **模式即环境** | 前端 Vite `--mode`（`.env.<mode>`）；后端 `SPRING_PROFILES_ACTIVE`（`application-<profile>.yaml`） |
+| **敏感项只走环境变量** | 库/Redis 密码、第三方 Key、JWT 密钥不入仓 |
+| **改动面最小** | 换环境只改 `.env.<mode>` 1~2 个值 + 后端 profile 的库/Redis/第三方 + Nginx 反代目标 |
+
+### 二、改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `moyun-portal/.env.natapp` | **新增**（穿透联调，`/api`） |
+| `moyun-portal/.env.uat` | **新增**（UAT 构建，含 `VITE_SITE_URL` 占位） |
+| `moyun-portal/package.json` | 新增 `dev:natapp`、`build:uat` |
+| `moyun-ledger-app/.env.uat` | **新增** |
+| `moyun-ledger-app/.env.production` | 由 https 占位改为**同源 `/api`** + 两种合法形态说明 |
+| `moyun-ledger-app/vite.config.js` | 生产守卫**接受同源相对路径**；前次已加 `server.host/port` + `/api` 代理 + **剥离 Origin/Referer** |
+| `moyun-ledger-app/package.json` | 新增 `dev:h5:uat`、`build:h5:uat` |
+| `moyun-server/src/main/resources/application-uat.yaml` | **新增**（由 dev 派生 + 头部待改项清单；提醒须 `uat,dev` 同时激活） |
+| `docs/03-部署运维/全端-部署-多环境配置与运维手册-V1.0.md` | **新增**（三场景 × 四端 × 切换对照表 × Nginx 片段 × 上线检查清单 × FAQ） |
+
+### 三、三种场景
+
+| 场景 | 前端接口 | 后端 | 关键点 |
+|---|---|---|---|
+| ① 完全本地（Win10 四端） | `/api`（dev proxy） | `profile=dev`，8080 | 记账小程序真机须用**局域网 IP**（唯一要改的值） |
+| ② 内网穿透（natapp 等） | `/api`（dev proxy，剥 Origin） | 同上（后端不出网） | **只穿透前端端口，不配 CORS** |
+| ③ 生产（云服务器 + 自有域名） | `/api`（Nginx 反代） | `profile=prod,dev` | 同源 ⇒ `moyun.cors.allowed-origins` 留空 fail-closed |
+
+### 四、验证
+
+| 验证项 | 结果 |
+|---|---|
+| 门户 `npm run build:uat`（新 `.env.uat` + 站点守卫） | ✓ 1m48s |
+| 记账 App `npm run build:h5:natapp`（同源代理模式） | ✓ Build complete |
+| 记账 App `npm run build:h5`（生产同源 `/api`，验证放宽后的守卫） | ✓ Build complete |
+| 后端 `mvn -o -B compile`（新增 uat profile 后） | ✓ |
+| 穿透代理链路实测 | ✓ `/api/captchaImage` → 200；剥 Origin 后 `/api/portal/login` 由 **403 → 200** |
+
+### 五、附带清理
+
+- 删除 4 个 vite 构建残留文件（`vite.config.js.timestamp-*.mjs`，属未跟踪产物）
 ## v14.73 (2026-10-05) v14.72 遗留 P2 三项收尾：意图规则库扩充 + 降级可观测（degraded 列）+ agent 通道流式化
 
 **背景**：v14.72 遗留与后续规划（P2）三项全部闭环——意图路由安全开启前置、降级调用落库可统计、

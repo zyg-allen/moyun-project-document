@@ -108,8 +108,6 @@ export default {
         { key: 'savings', icon: '🏦', label: '存钱计划', color: '' },
         { key: 'schedule', icon: '⏰', label: '定时记账', color: '' },
         { key: 'feedback', icon: '💬', label: '意见反馈', color: '' },
-        { key: 'tip', icon: '🎁', label: '赞赏', color: '' },
-        { key: 'vip', icon: '👑', label: '记账VIP', color: '#e6a23c', badge: 'VIP' },
         { key: 'personalize', icon: '🎨', label: '个性化', color: '#e57373', badge: 'NEW' },
         { key: 'catIcon', icon: '🎭', label: '分类图标', color: '', badge: 'NEW' }
       ],
@@ -208,8 +206,6 @@ export default {
         savings: '/pages/mine/savings/index',
         schedule: '/pages/mine/schedule/index',
         memo: '/pages/mine/memo/index',
-        tip: '/pages/mine/tip/index',
-        vip: '/pages/mine/vip/index',
         feedback: '/pages/mine/feedback/index'
       };
       const url = routes[m.key];

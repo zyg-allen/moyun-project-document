@@ -306,43 +306,7 @@ export const toggleMemo = (id) => post('/portal/ledger/memos/' + id + '/toggle',
 /** 删除待办 */
 export const deleteMemo = (id) => del('/portal/ledger/memos/' + id);
 
-// ---------------- 打赏（接入公共支付通道） ----------------
 
-/** 累计打赏金额（status=paid） */
-export const getTipTotal = () => get('/portal/ledger/tips/total');
-
-/** 我的赞赏记录（分页，含 pending/paid） */
-export const listMyTips = (params) => get('/portal/ledger/tips/my', params || { current: 1, size: 20 });
-
-/**
- * 发起打赏下单（公共支付通道）
- * @param data { amount, payChannel, target, reason, clientUuid }
- * @returns {Promise<{ tipOrderId, payNo, codeUrl, amount, expireTime, mockEnabled }>}
- */
-export const createTip = (data) => post('/portal/ledger/tips', data);
-
-// ---------------- 支付通道（复用门户公共支付） ----------------
-
-/** 支付状态轮询（收银台 3s 轮询） */
-export const getPayStatus = (payNo) => get(`/portal/pay/status/${payNo}`);
-
-/** mock 模式：模拟支付成功（触发与真实回调一致的后续链路） */
-export const mockPay = (payNo) => post(`/portal/pay/mock/${payNo}`);
-
-// ---------------- 记账VIP订阅（接入公共支付通道，平台直收类） ----------------
-
-/** 上架套餐列表（价格后台可配） */
-export const listVipPackages = () => get('/portal/ledger/vip/packages');
-
-/** 我的会员状态（isVip/vipExpire） */
-export const getVipStatus = () => get('/portal/ledger/vip/status');
-
-/**
- * VIP订阅下单（公共通道：pending 单 + 网关统一下单）
- * @param data { packageId, clientUuid }
- * @returns {Promise<{ vipOrderId, payNo, codeUrl, amount, packageName, expireTime, mockEnabled }>}
- */
-export const subscribeVip = (data) => post('/portal/ledger/vip/subscribe', data);
 
 // ---------------- 定时记账 ----------------
 

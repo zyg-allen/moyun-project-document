@@ -52,9 +52,13 @@ function apiBaseUrlGuard() {
           '  配置为 request 合法域名），例如：\n' +
           '    VITE_API_BASE_URL=https://你的域名\n');
       }
+      // 允许两种形态：① 同源相对路径 /api（推荐，前端与后端同域，由 Nginx 反代，无跨源）；
+      //              ② 独立网关的 https 绝对地址（小程序 request 域名要求 https 且已备案）。
+      const isRelativeApi = /^\/[A-Za-z0-9_\-./]*$/.test(url);
+      if (isRelativeApi) return;   // 相对路径：由部署侧（Nginx）保证可达，无需域名校验
       if (!/^https:\/\//i.test(url)) {
         throw new Error(
-          '\n[api-base-url] 生产构建的 VITE_API_BASE_URL 必须是 https（当前：' + url + '）。\n' +
+          '\n[api-base-url] 生产构建的 VITE_API_BASE_URL 必须是 https 绝对地址，或以 / 开头的同源相对路径（当前：' + url + '）。\n' +
           '  小程序要求 request 域名为 https 且已备案；http 在真机与小程序端均不可用。\n');
       }
       const reason = detectUnusableHost(url);
@@ -68,5 +72,38 @@ function apiBaseUrlGuard() {
 }
 
 export default defineConfig({
-  plugins: [apiBaseUrlGuard(), uni()]
+  plugins: [apiBaseUrlGuard(), uni()],
+  server: {
+    // 监听所有网卡：natapp / 局域网设备（手机真机）都要能连到本机 dev server
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      // ── 同源代理（解决内网穿透下的 CORS / Private Network Access 拦截）──
+      // 背景：用 natapp 等内网穿透把 H5（5173）暴露到公网域名后，若前端仍直连
+      //       http://localhost:8080，浏览器会以
+      //       「not a secure context and the resource is in more-private address space `loopback`」
+      //       直接拒绝（Chrome Private Network Access）——**加 CORS 响应头也无法绕过**，
+      //       因为公网页面不允许访问 loopback 地址。
+      // 做法：前端统一请求同源的 /api（见 .env.natapp），由 dev server 在服务端转发到 8080，
+      //       浏览器视角全程同源 ⇒ 既无 CORS，也无 PNA 限制。
+      '/api': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        // 去掉 /api 前缀后转发：/api/captchaImage → http://127.0.0.1:8080/captchaImage
+        rewrite: (p) => p.replace(/^\/api/, ''),
+        // 关键：剥掉 Origin / Referer 再转发。
+        // 浏览器→代理这一段本来就是同源，Origin 只在浏览器侧有意义；
+        // 若原样转发，后端 CORS（moyun.cors 精确白名单 + fail-closed，dev 仅放行私网 IP 字面量）
+        // 会因识别到公网域名 Origin 而直接返回 403 Forbidden。
+        // 无 Origin 的请求在 CORS 过滤器看来不属于跨源请求 → 正常放行。
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('origin');
+            proxyReq.removeHeader('referer');
+          });
+        },
+      },
+    },
+  },
 });

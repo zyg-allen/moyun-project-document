@@ -768,8 +768,6 @@ CREATE TABLE `ledger_schedule_task` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-定时记账任务';
 
 
--- `moyun-db`.ledger_tip_order definition
-drop table if exists `ledger_tip_order`;
 
 
 -- `moyun-db`.ledger_transaction definition
@@ -806,32 +804,18 @@ CREATE TABLE `ledger_transaction` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-流水';
 
 
--- `moyun-db`.pay_ledger_entry definition
-drop table if exists `pay_ledger_entry`;
 
 
--- `moyun-db`.pay_notification definition
-drop table if exists `pay_notification`;
 
 
--- `moyun-db`.pay_notify_log definition
-drop table if exists `pay_notify_log`;
 
 
--- `moyun-db`.pay_order definition
-drop table if exists `pay_order`;
 
 
--- `moyun-db`.pay_user_account definition
-drop table if exists `pay_user_account`;
 
 
--- `moyun-db`.pay_user_bank_card definition
-drop table if exists `pay_user_bank_card`;
 
 
--- `moyun-db`.pay_withdraw_order definition
-drop table if exists `pay_withdraw_order`;
 
 
 
@@ -1546,7 +1530,6 @@ CREATE TABLE `portal_creator_certification` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='创作者认证';
 
 
--- `moyun-db`.portal_creator_settlement definition
 
 
 
@@ -2565,7 +2548,6 @@ CREATE TABLE `portal_tag` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户标签表';
 
 
--- `moyun-db`.portal_tip_order definition
 
 
 
@@ -3646,27 +3628,21 @@ CREATE TABLE `sys_config_log` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='参数配置变更日志表（sys_config 审计留痕）';
 
 
--- `moyun-db`.vip_api_registry definition
 
 
 
--- `moyun-db`.vip_benefit definition
 
 
 
--- `moyun-db`.vip_benefit_usage definition
 
 
 
--- `moyun-db`.vip_tier definition
 
 
 
--- `moyun-db`.vip_tier_benefit definition
 
 
 
--- `moyun-db`.vip_user_card definition
 
 
 

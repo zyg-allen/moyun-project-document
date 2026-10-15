@@ -74,7 +74,7 @@
         <el-card shadow="hover">
           <template #header><span>累计调用成本（元）</span></template>
           <div class="stat-value">{{ aiStats.costYuan || '0.00' }}</div>
-          <div class="stat-sub">模型侧成本，VIP/激励广告定价参考</div>
+          <div class="stat-sub">模型侧成本参考（原 VIP 定价口径已下线）</div>
         </el-card>
       </el-col>
       <el-col :span="6">
@@ -116,7 +116,7 @@
             <el-descriptions-item label="赞赏平台">{{ (tipStats.byTarget || {}).platform || 0 }} 笔</el-descriptions-item>
           </el-descriptions>
           <div class="stat-sub" style="margin-top: 12px">
-            全平台收入（App 打赏 + 门户打赏/付费阅读 + 提现/对账）已统一收敛至「收入管理」模块
+            【合规改造 2026-10】原「收入管理」模块（App 打赏 + 门户打赏/付费阅读 + 提现/对账）已随收费功能整体下线
             <el-link type="primary" :underline="false" style="margin-left: 4px; vertical-align: baseline;" @click="goRevenue">前往收入总览 →</el-link>
           </div>
         </el-card>
@@ -132,7 +132,7 @@
               <b>激励广告（可选替代付费）</b>：仅在"解锁额外 AI 分析次数"等主动场景展示，禁止开屏/插页打扰
             </el-timeline-item>
             <el-timeline-item timestamp="进行中" type="success">
-              <b>生态互导（零成本启动）</b>：App 引导至墨韵门户（社区/专栏/打赏），内容侧变现
+              <b>生态互导（零成本启动）</b>：App 引导至墨韵门户（社区/专栏/学习），全站免费运营
             </el-timeline-item>
           </el-timeline>
           <div class="stat-sub">原则：基础记账/预算/报表永久免费，仅对增值能力收费；上线前在「功能配置」开启对应入口</div>
@@ -150,7 +150,7 @@
         <el-button type="primary" plain @click="go('/ledger/stats')"><el-icon style="margin-right: 4px"><DataAnalysis /></el-icon>刷新本页数据</el-button>
       </el-space>
       <div class="stat-sub" style="margin-top: 12px">
-        引导使用门户平台：用户端已规划「墨韵社区」入口（小程序"我的"页推荐区），由后台功能配置可视化开启/调整链接；门户侧内容运营（专栏/打赏/交易）在门户管理菜单维护
+        引导使用门户平台：用户端已规划「墨韵社区」入口（小程序"我的"页推荐区），由后台功能配置可视化开启/调整链接；门户侧内容运营（专栏/文章/话题）在门户管理菜单维护
       </div>
     </el-card>
 
@@ -218,7 +218,7 @@ function go(path) {
 
 /** 跳转收入管理-收入总览 */
 function goRevenue() {
-  router.push('/pay/revenue');
+  // 【合规改造 2026-10】收入管理页面已随收费功能下线；此处保留占位以便日后恢复
 }
 
 function load() {

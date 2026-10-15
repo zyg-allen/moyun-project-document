@@ -61,3 +61,6 @@ pnpm-lock.yaml
 /.feisuan/
 /.trae/
 /_smtp_probe/
+
+# Vite 构建期临时配置产物（含时间戳，不应入库）
+vite.config.js.timestamp-*.mjs

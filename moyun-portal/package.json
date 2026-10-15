@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "check": "vue-tsc -b",
     "lint": "eslint . --ext .ts,.vue",
-    "lint:fix": "eslint . --ext .ts,.vue --fix"
+    "lint:fix": "eslint . --ext .ts,.vue --fix",
+    "dev:natapp": "vite --mode natapp",
+    "build:uat": "vue-tsc -b --force && vite build --mode uat"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",

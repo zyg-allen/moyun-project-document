@@ -38,7 +38,7 @@ spring:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
     # rewriteBatchedStatements 开启批量重写；cachePrepStmts 开启 PreparedStatement 服务端缓存
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/moyun-db2?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&allowPublicKeyRetrieval=true}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/moyun-db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&allowPublicKeyRetrieval=true}
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:123456}
     druid:
@@ -128,13 +128,13 @@ token:
 
 moyun:
   # 记账 App（moyun-ledger-app）地址 —— 邮件「处理入口」链接用它。
-  # dev 默认取手机访问的局域网地址（与下方 CORS 白名单里的 10.27.72.178 一致），
+  # dev 默认取手机访问的局域网地址（与下方 CORS 白名单里的 192.168.0.201 一致），
   # 这样本地联调时邮件里的链接在手机上也能点开。生产用 LEDGER_APP_BASE_URL 覆盖。
   ledger:
-    app-base-url: ${LEDGER_APP_BASE_URL:http://10.27.72.178:5173}
+    app-base-url: ${LEDGER_APP_BASE_URL:http://192.168.0.201:5173}
   # CORS 跨域配置
   # allow-lan-dev-origins：开发期手机/局域网设备经 vite dev server 访问时，浏览器会带
-  #   Origin（如 http://10.27.72.178:5173）。后端默认 fail-closed，需显式开启。
+  #   Origin（如 http://192.168.0.201:5173）。后端默认 fail-closed，需显式开启。
   #   开启后按「真实私网 IP 字面量」精确放行（172.16/12、192.168/16、10/8 及回环），
   #   不使用 * 通配，避免 http://192.168.evil.com 这类可注册域名被匹配。
   #   ⚠ 仅非生产 profile 生效；生产未配置 allowed-origins 时不放行任何跨源。
@@ -170,9 +170,7 @@ moyun:
   # 慢 SQL 治理（DataQueryServiceImpl 阈值更严格以提前发现问题，配合 Druid filter.stat 5000ms 形成双重防护）
   slow-sql:
     threshold-millis: 3000
-  # 支付网关配置（V11.0 公共支付通道）：
   # - enabled=false 拒绝下单；mock-enabled=true 走模拟器（验签/回调/分账链路全真演练）
-  # - platform-fee-rate 为兜底费率，运行时可用 sys_config(pay.platform.fee-rate) 覆盖
   # 【合规改造 2026-10】moyun.pay.* 支付配置已随收费功能整体下线
   # 短信验证码配置（V11.1）：
   # - mock-enabled=true 验证码写入服务日志，频控/存储/校验/防枚举全流程与真实通道一致
@@ -387,7 +385,7 @@ chat:
 # CORS 跨域配置
 #
 # 开发期手机/局域网设备经 vite dev server 访问时，浏览器会带 Origin
-# （如 http://10.27.72.178:5173）。后端默认 fail-closed，需显式开启。
+# （如 http://192.168.0.201:5173）。后端默认 fail-closed，需显式开启。
 #
 # allow-lan-dev-origins：按「真实私网 IP 字面量」精确放行当前 Origin
 #   （172.16/12、192.168/16、10/8 及回环），不使用 * 通配，避免被

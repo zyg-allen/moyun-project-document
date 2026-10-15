@@ -180,6 +180,11 @@ export default {
     this.id = options.id;
     this.load();
   },
+
+  /** 同其它页面：uni-app H5 每页各自新建 uni-page-body，进入本页需重新注入主题 */
+  onShow() {
+    useThemeStore().applyToPageBody();
+  },
   methods: {
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onAmountInput(e) { applyAmountInput(e, this, 'amountYuan'); },

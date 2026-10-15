@@ -55,6 +55,9 @@ export default {
     }
   },
   onShow() {
+    // uni-app H5 每个页面各自新建 uni-page-body：必须每次进入都重新注入主题，
+    // 否则从别的页跳进来时，本页最外层仍是 page{} 的日间默认（暗色下发白）。
+    useThemeStore().applyToPageBody();
     this.load();
   },
   methods: {

@@ -2,6 +2,7 @@ package com.moyun.ledger.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.dto.TransactionCreateDTO;
@@ -132,7 +133,9 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         db.setEndDate(task.getEndDate());
         // 任务级邮件提醒开关：必须显式拷贝，否则前端改了开关也存不进去
         db.setNotifyEnabled(task.getNotifyEnabled() == null ? 0 : task.getNotifyEnabled());
-        db.setNextExecDate(firstExecDate(task, task.getStartDate()));
+        // 显式刷新 update_time：updateById 会把 getOwned 取出的**旧值**原样写回，
+        // 导致"改过任务但 update_time 不变"，按更新时间排序就失去意义。
+        db.setUpdateTime(LocalDateTime.now());        db.setNextExecDate(firstExecDate(task, task.getStartDate()));
         this.updateById(db);
     }
 
@@ -155,25 +158,57 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
     }
 
     @Override
-    public Map<String, Object> listTasks(Long userId) {
-        LambdaQueryWrapper<LedgerScheduleTask> q = new LambdaQueryWrapper<>();
-        q.eq(LedgerScheduleTask::getUserId, userId)
-                .eq(LedgerScheduleTask::getStatus, LedgerScheduleTask.STATUS_NORMAL)
-                .orderByDesc(LedgerScheduleTask::getEnabled)
-                .orderByAsc(LedgerScheduleTask::getNextExecDate);
-        List<LedgerScheduleTask> tasks = this.list(q);
-        fillNames(tasks);
-
+    public Map<String, Object> listTasks(Long userId, String keyword, Integer pageNum, Integer pageSize) {
+        // ① 统计口径作用于**该用户全部任务**，而不是当前页 ——
+        //    否则翻到第 2 页时"共 N 个 / 启用中 M 个"会跟着变，明显是错的。
+        List<LedgerScheduleTask> all = this.list(new LambdaQueryWrapper<LedgerScheduleTask>()
+                .eq(LedgerScheduleTask::getUserId, userId)
+                .eq(LedgerScheduleTask::getStatus, LedgerScheduleTask.STATUS_NORMAL));
         int enabledCount = 0;
-        for (LedgerScheduleTask t : tasks) {
+        for (LedgerScheduleTask t : all) {
             if (t.getEnabled() != null && t.getEnabled() == 1) {
                 enabledCount++;
             }
         }
+
+        // ② 分页查询：始终限定 userId（只可能查到自己的任务）+ 关键字模糊匹配
+        LambdaQueryWrapper<LedgerScheduleTask> q = new LambdaQueryWrapper<>();
+        q.eq(LedgerScheduleTask::getUserId, userId)
+                .eq(LedgerScheduleTask::getStatus, LedgerScheduleTask.STATUS_NORMAL);
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            // 名称或备注任一命中；用 and(...) 包住 or，避免 or 把前面的
+            // user_id / status 条件"或"掉 —— 那样会越权读到别人的任务。
+            q.and(w -> w.like(LedgerScheduleTask::getName, kw)
+                    .or().like(LedgerScheduleTask::getDescription, kw));
+        }
+        // 排序：启用中优先 → 最近更新的在前 → id 兜底（保证分页稳定不重不漏）
+        q.orderByDesc(LedgerScheduleTask::getEnabled)
+                .orderByDesc(LedgerScheduleTask::getUpdateTime)
+                .orderByDesc(LedgerScheduleTask::getId);
+
+        int pn = (pageNum == null || pageNum < 1) ? 1 : pageNum;
+        int ps = (pageSize == null || pageSize < 1) ? 10 : Math.min(pageSize, 100);
+        Page<LedgerScheduleTask> page = this.page(new Page<>(pn, ps), q);
+        fillNames(page.getRecords());
+
         Map<String, Object> result = new HashMap<>();
-        result.put("tasks", tasks);
+        result.put("records", page.getRecords());
+        result.put("total", page.getTotal());
+        result.put("pageNum", pn);
+        result.put("pageSize", ps);
+        result.put("pages", page.getPages());
         result.put("enabledCount", enabledCount);
-        result.put("totalCount", tasks.size());
+        result.put("totalCount", all.size());
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getTask(Long userId, Long id) {
+        LedgerScheduleTask task = getOwned(userId, id);
+        fillNames(java.util.Collections.singletonList(task));
+        Map<String, Object> result = new HashMap<>();
+        result.put("task", task);
         return result;
     }
 

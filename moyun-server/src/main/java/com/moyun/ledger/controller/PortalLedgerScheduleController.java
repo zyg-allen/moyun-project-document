@@ -33,9 +33,18 @@ public class PortalLedgerScheduleController {
 
     /** 任务列表（含分类名/账户名 + 启用统计） */
     @GetMapping
-    public AjaxResult list() {
+    public AjaxResult list(@RequestParam(value = "keyword", required = false) String keyword,
+                           @RequestParam(value = "pageNum", required = false) Integer pageNum,
+                           @RequestParam(value = "pageSize", required = false) Integer pageSize) {
         Long userId = PortalSecurityUtils.getUserId();
-        return AjaxResult.success(scheduleService.listTasks(userId));
+        return AjaxResult.success(scheduleService.listTasks(userId, keyword, pageNum, pageSize));
+    }
+
+    /** 单条任务（编辑页回填）；列表分页后不能再靠"拉全量 find(id)" */
+    @GetMapping("/{id}")
+    public AjaxResult getOne(@PathVariable("id") Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        return AjaxResult.success(scheduleService.getTask(userId, id));
     }
 
     /** 执行日志（taskId 可选=全部） */

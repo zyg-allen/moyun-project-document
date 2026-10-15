@@ -125,7 +125,7 @@ import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { listCategories, listAssets, createScheduleTask, listScheduleTasks, updateScheduleTask } from '@/api/ledger';
+import { listCategories, listAssets, createScheduleTask, getScheduleTask, updateScheduleTask } from '@/api/ledger';
 import { applyAmountInput } from '@/utils/money';
 import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
 
@@ -288,16 +288,16 @@ export default {
       } catch (e) { }
     },
     /**
-     * 编辑模式：拉取任务列表并回填表单。
-     * 列表接口返回该用户全部未删除任务（无分页），按 id 查即可；
-     * 这样无需新增单条查询接口，也不会像"从分页列表里找"那样漏数据。
+     * 编辑模式：取单个任务并回填表单。
+     *
+     * 用单条接口而不是"拉列表再 find"：列表已改为**分页**，
+     * 目标任务不在第一页时就会找不到，误报"任务不存在或已删除"。
+     * 后端 /{id} 内部走 getOwned(userId, id)，越权访问会被拒。
      */
     async loadForEdit() {
       try {
-        const data = await listScheduleTasks() || {};
-        // 两侧统一 String()：后端 Long 序列化为字符串，而 URL 参数类型不定，
-        // 直接 === 会因 "1" vs 1 失配（详见 onLoad 注释）
-        const t = (data.tasks || []).find(x => String(x.id) === String(this.editId));
+        const data = await getScheduleTask(this.editId) || {};
+        const t = data.task;
         if (!t) { uni.showToast({ title: '任务不存在或已删除', icon: 'none' }); return; }
         this.form.type = t.type || 'expense';
         this.form.amount = t.amount != null ? String(t.amount) : '';

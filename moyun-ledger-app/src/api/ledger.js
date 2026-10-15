@@ -346,8 +346,16 @@ export const subscribeVip = (data) => post('/portal/ledger/vip/subscribe', data)
 
 // ---------------- 定时记账 ----------------
 
-/** 任务列表（含分类名/账户名 + 启用统计） */
-export const listScheduleTasks = () => get('/portal/ledger/schedules');
+/**
+ * 任务列表（分页 + 关键字搜索）。
+ * 返回 { records, total, pageNum, pageSize, pages, enabledCount, totalCount }。
+ * enabledCount / totalCount 是该用户**全部任务**的统计（不随当前页变化）。
+ * 后端始终按当前登录用户过滤，前端无需也无法查询他人任务。
+ */
+export const listScheduleTasks = (params) => get('/portal/ledger/schedules', params || {});
+
+/** 单个任务（编辑页回填用；列表已分页，不能再靠"拉全量再 find(id)"） */
+export const getScheduleTask = (id) => get('/portal/ledger/schedules/' + id);
 
 /** 执行日志（taskId 可选=全部） */
 export const listScheduleLogs = (taskId) =>

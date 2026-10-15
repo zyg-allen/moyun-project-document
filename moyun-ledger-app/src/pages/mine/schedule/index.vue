@@ -2,9 +2,16 @@
   <view class="page" :style="themeVars">
     <NavBar title="定时记账" />
 
-    <!-- 汇总 -->
-    <view class="stat-bar" v-if="tasks.length">
-      <text>共 {{ tasks.length }} 个任务 · 启用中 {{ enabledCount }} 个</text>
+    <!-- 搜索：按任务名称 / 备注模糊匹配（后端分页，只查本人任务） -->
+    <view class="search-bar">
+      <input class="search-input" v-model="keyword" placeholder="搜索任务名称或备注"
+             confirm-type="search" @input="onKeywordInput" />
+      <text class="search-clear" v-if="keyword" @tap="clearKeyword">✕</text>
+    </view>
+
+    <!-- 汇总：用 totalCount（该用户全部任务），不随分页/搜索变化 -->
+    <view class="stat-bar" v-if="totalCount">
+      <text>共 {{ totalCount }} 个任务 · 启用中 {{ enabledCount }} 个<text v-if="keyword"> · 匹配 {{ total }} 个</text></text>
     </view>
 
     <!-- 任务列表 -->
@@ -48,8 +55,15 @@
     <!-- 空状态 -->
     <view class="empty" v-else>
       <text class="empty-icon">⏰</text>
-      <text class="empty-text">暂无数据</text>
-      <text class="empty-sub">添加定时计划，到点自动帮你记账</text>
+      <text class="empty-text">{{ keyword ? '没有匹配的任务' : '暂无数据' }}</text>
+      <text class="empty-sub">{{ keyword ? '换个关键字试试' : '添加定时计划，到点自动帮你记账' }}</text>
+    </view>
+
+    <!-- 分页：仅多于 1 页时出现，避免只有一页时多一排无用控件 -->
+    <view class="pager" v-if="pages > 1">
+      <view class="pager-btn" :class="{ disabled: pageNum <= 1 }" @tap="prevPage">上一页</view>
+      <text class="pager-info">{{ pageNum }} / {{ pages }}</text>
+      <view class="pager-btn" :class="{ disabled: pageNum >= pages }" @tap="nextPage">下一页</view>
     </view>
 
     <!-- 悬浮添加按钮 -->
@@ -176,6 +190,14 @@ export default {
     return {
       tasks: [],
       enabledCount: 0,
+      // ---- 列表分页与搜索 ----
+      keyword: '',
+      pageNum: 1,
+      pageSize: 10,
+      total: 0,        // 当前关键字命中的条数（后端 total）
+      pages: 0,        // 总页数
+      totalCount: 0,   // 该用户全部任务数（不受搜索/分页影响）
+      searchTimer: null,
       logs: [],
       logsVisible: false,
       logTaskName: '',
@@ -208,6 +230,10 @@ export default {
     useThemeStore().restore();
     if (useUserStore().isLoggedIn) this.load();
   },
+  /** 离开页面清掉搜索防抖定时器，避免它在页面销毁后回调 load() */
+  onUnload() {
+    if (this.searchTimer) { clearTimeout(this.searchTimer); this.searchTimer = null; }
+  },
   methods: {
     toFixedYuan,
     typeText,
@@ -217,12 +243,47 @@ export default {
       if (t.cycle === 'interval') return '每' + t.intervalDays + '天';
       return '每天';
     },
+    /**
+     * 拉取任务列表（分页 + 关键字搜索）。
+     * enabledCount / totalCount 由后端按**该用户全部任务**统计，不随当前页变化。
+     */
     async load() {
       try {
-        const data = await listScheduleTasks() || {};
-        this.tasks = data.tasks || [];
+        const data = await listScheduleTasks({
+          keyword: this.keyword || undefined,
+          pageNum: this.pageNum,
+          pageSize: this.pageSize
+        }) || {};
+        this.tasks = data.records || [];
+        this.total = data.total || 0;
+        this.pages = data.pages || 0;
+        this.totalCount = data.totalCount || 0;
         this.enabledCount = data.enabledCount || 0;
       } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 搜索输入（防抖 300ms）：每次改关键字都回到第 1 页，否则会停在空白的末页 */
+    onKeywordInput(e) {
+      this.keyword = e.detail.value;
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => {
+        this.pageNum = 1;
+        this.load();
+      }, 300);
+    },
+    clearKeyword() {
+      this.keyword = '';
+      this.pageNum = 1;
+      this.load();
+    },
+    prevPage() {
+      if (this.pageNum <= 1) return;
+      this.pageNum -= 1;
+      this.load();
+    },
+    nextPage() {
+      if (this.pageNum >= this.pages) return;
+      this.pageNum += 1;
+      this.load();
     },
     async toggle(t) {
       try { await toggleScheduleTask(t.id); } catch (e) { /* 拦截器已提示 */ }
@@ -421,4 +482,29 @@ export default {
 .d-block { display: flex; flex-direction: column; padding: 22rpx 0; }
 .d-fail { font-size: 24rpx; color: var(--expense); line-height: 1.6; margin-top: 12rpx; word-break: break-all; }
 .d-retry { align-self: flex-start; margin-top: 20rpx; }
+
+/* ---- 搜索框 ---- */
+.search-bar {
+  display: flex; align-items: center; margin: 20rpx 24rpx 0;
+  padding: 0 24rpx; height: 76rpx; border-radius: 38rpx;
+  background: var(--surface); border: 1rpx solid var(--border);
+}
+.search-input { flex: 1; min-width: 0; font-size: 26rpx; color: var(--text-main); }
+.search-clear {
+  flex-shrink: 0; width: 44rpx; height: 44rpx; line-height: 44rpx; text-align: center;
+  font-size: 24rpx; color: var(--text-muted);
+}
+
+/* ---- 分页 ---- */
+.pager {
+  display: flex; align-items: center; justify-content: center;
+  gap: 32rpx; padding: 28rpx 24rpx 40rpx;
+}
+.pager-btn {
+  font-size: 26rpx; padding: 14rpx 40rpx; border-radius: 32rpx;
+  background: var(--surface); color: var(--text-main);
+}
+/* 禁用态用弱化文字色，而不是仅靠透明度 —— 暗色下透明度几乎看不出来 */
+.pager-btn.disabled { color: var(--text-muted); background: var(--card); }
+.pager-info { font-size: 24rpx; color: var(--text-sub); }
 </style>

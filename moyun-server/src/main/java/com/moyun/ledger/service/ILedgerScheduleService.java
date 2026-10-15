@@ -31,7 +31,15 @@ public interface ILedgerScheduleService extends IService<LedgerScheduleTask> {
     void deleteTask(Long userId, Long id);
 
     /** 任务列表（含分类名/账户名冗余展示字段 + 汇总） */
-    Map<String, Object> listTasks(Long userId);
+    Map<String, Object> listTasks(Long userId, String keyword, Integer pageNum, Integer pageSize);
+
+    /**
+     * 按 id 取单个任务（编辑页回填用）。
+     *
+     * 为什么需要它：列表改为分页后，前端"拉全量再 find(id)"的做法不再成立
+     * （目标任务可能不在第一页）。单条查询既正确又省流量。
+     */
+    Map<String, Object> getTask(Long userId, Long id);
 
     /** 任务执行日志（倒序） */
     List<LedgerScheduleLog> listLogs(Long userId, Long taskId);

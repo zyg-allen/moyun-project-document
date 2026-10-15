@@ -172,13 +172,18 @@
         </view>
         <view class="txn-amount" :class="t.type">{{ amountOf(t) }}</view>
       </view>
+      <!-- 分页入口：还有更多才给按钮；到底给一句收尾，避免"是不是没加载出来" -->
+      <view class="txn-more" v-if="recentList.length && txnPage < txnPages" @tap="loadMoreTxns">
+        {{ txnLoading ? '加载中…' : '加载更多' }}
+      </view>
+      <view class="txn-more done" v-else-if="recentList.length">已显示全部 {{ txnTotal }} 条</view>
     </view>
     </template>
   </view>
 </template>
 
 <script>
-import { getDashboard, listMemos } from '@/api/ledger';
+import { getDashboard, listMemos, pageTransactions } from '@/api/ledger';
 import { toFixedYuan, formatAmount, formatSigned, typeText } from '@/utils/money';
 import { truncate } from '@/utils/text';
 import { useUserStore } from '@/stores/user';
@@ -190,6 +195,12 @@ export default {
       dashboard: {},
       privacyMode: false,
       todos: [],
+      // ---- 最近流水分页（加载更多，每页 10 条）----
+      txnList: [],
+      txnPage: 1,
+      txnPages: 1,
+      txnTotal: 0,
+      txnLoading: false,
       pains: [
         { i: '💸', t: '钱花哪了说不清', d: '只记流水不分类，月底一对账就懵' },
         { i: '📉', t: '净资产是笔糊涂账', d: '存款、房贷、花呗散落各处，总账没人帮你算' },
@@ -211,7 +222,7 @@ export default {
     budget() { return this.dashboard.budget || null; },
     budgetAmountText() { return formatAmount(this.budget && this.budget.amount); },
     budgetUsedText() { return formatAmount(this.budget && this.budget.used); },
-    recentList() { return this.dashboard.recentTransactions || []; },
+    recentList() { return this.txnList; },
     pendingTodos() { return (this.todos || []).filter(t => !t.done); },
     // 新手引导：无任何资产/负债账户，且未手动关闭过
     showGuide() {
@@ -230,6 +241,10 @@ export default {
       return;
     }
     this.load();
+  },
+  /** 触底自动加载下一页（页级滚动） */
+  onReachBottom() {
+    this.loadMoreTxns();
   },
   onPullDownRefresh() {
     const userStore = useUserStore();
@@ -250,8 +265,32 @@ export default {
       try {
         this.dashboard = await getDashboard() || {};
       } catch (e) { /* 拦截器已提示 */ }
+      this.loadTransactions(true);   // 流水从第 1 页重新取
       this.loadTodos(); // v11.33 首页待办（备忘录）
     },
+    /**
+     * 加载最近流水（分页）。
+     *
+     * @param reset true=从第 1 页重新加载（首次进入 / 下拉刷新）；
+     *              false=追加下一页（触底 / 点「加载更多」）
+     */
+    async loadTransactions(reset = false) {
+      if (this.txnLoading) return;                          // 并发保护
+      if (!reset && this.txnPage >= this.txnPages) return;   // 已到底不再请求
+      this.txnLoading = true;
+      try {
+        const page = reset ? 1 : this.txnPage + 1;
+        const res = await pageTransactions({ pageNum: page, pageSize: 10 }) || {};
+        const records = res.records || [];
+        this.txnList = reset ? records : this.txnList.concat(records);
+        this.txnPage = page;
+        this.txnPages = res.pages || 1;
+        this.txnTotal = res.total || records.length;
+      } catch (e) { /* 拦截器已提示 */ } finally {
+        this.txnLoading = false;
+      }
+    },
+    loadMoreTxns() { this.loadTransactions(false); },
     async loadTodos() {
       try {
         const data = await listMemos() || {};
@@ -410,6 +449,14 @@ export default {
 }
 .txn-date { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .txn-amount { font-size: 30rpx; font-weight: 600; }
+
+/* ---- 最近流水分页入口 ---- */
+.txn-more {
+  text-align: center; font-size: 24rpx; color: var(--primary-text);
+  padding: 24rpx 0 8rpx; border-top: 1rpx solid var(--border); margin-top: 8rpx;
+}
+/* 到底的收尾文案：弱化，不要和「加载更多」抢注意力 */
+.txn-more.done { color: var(--text-muted); }
 .txn-amount.income { color: var(--income); }
 .txn-amount.expense { color: var(--expense); }
 </style>

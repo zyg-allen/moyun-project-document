@@ -93,6 +93,28 @@
 
         <!-- 详情态 -->
         <scroll-view scroll-y class="log-scroll" v-else>
+          <!-- 任务侧信息：日志表本身只存金额/状态/失败原因，类型与账户来自任务，
+               这里一并展示，才能说清「钱从哪个账户扣、扣了多少、为什么」 -->
+          <view class="d-row">
+            <text class="d-k">类型</text>
+            <text class="d-v">{{ logTask ? typeText(logTask.type) : '—' }}</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">{{ logTask && logTask.type === 'income' ? '入账账户' : '扣款账户' }}</text>
+            <text class="d-v">{{ (logTask && logTask.accountName) || '—' }}</text>
+          </view>
+          <view class="d-row" v-if="logTask && logTask.categoryName">
+            <text class="d-k">分类</text>
+            <text class="d-v">{{ logTask.categoryName }}</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">金额</text>
+            <text class="d-v">¥{{ toFixedYuan(logDetail.amount) }}</text>
+          </view>
+          <view class="d-row" v-if="logTask && logTask.description">
+            <text class="d-k">备注</text>
+            <text class="d-v">{{ logTask.description }}</text>
+          </view>
           <view class="d-row">
             <text class="d-k">记账日期</text>
             <text class="d-v">{{ logDetail.execDate }}</text>
@@ -100,10 +122,6 @@
           <view class="d-row">
             <text class="d-k">执行结果</text>
             <text class="d-v" :class="logDetail.status === 1 ? 'ok' : 'fail'">{{ logDetail.status === 1 ? '记账成功' : '记账失败' }}</text>
-          </view>
-          <view class="d-row">
-            <text class="d-k">金额</text>
-            <text class="d-v">¥{{ toFixedYuan(logDetail.amount) }}</text>
           </view>
           <view class="d-row">
             <text class="d-k">关联流水</text>
@@ -135,7 +153,7 @@ import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { listScheduleTasks, listScheduleLogs, toggleScheduleTask, runScheduleTask, retryScheduleLog, deleteScheduleTask } from '@/api/ledger';
-import { toFixedYuan } from '@/utils/money';
+import { toFixedYuan, typeText } from '@/utils/money';
 
 const WEEK_LABELS = ['', '一', '二', '三', '四', '五', '六', '日'];
 
@@ -149,6 +167,8 @@ export default {
       logsVisible: false,
       logTaskName: '',
       logTaskId: null,
+      // 详情态要展示「类型/扣款账户/备注」，这些在任务上而不在日志表里
+      logTask: null,
       // 非空即进入「执行详情」态（列表态与详情态共用同一个弹层）
       logDetail: null
     };
@@ -177,6 +197,7 @@ export default {
   },
   methods: {
     toFixedYuan,
+    typeText,
     cycleText(t) {
       if (t.cycle === 'weekly') return '每周' + (WEEK_LABELS[t.dayOfWeek] || '');
       if (t.cycle === 'monthly') return '每月' + t.dayOfMonth + '号';
@@ -220,6 +241,7 @@ export default {
         this.logs = data.records || [];
         this.logTaskName = t.name;
         this.logTaskId = t.id;
+        this.logTask = t;        // 详情态要展示类型/扣款账户/备注
         this.logDetail = null;   // 每次打开都从列表态开始
         this.logsVisible = true;
       } catch (e) { }

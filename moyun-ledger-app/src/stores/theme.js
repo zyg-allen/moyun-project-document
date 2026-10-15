@@ -219,12 +219,24 @@ export const useThemeStore = defineStore('theme', {
      */
     themeVars() {
       const textTable = PRIMARY_TEXT[this.themeKey] || PRIMARY_TEXT.mint;
+      const appearance = this.appearanceTheme;
       return {
-        ...this.appearanceTheme,
+        ...appearance,
         ...this.theme,
         '--on-primary': ON_PRIMARY,
         '--primary-text': textTable[this.appearanceKey] || textTable.light,
-        ...TYPE_COLORS
+        ...TYPE_COLORS,
+        // ⚠️ 必须在这里给 color，不能只在 App.vue 的 page{} 里给。
+        //
+        // color 的继承是"就近解析"的：页面根视图只重定义 CSS **变量**，
+        // 元素上并没有新的 color 声明，于是所有没写 color 的元素
+        // （.setting-name / .appearance-name / 各类无色的按钮文案…）
+        // 继承到的仍是**最外层 uni-page-body** 上那份 —— 而那份是用
+        // page{} 的**日间默认值**算出来的深色字，落到暗色卡片上就等于隐形。
+        //
+        // 把 color 一起放进主题样式对象后，每个绑定 :style="themeVars" 的
+        // 页面根都会显式设色，其子树一律跟随当前外观 —— 全局一次解决。
+        color: appearance['--text-main']
       };
     },
     themeName() { return this.theme.name; },

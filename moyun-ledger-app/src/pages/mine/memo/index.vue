@@ -50,7 +50,10 @@
     <view class="form-mask" :class="{ 'kb-open': kbHeight > 0 }" v-if="formVisible" @tap="closeForm">
       <view class="form-panel" @tap.stop :style="kbMaxHeightStyle">
         <view class="form-title">{{ editingId ? '编辑待办' : '添加待办' }}</view>
-        <scroll-view scroll-y class="form-scroll">
+        <!-- 不用 scroll-view：内层滚动会限制高度，长内容（如长备注）被从中间截断
+             并出现独立滚动条，手机上要"在弹层里再滑一次"，体验差。
+             改为普通容器由外层遮罩统一滚动（见 .form-mask）。 -->
+        <view class="form-scroll">
           <view class="f-row">
             <text class="f-label">事项</text>
             <input class="f-input" v-model="form.title" placeholder="请输入事项标题，如：信用卡还款" maxlength="50" />
@@ -90,7 +93,7 @@
           <view class="f-tip" v-if="form.remindEnabled === 1 && !form.date">
             开启提醒需要先设置事项时间
           </view>
-        </scroll-view>
+        </view>
         <view class="form-actions">
           <view class="f-btn cancel" @tap="closeForm">取消</view>
           <view class="f-btn ok" :class="{ disabled: submitting }" @tap="!submitting && saveTodo()">保存</view>
@@ -289,17 +292,28 @@ export default {
   background: rgba(0,0,0,0.45);
   /* 高于 H5 底部 TabBar(998) 与官方弹窗(999)，否则遮不住 Tab 栏 */
   z-index: 999;
-  display: flex; align-items: center; justify-content: center;
-  /* 键盘弹出时贴底并抬高，避免弹层被键盘从下方顶住（居中弹层在手机上必被遮挡） */
+  display: flex; align-items: flex-start; justify-content: center;
+  /* 遮罩自身可滚动 —— 弹层高度不再受视口限制，内容自然撑开，
+     手机上就是"整屏上下滑动"，不再出现内层滚动条与内容被截断的问题。
+     （原来弹层 max-height:80vh + 内层 max-height:55vh，长备注会被从中间切断） */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(var(--status-bar-height) + 40rpx) 0 calc(env(safe-area-inset-bottom) + 40rpx);
+  box-sizing: border-box;
   transition: padding-bottom 0.18s ease;
 }
-.form-mask.kb-open { align-items: flex-end; padding-bottom: 24rpx; }
+.form-mask.kb-open { padding-bottom: 24rpx; }
 .form-panel {
-  width: 660rpx; max-height: 80vh; background: var(--card); border-radius: 24rpx;
+  width: 660rpx; background: var(--card); border-radius: 24rpx;
   padding: 32rpx; display: flex; flex-direction: column;
+  /* margin:auto 撑开剩余空间：内容短时垂直居中，内容长时可完整滚动
+     （比在 flex 容器上用 align-items:center 更安全 —— 后者在内容超高时会裁掉顶部） */
+  margin: auto 0;
+  flex-shrink: 0;
 }
 .form-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 20rpx; }
-.form-scroll { max-height: 55vh; }
+/* 高度由内容决定，不再限制（原 max-height:55vh 是截断的根源） */
+.form-scroll { flex: 1; }
 .f-row {
   display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid var(--border);
 }

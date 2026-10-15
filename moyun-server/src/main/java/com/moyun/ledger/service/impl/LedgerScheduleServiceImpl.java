@@ -21,6 +21,7 @@ import com.moyun.portal.service.PortalEmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -70,6 +71,10 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
     /** 读取用户的邮箱与「邮件提醒」开关（portal_user） */
     @Autowired
     private PortalUserMapper portalUserMapper;
+
+    /** 记账 App 地址（邮件「处理入口」链接前缀）；留空则邮件不追加链接 */
+    @Value("${moyun.ledger.app-base-url:}")
+    private String appBaseUrl;
 
     /** 发通知邮件（尽力而为，失败只记日志） */
     @Autowired
@@ -473,6 +478,12 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
             sb.append("\n请及时处理（如余额不足请先充值对应账户），");
             sb.append("处理后可到「定时记账 - 执行日志」中重试。\n");
         }
+        // 处理入口：收到告警要能一键回到 App，否则用户只能干看着。
+        // 地址留空则整段不输出 —— 宁可没有入口，也不给一个点不开的死链。
+        String entry = buildAppEntryLink(task.getId());
+        if (entry != null) {
+            sb.append("\n处理入口：\n    ").append(entry).append("\n");
+        }
         sb.append("\n如不想再收到此类提醒，可在「设置 - 邮件提醒」中关闭。\n\n");
         sb.append("—— 旭林知行");
         return sb.toString();
@@ -489,6 +500,27 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
      *
      * 这里用 UpdateWrapper 显式 set，null 才会真正写入。
      */
+    /**
+     * 拼接邮件里的「处理入口」链接。
+     *
+     * 形如 <app-base-url>/#/pages/mine/schedule/index?taskId=7
+     * 带上 taskId 是为了让 App 侧能直接定位到该任务；
+     * 即便前端暂时忽略该参数，也仍会正常打开定时记账页，不会成为死链。
+     *
+     * @return 链接；未配置 app-base-url 时返回 null（调用方据此跳过整段）
+     */
+    private String buildAppEntryLink(Long taskId) {
+        if (appBaseUrl == null || appBaseUrl.isBlank()) {
+            return null;
+        }
+        String base = appBaseUrl.trim();
+        // 容忍配置时多写的结尾斜杠，避免拼出 //#/
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + "/#/pages/mine/schedule/index?taskId=" + taskId;
+    }
+
     private void updateLogAllowingNull(LedgerScheduleLog scheduleLog) {
         logMapper.update(null, new LambdaUpdateWrapper<LedgerScheduleLog>()
                 .eq(LedgerScheduleLog::getId, scheduleLog.getId())

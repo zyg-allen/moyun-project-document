@@ -92,6 +92,18 @@ moyun:
     #   不再需要手工替换 public/ 下的占位域名）
     domain: ${PORTAL_DOMAIN:https://xulin.example.com}
 
+  # 记账 App（moyun-ledger-app，H5 / 小程序同源页面）
+  ledger:
+    # 邮件「处理入口」链接前缀 —— 让用户收到告警后能一键回到 App 处理。
+    #
+    # 为什么单独配：记账 App 与门户（portal.domain）是**两个不同前端**，地址不同，
+    # 不能复用门户域名。
+    #
+    # 必须以 http:// 或 https:// 开头，结尾不要带 /（拼接时统一补 /#/ 路由前缀）。
+    # ⚠️ 留空则邮件**不追加链接** —— 宁可没有入口，也不给用户一个点不开的死链。
+    # 生产环境通过环境变量 LEDGER_APP_BASE_URL 覆盖。
+    app-base-url: ${LEDGER_APP_BASE_URL:}
+
 # Token 配置
 # secret 通过环境变量 ${TOKEN_SECRET:} 注入，各环境不同密钥
 # Token 配置基线

@@ -186,7 +186,7 @@ export default {
   text-align: center; padding: 24rpx 28rpx; font-size: 28rpx; color: var(--text-sub); position: relative;
   white-space: nowrap;
 }
-.tab.active { color: var(--primary-strong); font-weight: 600; }
+.tab.active { color: var(--primary-text); font-weight: 600; }
 .tab.active::after {
   content: ''; position: absolute; left: 50%; transform: translateX(-50%);
   bottom: 8rpx; width: 48rpx; height: 6rpx; border-radius: 3rpx; background: var(--primary-strong);
@@ -220,7 +220,7 @@ export default {
   border-radius: 50%; font-size: 26rpx; color: #fff;
   background: rgba(0, 0, 0, 0.28);
 }
-.cat-remove:active { background: var(--expense); }
+.cat-remove:active { background: var(--expense); color: var(--on-expense); }
 
 .add-bar {
   position: fixed; left: 0; right: 0; bottom: 0;
@@ -243,7 +243,7 @@ export default {
   padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
 .add-btn {
-  width: 160rpx; flex-shrink: 0; background: var(--primary-strong); color: #fff; border-radius: 44rpx;
+  width: 160rpx; flex-shrink: 0; background: var(--primary-strong); color: var(--on-primary); border-radius: 44rpx;
   text-align: center; line-height: 80rpx; font-size: 28rpx;
 }
 /* 图标选择面板（折叠，默认收起） */

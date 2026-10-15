@@ -178,7 +178,7 @@ export default {
 }
 .ov-row { display: flex; align-items: center; margin-bottom: 24rpx; }
 .ov-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
-.ov-val { font-size: 32rpx; font-weight: 700; color: var(--primary-strong); }
+.ov-val { font-size: 32rpx; font-weight: 700; color: var(--primary-text); }
 .ov-lab { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 .ov-divider { width: 1rpx; height: 48rpx; background: var(--surface); }
 .progress-bar { height: 16rpx; background: var(--surface); border-radius: 8rpx; overflow: hidden; }
@@ -212,7 +212,7 @@ export default {
 .p-status.pending { color: var(--warning); background: var(--surface); }
 .p-actions { display: flex; gap: 12rpx; margin-top: 12rpx; }
 .p-btn { font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 20rpx; }
-.p-btn.ok { background: var(--primary-strong); color: #fff; }
+.p-btn.ok { background: var(--primary-strong); color: var(--on-primary); }
 .p-btn.no { background: var(--expense-bg); color: var(--expense); }
 .p-actual { font-size: 20rpx; color: var(--text-sub); margin-top: 8rpx; }
 

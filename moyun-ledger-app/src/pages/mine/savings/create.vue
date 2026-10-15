@@ -164,7 +164,7 @@ export default {
   font-size: 24rpx; padding: 8rpx 20rpx; border-radius: 24rpx;
   background: var(--surface); color: var(--text-sub);
 }
-.method-tag.active { background: var(--primary-soft); color: var(--primary-strong); }
+.method-tag.active { background: var(--primary-soft); color: var(--primary-text); }
 
 .tip-card {
   background: var(--surface); border: 1rpx solid #ffe58f;
@@ -174,13 +174,13 @@ export default {
 .tip-desc { display: block; font-size: 22rpx; color: #8c6d1f; line-height: 1.6; margin-top: 8rpx; }
 .gen-btn {
   margin-top: 16rpx; display: inline-block; padding: 8rpx 24rpx;
-  background: var(--primary-strong); color: #fff; border-radius: 24rpx; font-size: 24rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 24rpx; font-size: 24rpx;
 }
 
 .submit-btn {
   position: fixed; bottom: 40rpx; left: 24rpx; right: 24rpx;
   height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff;
+  background: var(--primary-strong); color: var(--on-primary);
   border-radius: 44rpx; font-size: 30rpx; font-weight: 600;
 }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */

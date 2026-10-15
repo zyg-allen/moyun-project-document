@@ -301,7 +301,7 @@ export default {
 .mode {
   flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: var(--text-sub); border-radius: 16rpx;
 }
-.mode.active { background: var(--primary-strong); color: #fff; font-weight: 600; }
+.mode.active { background: var(--primary-strong); color: var(--on-primary); font-weight: 600; }
 
 .card { background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx 40rpx; }
 .row { display: flex; align-items: center; padding: 26rpx 0; border-bottom: 1rpx solid #f5f5f7; gap: 16rpx; }
@@ -315,11 +315,11 @@ export default {
 .pwd-wrap { flex: 1; display: flex; align-items: center; background: var(--surface); border-radius: 12rpx; }
 .pwd-wrap .pwd-input { background: transparent; }
 .pwd-eye {
-  flex-shrink: 0; font-size: 24rpx; color: var(--primary-strong);
+  flex-shrink: 0; font-size: 24rpx; color: var(--primary-text);
   padding: 0 20rpx; height: 72rpx; line-height: 72rpx;
 }
 .code-btn {
-  flex-shrink: 0; font-size: 24rpx; color: var(--primary-strong);
+  flex-shrink: 0; font-size: 24rpx; color: var(--primary-text);
   border: 1rpx solid var(--primary-strong); border-radius: 28rpx; padding: 10rpx 24rpx;
 }
 .code-btn.disabled { color: var(--text-muted); border-color: var(--border); }
@@ -327,12 +327,12 @@ export default {
 
 .btn-primary {
   margin-top: 36rpx; height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 44rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 44rpx;
   font-size: 30rpx; font-weight: 600;
 }
 .btn-primary:active { opacity: 0.85; }
 .tip { font-size: 22rpx; color: var(--text-sub); text-align: center; margin-top: 20rpx; }
-.link { font-size: 24rpx; color: var(--primary-strong); text-align: center; margin-top: 16rpx; padding: 10rpx; }
+.link { font-size: 24rpx; color: var(--primary-text); text-align: center; margin-top: 16rpx; padding: 10rpx; }
 
 /* 人机校验弹窗 */
 .mask {
@@ -357,6 +357,6 @@ export default {
   border-radius: 40rpx; font-size: 28rpx;
 }
 .dialog-btn.cancel { background: var(--surface); color: var(--text-sub); }
-.dialog-btn.ok { background: var(--primary-strong); color: #fff; font-weight: 600; }
+.dialog-btn.ok { background: var(--primary-strong); color: var(--on-primary); font-weight: 600; }
 .dialog-btn:active { opacity: 0.85; }
 </style>

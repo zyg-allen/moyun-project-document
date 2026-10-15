@@ -762,16 +762,16 @@ export default {
   flex: 1; text-align: center; color: var(--text-sub); font-size: 28rpx;
   padding: 14rpx 0; border-radius: 36rpx;
 }
-.type-item.active { background: var(--primary); color: #fff; font-weight: 600; }
+.type-item.active { background: var(--primary); color: var(--on-primary); font-weight: 600; }
 
 /* 类型语义提示 */
-.type-hint { background: var(--primary-soft); color: var(--primary-strong); font-size: 22rpx; padding: 10rpx 32rpx; }
+.type-hint { background: var(--primary-soft); color: var(--primary-text); font-size: 22rpx; padding: 10rpx 32rpx; }
 
 /* 分类宫格 */
 .cat-section { background: var(--card); margin: 20rpx 24rpx; border-radius: 20rpx; padding: 24rpx 12rpx 8rpx; }
 .cat-section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 20rpx 16rpx; font-size: 28rpx; font-weight: 600; }
 .cat-title-right { display: flex; align-items: center; }
-.cat-count { font-size: 22rpx; color: var(--primary-strong); font-weight: 400; margin-right: 16rpx; }
+.cat-count { font-size: 22rpx; color: var(--primary-text); font-weight: 400; margin-right: 16rpx; }
 .cat-toggle { font-size: 22rpx; color: var(--text-sub); padding: 4rpx 12rpx; background: var(--surface); border-radius: 20rpx; }
 .cat-grid-wrap { max-height: 560rpx; }
 .cat-grid { display: flex; flex-wrap: wrap; }
@@ -784,11 +784,11 @@ export default {
 }
 .cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }
 .cat-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
-.cat-name.selected { color: var(--primary-strong); font-weight: 600; }
+.cat-name.selected { color: var(--primary-text); font-weight: 600; }
 .cat-empty { width: 100%; text-align: center; color: var(--text-muted); font-size: 26rpx; padding: 40rpx 0; }
 /* 添加自定义分类入口 + 自定义角标 */
 .cat-add-icon {
-  background: var(--surface); color: var(--primary-strong); font-size: 40rpx;
+  background: var(--surface); color: var(--primary-text); font-size: 40rpx;
   border: 1rpx dashed #c8c8d0; box-shadow: none;
 }
 /* 自定义分类右上角删除 ×：热区 88rpx，与分类点击互不干扰 */
@@ -807,7 +807,7 @@ export default {
   display: inline-block; font-size: 24rpx; color: var(--text-sub);
   background: var(--surface); border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
 }
-.sub-cat-tag.active { background: var(--primary); color: #fff; }
+.sub-cat-tag.active { background: var(--primary); color: var(--on-primary); }
 
 /* 备注行（突出） */
 .note-card {
@@ -865,7 +865,7 @@ export default {
 .pick-row-datetime .pick-picker { min-height: 76rpx; }
 .today-btn {
   margin-left: 16rpx; padding: 6rpx 24rpx; border-radius: 24rpx;
-  background: var(--primary-soft); color: var(--primary-strong); font-size: 24rpx;
+  background: var(--primary-soft); color: var(--primary-text); font-size: 24rpx;
   flex-shrink: 0;
 }
 
@@ -884,7 +884,7 @@ export default {
   min-width: 88rpx; min-height: 88rpx;
   display: flex; align-items: center; justify-content: center;
   position: absolute; top: -14rpx; right: -14rpx; width: 36rpx; height: 36rpx;
-  border-radius: 18rpx; background: var(--expense); color: #fff; font-size: 24rpx;
+  border-radius: 18rpx; background: var(--expense); color: var(--on-expense); font-size: 24rpx;
   display: flex; align-items: center; justify-content: center; line-height: 1;
 }
 .voucher-add {
@@ -897,7 +897,7 @@ export default {
 
 .save-bar { background: var(--card); padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
 .btn-save {
-  background: var(--primary); color: #fff; border-radius: 44rpx; height: 84rpx;
+  background: var(--primary); color: var(--on-primary); border-radius: 44rpx; height: 84rpx;
   line-height: 84rpx; text-align: center; font-size: 32rpx; font-weight: 600;
   box-shadow: 0 8rpx 20rpx var(--primary-shadow);
 }
@@ -913,21 +913,21 @@ export default {
   display: flex; justify-content: space-between; align-items: center;
   padding: 20rpx 16rpx; border-bottom: 1rpx solid #f5f5f7; font-size: 28rpx;
 }
-.picker-item.active { color: var(--primary-strong); font-weight: 600; }
+.picker-item.active { color: var(--primary-text); font-weight: 600; }
 .picker-sub { color: var(--text-sub); font-size: 24rpx; }
 .picker-empty {
-  padding: 60rpx 0; text-align: center; color: var(--primary-strong); font-size: 26rpx;
+  padding: 60rpx 0; text-align: center; color: var(--primary-text); font-size: 26rpx;
 }
 
 /* 快速补录借款项目 */
 .quick-add-entry {
   margin: 0 0 16rpx; padding: 18rpx; text-align: center;
-  border: 1rpx dashed var(--primary); border-radius: 12rpx; color: var(--primary-strong); font-size: 26rpx;
+  border: 1rpx dashed var(--primary); border-radius: 12rpx; color: var(--primary-text); font-size: 26rpx;
 }
 .quick-add-form {
   background: var(--primary-soft); border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx;
 }
-.qa-title { font-size: 26rpx; font-weight: 600; color: var(--primary-strong); margin-bottom: 12rpx; }
+.qa-title { font-size: 26rpx; font-weight: 600; color: var(--primary-text); margin-bottom: 12rpx; }
 .qa-tip {
   font-size: 22rpx; color: var(--warning); background: #fdf3e7;
   border-radius: 8rpx; padding: 12rpx 16rpx; margin-bottom: 8rpx; line-height: 1.6;
@@ -940,6 +940,6 @@ export default {
   flex: 1; text-align: center; border-radius: 10rpx; padding: 14rpx 0; font-size: 26rpx;
 }
 .qa-btn.cancel { background: var(--surface); color: var(--text-sub); }
-.qa-btn.ok { background: var(--primary); color: #fff; }
+.qa-btn.ok { background: var(--primary); color: var(--on-primary); }
 .qa-btn.ok.disabled { opacity: 0.4; }
 </style>

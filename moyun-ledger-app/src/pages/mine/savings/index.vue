@@ -101,7 +101,7 @@ export default {
 
 <style scoped>
 .page { padding-bottom: 40rpx; min-height: 100vh; background: var(--surface); }
-.nav-add { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
+.nav-add { font-size: 26rpx; color: var(--primary-text); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 /* 总览卡：与头部统一为「白卡」语言（原为强调色底 + 白字，白字对比度不足），
    沿用资产负债汇总卡与记一笔金额卡的做法：中性卡面 + 左侧强调色竖条点出主次 */
@@ -123,8 +123,8 @@ export default {
 }
 .plan-header { display: flex; justify-content: space-between; align-items: center; }
 .plan-name { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
-.plan-method { font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
-.plan-amount { font-size: 36rpx; font-weight: 700; color: var(--primary-strong); margin: 16rpx 0 12rpx; }
+.plan-method { font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
+.plan-amount { font-size: 36rpx; font-weight: 700; color: var(--primary-text); margin: 16rpx 0 12rpx; }
 .progress-bar { height: 16rpx; background: var(--surface); border-radius: 8rpx; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--primary-strong); border-radius: 8rpx; transition: width 0.3s; }
 .plan-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12rpx; font-size: 22rpx; color: var(--text-sub); }
@@ -135,7 +135,7 @@ export default {
 .empty-icon { font-size: 100rpx; margin-bottom: 24rpx; }
 .empty-text { font-size: 28rpx; color: var(--text-sub); margin-bottom: 32rpx; }
 .empty-btn {
-  padding: 16rpx 48rpx; background: var(--primary-strong); color: #fff;
+  padding: 16rpx 48rpx; background: var(--primary-strong); color: var(--on-primary);
   border-radius: 32rpx; font-size: 26rpx;
 }
 </style>

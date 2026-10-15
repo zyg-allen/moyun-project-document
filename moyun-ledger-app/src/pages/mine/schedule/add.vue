@@ -289,7 +289,7 @@ export default {
 
 <style scoped>
 .page { padding-bottom: 160rpx; min-height: 100vh; background: var(--surface); }
-.nav-ok { font-size: 26rpx; color: var(--primary-strong); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
+.nav-ok { font-size: 26rpx; color: var(--primary-text); padding: 8rpx 20rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 .form-card { background: var(--card); margin: 24rpx 24rpx 0; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .form-row {
@@ -300,7 +300,7 @@ export default {
 .form-label { width: 180rpx; font-size: 28rpx; color: var(--text-main); flex-shrink: 0; }
 .form-row.col .form-label { width: auto; }
 .form-input { flex: 1; text-align: right; font-size: 28rpx; }
-.form-input.amount { font-size: 34rpx; font-weight: 700; color: var(--primary-strong); }
+.form-input.amount { font-size: 34rpx; font-weight: 700; color: var(--primary-text); }
 .form-value { font-size: 28rpx; color: var(--text-main); }
 .form-value.placeholder { color: var(--text-muted); }
 /* 横向行（标签 + 值）的值统一右对齐，与 form-input 一致；
@@ -312,7 +312,7 @@ export default {
   font-size: 26rpx; padding: 10rpx 40rpx; border-radius: 32rpx;
   background: var(--surface); color: var(--text-sub);
 }
-.type-tag.active { background: var(--primary-strong); color: #fff; }
+.type-tag.active { background: var(--primary-strong); color: var(--on-primary); }
 
 .form-textarea {
   width: 100%; min-height: 120rpx; font-size: 26rpx; color: var(--text-main);
@@ -320,14 +320,14 @@ export default {
 }
 
 .preview {
-  margin: 24rpx 32rpx 0; font-size: 24rpx; color: var(--primary-strong);
+  margin: 24rpx 32rpx 0; font-size: 24rpx; color: var(--primary-text);
   background: var(--primary-soft); border-radius: 12rpx; padding: 16rpx 24rpx;
 }
 
 .submit-btn {
   position: fixed; bottom: 40rpx; left: 24rpx; right: 24rpx;
   height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff;
+  background: var(--primary-strong); color: var(--on-primary);
   border-radius: 44rpx; font-size: 30rpx; font-weight: 600;
 }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */

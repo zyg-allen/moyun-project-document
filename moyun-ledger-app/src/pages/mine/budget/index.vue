@@ -150,7 +150,7 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 .tip-card {
-  margin: 24rpx; padding: 20rpx 28rpx; background: var(--primary-soft); color: var(--primary-strong);
+  margin: 24rpx; padding: 20rpx 28rpx; background: var(--primary-soft); color: var(--primary-text);
   border-radius: 16rpx; font-size: 24rpx;
 }
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }

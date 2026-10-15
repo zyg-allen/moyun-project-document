@@ -372,7 +372,7 @@ export default {
 .info-input { flex: 1; text-align: right; font-size: 28rpx; color: var(--text-main); }
 .info-input.amount { font-size: 40rpx; font-weight: 700; }
 /* 可选中的值：与普通只读值区分，提示「可点」 */
-.info-value.pick { color: var(--primary-strong); }
+.info-value.pick { color: var(--primary-text); }
 .info-value.placeholder { color: var(--text-muted); }
 /* 类型徽标 */
 .type-badge { font-weight: 600; }
@@ -381,14 +381,14 @@ export default {
 .type-badge.type-transfer,
 .type-badge.type-repayment,
 .type-badge.type-borrow,
-.type-badge.type-adjust { color: var(--primary-strong); }
+.type-badge.type-adjust { color: var(--primary-text); }
 
 .tip { font-size: 22rpx; color: var(--text-sub); padding: 24rpx 0; line-height: 1.6; }
 .voucher-area { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
 .voucher-thumb { width: 110rpx; height: 110rpx; border-radius: 12rpx; border: 1rpx solid var(--border); }
-.voucher-none { font-size: 24rpx; color: var(--primary-strong); }
+.voucher-none { font-size: 24rpx; color: var(--primary-text); }
 .voucher-ops { display: flex; flex-direction: column; margin-left: 16rpx; gap: 8rpx; }
-.voucher-op { font-size: 22rpx; color: var(--primary-strong); line-height: 1.4; }
+.voucher-op { font-size: 22rpx; color: var(--primary-text); line-height: 1.4; }
 .voucher-op.danger { color: var(--expense); }
 .btn-primary { margin-top: 24rpx; }
 .btn-danger {
@@ -404,7 +404,7 @@ export default {
   padding: 28rpx 8rpx; border-bottom: 1rpx solid var(--border);
   font-size: 28rpx; color: var(--text-main);
 }
-.picker-item.active { color: var(--primary-strong); font-weight: 600; }
+.picker-item.active { color: var(--primary-text); font-weight: 600; }
 .picker-sub { font-size: 22rpx; color: var(--text-sub); }
 .picker-cancel {
   margin-top: 20rpx; text-align: center; padding: 18rpx;

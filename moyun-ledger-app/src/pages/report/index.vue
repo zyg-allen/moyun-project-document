@@ -226,7 +226,7 @@ export default {
 .page { padding-bottom: 40rpx; }
 .year-bar {
   display: flex; align-items: center; justify-content: center; gap: 40rpx;
-  background: var(--primary-strong); color: #fff; padding: 28rpx 0;
+  background: var(--primary-strong); color: var(--on-primary); padding: 28rpx 0;
 }
 .year-arrow { font-size: 44rpx; padding: 0 24rpx; opacity: 0.85; }
 .year-text { font-size: 34rpx; font-weight: 700; }
@@ -290,7 +290,7 @@ export default {
 }
 .export-sep { font-size: 22rpx; color: var(--text-sub); }
 .btn-export {
-  margin-left: auto; padding: 10rpx 40rpx; background: var(--primary-strong); color: #fff;
+  margin-left: auto; padding: 10rpx 40rpx; background: var(--primary-strong); color: var(--on-primary);
   border-radius: 10rpx; font-size: 24rpx;
 }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */

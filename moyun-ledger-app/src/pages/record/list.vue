@@ -524,7 +524,7 @@ export default {
   background: var(--primary-soft); flex-shrink: 0;
 }
 .header-back:active { opacity: 0.7; }
-.back-icon { font-size: 44rpx; color: var(--primary-strong); margin-top: -4rpx; line-height: 1; }
+.back-icon { font-size: 44rpx; color: var(--primary-text); margin-top: -4rpx; line-height: 1; }
 .header-switch {
   flex: 1; display: flex; justify-content: center;
 }
@@ -537,11 +537,11 @@ export default {
   padding: 8rpx 28rpx; font-size: 26rpx; color: var(--text-sub);
   border-radius: 26rpx;
 }
-.sw-item.active { background: var(--card); color: var(--primary-strong); font-weight: 600; }
+.sw-item.active { background: var(--card); color: var(--primary-text); font-weight: 600; }
 .header-right { flex-shrink: 0; }
 .month-picker { display: flex; align-items: center; }
 .month-text { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
-.month-arrow { font-size: 22rpx; margin-left: 6rpx; color: var(--primary-strong); }
+.month-arrow { font-size: 22rpx; margin-left: 6rpx; color: var(--primary-text); }
 
 /* 筛选栏 */
 .filter-bar {
@@ -551,7 +551,7 @@ export default {
   padding: 8rpx 20rpx; background: var(--surface); border-radius: 28rpx; font-size: 24rpx; color: var(--text-sub);
 }
 .filter-btn {
-  padding: 8rpx 28rpx; background: var(--primary-strong); color: #fff; border-radius: 28rpx; font-size: 24rpx;
+  padding: 8rpx 28rpx; background: var(--primary-strong); color: var(--on-primary); border-radius: 28rpx; font-size: 24rpx;
 }
 .filter-btn.reset { background: #999; }
 
@@ -595,17 +595,17 @@ export default {
 .txn-icon {
   width: 56rpx; height: 56rpx; border-radius: 28rpx; margin-right: 16rpx; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 24rpx; font-weight: 600; color: #fff; background: var(--primary-strong);
+  font-size: 24rpx; font-weight: 600; color: var(--on-primary); background: var(--primary-strong);
 }
-.txn-icon.expense { background: var(--expense); }
-.txn-icon.income { background: var(--income); }
-.txn-icon.transfer { background: #4a90d9; }
-.txn-icon.repayment { background: #a04000; }
-.txn-icon.borrow { background: #8e44ad; }
-.txn-icon.adjust { background: #95a5a6; }
+.txn-icon.expense { background: var(--expense); color: var(--on-expense); }
+.txn-icon.income { background: var(--income); color: var(--on-income); }
+.txn-icon.transfer { background: var(--type-transfer); color: var(--on-type); }
+.txn-icon.repayment { background: var(--type-repayment); color: var(--on-type); }
+.txn-icon.borrow { background: var(--type-borrow); color: var(--on-type); }
+.txn-icon.adjust { background: var(--type-adjust); color: var(--on-type); }
 .txn-top { display: flex; justify-content: space-between; align-items: baseline; }
 .txn-name { font-size: 27rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.deleted-tag { font-size: 20rpx; color: #fff; background: var(--text-muted); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.deleted-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .txn-amount { font-size: 28rpx; font-weight: 600; flex-shrink: 0; margin-left: 16rpx; }
 .txn-amount.income { color: var(--income); }
 .txn-amount.expense { color: var(--expense); }
@@ -616,8 +616,8 @@ export default {
   border-radius: 6rpx; padding: 2rpx 10rpx; margin-right: 10rpx;
 }
 .meta-right { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; }
-.voucher-flag { font-size: 20rpx; color: var(--primary-strong); border: 1rpx solid var(--primary-strong); border-radius: 6rpx; padding: 0 8rpx; }
-.load-more { text-align: center; color: var(--primary-strong); font-size: 26rpx; padding: 24rpx 0; }
+.voucher-flag { font-size: 20rpx; color: var(--primary-text); border: 1rpx solid var(--primary-strong); border-radius: 6rpx; padding: 0 8rpx; }
+.load-more { text-align: center; color: var(--primary-text); font-size: 26rpx; padding: 24rpx 0; }
 
 /* 分页栏 */
 .pagination {
@@ -626,13 +626,13 @@ export default {
 }
 .pg-btn {
   width: 64rpx; height: 64rpx; line-height: 60rpx; text-align: center;
-  border-radius: 50%; background: var(--card); color: var(--primary-strong);
+  border-radius: 50%; background: var(--card); color: var(--primary-text);
   font-size: 36rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
 }
 .pg-btn:active { background: var(--primary-soft); }
 .pg-btn.disabled { opacity: 0.3; }
 .pg-info { font-size: 28rpx; color: var(--text-main); }
-.pg-current { font-weight: 700; color: var(--primary-strong); }
+.pg-current { font-weight: 700; color: var(--primary-text); }
 .pg-sep { color: var(--text-muted); }
 .pg-total { color: var(--text-sub); }
 .pg-count { font-size: 22rpx; color: var(--text-sub); margin-left: 8rpx; }
@@ -651,9 +651,9 @@ export default {
 .day-cell.selected { background: var(--primary-soft); border-radius: 12rpx; }
 .day-num { font-size: 26rpx; color: var(--text-main); }
 .day-cell.weekend .day-num { color: var(--expense); }
-.day-cell.selected .day-num { color: var(--primary-strong); font-weight: 700; }
-.day-cell.today .day-num { color: var(--primary-strong); }
-.day-cell.today.weekend .day-num { color: var(--primary-strong); }
+.day-cell.selected .day-num { color: var(--primary-text); font-weight: 700; }
+.day-cell.today .day-num { color: var(--primary-text); }
+.day-cell.today.weekend .day-num { color: var(--primary-text); }
 .day-net { font-size: 18rpx; margin-top: 2rpx; transform: scale(0.9); }
 .day-net.in { color: var(--income); }
 .day-net.out { color: var(--expense); }

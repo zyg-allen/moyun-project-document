@@ -83,7 +83,7 @@ export default {
 .nav-back-icon {
   position: relative;    /* 压在圆底之上 */
   font-size: 44rpx;
-  color: var(--primary-strong);
+  color: var(--primary-text);
   margin-top: -6rpx;
   line-height: 1;
 }

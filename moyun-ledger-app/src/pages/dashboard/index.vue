@@ -297,7 +297,7 @@ export default {
 /* ===== 未登录品牌与价值展示 ===== */
 /* 未登录品牌区：白卡底，品牌名用强调色做识别，副文案走次级灰 */
 .brand-hero { text-align: center; padding-top: calc(var(--status-bar-height) + 100rpx); padding-bottom: 80rpx; }
-.brand-name { font-size: 52rpx; font-weight: 800; letter-spacing: 4rpx; color: var(--primary-strong); }
+.brand-name { font-size: 52rpx; font-weight: 800; letter-spacing: 4rpx; color: var(--primary-text); }
 .brand-slogan { font-size: 32rpx; margin-top: 20rpx; font-weight: 600; color: var(--text-main); }
 .brand-sub { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
 .intro-card { padding: 28rpx; }
@@ -308,7 +308,7 @@ export default {
 .pain-d { font-size: 23rpx; color: var(--text-sub); margin-top: 4rpx; }
 .intro-action { margin: 8rpx 24rpx 24rpx; }
 .btn-login {
-  background: var(--primary-strong); color: #fff; border-radius: 44rpx; height: 88rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 44rpx; height: 88rpx;
   line-height: 88rpx; text-align: center; font-size: 30rpx; font-weight: 600;
 }
 .intro-note { font-size: 22rpx; color: var(--text-sub); text-align: center; margin-top: 16rpx; }
@@ -318,7 +318,7 @@ export default {
   display: flex; align-items: center; background: var(--primary-soft); margin: 24rpx 24rpx 0;
   border-radius: 12rpx; padding: 14rpx 20rpx;
 }
-.tips-text { flex: 1; font-size: 22rpx; color: var(--primary-strong); line-height: 1.5; }
+.tips-text { flex: 1; font-size: 22rpx; color: var(--primary-text); line-height: 1.5; }
 .tips-close { color: #a99ae0; font-size: 34rpx; padding: 0 8rpx; }
 
 /* 新手引导卡片 */
@@ -331,7 +331,7 @@ export default {
 }
 .guide-step:last-of-type { border-bottom: none; }
 .step-num {
-  width: 44rpx; height: 44rpx; border-radius: 22rpx; background: var(--primary-strong); color: #fff;
+  width: 44rpx; height: 44rpx; border-radius: 22rpx; background: var(--primary-strong); color: var(--on-primary);
   font-size: 24rpx; font-weight: 600; display: flex; align-items: center; justify-content: center;
   margin-right: 20rpx; flex-shrink: 0;
 }
@@ -354,7 +354,7 @@ export default {
 .hero-label { font-size: 26rpx; color: var(--text-sub); }
 .hero-top { display: flex; justify-content: space-between; align-items: center; }
 .privacy-toggle {
-  font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft);
+  font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft);
   border-radius: 24rpx; padding: 6rpx 20rpx;
 }
 .hero-amount { font-size: 72rpx; font-weight: 700; margin: 16rpx 0 8rpx; }
@@ -370,7 +370,7 @@ export default {
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
-.link { color: var(--primary-strong); font-size: 26rpx; font-weight: 400; }
+.link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .month-row { display: flex; }
 .month-col { flex: 1; }
 .month-label { font-size: 24rpx; color: var(--text-sub); margin-bottom: 8rpx; }
@@ -390,14 +390,14 @@ export default {
 .txn-icon {
   width: 72rpx; height: 72rpx; border-radius: 36rpx; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 28rpx; font-weight: 600; color: #fff; background: var(--primary-strong);
+  font-size: 28rpx; font-weight: 600; color: var(--on-primary); background: var(--primary-strong);
 }
-.txn-icon.expense { background: var(--expense); }
-.txn-icon.income { background: var(--income); }
-.txn-icon.transfer { background: #4a90d9; }
-.txn-icon.repayment { background: #a04000; }
-.txn-icon.borrow { background: #8e44ad; }
-.txn-icon.adjust { background: #95a5a6; }
+.txn-icon.expense { background: var(--expense); color: var(--on-expense); }
+.txn-icon.income { background: var(--income); color: var(--on-income); }
+.txn-icon.transfer { background: var(--type-transfer); color: var(--on-type); }
+.txn-icon.repayment { background: var(--type-repayment); color: var(--on-type); }
+.txn-icon.borrow { background: var(--type-borrow); color: var(--on-type); }
+.txn-icon.adjust { background: var(--type-adjust); color: var(--on-type); }
 /* 备注按 10 字截断后一般不会溢出，ellipsis 作为第二道防线（窄屏/超长单词） */
 .txn-name {
   font-size: 28rpx; color: var(--text-main);
@@ -405,7 +405,7 @@ export default {
 }
 /* 已归档（逻辑删除）流水标记，与「流水明细」页一致 */
 .deleted-tag {
-  font-size: 20rpx; color: #fff; background: var(--text-muted);
+  font-size: 20rpx; color: var(--text-sub); background: var(--surface);
   border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx;
 }
 .txn-date { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }

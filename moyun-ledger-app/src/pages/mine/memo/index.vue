@@ -250,7 +250,7 @@ export default {
 .todo-btns { display: flex; flex-direction: row; gap: 14rpx; flex-shrink: 0; margin-left: 16rpx; }
 .done-btn {
   font-size: 22rpx; padding: 8rpx 28rpx; border-radius: 26rpx;
-  background: var(--primary-strong); color: #fff;
+  background: var(--primary-strong); color: var(--on-primary);
 }
 .del-btn {
   font-size: 22rpx; padding: 8rpx 20rpx; border-radius: 26rpx;
@@ -268,7 +268,7 @@ export default {
 .imp-tag {
   font-size: 20rpx; padding: 2rpx 14rpx; border-radius: 14rpx; flex-shrink: 0;
 }
-.imp-tag.urgent { color: #fff; background: var(--expense); }
+.imp-tag.urgent { color: var(--on-expense); background: var(--expense); }
 .imp-tag.high { color: var(--warning); background: var(--warning-bg); }
 .imp-tag.normal { color: var(--text-sub); background: var(--surface); }
 .imp-tag.low { color: var(--text-sub); background: var(--surface); }
@@ -278,7 +278,7 @@ export default {
 .fab {
   position: fixed; right: 40rpx; bottom: calc(env(safe-area-inset-bottom) + 60rpx);
   width: 108rpx; height: 108rpx; border-radius: 54rpx;
-  background: var(--primary-strong); color: #fff; font-size: 52rpx; line-height: 100rpx; text-align: center;
+  background: var(--primary-strong); color: var(--on-primary); font-size: 52rpx; line-height: 100rpx; text-align: center;
   box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
 }
 .fab:active { transform: scale(0.95); }
@@ -323,7 +323,7 @@ export default {
   font-size: 24rpx; padding: 8rpx 28rpx; border-radius: 28rpx;
   background: var(--surface); color: var(--text-sub);
 }
-.switch-tag.active { background: var(--primary-strong); color: #fff; }
+.switch-tag.active { background: var(--primary-strong); color: var(--on-primary); }
 .imp-group { flex: 1; display: flex; gap: 12rpx; justify-content: flex-end; flex-wrap: wrap; }
 .imp-tag.active { outline: 2rpx solid var(--primary-strong); }
 .f-tip { font-size: 22rpx; color: var(--warning); padding: 16rpx 0; }
@@ -332,7 +332,7 @@ export default {
   flex: 1; text-align: center; padding: 18rpx; border-radius: 36rpx; font-size: 28rpx;
 }
 .f-btn.cancel { background: var(--surface); color: var(--text-sub); }
-.f-btn.ok { background: var(--primary-strong); color: #fff; }
+.f-btn.ok { background: var(--primary-strong); color: var(--on-primary); }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
 .f-btn.disabled { opacity: 0.5; }
 </style>

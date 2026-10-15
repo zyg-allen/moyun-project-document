@@ -215,21 +215,21 @@ export default {
 .code-input { flex: 1; min-width: 0; }
 .pwd-wrap { flex: 1; display: flex; align-items: center; background: var(--surface); border-radius: 12rpx; }
 .pwd-wrap .pwd-input { background: transparent; }
-.pwd-eye { flex-shrink: 0; font-size: 24rpx; color: var(--primary-strong); padding: 0 20rpx; height: 72rpx; line-height: 72rpx; }
+.pwd-eye { flex-shrink: 0; font-size: 24rpx; color: var(--primary-text); padding: 0 20rpx; height: 72rpx; line-height: 72rpx; }
 .code-btn {
-  flex-shrink: 0; font-size: 24rpx; color: var(--primary-strong);
+  flex-shrink: 0; font-size: 24rpx; color: var(--primary-text);
   border: 1rpx solid var(--primary-strong); border-radius: 28rpx; padding: 10rpx 24rpx;
 }
 .code-btn.disabled { color: var(--text-muted); border-color: var(--border); }
 
 .btn-primary {
   margin-top: 36rpx; height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 44rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 44rpx;
   font-size: 30rpx; font-weight: 600;
 }
 .btn-primary:active { opacity: 0.85; }
 .tip { font-size: 22rpx; color: var(--text-sub); text-align: center; margin-top: 20rpx; }
-.link { font-size: 24rpx; color: var(--primary-strong); text-align: center; margin-top: 16rpx; padding: 10rpx; }
+.link { font-size: 24rpx; color: var(--primary-text); text-align: center; margin-top: 16rpx; padding: 10rpx; }
 
 .footer {
   padding: 24rpx 0 calc(24rpx + env(safe-area-inset-bottom));
@@ -254,6 +254,6 @@ export default {
 .dialog-btns { display: flex; gap: 20rpx; margin-top: 32rpx; }
 .dialog-btn { flex: 1; height: 80rpx; line-height: 80rpx; text-align: center; border-radius: 40rpx; font-size: 28rpx; }
 .dialog-btn.cancel { background: var(--surface); color: var(--text-sub); }
-.dialog-btn.ok { background: var(--primary-strong); color: #fff; font-weight: 600; }
+.dialog-btn.ok { background: var(--primary-strong); color: var(--on-primary); font-weight: 600; }
 .dialog-btn:active { opacity: 0.85; }
 </style>

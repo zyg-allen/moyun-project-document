@@ -152,10 +152,10 @@ export default {
   flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: var(--text-sub);
   border-radius: 16rpx; position: relative;
 }
-.tab.active { background: var(--primary-strong); color: #fff; font-weight: 600; }
+.tab.active { background: var(--primary-strong); color: var(--on-primary); font-weight: 600; }
 .tab-badge {
   position: absolute; top: 8rpx; right: 24rpx; min-width: 32rpx; height: 32rpx;
-  line-height: 32rpx; border-radius: 16rpx; background: var(--expense); color: #fff;
+  line-height: 32rpx; border-radius: 16rpx; background: var(--expense); color: var(--on-expense);
   font-size: 20rpx; padding: 0 8rpx;
 }
 
@@ -170,7 +170,7 @@ export default {
   font-size: 24rpx; padding: 10rpx 28rpx; border-radius: 28rpx;
   background: var(--surface); color: var(--text-sub);
 }
-.type-tag.active { background: var(--primary-strong); color: #fff; }
+.type-tag.active { background: var(--primary-strong); color: var(--on-primary); }
 .f-input { font-size: 26rpx; background: var(--surface); border-radius: 12rpx; height: 72rpx; line-height: 72rpx; padding: 0 20rpx; box-sizing: border-box; }
 .f-input.full { width: 100%; box-sizing: border-box; }
 .f-textarea {
@@ -180,7 +180,7 @@ export default {
 .f-tip { font-size: 22rpx; color: var(--text-sub); padding: 20rpx 0; }
 .submit-btn {
   height: 84rpx; line-height: 84rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 42rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 42rpx;
   font-size: 28rpx; font-weight: 600;
 }
 .submit-btn:active { opacity: 0.85; }
@@ -190,7 +190,7 @@ export default {
 .fb-head { display: flex; justify-content: space-between; align-items: center; }
 .fb-type {
   font-size: 20rpx; padding: 4rpx 16rpx; border-radius: 14rpx;
-  background: var(--primary-soft); color: var(--primary-strong);
+  background: var(--primary-soft); color: var(--primary-text);
 }
 .fb-type.bug { background: var(--expense-bg); color: var(--expense); }
 .fb-status { font-size: 22rpx; }
@@ -211,7 +211,7 @@ export default {
 .fb-result-label { font-size: 24rpx; color: var(--income); font-weight: 600; }
 .fb-result-text { font-size: 24rpx; color: var(--text-main); line-height: 1.6; }
 .fb-result-time { font-size: 20rpx; color: var(--text-sub); margin-top: 8rpx; }
-.fb-expand { font-size: 22rpx; color: var(--primary-strong); text-align: center; margin-top: 14rpx; }
+.fb-expand { font-size: 22rpx; color: var(--primary-text); text-align: center; margin-top: 14rpx; }
 
 .load-more { text-align: center; color: var(--text-sub); font-size: 24rpx; padding: 24rpx 0; }
 
@@ -219,7 +219,7 @@ export default {
 .empty-icon { font-size: 100rpx; opacity: 0.5; margin-bottom: 24rpx; }
 .empty-text { font-size: 28rpx; color: var(--text-sub); margin-bottom: 32rpx; }
 .empty-btn {
-  padding: 16rpx 48rpx; background: var(--primary-strong); color: #fff;
+  padding: 16rpx 48rpx; background: var(--primary-strong); color: var(--on-primary);
   border-radius: 32rpx; font-size: 26rpx;
 }
 </style>

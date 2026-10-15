@@ -250,7 +250,7 @@ export default {
 }
 .avatar {
   width: 110rpx; height: 110rpx; border-radius: 55rpx;
-  background: var(--primary-soft); color: var(--primary-strong);
+  background: var(--primary-soft); color: var(--primary-text);
   display: flex; align-items: center; justify-content: center;
   font-size: 44rpx; font-weight: 600; margin-right: 24rpx;
 }
@@ -259,7 +259,7 @@ export default {
 .user-right { display: flex; align-items: center; gap: 16rpx; }
 .sign-btn {
   font-size: 24rpx; padding: 8rpx 24rpx; border-radius: 28rpx;
-  background: var(--primary-soft); color: var(--primary-strong);
+  background: var(--primary-soft); color: var(--primary-text);
 }
 .setting-btn {
   width: 56rpx; height: 56rpx; border-radius: 28rpx;
@@ -298,7 +298,7 @@ export default {
 .cell-label { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
 .cell-badge {
   position: absolute; top: 12rpx; right: 16rpx;
-  font-size: 18rpx; color: #fff; background: var(--expense);
+  font-size: 18rpx; color: var(--on-expense); background: var(--expense);
   border-radius: 16rpx; padding: 0 8rpx; line-height: 28rpx;
 }
 
@@ -324,7 +324,7 @@ export default {
 .list-card { padding: 4rpx 32rpx; }
 
 .login-links { display: flex; justify-content: space-between; padding: 12rpx 0 4rpx; }
-.register-link { font-size: 26rpx; color: var(--primary-strong); }
+.register-link { font-size: 26rpx; color: var(--primary-text); }
 .forgot-link { font-size: 26rpx; color: var(--text-sub); }
 
 /* 脚部 */

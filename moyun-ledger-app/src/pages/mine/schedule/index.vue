@@ -291,7 +291,7 @@ export default {
 .t-amount { font-size: 34rpx; font-weight: 700; }
 .t-amount.income { color: var(--income); }
 .t-amount.expense { color: var(--expense); }
-.t-cycle { font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
+.t-cycle { font-size: 22rpx; color: var(--primary-text); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
 .t-info { font-size: 22rpx; color: var(--text-sub); margin-top: 10rpx; display: flex; gap: 24rpx; flex-wrap: wrap; }
 .t-info.next { color: var(--text-sub); }
 /* 操作区（下）：与上方信息区用分隔线隔开；开关 + 4 个按钮。
@@ -310,7 +310,7 @@ export default {
 }
 .t-btn {
   font-size: 22rpx; padding: 8rpx 20rpx; border-radius: 26rpx;
-  background: var(--primary-soft); color: var(--primary-strong);
+  background: var(--primary-soft); color: var(--primary-text);
 }
 .t-btn.warn { background: var(--warning-bg); color: var(--warning); }
 .t-btn.danger { background: var(--expense-bg); color: var(--expense); }
@@ -323,8 +323,8 @@ export default {
 .fab {
   position: fixed; right: 40rpx; bottom: calc(env(safe-area-inset-bottom) + 60rpx);
   width: 108rpx; height: 108rpx; border-radius: 54rpx;
-  background: #ff9f43; color: #fff; font-size: 52rpx; line-height: 100rpx; text-align: center;
-  box-shadow: 0 8rpx 24rpx rgba(255, 159, 67, 0.4);
+  background: var(--primary); color: var(--on-primary); font-size: 52rpx; line-height: 100rpx; text-align: center;
+  box-shadow: 0 8rpx 24rpx var(--primary-shadow);
 }
 .fab:active { transform: scale(0.95); }
 
@@ -338,7 +338,7 @@ export default {
 }
 /* 弹层标题栏：列表态为「标题 + ✕」；详情态左侧出现「返回」 */
 .log-head { display: flex; align-items: center; min-height: 72rpx; }
-.log-back { font-size: 26rpx; color: var(--primary-strong); padding-right: 20rpx; }
+.log-back { font-size: 26rpx; color: var(--primary-text); padding-right: 20rpx; }
 .log-title { flex: 1; font-size: 30rpx; font-weight: 600; text-align: center; }
 .log-x {
   width: 60rpx; height: 72rpx; line-height: 72rpx; text-align: center;
@@ -360,7 +360,7 @@ export default {
 .log-reason { display: flex; justify-content: space-between; align-items: center; font-size: 22rpx; color: var(--expense); margin-top: 8rpx; }
 .log-fail { flex: 1; min-width: 0; margin-right: 16rpx; }
 .log-sub { font-size: 20rpx; color: var(--text-muted); margin-top: 6rpx; }
-.log-retry { color: var(--primary-strong); padding: 12rpx 20rpx; background: var(--primary-soft); border-radius: 8rpx; font-size: 22rpx; min-height: 88rpx; display: inline-flex; align-items: center; }
+.log-retry { color: var(--primary-text); padding: 12rpx 20rpx; background: var(--primary-soft); border-radius: 8rpx; font-size: 22rpx; min-height: 88rpx; display: inline-flex; align-items: center; }
 .log-empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 .log-close {
   margin-top: 24rpx; text-align: center; padding: 18rpx;

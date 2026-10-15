@@ -65,7 +65,7 @@ page {
 }
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   border-radius: 44rpx;
   height: 88rpx;
   line-height: 88rpx;

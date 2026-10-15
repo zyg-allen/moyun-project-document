@@ -132,7 +132,7 @@ export default {
 .pwd-row { display: flex; align-items: center; background: var(--surface); border-radius: 12rpx; }
 .pwd-input { flex: 1; background: transparent; }
 .pwd-eye {
-  padding: 0 20rpx; font-size: 24rpx; color: var(--primary-strong); height: 72rpx; line-height: 72rpx;
+  padding: 0 20rpx; font-size: 24rpx; color: var(--primary-text); height: 72rpx; line-height: 72rpx;
   flex-shrink: 0;
 }
 
@@ -143,13 +143,13 @@ export default {
 
 .btn-primary {
   margin-top: 12rpx; height: 84rpx; line-height: 84rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 16rpx; font-size: 32rpx; font-weight: 500;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 16rpx; font-size: 32rpx; font-weight: 500;
 }
 .btn-primary:active { opacity: .85; }
 
 .login-tip { text-align: center; font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
 .login-links { display: flex; justify-content: space-between; padding: 16rpx 0 4rpx; }
-.register-link { font-size: 26rpx; color: var(--primary-strong); }
+.register-link { font-size: 26rpx; color: var(--primary-text); }
 .forgot-link { font-size: 26rpx; color: var(--text-sub); }
 
 .footer {

@@ -426,7 +426,7 @@ export default {
 .month-arrow {
   width: 64rpx; height: 64rpx; border-radius: 32rpx; background: var(--card);
   display: flex; align-items: center; justify-content: center;
-  font-size: 36rpx; color: var(--primary-strong);
+  font-size: 36rpx; color: var(--primary-text);
 }
 .month-arrow.disabled { color: #d5d9de; }
 .month-text { font-size: 32rpx; font-weight: 700; color: var(--text-main); min-width: 220rpx; text-align: center; }
@@ -438,7 +438,7 @@ export default {
 .lg-desc { font-size: 26rpx; color: var(--text-sub); margin-bottom: 40rpx; line-height: 1.6; }
 .btn-primary {
   height: 84rpx; line-height: 84rpx; text-align: center; margin: 0 40rpx;
-  background: var(--primary-strong); color: #fff; border-radius: 42rpx; font-size: 30rpx; font-weight: 600;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 42rpx; font-size: 30rpx; font-weight: 600;
 }
 
 /* 通用卡片 */
@@ -447,7 +447,7 @@ export default {
 .flex-row { display: flex; align-items: center; }
 .flex-1 { flex: 1; min-width: 0; }
 .sub { font-size: 22rpx; color: var(--text-sub); }
-.badge { font-size: 20rpx; color: #fff; background: #8a94a6; border-radius: 8rpx; padding: 4rpx 12rpx; }
+.badge { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 4rpx 12rpx; }
 
 /* ① 基础实时统计 */
 .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16rpx; margin: 0 24rpx 20rpx; }
@@ -485,7 +485,7 @@ export default {
 .hint-close { font-size: 26rpx; color: var(--text-sub); padding: 0 8rpx; flex-shrink: 0; }
 .gen-btn {
   height: 84rpx; line-height: 84rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 42rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 42rpx;
   font-size: 28rpx; font-weight: 600;
 }
 .gen-btn.disabled { opacity: 0.6; }
@@ -503,8 +503,8 @@ export default {
 .rp-item:last-of-type { border-bottom: none; }
 .rp-main { flex: 1; min-width: 0; }
 .rp-month { font-size: 30rpx; font-weight: 600; display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx; }
-.rp-range { font-size: 22rpx; font-weight: 400; color: var(--primary-strong); }
-.rp-ai { font-size: 20rpx; color: #fff; background: var(--primary); border-radius: 8rpx; padding: 2rpx 10rpx; }
+.rp-range { font-size: 22rpx; font-weight: 400; color: var(--primary-text); }
+.rp-ai { font-size: 20rpx; color: var(--on-primary); background: var(--primary); border-radius: 8rpx; padding: 2rpx 10rpx; }
 .rp-ai.tpl { background: var(--text-muted); }
 .rp-time { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 .rp-snapshot { font-size: 20rpx; color: var(--text-muted); margin-top: 6rpx; }
@@ -513,7 +513,7 @@ export default {
 .rp-score.good { color: var(--income); }
 .rp-score.mid { color: var(--warning); }
 .rp-score.bad { color: var(--expense); }
-.rp-view { font-size: 22rpx; color: var(--primary-strong); }
+.rp-view { font-size: 22rpx; color: var(--primary-text); }
 .rp-del { font-size: 24rpx; color: var(--expense, #e8654a); padding: 8rpx 16rpx; min-height: 88rpx; display: flex; align-items: center; }
 
 /* 空态 */
@@ -537,7 +537,7 @@ export default {
   padding-top: calc(32rpx + var(--status-bar-height));
 }
 .preview-sheet.full .pv-body { max-height: none; }
-.hint-full { font-size: 26rpx; color: var(--primary-strong); padding: 0 16rpx 0 8rpx; flex-shrink: 0; }
+.hint-full { font-size: 26rpx; color: var(--primary-text); padding: 0 16rpx 0 8rpx; flex-shrink: 0; }
 /* 预览头部两个按钮：放大热区到 88rpx 以上，避免移动端点不中（"点击无反应"的直接原因之一） */
 .pv-head .hint-full,
 .pv-head .hint-close {

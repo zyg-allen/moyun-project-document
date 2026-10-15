@@ -207,7 +207,7 @@ export default {
 .cp-nav {
   /* 切月箭头：热区 88rpx(=44px) 达移动端可点尺寸 */
   width: 88rpx; height: 88rpx; line-height: 88rpx; text-align: center;
-  font-size: 44rpx; color: var(--primary-strong);
+  font-size: 44rpx; color: var(--primary-text);
   border-radius: 50%;
 }
 .cp-nav.disabled { color: var(--text-muted); opacity: 0.4; }
@@ -228,14 +228,14 @@ export default {
 }
 .cp-cell.blank { visibility: hidden; }
 .cp-cell.disabled { color: var(--text-muted); opacity: 0.45; }
-.cp-cell.today { color: var(--primary-strong); font-weight: 700; }
+.cp-cell.today { color: var(--primary-text); font-weight: 700; }
 .cp-cell.selected { background: var(--primary); color: var(--text-main); font-weight: 700; }
 
 .cp-foot { display: flex; gap: 20rpx; margin-top: 20rpx; }
 .cp-foot-btn {
   flex: 1; height: 88rpx; line-height: 88rpx; text-align: center;
   font-size: 30rpx; border-radius: 44rpx;
-  background: var(--primary-soft); color: var(--primary-strong);
+  background: var(--primary-soft); color: var(--primary-text);
 }
 .cp-foot-btn.plain { background: var(--surface); color: var(--text-sub); }
 .cp-foot-btn.disabled { opacity: 0.45; }

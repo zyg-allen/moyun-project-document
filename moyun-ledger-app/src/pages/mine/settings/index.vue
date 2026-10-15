@@ -107,9 +107,10 @@ export default {
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.12);
 }
 .theme-dot.selected { border: 6rpx solid #fff; outline: 3rpx solid var(--primary-strong); }
-.theme-check { color: #fff; font-size: 36rpx; font-weight: 700; }
+/* 打勾位于「主题色圆点」上（底色即强调色）→ 用 --on-primary 深色勾，白勾在浅强调色上仅 2.1~3.8:1 */
+.theme-check { color: var(--on-primary); font-size: 36rpx; font-weight: 700; }
 .theme-name { font-size: 22rpx; color: var(--text-sub); margin-top: 12rpx; }
-.theme-name.selected { color: var(--primary-strong); font-weight: 600; }
+.theme-name.selected { color: var(--primary-text); font-weight: 600; }
 .about { text-align: center; font-size: 30rpx; font-weight: 600; padding: 24rpx 0 12rpx; }
 .about-sub { text-align: center; font-size: 22rpx; color: var(--text-sub); padding: 4rpx 0; }
 
@@ -131,8 +132,8 @@ export default {
 .appearance-swatch.sw-light { background: #F7F8FA; }
 .appearance-swatch.sw-dark { background: #0F1419; }
 .appearance-swatch.sw-eye { background: #F4F1EA; }
-.appearance-check { font-size: 40rpx; font-weight: 700; color: var(--primary-strong); }
+.appearance-check { font-size: 40rpx; font-weight: 700; color: var(--primary-text); }
 .appearance-swatch.sw-dark .appearance-check { color: #5B8DEF; }
 .appearance-name { font-size: 24rpx; color: var(--text-sub); }
-.appearance-name.selected { color: var(--primary-strong); font-weight: 600; }
+.appearance-name.selected { color: var(--primary-text); font-weight: 600; }
 </style>

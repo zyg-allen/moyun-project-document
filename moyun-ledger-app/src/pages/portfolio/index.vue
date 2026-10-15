@@ -408,7 +408,7 @@ export default {
   padding: 16rpx 0; border-radius: 40rpx; margin: 0 8rpx;
   background: var(--surface); transition: all 0.2s;
 }
-.seg-item.on { color: #fff; background: var(--primary); font-weight: 600; }
+.seg-item.on { color: var(--on-primary); background: var(--primary); font-weight: 600; }
 
 /*
  * 汇总卡配色（v13.68 改版）
@@ -449,19 +449,19 @@ export default {
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 12rpx; }
-.link { color: var(--primary-strong); font-size: 26rpx; font-weight: 400; }
+.link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 
 .row { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .row-icon {
   width: 72rpx; height: 72rpx; border-radius: 36rpx; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 28rpx; font-weight: 600; background: var(--primary);
+  color: var(--on-primary); font-size: 28rpx; font-weight: 600; background: var(--primary);
 }
 /* 负债图标：暖橙系底（与资产主题蓝区分） */
 .row-icon.liab { background: linear-gradient(135deg, #f2913d, #e8703a); }
 .row-name { font-size: 28rpx; }
-.archived-tag { font-size: 20rpx; color: #fff; background: var(--text-muted); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.archived-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid #27ae60; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .row-type { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .row-balance { font-size: 32rpx; font-weight: 600; }
@@ -471,7 +471,7 @@ export default {
 .fab {
   position: fixed; right: 40rpx; bottom: 200rpx;
   width: 100rpx; height: 100rpx; border-radius: 50rpx;
-  background: var(--primary); color: #fff; font-size: 48rpx;
+  background: var(--primary); color: var(--on-primary); font-size: 48rpx;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 8rpx 24rpx var(--primary-shadow);
 }

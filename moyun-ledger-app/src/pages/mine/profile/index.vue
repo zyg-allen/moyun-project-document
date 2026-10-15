@@ -211,7 +211,7 @@ export default {
 .completeness { display: flex; align-items: center; gap: 16rpx; margin-top: 16rpx; }
 .comp-bar { flex: 1; height: 14rpx; background: var(--surface); border-radius: 7rpx; overflow: hidden; }
 .comp-inner { height: 100%; background: var(--primary-strong); border-radius: 7rpx; transition: width .3s; }
-.comp-text { font-size: 22rpx; color: var(--primary-strong); flex-shrink: 0; }
+.comp-text { font-size: 22rpx; color: var(--primary-text); flex-shrink: 0; }
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx 8rpx; margin: 24rpx 24rpx 0; }
 .card-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); padding-bottom: 8rpx; }
@@ -227,11 +227,11 @@ export default {
   font-size: 26rpx; color: var(--text-sub); background: var(--surface); border-radius: 30rpx;
   padding: 12rpx 30rpx; border: 1rpx solid transparent;
 }
-.type-item.on { color: #fff; background: var(--primary-strong); }
+.type-item.on { color: var(--on-primary); background: var(--primary-strong); }
 
 .btn-primary {
   margin: 32rpx 24rpx 0; height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff; border-radius: 44rpx;
+  background: var(--primary-strong); color: var(--on-primary); border-radius: 44rpx;
   font-size: 30rpx; font-weight: 600;
 }
 .btn-primary.disabled { opacity: 0.6; }

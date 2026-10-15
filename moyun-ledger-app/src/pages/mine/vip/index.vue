@@ -264,13 +264,13 @@ export default {
 }
 .pkg-card.active { border-color: var(--primary-strong); }
 .pkg-popular {
-  position: absolute; top: 0; right: 0; background: #e6a23c; color: #fff;
+  position: absolute; top: 0; right: 0; background: var(--warning); color: var(--on-warning);
   font-size: 20rpx; padding: 6rpx 16rpx; border-radius: 0 16rpx 0 16rpx;
 }
 .pkg-name { font-size: 32rpx; color: var(--text-main); font-weight: 600; }
 .pkg-duration { font-size: 24rpx; color: var(--text-sub); margin-top: 4rpx; }
 .pkg-price { display: flex; align-items: baseline; gap: 12rpx; margin-top: 12rpx; }
-.pkg-price-num { font-size: 44rpx; color: var(--primary-strong); font-weight: 700; }
+.pkg-price-num { font-size: 44rpx; color: var(--primary-text); font-weight: 700; }
 .pkg-price-original { font-size: 24rpx; color: var(--text-muted); text-decoration: line-through; }
 .pkg-desc { font-size: 24rpx; color: #777; margin-top: 8rpx; }
 .pkg-empty { text-align: center; font-size: 26rpx; color: var(--text-sub); padding: 40rpx 0; }
@@ -278,7 +278,7 @@ export default {
 .pay-btn {
   position: fixed; bottom: 40rpx; left: 24rpx; right: 24rpx;
   height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff;
+  background: var(--primary-strong); color: var(--on-primary);
   border-radius: 44rpx; font-size: 30rpx; font-weight: 600;
 }
 .pay-btn:active { opacity: 0.85; }
@@ -309,6 +309,6 @@ export default {
   border-radius: 38rpx; font-size: 28rpx;
 }
 .cashier-btn.ghost { background: var(--surface); color: var(--text-sub); }
-.cashier-btn.primary { background: var(--income); color: #fff; font-weight: 500; }
+.cashier-btn.primary { background: var(--income); color: var(--on-income); font-weight: 500; }
 .cashier-btn:active { opacity: 0.85; }
 </style>

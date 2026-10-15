@@ -288,14 +288,14 @@ export default {
   background: rgba(64, 128, 255, 0.08); border-color: var(--primary-strong);
 }
 .amount-num { font-size: 28rpx; color: var(--text-main); font-weight: 500; }
-.amount-cell.active .amount-num { color: var(--primary-strong); font-weight: 600; }
+.amount-cell.active .amount-num { color: var(--primary-text); font-weight: 600; }
 .tip-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
 .tip-row:last-child { border-bottom: none; }
 .tip-label { font-size: 28rpx; color: var(--text-main); }
-.tip-input { flex: 1; text-align: right; font-size: 28rpx; color: var(--primary-strong); }
+.tip-input { flex: 1; text-align: right; font-size: 28rpx; color: var(--primary-text); }
 .tip-total { font-size: 28rpx; color: var(--text-main); }
 
 .pay-title { font-size: 28rpx; color: var(--text-main); padding: 16rpx 32rpx 8rpx; }
@@ -309,26 +309,32 @@ export default {
 .pay-icon {
   width: 64rpx; height: 64rpx; border-radius: 14rpx;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 30rpx; margin-right: 20rpx;
+  font-size: 30rpx; margin-right: 20rpx;
 }
-.pay-icon.wechat { background: var(--income); }
+/* 底色是语义色 → 文字用 --on-income。语义色在明/暗外观下亮度相反：
+   白字在暗色外观的浅绿 #34D399 上仅 1.92:1，故不能写死白字。 */
+.pay-icon.wechat { background: var(--income); color: var(--on-income); }
 .pay-name { font-size: 28rpx; color: var(--text-main); }
 .pay-check {
   width: 36rpx; height: 36rpx; border-radius: 18rpx;
   border: 2rpx solid #ccc; display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 22rpx;
+  font-size: 22rpx;
 }
-.pay-check.checked { background: var(--primary-strong); border-color: var(--primary-strong); }
+.pay-check.checked {
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
+  color: var(--on-primary);   /* 强调色底上的勾必须用深色 */
+}
 
 .tip-note {
   margin: 24rpx 32rpx; font-size: 22rpx; color: var(--text-sub); line-height: 1.8;
 }
-.note-feedback { color: var(--primary-strong); }
+.note-feedback { color: var(--primary-text); }
 
 .pay-btn {
   position: fixed; bottom: 40rpx; left: 24rpx; right: 24rpx;
   height: 88rpx; line-height: 88rpx; text-align: center;
-  background: var(--primary-strong); color: #fff;
+  background: var(--primary-strong); color: var(--on-primary);
   border-radius: 44rpx; font-size: 30rpx; font-weight: 600;
 }
 .pay-btn:active { opacity: 0.85; }
@@ -378,6 +384,6 @@ export default {
   border-radius: 38rpx; font-size: 28rpx;
 }
 .cashier-btn.ghost { background: var(--surface); color: var(--text-sub); }
-.cashier-btn.primary { background: var(--income); color: #fff; font-weight: 500; }
+.cashier-btn.primary { background: var(--income); color: var(--on-income); font-weight: 500; }
 .cashier-btn:active { opacity: 0.85; }
 </style>

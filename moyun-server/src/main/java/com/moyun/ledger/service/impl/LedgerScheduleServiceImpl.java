@@ -1,6 +1,7 @@
 package com.moyun.ledger.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.dto.TransactionCreateDTO;
@@ -221,14 +222,14 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         } catch (Exception e) {
             scheduleLog.setRetryCount((scheduleLog.getRetryCount() == null ? 0 : scheduleLog.getRetryCount()) + 1);
             scheduleLog.setFailReason(truncate(e.getMessage()));
-            logMapper.updateById(scheduleLog);
+            updateLogAllowingNull(scheduleLog);
             throw new ServiceException("重试失败：" + e.getMessage());
         }
         scheduleLog.setStatus(LedgerScheduleLog.STATUS_SUCCESS);
         scheduleLog.setTransactionId(txId);
         scheduleLog.setRetryCount((scheduleLog.getRetryCount() == null ? 0 : scheduleLog.getRetryCount()) + 1);
         scheduleLog.setFailReason(null);
-        logMapper.updateById(scheduleLog);
+        updateLogAllowingNull(scheduleLog);
     }
 
     @Override
@@ -343,7 +344,7 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
             scheduleLog.setAmount(task.getAmount());
             scheduleLog.setTriggerType(triggerType);
             scheduleLog.setRetryCount((scheduleLog.getRetryCount() == null ? 0 : scheduleLog.getRetryCount()) + 1);
-            logMapper.updateById(scheduleLog);
+            updateLogAllowingNull(scheduleLog);
         }
 
         if (Boolean.TRUE.equals(result.get("success"))) {
@@ -475,6 +476,28 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         sb.append("\n如不想再收到此类提醒，可在「设置 - 邮件提醒」中关闭。\n\n");
         sb.append("—— 旭林知行");
         return sb.toString();
+    }
+
+    /**
+     * 更新一条执行日志，**允许把字段写成 NULL**。
+     *
+     * 为什么不能用 logMapper.updateById()：MyBatis-Plus 默认跳过 null 字段
+     * （FieldStrategy.NOT_NULL），于是 setFailReason(null) 根本落不到 SQL 里 ——
+     * 重跑/重试成功后旧的失败原因会残留，出现
+     * 「状态=成功、失败原因=余额不足」这种自相矛盾的展示（线上日志 48 实测如此）。
+     * transactionId 同理：失败时清空也写不进去。
+     *
+     * 这里用 UpdateWrapper 显式 set，null 才会真正写入。
+     */
+    private void updateLogAllowingNull(LedgerScheduleLog scheduleLog) {
+        logMapper.update(null, new LambdaUpdateWrapper<LedgerScheduleLog>()
+                .eq(LedgerScheduleLog::getId, scheduleLog.getId())
+                .set(LedgerScheduleLog::getAmount, scheduleLog.getAmount())
+                .set(LedgerScheduleLog::getStatus, scheduleLog.getStatus())
+                .set(LedgerScheduleLog::getTransactionId, scheduleLog.getTransactionId())
+                .set(LedgerScheduleLog::getFailReason, scheduleLog.getFailReason())
+                .set(LedgerScheduleLog::getRetryCount, scheduleLog.getRetryCount())
+                .set(LedgerScheduleLog::getTriggerType, scheduleLog.getTriggerType()));
     }
 
     /** 查同一 (taskId, execDate) 的执行日志（DB 唯一键 uk_task_date 保证至多一条） */

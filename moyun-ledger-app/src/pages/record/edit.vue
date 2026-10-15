@@ -366,7 +366,12 @@ export default {
 </script>
 
 <style scoped>
-.page { padding: 24rpx; }
+/* 与全站约定完全一致：页面根**不设任何内边距**。
+   左右留白由 .card 的 margin: 0 24rpx（App.vue 全局 .card）承担，
+   上下由 .card 的 margin-bottom 与列表自身间距承担。
+   这里原先是 padding: 24rpx，与 .card 的左右 margin 叠加成 48rpx（比其它页窄一圈），
+   上边还额外多出 24rpx，使 NavBar 与卡片之间凭空多一段 —— 与 budget / categories /
+   record-list 等所有带 NavBar 的页面都不一致。故整条规则去掉。 */
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; }
 .info-row {
   display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid var(--border);

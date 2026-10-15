@@ -193,6 +193,66 @@ export const PRIMARY_TEXT = {
   sakura: { light: '#B15A72', dark: '#D96E8C', eye: '#AC576F' }
 };
 
+/* ------------------------------------------------------------------
+ * H5：把主题写到【所有】页面容器上。
+ *
+ * 为什么不能只改一个：uni-h5 的页面结构是
+ *     <uni-page>  >  <uni-page-wrapper>  >  <uni-page-body>
+ * 且这些元素是【动态创建/复用】的（首次进入、navigateBack 后再进、tab 切换
+ * 都可能新建或复用节点）。
+ *
+ * 原先用 document.querySelector('uni-page-body')【只取文档里第一个】——
+ * uni-h5 自己也这么写（dist 内 L2598 / L16030 / L23478），它只在
+ * 『同时只存在一个页面』的假设下成立。一旦页面栈里留有别的页面，就会改错元素，
+ * 表现为『刷新后正常，返回再进又发白』这类时序相关的坏法。
+ *
+ * 这里改成：遍历【全部】容器 + MutationObserver 兜住后续新增节点，
+ * 并做 0ms 防抖合并突发变更（列表渲染、输入等会高频触发 subtree 变化）。
+ * ------------------------------------------------------------------ */
+const PAGE_CONTAINERS = ['uni-page', 'uni-page-wrapper', 'uni-page-body'];
+
+let themeObserver = null;
+let themeTimer = null;
+let latestVars = null;
+
+/** 把变量与底色/字色写到单个容器 */
+function themeOneContainer(el, vars) {
+  Object.keys(vars).forEach((k) => el.style.setProperty(k, vars[k]));
+  el.style.background = vars['--bg'];
+  // 基础文字色：未显式声明 color 的元素都会继承它。
+  // 不设则继承浏览器默认黑色 —— 深色卡面上的卡片标题会直接看不见。
+  el.style.color = vars['color'];
+}
+
+function themeAllPageContainers(vars) {
+  if (typeof document === 'undefined') return;
+  // 记下最新一份，供 MutationObserver 使用 ——
+  // 观察器回调里不能直接用闭包捕获的 vars：那是**建观察器那一刻**的旧主题，
+  // 用户切了外观后再导航就会把旧配色写回去。
+  latestVars = vars;
+  PAGE_CONTAINERS.forEach((tag) => {
+    document.querySelectorAll(tag).forEach((el) => themeOneContainer(el, vars));
+  });
+  // 超滚动区域由 html/body 承载，一并设置，避免回弹时闪白
+  [document.documentElement, document.body].forEach((el) => {
+    if (!el) return;
+    el.style.background = vars['--bg'];
+    el.style.color = vars['color'];
+  });
+  // 挂一次性观察器：任何【新出现】的容器立刻上色，
+  // 使主题与『第几次进入页面』彻底解耦。
+  if (!themeObserver && typeof MutationObserver !== 'undefined' && document.body) {
+    themeObserver = new MutationObserver(() => {
+      if (themeTimer) return;
+      themeTimer = setTimeout(() => {
+        themeTimer = null;
+        if (latestVars) themeAllPageContainers(latestVars);
+      }, 0);
+    });
+    themeObserver.observe(document.body, { childList: true, subtree: true });
+  }
+}
+
 export const useThemeStore = defineStore('theme', {
   state: () => ({
     current: uni.getStorageSync(KEY) || 'mint',
@@ -256,30 +316,14 @@ export const useThemeStore = defineStore('theme', {
      */
     applyToPageBody() {
       const vars = this.themeVars;
-      const bg = vars['--bg'];
-      const fg = vars['--text-main'];
       // #ifdef H5
-      if (typeof document !== 'undefined') {
-        const el = document.querySelector('uni-page-body');
-        if (el) {
-          Object.keys(vars).forEach((k) => el.style.setProperty(k, vars[k]));
-          el.style.background = bg;
-          // 基础文字色：未显式声明 color 的元素都会继承它。
-          // 不设则继承浏览器默认黑色 —— 深色卡面上的卡片标题会直接看不见。
-          el.style.color = fg;
-        }
-        // 超滚动区域由 body 承载，一并设置，避免回弹时闪白
-        if (document.body) {
-          document.body.style.background = bg;
-          document.body.style.color = fg;
-        }
-      }
+      themeAllPageContainers(vars);
       // #endif
       // #ifndef H5
       if (uni.setBackgroundColor) {
         uni.setBackgroundColor({
-          backgroundColor: bg, backgroundColorTop: bg, backgroundColorBottom: bg,
-          fail: () => {}
+          backgroundColor: vars['--bg'], backgroundColorTop: vars['--bg'],
+          backgroundColorBottom: vars['--bg'], fail: () => {}
         });
       }
       // #endif

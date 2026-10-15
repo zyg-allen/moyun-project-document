@@ -106,6 +106,9 @@ export default {
       captchaEnabled: false,
       smsCountdown: 0,
       emailCountdown: 0,
+      // 倒计时定时器句柄（按 type 分开存；页面卸载时统一清理，
+      // 否则离开页面后定时器仍在跑，再次进入会叠加 → 倒计时跳得比 1 秒快）
+      countdownTimers: { sms: null, email: null },
       submitting: false,
       // 注册提交用的表单图形码（独立于发送验证码弹窗，后端 register 同步校验）
       formCaptcha: { img: '', uuid: '' },
@@ -123,6 +126,11 @@ export default {
   onShow() {
     useThemeStore().restore();
   },
+  onUnload() {
+    // 页面卸载时清理所有倒计时定时器，避免离开后仍在跑、再次进入叠加跳秒
+    this.clearCountdown('sms');
+    this.clearCountdown('email');
+  },
   methods: {
     async loadCaptcha() {
       // 探测开关 + 加载表单图形码（captchaEnabled 同时控制发送弹窗与表单图形码）
@@ -134,12 +142,20 @@ export default {
         this.formCaptchaCode = '';
       } catch (e) { this.captchaEnabled = false; this.formCaptcha.img = ''; this.formCaptcha.uuid = ''; }
     },
+    /** 清理指定 type 的倒计时定时器（可重复调用） */
+    clearCountdown(type) {
+      if (this.countdownTimers[type]) {
+        clearInterval(this.countdownTimers[type]);
+        this.countdownTimers[type] = null;
+      }
+    },
     startCountdown(type) {
       const key = type + 'Countdown';
+      this.clearCountdown(type);   // 防重入：先清掉同 type 的旧定时器
       this[key] = 60;
-      const timer = setInterval(() => {
+      this.countdownTimers[type] = setInterval(() => {
         this[key]--;
-        if (this[key] <= 0) clearInterval(timer);
+        if (this[key] <= 0) this.clearCountdown(type);
       }, 1000);
     },
     async sendSms() {

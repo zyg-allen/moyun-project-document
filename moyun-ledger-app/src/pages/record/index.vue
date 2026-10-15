@@ -791,10 +791,6 @@ export default {
   background: var(--surface); color: var(--primary-strong); font-size: 40rpx;
   border: 1rpx dashed #c8c8d0; box-shadow: none;
 }
-.cat-custom-tag {
-  margin-top: 6rpx; font-size: 18rpx; color: #fff; background: #f0a020;
-  border-radius: 12rpx; padding: 0 10rpx; line-height: 26rpx;
-}
 /* 自定义分类右上角删除 ×：热区 88rpx，与分类点击互不干扰 */
 .cat-del-x {
   position: absolute; top: 0; right: 6rpx;

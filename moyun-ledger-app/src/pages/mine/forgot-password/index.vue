@@ -76,6 +76,8 @@ export default {
       confirmPassword: '',
       showPwd: false,
       smsCountdown: 0,
+      // 倒计时定时器句柄（页面卸载时清理，避免泄漏与叠加跳秒）
+      smsTimer: null,
       submitting: false,
       // 发送短信前的人机校验弹窗（独立 uuid，一次性）
       captchaDialog: { visible: false, img: '', uuid: '', code: '' }
@@ -87,12 +89,22 @@ export default {
   onShow() {
     useThemeStore().restore();
   },
+  onUnload() {
+    // 倒计时定时器必须在页面卸载时清理：否则离开页面后它仍在跑（闭包还持有组件），
+    // 再次进入又会新建一个 → 两个定时器叠加，倒计时跳得比 1 秒快。
+    this.stopCountdown();
+  },
   methods: {
+    /** 清理倒计时定时器（可重复调用） */
+    stopCountdown() {
+      if (this.smsTimer) { clearInterval(this.smsTimer); this.smsTimer = null; }
+    },
     startCountdown() {
+      this.stopCountdown();   // 防重入：先清掉可能存在的旧定时器
       this.smsCountdown = 60;
-      const timer = setInterval(() => {
+      this.smsTimer = setInterval(() => {
         this.smsCountdown--;
-        if (this.smsCountdown <= 0) clearInterval(timer);
+        if (this.smsCountdown <= 0) this.stopCountdown();
       }, 1000);
     },
     async sendSms() {

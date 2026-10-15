@@ -69,7 +69,7 @@
             <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
             <view class="flex-1 min-w-0">
               <view class="txn-top">
-                <text class="txn-name">{{ t.description || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
+                <text class="txn-name">{{ truncate(t.description, 10) || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
                 <text class="txn-amount" :class="t.type">{{ amountOf(t) }}</text>
               </view>
               <view class="txn-meta">
@@ -144,7 +144,7 @@
           <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
           <view class="flex-1 min-w-0">
             <view class="txn-top">
-              <text class="txn-name">{{ t.description || typeText(t.type) }}</text>
+              <text class="txn-name">{{ truncate(t.description, 10) || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
               <text class="txn-amount" :class="t.type">{{ amountOf(t) }}</text>
             </view>
             <view class="txn-meta">
@@ -174,6 +174,7 @@
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import { pageTransactions } from '@/api/ledger';
 import { toFixedYuan, formatAmount, formatSigned, typeText, toNum } from '@/utils/money';
+import { truncate } from '@/utils/text';
 import { useThemeStore } from '@/stores/theme';
 
 const TYPE_OPTIONS = [
@@ -321,6 +322,7 @@ export default {
   },
   methods: {
     typeText,
+    truncate,
     formatAmount,
     pad,
     daysInMonth() { return new Date(this.year, this.month, 0).getDate(); },

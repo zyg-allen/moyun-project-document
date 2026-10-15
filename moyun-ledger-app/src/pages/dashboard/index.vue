@@ -164,8 +164,10 @@
       <view v-if="recentList.length === 0" class="empty">暂无流水，点下方「记一笔」开始记账</view>
       <view v-for="t in recentList" :key="t.id" class="txn-row" @tap="goEdit(t)">
         <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
-        <view class="flex-1">
-          <view class="txn-name">{{ t.description || typeText(t.type) }}</view>
+        <!-- min-w-0 必须加：flex:1 的默认 min-width:auto 会让长备注撑破整行，
+             把金额挤出屏幕，同时使 .txn-name 的 ellipsis 失效 -->
+        <view class="flex-1 min-w-0">
+          <view class="txn-name">{{ truncate(t.description, 10) || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></view>
           <view class="txn-date">{{ t.transactionDate }}</view>
         </view>
         <view class="txn-amount" :class="t.type">{{ amountOf(t) }}</view>
@@ -178,6 +180,7 @@
 <script>
 import { getDashboard, listMemos } from '@/api/ledger';
 import { toFixedYuan, formatAmount, formatSigned, typeText } from '@/utils/money';
+import { truncate } from '@/utils/text';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 
@@ -238,6 +241,7 @@ export default {
   },
   methods: {
     typeText,
+    truncate,
     togglePrivacy() {
       this.privacyMode = !this.privacyMode;
       uni.setStorageSync('ledger_privacy', this.privacyMode ? '1' : '0');
@@ -387,7 +391,16 @@ export default {
 .txn-icon.repayment { background: #a04000; }
 .txn-icon.borrow { background: #8e44ad; }
 .txn-icon.adjust { background: #95a5a6; }
-.txn-name { font-size: 28rpx; }
+/* 备注按 10 字截断后一般不会溢出，ellipsis 作为第二道防线（窄屏/超长单词） */
+.txn-name {
+  font-size: 28rpx; color: var(--text-main);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 已归档（逻辑删除）流水标记，与「流水明细」页一致 */
+.deleted-tag {
+  font-size: 20rpx; color: #fff; background: var(--text-muted);
+  border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx;
+}
 .txn-date { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .txn-amount { font-size: 30rpx; font-weight: 600; }
 .txn-amount.income { color: var(--income); }

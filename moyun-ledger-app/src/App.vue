@@ -49,6 +49,12 @@ page {
 .flex-row { display: flex; flex-direction: row; align-items: center; }
 .flex-col { display: flex; flex-direction: column; }
 .flex-1 { flex: 1; }
+/* flex:1 的默认 min-width 是 auto —— 弹性子项**无法收缩到内容宽度以下**，
+   于是长文本（如很长的备注）会把整行撑破，子元素上的
+   `overflow:hidden; text-overflow:ellipsis` 也因此失效（元素宽度根本没被约束）。
+   `record/list.vue` 早就在用 `class="flex-1 min-w-0"`，但该类**从未定义**，
+   所以那里的省略号其实一直没生效。这里补上定义，并配合 .flex-1 使用。 */
+.min-w-0 { min-width: 0; }
 .text-muted { color: var(--text-sub); }
 .card {
   background: var(--card);

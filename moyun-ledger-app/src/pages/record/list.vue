@@ -112,7 +112,7 @@
         </view>
         <!-- 日期网格 -->
         <view class="grid">
-          <view v-for="(cell, i) in cells" :key="i" class="day-cell"
+          <view v-for="(cell, i) in cells" :key="cell ? cell.date : 'blank-' + i" class="day-cell"
                 :class="{ empty: !cell, selected: cell && cell.date === selectedDate, today: cell && cell.date === todayStr, weekend: cell && cell.weekend }"
                 @tap="cell && pickDay(cell.date)">
             <template v-if="cell">
@@ -210,6 +210,8 @@ export default {
       endDate: '',
       list: [],
       pageNum: 1,
+      // 列表加载锁：loadMore / goPage 共用，防止连点造成重复追加或跳页
+      loadingList: false,
       pageSize: 20,
       total: 0,
       loaded: false,
@@ -399,17 +401,34 @@ export default {
       await this.load();
     },
     async loadMore() {
-      this.pageNum++;
-      await this.load();
+      // 并发保护：连点「加载更多」会连发多个请求，每次都 pageNum++ 并 concat，
+      // 结果既会重复、又会**跳过中间页**（第 N+1 页的响应被页码变更判定为过期丢弃）。
+      if (this.loadingList) return;
+      this.loadingList = true;
+      try {
+        this.pageNum++;
+        await this.load();
+      } finally {
+        this.loadingList = false;
+      }
     },
     async goPage(page) {
       if (page < 1 || page > this.totalPages || page === this.pageNum) return;
-      this.pageNum = page;
-      this.list = [];
-      await this.load();
+      if (this.loadingList) return;   // 与 loadMore 共用锁，避免清空列表与追加剧烈交叉
+      this.loadingList = true;
+      try {
+        this.pageNum = page;
+        this.list = [];
+        await this.load();
+      } finally {
+        this.loadingList = false;
+      }
       uni.pageScrollTo && uni.pageScrollTo({ scrollTop: 0, duration: 200 });
     },
     async load() {
+      // 捕获本次请求对应的页码：await 期间 pageNum 可能被改（切页/重新加载），
+      // 若不捕获就会出现「用新页码去拼接旧响应」的错位。
+      const page = this.pageNum;
       try {
         const res = await pageTransactions({
           type: this.type || undefined,
@@ -417,11 +436,13 @@ export default {
           endDate: this.endDate || undefined,
           accountId: this.accountId || undefined,
           liabilityId: this.liabilityId || undefined,
-          pageNum: this.pageNum,
+          pageNum: page,
           pageSize: this.pageSize
         });
+        // 期间用户已切页/重新加载 → 丢弃这次结果，否则会把旧数据拼进新列表
+        if (page !== this.pageNum) return;
         const records = (res && res.records) || [];
-        this.list = this.pageNum === 1 ? records : this.list.concat(records);
+        this.list = page === 1 ? records : this.list.concat(records);
         this.total = (res && res.total) || 0;
         this.loaded = true;
         this.loadError = false;

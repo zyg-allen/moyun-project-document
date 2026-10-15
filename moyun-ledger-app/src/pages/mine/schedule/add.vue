@@ -57,13 +57,20 @@
           <view class="type-tag" :class="{ active: form.type === 'income' }" @tap="onTypeChange('income')">收入</view>
         </view>
       </view>
-      <view class="form-row">
+      <!-- 分类：与「记一笔」同一套宫格语言（图标 + 名称、选中高亮、浅色底随分类色）。
+           这里刻意做得更简单：不支持二级分类与自定义增删，避免把记账页的复杂度搬过来。 -->
+      <view class="form-row col">
         <text class="form-label">分类</text>
-        <picker class="fill-picker" :range="categoryNames" @change="onCategoryChange">
-          <view class="form-value" :class="{ placeholder: !form.categoryId }">
-            {{ form.categoryId ? categoryName : '请选择分类' }} ›
+        <view class="cat-grid">
+          <view v-for="c in categories" :key="c.id" class="cat-cell" @tap="form.categoryId = c.id">
+            <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
+                  :style="form.categoryId === c.id ? '' : 'background:' + softColor(c.color)">
+              <text>{{ iconOf(c.icon) }}</text>
+            </view>
+            <text class="cat-name" :class="{ selected: form.categoryId === c.id }">{{ c.name }}</text>
           </view>
-        </picker>
+          <view v-if="!categories.length" class="cat-empty">该类型下暂无可选分类</view>
+        </view>
       </view>
       <view class="form-row">
         <text class="form-label">金额</text>
@@ -100,6 +107,7 @@ import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { listCategories, listAssets, createScheduleTask, listScheduleTasks, updateScheduleTask } from '@/api/ledger';
 import { applyAmountInput } from '@/utils/money';
+import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
 
 export default {
   mixins: [submitLock],
@@ -130,21 +138,21 @@ export default {
       accounts: [],
       // 编辑模式：由列表页「编辑」经 url 传 id 进入
       editId: null,
-      editLoaded: false
+      editLoaded: false,
+      // 编辑回填时后端带回的账户名称，作为选项列表里的兜底显示
+      fallbackAccountName: ''
     };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     cycleIndex() { return this.cycleKeys.indexOf(this.form.cycle); },
-    categoryNames() { return this.categories.map(c => c.name); },
-    categoryName() {
-      const c = this.categories.find(x => x.id === this.form.categoryId);
-      return c ? c.name : '';
-    },
+    /* 账户列表里找不到时回退到后端回填的名称 —— 否则会出现"明明保存了，
+       重进编辑却显示「请选择资产」"（列表未加载完、或账户已归档都会这样）。
+       分类已改为宫格直接展示名称，不再需要同类兜底。 */
     accountNames() { return this.accounts.map(a => a.name); },
     accountName() {
       const a = this.accounts.find(x => x.id === this.form.accountId);
-      return a ? a.name : '';
+      return a ? a.name : this.fallbackAccountName;
     },
     nextExecText() {
       const d = this.firstExecDate();
@@ -168,10 +176,18 @@ export default {
   methods: {
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onAmountInput(e) { applyAmountInput(e, this, 'form.amount'); },
+    /** 分类图标 emoji（与分类管理/记一笔同一份映射） */
+    iconOf(icon) { return categoryIcon(icon); },
+    /** 分类颜色 → 浅色底（与记一笔一致，避免 emoji 撞色） */
+    softColor(color) { return toSoftColor(color); },
     async loadOptions() {
+      // 捕获发起时的类型：await 期间类型可能被改（编辑回填 / 用户切类型），
+      // 若不校验就会把"上一次类型"的分类列表写进来，导致分类对不上、
+      // 已保存的分类显示成「请选择分类」。
+      const type = this.form.type;
       try {
-        const catData = await listCategories(this.form.type) || {};
-        this.categories = catData.records || [];
+        const catData = await listCategories(type) || {};
+        if (type === this.form.type) this.categories = catData.records || [];
       } catch (e) { }
       try {
         const accData = await listAssets() || {};
@@ -200,8 +216,10 @@ export default {
         this.form.execTime = t.execTime || '08:00';
         if (t.startDate) this.form.startDate = t.startDate;
         this.form.endDate = t.endDate || '';
-        // 类型可能和默认值不同，按其重新拉分类，否则分类下拉对不上
-        this.loadOptions();
+        // 后端 listTasks 已回填 accountName，存下来做兜底显示
+        this.fallbackAccountName = t.accountName || '';
+        // 类型可能和默认值不同，按其重新拉分类，否则分类下拉对不上（await 保证顺序）
+        await this.loadOptions();
       } catch (e) { /* 拦截器已提示 */ }
     },
     onCycleChange(e) {
@@ -212,10 +230,6 @@ export default {
       this.form.type = type;
       this.form.categoryId = null;
       this.loadOptions();
-    },
-    onCategoryChange(e) {
-      const c = this.categories[e.detail.value];
-      this.form.categoryId = c ? c.id : null;
     },
     onAccountChange(e) {
       const a = this.accounts[e.detail.value];
@@ -306,6 +320,25 @@ export default {
 /* 横向行（标签 + 值）的值统一右对齐，与 form-input 一致；
    .col 是纵向布局（类型组 / 备注 textarea），不适用 */
 .form-row:not(.col) .form-value { flex: 1; text-align: right; }
+
+/* ---- 分类宫格（与「记一笔」同一套视觉：4 列、图标 + 名称、选中放大 + 强调色底） ---- */
+.cat-grid { display: flex; flex-wrap: wrap; width: 100%; }
+.cat-cell {
+  width: 25%; display: flex; flex-direction: column; align-items: center;
+  padding: 12rpx 0;
+}
+.cat-icon {
+  width: 72rpx; height: 72rpx; border-radius: 18rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34rpx; background: var(--surface);
+}
+.cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }
+.cat-name {
+  font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cat-name.selected { color: var(--primary-text); font-weight: 600; }
+.cat-empty { width: 100%; font-size: 24rpx; color: var(--text-muted); padding: 16rpx 0; }
 
 .type-group { display: flex; gap: 16rpx; }
 .type-tag {

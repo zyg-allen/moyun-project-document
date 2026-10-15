@@ -272,12 +272,23 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
             scheduleLog.setTriggerType(triggerType);
         }
 
-        // 已有「成功」日志 = 该执行日早已入账 → 不重复记账，直接推进（幂等命中）
+        // 已有「成功」日志 = 该执行日早已入账 → 不重复记账（幂等命中）
         if (!isNew && LedgerScheduleLog.STATUS_SUCCESS == scheduleLog.getStatus()) {
             result.put("success", true);
             result.put("transactionId", scheduleLog.getTransactionId());
             result.put("idempotent", true);
-            advance(task);
+            // ⚠️ 只在"日程还没推进过"时才补推进。
+            //
+            // 这里原本无条件 advance(task)，导致**重复点「立即执行」会把 nextExecDate
+            // 一次次往前推**：实测「每月2号」的任务被从 2026-10-15 推到了 2027-02-02，
+            // 自动执行直接被拖到明年 —— 而用户以为只是"又看了一遍执行结果"。
+            //
+            // 为什么还要保留这段推进：崩溃恢复。若上次已记成功但进程在
+            // updateById 前挂掉，nextExecDate 仍停在 execDate，此时补推进才对。
+            // 判据 `nextExecDate <= execDate` 正好区分这两种情况。
+            if (task.getNextExecDate() == null || !task.getNextExecDate().isAfter(execDate)) {
+                advance(task);
+            }
             return result;
         }
 

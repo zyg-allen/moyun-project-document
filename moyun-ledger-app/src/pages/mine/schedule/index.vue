@@ -71,6 +71,8 @@
         <!-- 列表态：当月日志，按记账日倒序 -->
         <template v-if="!logDetail">
           <view class="log-hint">{{ logTaskName }} · {{ monthLabel }} · 共 {{ monthLogs.length }} 条</view>
+          <!-- 解释"为什么重复点了好几次却只有一条"：一个记账日只对应一条日志/一笔流水 -->
+          <view class="log-note">每个记账日只留一条日志：同一天重复执行不会重复扣款，只累计「重试次数」</view>
           <scroll-view scroll-y class="log-scroll">
             <view class="log-empty" v-if="!monthLogs.length">{{ monthLabel }}暂无执行记录</view>
             <view class="log-item" v-for="l in monthLogs" :key="l.id" @tap="logDetail = l">
@@ -125,6 +127,10 @@
           <view class="d-row">
             <text class="d-k">记账日期</text>
             <text class="d-v">{{ logDetail.execDate }}</text>
+          </view>
+          <view class="d-row" v-if="logDetail.retryCount">
+            <text class="d-k">重试次数</text>
+            <text class="d-v">{{ logDetail.retryCount }} 次</text>
           </view>
           <view class="d-row">
             <text class="d-k">执行结果</text>
@@ -231,12 +237,28 @@ export default {
     },
     async runNow(t) {
       uni.showModal({
-        title: '立即执行', content: '按下次记账日立即记一笔？',
+        title: '立即执行',
+        content: '按下次记账日立即记一笔？同一天重复执行不会重复扣款。',
         success: async (r) => {
           if (!r.confirm) return;
           try {
-            await runScheduleTask(t.id);
-            uni.showToast({ title: '执行成功', icon: 'success' });
+            const res = await runScheduleTask(t.id) || {};
+            if (res.idempotent) {
+              // 后端幂等命中：该记账日早已成功入账，不会再生成流水
+              uni.showToast({ title: '该记账日已执行过，未重复扣款', icon: 'none' });
+            } else if (res.success) {
+              uni.showToast({ title: '执行成功，已生成流水', icon: 'success' });
+            } else {
+              // ⚠️ 后端 runNow 失败时是「HTTP 成功但 success=false」（不是抛异常），
+              // 必须显式判断，否则会把失败也提示成"执行成功"。
+              // 用 showModal 而非 toast：失败原因（如余额不足）较长，toast 会截断。
+              uni.showModal({
+                title: '执行失败',
+                content: res.failReason || '未知原因',
+                showCancel: false,
+                confirmText: '知道了'
+              });
+            }
             this.load();
           } catch (e) { this.load(); }
         }
@@ -354,6 +376,11 @@ export default {
 /* 详情态时标题左移，避免右侧 ✕ 把标题挤偏 */
 .log-back + .log-title { text-align: left; }
 .log-hint { font-size: 20rpx; color: var(--text-muted); text-align: center; margin: 6rpx 0 20rpx; }
+/* 幂等说明：解释"为什么重复执行了好几次却只有一条日志" */
+.log-note {
+  font-size: 20rpx; color: var(--text-muted); line-height: 1.5;
+  padding: 0 28rpx 16rpx; text-align: center;
+}
 .log-scroll { max-height: 50vh; }
 .log-item { padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .log-more { font-size: 28rpx; color: var(--text-muted); margin-left: 12rpx; }

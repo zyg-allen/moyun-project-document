@@ -18,6 +18,7 @@ import com.moyun.ledger.service.ILedgerTransactionService;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.PortalEmailService;
+import com.moyun.system.service.ISysConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,9 +73,21 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
     @Autowired
     private PortalUserMapper portalUserMapper;
 
-    /** 记账 App 地址（邮件「处理入口」链接前缀）；留空则邮件不追加链接 */
+    /** sys_config 中「记账 App 地址」的参数键（与 DML 种子一致） */
+    private static final String CONFIG_KEY_APP_BASE_URL = "ledger.schedule.appBaseUrl";
+
+    /**
+     * 记账 App 地址的 **YAML 兜底值**。
+     *
+     * 优先取 sys_config 的 `ledger.schedule.appBaseUrl`（管理台「参数设置」可改、无需重启）；
+     * 该行为空或读取异常时退回这里。两者都为空则邮件不追加链接。
+     */
     @Value("${moyun.ledger.app-base-url:}")
-    private String appBaseUrl;
+    private String appBaseUrlFallback;
+
+    /** 读取 sys_config 参数（改地址无需重启） */
+    @Autowired
+    private ISysConfigService configService;
 
     /** 发通知邮件（尽力而为，失败只记日志） */
     @Autowired
@@ -509,11 +522,32 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
      *
      * @return 链接；未配置 app-base-url 时返回 null（调用方据此跳过整段）
      */
+    /**
+     * 解析记账 App 地址：**sys_config 优先，YAML 兜底**。
+     *
+     * 放 sys_config 的好处是改地址不用重启（与 pay.platform.fee-rate /
+     * voice.interview.durationMinutes 等业务参数同一惯例）；
+     * YAML 兜底则保证配置表缺行时功能不受影响。
+     */
+    private String resolveAppBaseUrl() {
+        try {
+            String v = configService.selectConfigByKey(CONFIG_KEY_APP_BASE_URL);
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        } catch (Exception e) {
+            // 参数读取失败绝不能影响发信：退回 YAML，记一条 warn 即可
+            log.warn("读取 sys_config[{}] 失败，回退 YAML 配置", CONFIG_KEY_APP_BASE_URL, e);
+        }
+        return appBaseUrlFallback;
+    }
+
     private String buildAppEntryLink(Long taskId) {
-        if (appBaseUrl == null || appBaseUrl.isBlank()) {
+        String base = resolveAppBaseUrl();
+        if (base == null || base.isBlank()) {
             return null;
         }
-        String base = appBaseUrl.trim();
+        base = base.trim();
         // 容忍配置时多写的结尾斜杠，避免拼出 //#/
         while (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);

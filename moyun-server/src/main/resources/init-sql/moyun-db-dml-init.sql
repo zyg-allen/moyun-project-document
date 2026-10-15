@@ -568,6 +568,9 @@ INSERT INTO sys_config (config_name,config_key,config_value,platform_code,config
 	 ('AI能力全局开关','ai.global.enabled','true',NULL,'Y','admin','2026-09-17 09:05:37','',NULL,'AI 能力运行时总开关（网关/Agent/简历/面试全链路），true=开启（默认），false=关闭走规则兜底；管理台修改即时生效','0'),
 	 ('简历AI建议开关','ai.resume.advice.enabled','true',NULL,'Y','admin','2026-09-17 09:05:37','',NULL,'简历模块 AI 建议子开关（解析/岗位匹配/深度优化/AI建议），true=开启（默认），false=关闭走规则兜底；管理台修改即时生效','0'),
 	 ('VIP体系开关','vip.enabled','false',NULL,'Y','admin','2026-09-17 17:53:21','',NULL,'统一VIP体系总开关：true启用校验 false全员放行（灰度上线用）；端级可覆盖（platform_code=portal/ledger）','0');
+INSERT INTO sys_config (config_name,config_key,config_value,platform_code,config_type,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
+	 ('记账App地址（定时记账提醒邮件用）','ledger.schedule.appBaseUrl','http://10.27.72.178:5173',NULL,'Y','admin',NOW(),'',NULL,'邮件处理入口链接前缀，必须以 http(s):// 开头且结尾不带 /；留空则邮件不追加链接。改后即时生效无需重启。','0');
+
 INSERT INTO sys_dept (parent_id,ancestors,dept_name,order_num,leader,phone,email,status,del_flag,create_by,create_time,update_by,update_time,remark) VALUES
 	 (0,'0','若依科技',0,'若依','15888888888','ry@qq.com','0','0','admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL),
 	 (100,'0,100','深圳总公司',1,'若依','15888888888','ry@qq.com','0','0','admin','2026-08-19 18:01:44','','2026-08-19 18:01:44',NULL),

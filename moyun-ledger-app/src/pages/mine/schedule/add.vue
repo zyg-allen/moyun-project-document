@@ -36,7 +36,7 @@
       </view>
       <view class="form-row">
         <text class="form-label">开始时间</text>
-        <CalendarPicker class="fill-picker" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
+        <CalendarPicker class="fill-picker" :value="form.startDate" @change="onStartDateChange">
           <view class="form-value">{{ form.startDate }} ›</view>
         </CalendarPicker>
       </view>
@@ -58,11 +58,19 @@
         </view>
       </view>
       <!-- 分类：与「记一笔」同一套宫格语言（图标 + 名称、选中高亮、浅色底随分类色）。
-           这里刻意做得更简单：不支持二级分类与自定义增删，避免把记账页的复杂度搬过来。 -->
+           交互也一致：**选中后自动收起**，点标题栏可重新展开；
+           编辑反显时默认收起（见 loadForEdit）。
+           这里刻意更简单：不做二级分类与自定义增删。 -->
       <view class="form-row col">
-        <text class="form-label">分类</text>
-        <view class="cat-grid">
-          <view v-for="c in categories" :key="c.id" class="cat-cell" @tap="form.categoryId = c.id">
+        <view class="cat-head">
+          <text class="form-label">分类</text>
+          <view class="cat-head-right" @tap="catCollapsed = !catCollapsed">
+            <text class="cat-count">{{ selectedCategoryName || '请选择' }}</text>
+            <text class="cat-toggle">{{ catCollapsed ? '展开 ▾' : '收起 ▴' }}</text>
+          </view>
+        </view>
+        <view class="cat-grid" v-show="!catCollapsed">
+          <view v-for="c in categories" :key="c.id" class="cat-cell" @tap="pickCategory(c)">
             <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
                   :style="form.categoryId === c.id ? '' : 'background:' + softColor(c.color)">
               <text>{{ iconOf(c.icon) }}</text>
@@ -90,7 +98,7 @@
     <view class="form-card">
       <view class="form-row col">
         <text class="form-label">备注</text>
-        <textarea class="form-textarea" v-model="form.description" placeholder="点击输入备注..." maxlength="200" />
+        <textarea class="form-textarea" v-model="form.description" placeholder="点击输入备注..." maxlength="200" @input="onDescInput" />
       </view>
     </view>
 
@@ -140,7 +148,11 @@ export default {
       editId: null,
       editLoaded: false,
       // 编辑回填时后端带回的账户名称，作为选项列表里的兜底显示
-      fallbackAccountName: ''
+      fallbackAccountName: '',
+      // 分类宫格是否收起：与记一笔一致 —— 选中即收起；编辑反显时也收起（见 loadForEdit）
+      catCollapsed: false,
+      // 备注是否被用户手动改过：改过之后就不再自动拼接覆盖（与记一笔同一套逻辑）
+      descEdited: false
     };
   },
   computed: {
@@ -150,6 +162,20 @@ export default {
        重进编辑却显示「请选择资产」"（列表未加载完、或账户已归档都会这样）。
        分类已改为宫格直接展示名称，不再需要同类兜底。 */
     accountNames() { return this.accounts.map(a => a.name); },
+    /** 已选分类名（宫格标题栏展示；选项未加载完时为空 → 显示「请选择」） */
+    selectedCategoryName() {
+      const c = this.categories.find(x => x.id === this.form.categoryId);
+      return c ? c.name : '';
+    },
+    /** 周期的人话描述（带明细，用于备注默认值） */
+    cycleLabel() {
+      switch (this.form.cycle) {
+        case 'weekly': return '每周' + (this.weekLabels[this.form.dayOfWeek - 1] || '');
+        case 'monthly': return '每月' + (this.form.dayOfMonth || 1) + '号';
+        case 'interval': return '每' + (this.form.intervalDays || 'N') + '天';
+        default: return '每天';
+      }
+    },
     accountName() {
       const a = this.accounts.find(x => x.id === this.form.accountId);
       return a ? a.name : this.fallbackAccountName;
@@ -171,6 +197,9 @@ export default {
     if (this.editId && !this.editLoaded) {
       this.editLoaded = true;
       this.loadForEdit();
+    } else if (!this.editId && !this.form.description) {
+      // 新增：预置一次默认备注，让用户一眼看到拼接规则（之后随分类/周期/开始日期联动）
+      this.refreshRemark();
     }
   },
   methods: {
@@ -180,6 +209,36 @@ export default {
     iconOf(icon) { return categoryIcon(icon); },
     /** 分类颜色 → 浅色底（与记一笔一致，避免 emoji 撞色） */
     softColor(color) { return toSoftColor(color); },
+    /** 选分类：写入 + **自动收起** + 刷新备注（与记一笔的 pickCategoryCell 同行为） */
+    pickCategory(c) {
+      this.form.categoryId = c.id;
+      this.catCollapsed = true;
+      this.refreshRemark();
+    },
+    /**
+     * 备注默认值：`开始日期 类型-分类（周期）`
+     * 与记一笔同构（日期 + 类型 + 分类），括号里换成**周期** ——
+     * 定时任务最需要一眼看出的就是"多久一次"。
+     * 注：任务名取自备注前 50 字，所以这个默认值同时决定了任务名。
+     */
+    buildRemarkPrefix() {
+      const dateStr = (this.form.startDate || '').replace(/-/g, '');
+      const typeName = this.form.type === 'income' ? '收入' : '支出';
+      const cat = this.categories.find(x => x.id === this.form.categoryId);
+      const catPart = cat ? `-${cat.name}（${this.cycleLabel}）` : '';
+      return `${dateStr} ${typeName}${catPart}`;
+    },
+    /** 未手动编辑过备注时，自动刷新默认值（类型/分类/周期/开始日期变化联动） */
+    refreshRemark() {
+      if (this.descEdited) return;
+      this.form.description = this.buildRemarkPrefix();
+    },
+    /** 用户一旦手动改过备注，就不再自动覆盖 */
+    onDescInput() { this.descEdited = true; },
+    onStartDateChange(e) {
+      this.form.startDate = e.detail.value;
+      this.refreshRemark();
+    },
     async loadOptions() {
       // 捕获发起时的类型：await 期间类型可能被改（编辑回填 / 用户切类型），
       // 若不校验就会把"上一次类型"的分类列表写进来，导致分类对不上、
@@ -218,18 +277,26 @@ export default {
         this.form.endDate = t.endDate || '';
         // 后端 listTasks 已回填 accountName，存下来做兜底显示
         this.fallbackAccountName = t.accountName || '';
+        // 编辑反显：分类宫格默认收起，让已保存的值一眼可见（点标题栏可展开重选）。
+        // 同时标记备注已被用户"接管"，避免后续联动把存过的备注覆盖掉。
+        this.catCollapsed = true;
+        this.descEdited = true;
         // 类型可能和默认值不同，按其重新拉分类，否则分类下拉对不上（await 保证顺序）
         await this.loadOptions();
       } catch (e) { /* 拦截器已提示 */ }
     },
     onCycleChange(e) {
       this.form.cycle = this.cycleKeys[e.detail.value];
+      this.refreshRemark();   // 周期变了 → 备注默认值里的"多久一次"跟着更新
     },
     onTypeChange(type) {
       if (this.form.type === type) return;
       this.form.type = type;
       this.form.categoryId = null;
+      // 切类型后分类整体换批且已清空选择 → 展开宫格便于直接点选（与记一笔一致）
+      this.catCollapsed = false;
       this.loadOptions();
+      this.refreshRemark();
     },
     onAccountChange(e) {
       const a = this.accounts[e.detail.value];
@@ -322,6 +389,11 @@ export default {
 .form-row:not(.col) .form-value { flex: 1; text-align: right; }
 
 /* ---- 分类宫格（与「记一笔」同一套视觉：4 列、图标 + 名称、选中放大 + 强调色底） ---- */
+/* 折叠头：左侧"分类"标签，右侧已选名称 + 展开/收起 */
+.cat-head { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.cat-head-right { display: flex; align-items: center; gap: 16rpx; }
+.cat-count { font-size: 24rpx; color: var(--primary-text); }
+.cat-toggle { font-size: 24rpx; color: var(--text-muted); }
 .cat-grid { display: flex; flex-wrap: wrap; width: 100%; }
 .cat-cell {
   width: 25%; display: flex; flex-direction: column; align-items: center;

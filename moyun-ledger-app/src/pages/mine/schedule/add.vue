@@ -70,7 +70,7 @@
           </view>
         </view>
         <view class="cat-grid" v-show="!catCollapsed">
-          <view v-for="c in categories" :key="c.id" class="cat-cell" @tap="pickCategory(c)">
+          <view v-for="c in categories" :key="c.id" class="cat-cell" @tap="form.categoryId = c.id">
             <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
                   :style="form.categoryId === c.id ? '' : 'background:' + softColor(c.color)">
               <text>{{ iconOf(c.icon) }}</text>
@@ -185,6 +185,24 @@ export default {
       return d ? `${d} ${this.form.execTime}` : '';
     }
   },
+  watch: {
+    /**
+     * 分类变化 → 自动收起宫格 + 刷新备注默认值。
+     *
+     * 为什么放 watch 而不是点击处理器里：
+     * ① 模板只做纯赋值 `form.categoryId = c.id`，不引用方法，也就**不依赖
+     *    `$options` 的运行时解析** —— HMR 半更新（新模板 + 旧脚本）时那种
+     *    "xxx is not a function" 从根上不会出现；
+     * ② 任何改动路径都能统一联动：点击选择、编辑回填、切类型清空。
+     *
+     * 只在**选中**时收起：切类型会先清空 categoryId，此时应保持展开便于重选，
+     * 故 val 为空时不动 catCollapsed（onTypeChange 里已显式展开）。
+     */
+    'form.categoryId'(val) {
+      if (val) this.catCollapsed = true;
+      this.refreshRemark();
+    }
+  },
   onLoad(options) {
     // 列表页点「编辑」时带 id 进来；有 id 即进入编辑模式
     if (options && options.id) this.editId = Number(options.id);
@@ -209,12 +227,6 @@ export default {
     iconOf(icon) { return categoryIcon(icon); },
     /** 分类颜色 → 浅色底（与记一笔一致，避免 emoji 撞色） */
     softColor(color) { return toSoftColor(color); },
-    /** 选分类：写入 + **自动收起** + 刷新备注（与记一笔的 pickCategoryCell 同行为） */
-    pickCategory(c) {
-      this.form.categoryId = c.id;
-      this.catCollapsed = true;
-      this.refreshRemark();
-    },
     /**
      * 备注默认值：`开始日期 类型-分类（周期）`
      * 与记一笔同构（日期 + 类型 + 分类），括号里换成**周期** ——

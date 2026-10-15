@@ -277,6 +277,12 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         Map<String, Object> result = new HashMap<>();
         result.put("records", page.getRecords());
         result.put("total", page.getTotal());
+        // 必须一并返回总页数：调用方（首页「加载更多」）要靠它判断是否已到底。
+        // 只给 total 的话，前端只能自己按 pageSize 估算 —— 而后端会把 pageSize
+        // 夹到 1~100，估算值可能与实际不符。
+        result.put("pages", page.getPages());
+        result.put("pageNum", page.getCurrent());
+        result.put("pageSize", page.getSize());
         return result;
     }
 

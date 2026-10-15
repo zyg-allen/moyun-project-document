@@ -172,11 +172,12 @@
         </view>
         <view class="txn-amount" :class="t.type">{{ amountOf(t) }}</view>
       </view>
-      <!-- 分页入口：还有更多才给按钮；到底给一句收尾，避免"是不是没加载出来" -->
+      <!-- 还有更多：提示"往上滑动"，同时保留点击（滑动是隐式入口，点击是显式入口）。
+           刻意不显示条数 —— 用户关心的是"还有没有"，不是"现在几条"。 -->
       <view class="txn-more" v-if="recentList.length && txnPage < txnPages" @tap="loadMoreTxns">
-        {{ txnLoading ? '加载中…' : '加载更多' }}
+        {{ txnLoading ? '加载中…' : '往上滑动显示更多' }}
       </view>
-      <view class="txn-more done" v-else-if="recentList.length">已显示全部 {{ txnTotal }} 条</view>
+      <view class="txn-more done" v-else-if="recentList.length">已加载全部</view>
     </view>
     </template>
   </view>
@@ -188,6 +189,9 @@ import { toFixedYuan, formatAmount, formatSigned, typeText } from '@/utils/money
 import { truncate } from '@/utils/text';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
+
+/** 首页「最近流水」每页条数（分页请求与"是否到底"的兜底判定共用同一常量） */
+const TXN_PAGE_SIZE = 10;
 
 export default {
   data() {
@@ -280,11 +284,16 @@ export default {
       this.txnLoading = true;
       try {
         const page = reset ? 1 : this.txnPage + 1;
-        const res = await pageTransactions({ pageNum: page, pageSize: 10 }) || {};
+        const res = await pageTransactions({ pageNum: page, pageSize: TXN_PAGE_SIZE }) || {};
         const records = res.records || [];
         this.txnList = reset ? records : this.txnList.concat(records);
         this.txnPage = page;
-        this.txnPages = res.pages || 1;
+        // pages 以接口返回为准；接口没给才按 total/每页条数兜底。
+        // ⚠️ 不能写 `res.pages || 1` —— 接口漏返回 pages 时会被兜成 1，
+        //    于是第一页就被判成"已到底"，出现"只加载了 10 条却提示已加载全部"。
+        this.txnPages = Number(res.pages) > 0
+          ? Number(res.pages)
+          : Math.max(1, Math.ceil((Number(res.total) || records.length) / TXN_PAGE_SIZE));
         this.txnTotal = res.total || records.length;
       } catch (e) { /* 拦截器已提示 */ } finally {
         this.txnLoading = false;

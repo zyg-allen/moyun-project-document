@@ -17,13 +17,13 @@
         <view class="card-title">基础画像</view>
         <view class="field">
           <text class="field-label">身份标签</text>
-          <picker :range="identityLabels" @change="onTagChange">
+          <picker class="fill-picker" :range="identityLabels" @change="onTagChange">
             <view class="field-picker">{{ editForm.identityTagLabel || '选择身份' }} ▾</view>
           </picker>
         </view>
         <view class="field">
           <text class="field-label">生日</text>
-          <CalendarPicker :value="editForm.birthday" :end="today" @change="onBirthdayChange">
+          <CalendarPicker class="fill-picker" :value="editForm.birthday" :end="today" @change="onBirthdayChange">
             <view class="field-picker">{{ editForm.birthday || '选择生日（推算年龄）' }} ▾</view>
           </CalendarPicker>
         </view>
@@ -45,7 +45,7 @@
         <view class="card-title">家庭与收入（分析重点）</view>
         <view class="field">
           <text class="field-label">婚姻状况</text>
-          <picker :range="maritalLabels" @change="onMaritalChange">
+          <picker class="fill-picker" :range="maritalLabels" @change="onMaritalChange">
             <view class="field-picker">{{ editForm.maritalStatusLabel || '选择婚姻状况' }} ▾</view>
           </picker>
         </view>

@@ -61,7 +61,7 @@
  * ## 用法（兼容原 <picker> 的 :value + @change 写法，替换标签即可）
  *
  * ```html
- * <CalendarPicker :value="form.date" :end="todayStr" @change="onDateChange">
+ * <CalendarPicker class="fill-picker" :value="form.date" :end="todayStr" @change="onDateChange">
  *   <view class="pick-value">{{ form.date }} ▾</view>
  * </CalendarPicker>
  * ```
@@ -69,6 +69,12 @@
  * - 传 `v-model` 亦可（内部同时 emit `update:modelValue`）；
  * - `@change` 事件形如 `{ detail: { value } }`，与 uni-app picker 一致，
  *   因此原有的 `(e) => form.date = e.detail.value` 回调无需改动。
+ * - **`class="fill-picker"`（定义在 App.vue 的全局类）用于「标签 + 值」行**：
+ *   本组件根节点是 `inline-flex`、uni-picker 是 `block`，二者作为 flex 行的
+ *   子项时都只有内容宽度，值不会贴到右边缘（同行的 input 值是
+ *   `flex:1 + text-align:right`），于是出现「同一页里一行居中、一行靠右」。
+ *   加上此类即占满剩余宽度、值右对齐。
+ *   **放在表头、筛选栏、行内按钮组等按内容排布的位置时不要加**。
  */
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 

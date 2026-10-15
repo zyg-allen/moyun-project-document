@@ -61,10 +61,10 @@
           </view>
           <view class="f-row">
             <text class="f-label">时间</text>
-            <CalendarPicker :value="form.date" @change="(e) => form.date = e.detail.value">
+            <CalendarPicker class="fill-picker" :value="form.date" @change="(e) => form.date = e.detail.value">
               <view class="f-value" :class="{ placeholder: !form.date }">{{ form.date || '选择日期' }}</view>
             </CalendarPicker>
-            <picker mode="time" :value="form.time" @change="(e) => form.time = e.detail.value" style="margin-left: 20rpx;">
+            <picker mode="time" class="fill-picker" :value="form.time" @change="(e) => form.time = e.detail.value" style="margin-left: 20rpx;">
               <view class="f-value" :class="{ placeholder: !form.time }">{{ form.time || '选择时间' }}</view>
             </picker>
           </view>
@@ -77,7 +77,7 @@
           </view>
           <view class="f-row" v-if="form.remindEnabled === 1">
             <text class="f-label">提醒方式</text>
-            <picker :range="remindLabels" :value="remindIndex" @change="(e) => form.remindRule = remindKeys[e.detail.value]">
+            <picker class="fill-picker" :range="remindLabels" :value="remindIndex" @change="(e) => form.remindRule = remindKeys[e.detail.value]">
               <view class="f-value">{{ remindLabel(form.remindRule) }} ›</view>
             </picker>
           </view>
@@ -310,6 +310,10 @@ export default {
 .f-input { flex: 1; font-size: 26rpx; }
 .f-value { font-size: 26rpx; color: var(--text-main); }
 .f-value.placeholder { color: var(--text-muted); }
+/* 横向行（标签 + 值）的值统一右对齐，与 budget / profile / portfolio / 记一笔 等页一致。
+   用 :not(.col) 限定 —— .col 是纵向布局（内容 textarea），右对齐不适用。 */
+.f-row:not(.col) .f-value,
+.f-row:not(.col) .f-input { flex: 1; text-align: right; }
 .f-textarea {
   width: 100%; min-height: 100rpx; font-size: 26rpx; background: var(--surface);
   border-radius: 12rpx; padding: 16rpx; box-sizing: border-box;

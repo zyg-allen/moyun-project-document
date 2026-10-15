@@ -92,7 +92,7 @@
       </view>
       <view class="field">
         <text class="field-label">类型</text>
-        <picker :range="assetTypeNames" @change="onAssetTypeChange">
+        <picker class="fill-picker" :range="assetTypeNames" @change="onAssetTypeChange">
           <view class="field-picker">{{ assetTypeText(assetForm.type) }} ▾</view>
         </picker>
       </view>
@@ -125,7 +125,7 @@
         </view>
         <view class="field">
           <text class="field-label">类型</text>
-          <picker :range="liabTypeNames" @change="onLiabTypeChange">
+          <picker class="fill-picker" :range="liabTypeNames" @change="onLiabTypeChange">
             <view class="field-picker">{{ liabTypeText(liabForm.type) }} ▾</view>
           </picker>
         </view>
@@ -145,7 +145,7 @@
         </view>
         <view class="field">
           <text class="field-label">还款日</text>
-          <picker :range="days" @change="onDayChange">
+          <picker class="fill-picker" :range="days" @change="onDayChange">
             <view class="field-picker">{{ liabForm.repaymentDay ? liabForm.repaymentDay + '日' : '选填' }} ▾</view>
           </picker>
         </view>

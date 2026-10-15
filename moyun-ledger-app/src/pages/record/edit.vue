@@ -52,7 +52,7 @@
       <!-- 日期 -->
       <view class="info-row">
         <text class="info-label">日期</text>
-        <CalendarPicker :value="txn.transactionDate" @change="(e) => txn.transactionDate = e.detail.value">
+        <CalendarPicker class="fill-picker" :value="txn.transactionDate" @change="(e) => txn.transactionDate = e.detail.value">
           <view class="info-value pick">{{ txn.transactionDate }} ▾</view>
         </CalendarPicker>
       </view>
@@ -60,7 +60,7 @@
       <!-- 时间 -->
       <view class="info-row">
         <text class="info-label">时间</text>
-        <picker mode="time" :value="txn.transactionTime || '00:00'" @change="onTimeChange">
+        <picker mode="time" class="fill-picker" :value="txn.transactionTime || '00:00'" @change="onTimeChange">
           <view class="info-value pick">{{ txn.transactionTime || '00:00' }} ▾</view>
         </picker>
       </view>

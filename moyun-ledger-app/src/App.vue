@@ -115,4 +115,23 @@ page {
 .uni-tabbar-bottom .uni-tabbar {
   box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.06);
 }
+
+/* ============================================================
+ * 「标签 + 值」行里的选择器外壳对齐
+ *
+ * 问题：uni-picker 默认 `display:block` 且**没有 flex**；CalendarPicker 的根
+ * `.cp-root` 是 `inline-flex`。二者作为 flex 行（标签 + 值）的子项时都只有
+ * **内容宽度**，值不会贴到行右边缘 —— 而同一行里 <input>/<text> 类的值都是
+ * `flex:1 + text-align:right`，于是出现「一行居中、一行靠右」的不一致
+ * （日期/时间行尤其明显）。
+ *
+ * 处理：加 `.fill-picker` 后外壳占满剩余宽度，值自然右对齐。
+ * **显式 opt-in**，不直接改 uni-picker —— 表头、筛选栏等按内容排布的
+ * picker 不能被撑开；记一笔「日期时间」行的时间选择器更是特意用
+ * `.pick-picker-time { flex: none }` 保持内容宽度。
+ * ============================================================ */
+.fill-picker {
+  flex: 1;
+  min-width: 0;
+}
 </style>

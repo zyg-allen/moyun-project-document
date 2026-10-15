@@ -8,19 +8,19 @@
     <view class="form-card">
       <view class="form-row">
         <text class="form-label">循环周期</text>
-        <picker :range="cycleLabels" :value="cycleIndex" @change="onCycleChange">
+        <picker class="fill-picker" :range="cycleLabels" :value="cycleIndex" @change="onCycleChange">
           <view class="form-value">{{ cycleLabels[cycleIndex] }} ›</view>
         </picker>
       </view>
       <view class="form-row" v-if="form.cycle === 'weekly'">
         <text class="form-label">每周几</text>
-        <picker :range="weekLabels" :value="form.dayOfWeek - 1" @change="(e) => form.dayOfWeek = e.detail.value + 1">
+        <picker class="fill-picker" :range="weekLabels" :value="form.dayOfWeek - 1" @change="(e) => form.dayOfWeek = e.detail.value + 1">
           <view class="form-value">周{{ weekLabels[form.dayOfWeek - 1] }} ›</view>
         </picker>
       </view>
       <view class="form-row" v-if="form.cycle === 'monthly'">
         <text class="form-label">每月几号</text>
-        <picker :range="dayList" :value="form.dayOfMonth - 1" @change="(e) => form.dayOfMonth = e.detail.value + 1">
+        <picker class="fill-picker" :range="dayList" :value="form.dayOfMonth - 1" @change="(e) => form.dayOfMonth = e.detail.value + 1">
           <view class="form-value">{{ form.dayOfMonth }}号 ›</view>
         </picker>
       </view>
@@ -30,19 +30,19 @@
       </view>
       <view class="form-row">
         <text class="form-label">执行时间</text>
-        <picker mode="time" :value="form.execTime" @change="(e) => form.execTime = e.detail.value">
+        <picker mode="time" class="fill-picker" :value="form.execTime" @change="(e) => form.execTime = e.detail.value">
           <view class="form-value">{{ form.execTime }} ›</view>
         </picker>
       </view>
       <view class="form-row">
         <text class="form-label">开始时间</text>
-        <CalendarPicker :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
+        <CalendarPicker class="fill-picker" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
           <view class="form-value">{{ form.startDate }} ›</view>
         </CalendarPicker>
       </view>
       <view class="form-row">
         <text class="form-label">结束时间</text>
-        <CalendarPicker :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
+        <CalendarPicker class="fill-picker" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
           <view class="form-value">{{ form.endDate || '不填表示永不结束' }} ›</view>
         </CalendarPicker>
       </view>
@@ -59,7 +59,7 @@
       </view>
       <view class="form-row">
         <text class="form-label">分类</text>
-        <picker :range="categoryNames" @change="onCategoryChange">
+        <picker class="fill-picker" :range="categoryNames" @change="onCategoryChange">
           <view class="form-value" :class="{ placeholder: !form.categoryId }">
             {{ form.categoryId ? categoryName : '请选择分类' }} ›
           </view>
@@ -71,7 +71,7 @@
       </view>
       <view class="form-row">
         <text class="form-label">账户</text>
-        <picker :range="accountNames" @change="onAccountChange">
+        <picker class="fill-picker" :range="accountNames" @change="onAccountChange">
           <view class="form-value" :class="{ placeholder: !form.accountId }">
             {{ form.accountId ? accountName : '请选择资产' }} ›
           </view>
@@ -303,6 +303,9 @@ export default {
 .form-input.amount { font-size: 34rpx; font-weight: 700; color: var(--primary-strong); }
 .form-value { font-size: 28rpx; color: var(--text-main); }
 .form-value.placeholder { color: var(--text-muted); }
+/* 横向行（标签 + 值）的值统一右对齐，与 form-input 一致；
+   .col 是纵向布局（类型组 / 备注 textarea），不适用 */
+.form-row:not(.col) .form-value { flex: 1; text-align: right; }
 
 .type-group { display: flex; gap: 16rpx; }
 .type-tag {

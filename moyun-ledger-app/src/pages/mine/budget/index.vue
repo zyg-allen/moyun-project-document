@@ -6,7 +6,7 @@
     <view class="card">
       <view class="field">
         <text class="field-label">月份</text>
-        <picker mode="date" fields="month" :value="monthStr" @change="onMonthChange">
+        <picker class="fill-picker" mode="date" fields="month" :value="monthStr" @change="onMonthChange">
           <view class="field-value">{{ monthStr }} ▾</view>
         </picker>
       </view>

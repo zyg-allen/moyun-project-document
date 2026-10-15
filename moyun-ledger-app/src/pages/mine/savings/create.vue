@@ -40,13 +40,13 @@
       </block>
       <view class="form-row">
         <text class="form-label">开始日期</text>
-        <CalendarPicker :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
+        <CalendarPicker class="fill-picker" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
           <view class="form-value">{{ form.startDate }} ›</view>
         </CalendarPicker>
       </view>
       <view class="form-row">
         <text class="form-label">结束日期</text>
-        <CalendarPicker :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
+        <CalendarPicker class="fill-picker" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
           <view class="form-value">{{ form.endDate || '不填表示不限期' }} ›</view>
         </CalendarPicker>
       </view>
@@ -158,7 +158,7 @@ export default {
 .form-row:last-child { border-bottom: none; }
 .form-label { width: 180rpx; font-size: 28rpx; color: var(--text-main); flex-shrink: 0; }
 .form-input { flex: 1; text-align: right; font-size: 28rpx; }
-.form-value { font-size: 28rpx; color: var(--text-main); }
+.form-value { font-size: 28rpx; color: var(--text-main); flex: 1; text-align: right; }
 .method-group { flex: 1; display: flex; gap: 16rpx; justify-content: flex-end; flex-wrap: wrap; }
 .method-tag {
   font-size: 24rpx; padding: 8rpx 20rpx; border-radius: 24rpx;

@@ -76,6 +76,7 @@
             <view class="log-item" v-for="l in monthLogs" :key="l.id" @tap="logDetail = l">
               <view class="log-line">
                 <text class="log-date">{{ l.execDate }}</text>
+                <text class="log-trigger" :class="l.triggerType === 2 ? 'manual' : 'auto'">{{ l.triggerType === 2 ? '主动' : '自动' }}</text>
                 <text class="log-status" :class="l.status === 1 ? 'ok' : 'fail'">{{ l.status === 1 ? '成功' : '失败' }}</text>
                 <text class="log-amount">¥{{ toFixedYuan(l.amount) }}</text>
                 <text class="log-more">›</text>
@@ -95,6 +96,12 @@
         <scroll-view scroll-y class="log-scroll" v-else>
           <!-- 任务侧信息：日志表本身只存金额/状态/失败原因，类型与账户来自任务，
                这里一并展示，才能说清「钱从哪个账户扣、扣了多少、为什么」 -->
+          <view class="d-row">
+            <text class="d-k">触发来源</text>
+            <text class="d-v" :class="logDetail.triggerType === 2 ? 'manual' : ''">
+              {{ logDetail.triggerType === 2 ? '页面主动执行' : '自动调度' }}
+            </text>
+          </view>
           <view class="d-row">
             <text class="d-k">类型</text>
             <text class="d-v">{{ logTask ? typeText(logTask.type) : '—' }}</text>
@@ -350,6 +357,13 @@ export default {
 .log-scroll { max-height: 50vh; }
 .log-item { padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .log-more { font-size: 28rpx; color: var(--text-muted); margin-left: 12rpx; }
+/* 触发来源标签：自动=中性，主动=强调色（主动执行是用户当场补记，需要区分出来） */
+.log-trigger {
+  font-size: 20rpx; padding: 2rpx 10rpx; border-radius: 8rpx; margin-left: 12rpx;
+  background: var(--surface); color: var(--text-sub); flex-shrink: 0;
+}
+.log-trigger.manual { background: var(--primary-soft); color: var(--primary-text); }
+.d-v.manual { color: var(--primary-text); }
 .log-line { display: flex; justify-content: space-between; align-items: center; font-size: 24rpx; }
 /* 日期占满左侧，状态/金额/箭头统一贴右（4 个子项用 space-between 会被摊开） */
 .log-date { color: var(--text-sub); flex: 1; }

@@ -23,6 +23,11 @@ public class LedgerScheduleLog {
     /** 状态：失败 */
     public static final int STATUS_FAILED = 2;
 
+    /** 触发来源：自动调度 */
+    public static final int TRIGGER_AUTO = 1;
+    /** 触发来源：页面主动执行（立即执行 / 重试） */
+    public static final int TRIGGER_MANUAL = 2;
+
     @TableId(type = IdType.AUTO)
     private Long id;
 
@@ -49,6 +54,12 @@ public class LedgerScheduleLog {
 
     /** 重试次数 */
     private Integer retryCount;
+
+    /**
+     * 触发来源：1=自动调度到点执行，2=页面主动「立即执行」。
+     * 两者在业务上含义不同（主动执行是用户当场补记），日志需要分开呈现。
+     */
+    private Integer triggerType;
 
     private LocalDateTime createTime;
 }

@@ -729,6 +729,7 @@ CREATE TABLE `ledger_schedule_log` (
                                        `fail_reason` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '失败原因（如余额不足）',
                                        `transaction_id` bigint DEFAULT NULL COMMENT '生成的流水ID（ledger_transaction.id）',
                                        `retry_count` int NOT NULL DEFAULT '0' COMMENT '重试次数',
+                                       `trigger_type` tinyint NOT NULL DEFAULT '1' COMMENT '触发来源：1=自动调度 2=页面主动执行',
                                        `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                        PRIMARY KEY (`id`),
                                        UNIQUE KEY `uk_task_date` (`task_id`,`exec_date`),

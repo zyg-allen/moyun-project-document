@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -149,7 +148,21 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    /*
+     * 刻意**不加 @Transactional**。
+     *
+     * executeOnce 内部会调 transactionService.createTransaction（自身带 @Transactional）。
+     * 记账失败时内层事务会把自己标记为 rollback-only；即便 executeOnce 已 catch 住异常，
+     * 外层若带事务，提交阶段仍会抛 UnexpectedRollbackException，并把**执行日志一起回滚** ——
+     * 「执行一次记一条日志」就此落空，用户在日志列表里看不到任何失败记录。
+     *
+     * 线上日志实证：
+     *   /portal/ledger/schedules/1/run → UnexpectedRollbackException:
+     *   Transaction rolled back because it has been marked as rollback-only
+     *
+     * 去掉外层事务后，日志写入与任务推进各自独立提交：记账失败 → 日志仍留下失败记录，
+     * 这正是用户需要看到的。重复入账由 clientUuid 幂等键 + 日志 uk_task_date 唯一键兜底。
+     */
     public Map<String, Object> runNow(Long userId, Long id) {
         LedgerScheduleTask task = getOwned(userId, id);
         if (task.getNextExecDate() == null) {
@@ -158,13 +171,15 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         // 立即执行 = 现在记这笔账，交易日期用今天。
         // nextExecDate 可能是未来日期（如明天开始的周期），若沿用会导致流水落在未来，
         // 本月收支统计（[月初,今天]）不包含它，出现"列表可见但总支出不统计"。
-        Map<String, Object> result = executeOnce(task, LocalDate.now());
+        Map<String, Object> result = executeOnce(task, LocalDate.now(), LedgerScheduleLog.TRIGGER_MANUAL);
         this.updateById(task);
         return result;
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    /* 同样刻意不加 @Transactional：本方法在重试失败时既要**更新日志**（记录 retryCount
+       与失败原因）又要**抛异常**给前端。若带事务，抛出的异常会把刚写的日志一起回滚，
+       用户重试后反而看不到"已重试 N 次"，与 runNow 是同一类问题。 */
     public void retryLog(Long userId, Long logId) {
         LedgerScheduleLog scheduleLog = logMapper.selectById(logId);
         if (scheduleLog == null || !userId.equals(scheduleLog.getUserId())) {
@@ -207,7 +222,7 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         for (LedgerScheduleTask task : dueTasks) {
             try {
                 // 每个任务独立事务边界由 executeOnce 内部记账服务保证；此处逐个捕获，单任务失败不影响其他任务
-                Map<String, Object> r = executeOnce(task, null);
+                Map<String, Object> r = executeOnce(task, null, LedgerScheduleLog.TRIGGER_AUTO);
                 this.updateById(task);
                 if (Boolean.TRUE.equals(r.get("success"))) {
                     success++;
@@ -231,8 +246,9 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
      * 注意：task 对象会被就地修改（nextExecDate/enabled），调用方负责落库
      *
      * @param forcedExecDate 强制记账日期：runNow 立即执行传今天；runDueTasks 定时到期传 null（用 nextExecDate 真实到期日）
+     * @param triggerType    触发来源：TRIGGER_AUTO(自动调度) / TRIGGER_MANUAL(页面主动执行)
      */
-    private Map<String, Object> executeOnce(LedgerScheduleTask task, LocalDate forcedExecDate) {
+    private Map<String, Object> executeOnce(LedgerScheduleTask task, LocalDate forcedExecDate, int triggerType) {
         LocalDate execDate = forcedExecDate != null ? forcedExecDate : task.getNextExecDate();
         Map<String, Object> result = new HashMap<>();
 
@@ -253,6 +269,7 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
             scheduleLog.setExecDate(execDate);
             scheduleLog.setAmount(task.getAmount());
             scheduleLog.setRetryCount(0);
+            scheduleLog.setTriggerType(triggerType);
         }
 
         // 已有「成功」日志 = 该执行日早已入账 → 不重复记账，直接推进（幂等命中）

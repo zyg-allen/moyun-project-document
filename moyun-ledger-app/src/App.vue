@@ -66,6 +66,25 @@ page {
   color: var(--text-main);
 }
 /* 通用工具类 */
+/* 页面根容器：全局统一兜底底色与最小高度。
+ *
+ * 为什么必须全局给：此前只靠「各页自己写 .page { background: var(--bg) }」，
+ * 于是那些**漏写背景**的页面（settings / categories / budget / report /
+ * record/edit）只能靠下层 uni-page-body 画底色 —— 而切换页面时新建的
+ * uni-page-body 会先按日间默认值绘制一帧，随后才被主题覆盖，
+ * 视觉上就是「由白转暗」的极短暂闪白。同一件事在不同页面表现不一致，
+ * 根源就在这：**有的页面自己画了底色，有的没有**。
+ *
+ * 放到全局后：所有 .page 一律自带当前外观的底色，不再依赖下层容器，
+ * 新页面一出现就是正确颜色 —— 也不必再逐个页面去补 background。
+ *
+ * 注意：页面自身 <style scoped> 里的 .page 规则带 [data-v-xxx] 属性选择器，
+ * 优先级高于本全局规则，所以自带背景/内边距的页面不会被这里覆盖。 */
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  box-sizing: border-box;
+}
 .flex-row { display: flex; flex-direction: row; align-items: center; }
 .flex-col { display: flex; flex-direction: column; }
 .flex-1 { flex: 1; }

@@ -553,7 +553,7 @@ export default {
 .filter-btn {
   padding: 8rpx 28rpx; background: var(--primary-strong); color: var(--on-primary); border-radius: 28rpx; font-size: 24rpx;
 }
-.filter-btn.reset { background: #999; }
+.filter-btn.reset { background: var(--surface); color: var(--text-sub); }
 
 .summary-bar {
   display: flex; justify-content: space-between; align-items: center;
@@ -568,13 +568,13 @@ export default {
 .filter-banner {
   display: flex; align-items: center; gap: 16rpx;
   margin: 12rpx 24rpx 0; padding: 20rpx 24rpx;
-  background: linear-gradient(135deg, #eaf4ff, #f4faff);
-  border: 1rpx solid #dbeafe; border-radius: 16rpx;
+  background: var(--info-bg);
+  border: 1rpx solid var(--border); border-radius: 16rpx;
 }
 .banner-icon { font-size: 32rpx; }
 .banner-body { flex: 1; min-width: 0; }
-.banner-title { font-size: 26rpx; font-weight: 600; color: #1e3a5f; }
-.banner-sub { font-size: 22rpx; color: #64748b; margin-top: 4rpx; }
+.banner-title { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
+.banner-sub { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
 .banner-close {
   width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
   border-radius: 50%; background: var(--card); color: var(--text-sub); font-size: 30rpx;

@@ -35,6 +35,7 @@
         <result property="notifyComment" column="notify_comment"/>
         <result property="notifyFollow" column="notify_follow"/>
         <result property="notifySystem" column="notify_system"/>
+        <result property="notifySchedule" column="notify_schedule"/>
         <result property="privacyFollow" column="privacy_follow"/>
         <result property="privacyBookmark" column="privacy_bookmark"/>
         <result property="privacyEmail" column="privacy_email"/>
@@ -59,12 +60,12 @@
 
     <!-- 公共查询字段（不含 password，用于对外返回的查询场景） -->
     <sql id="selectPortalUserVo">
-        select id, user_id, username, nickname, email, phone, avatar, bio, position, identity_tag, wechat, gender, birthday, location, website, github, company, school, industry, marital_status, has_mortgage, has_side_income, income_types, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, privacy_profile, role, is_certified_creator, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+        select id, user_id, username, nickname, email, phone, avatar, bio, position, identity_tag, wechat, gender, birthday, location, website, github, company, school, industry, marital_status, has_mortgage, has_side_income, income_types, language, timezone, notify_like, notify_comment, notify_follow, notify_system, notify_schedule, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, privacy_profile, role, is_certified_creator, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
     </sql>
 
     <!-- 含 password 的查询字段（仅用于登录校验等内部场景） -->
     <sql id="selectPortalUserWithPasswordVo">
-        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, identity_tag, wechat, gender, birthday, location, website, github, company, school, industry, marital_status, has_mortgage, has_side_income, income_types, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, privacy_profile, role, is_certified_creator, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, identity_tag, wechat, gender, birthday, location, website, github, company, school, industry, marital_status, has_mortgage, has_side_income, income_types, language, timezone, notify_like, notify_comment, notify_follow, notify_system, notify_schedule, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, privacy_profile, role, is_certified_creator, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
     </sql>
 
     <!-- 分页查询 -->
@@ -157,6 +158,7 @@
             <if test="notifyComment != null">notify_comment,</if>
             <if test="notifyFollow != null">notify_follow,</if>
             <if test="notifySystem != null">notify_system,</if>
+            <if test="notifySchedule != null">notify_schedule,</if>
             <if test="privacyFollow != null">privacy_follow,</if>
             <if test="privacyBookmark != null">privacy_bookmark,</if>
             <if test="privacyEmail != null">privacy_email,</if>
@@ -205,6 +207,7 @@
             <if test="notifyComment != null">#{notifyComment},</if>
             <if test="notifyFollow != null">#{notifyFollow},</if>
             <if test="notifySystem != null">#{notifySystem},</if>
+            <if test="notifySchedule != null">#{notifySchedule},</if>
             <if test="privacyFollow != null">#{privacyFollow},</if>
             <if test="privacyBookmark != null">#{privacyBookmark},</if>
             <if test="privacyEmail != null">#{privacyEmail},</if>
@@ -257,6 +260,7 @@
             <if test="notifyComment != null">notify_comment = #{notifyComment},</if>
             <if test="notifyFollow != null">notify_follow = #{notifyFollow},</if>
             <if test="notifySystem != null">notify_system = #{notifySystem},</if>
+            <if test="notifySchedule != null">notify_schedule = #{notifySchedule},</if>
             <if test="privacyFollow != null">privacy_follow = #{privacyFollow},</if>
             <if test="privacyBookmark != null">privacy_bookmark = #{privacyBookmark},</if>
             <if test="privacyEmail != null">privacy_email = #{privacyEmail},</if>

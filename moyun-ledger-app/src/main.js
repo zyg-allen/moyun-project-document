@@ -8,6 +8,15 @@ export function createApp() {
   app.use(createPinia());
 
   /**
+   * 挂载【之前】先把主题变量写到 html/body 上。
+   *
+   * 变量由 CSS 继承，因此之后任何页面容器一创建就自带当前外观，
+   * 不必等 onShow / 观察器 —— 这是消除「切页瞬间极短暂白闪」的根本手段
+   * （命令式注入永远晚于浏览器可能的第一次绘制）。
+   */
+  useThemeStore().applyToPageBody();
+
+  /**
    * 全局主题注入 —— 每次进入页面都把当前外观写进该页最外层容器。
    *
    * 为什么必须全局挂：uni-app H5 **每个页面各自创建一个 `uni-page-body`**。

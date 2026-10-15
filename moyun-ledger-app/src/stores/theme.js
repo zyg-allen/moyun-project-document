@@ -212,7 +212,6 @@ export const PRIMARY_TEXT = {
 const PAGE_CONTAINERS = ['uni-page', 'uni-page-wrapper', 'uni-page-body'];
 
 let themeObserver = null;
-let themeTimer = null;
 let latestVars = null;
 
 /** 把变量与底色/字色写到单个容器 */
@@ -233,21 +232,44 @@ function themeAllPageContainers(vars) {
   PAGE_CONTAINERS.forEach((tag) => {
     document.querySelectorAll(tag).forEach((el) => themeOneContainer(el, vars));
   });
-  // 超滚动区域由 html/body 承载，一并设置，避免回弹时闪白
+  // 把【全部变量】写到 html/body —— 这是消除『切页瞬间白闪』的关键。
+  //
+  // uni-page-body 的背景来自 App.vue 里 page{ background-color: var(--bg) }，
+  // 而 var() 是【在声明它的元素上解析】的。若 --bg 只存在于页面根的内联样式上，
+  // 新建的 uni-page-body 在 JS 注入之前拿不到它，只能退回 page{} 的日间默认值
+  // —— 于是先绘制出一帧白底，再被 JS 覆盖，视觉上就是极短暂的闪白。
+  //
+  // 变量写在 html/body 上后由 CSS 继承，任何新建容器【一出生】就解析成当前外观，
+  // 完全不依赖 JS 的执行时机。
   [document.documentElement, document.body].forEach((el) => {
     if (!el) return;
+    Object.keys(vars).forEach((k) => el.style.setProperty(k, vars[k]));
     el.style.background = vars['--bg'];
     el.style.color = vars['color'];
   });
   // 挂一次性观察器：任何【新出现】的容器立刻上色，
   // 使主题与『第几次进入页面』彻底解耦。
   if (!themeObserver && typeof MutationObserver !== 'undefined' && document.body) {
-    themeObserver = new MutationObserver(() => {
-      if (themeTimer) return;
-      themeTimer = setTimeout(() => {
-        themeTimer = null;
-        if (latestVars) themeAllPageContainers(latestVars);
-      }, 0);
+    // 同步处理，且【只处理新增节点】。
+    //
+    // 原先用 setTimeout(0) 做防抖：那是宏任务，会排到浏览器绘制【之后】，
+    // 等于主动放走一帧 —— 正是『偶尔极短暂白闪』的来源。
+    // MutationObserver 回调本身是微任务，在绘制前执行，同步着色即可做到不闪；
+    // 只处理 addedNodes 保证回调足够轻，不必再防抖。
+    themeObserver = new MutationObserver((records) => {
+      if (!latestVars) return;
+      for (const rec of records) {
+        for (const node of rec.addedNodes) {
+          if (!node || node.nodeType !== 1) continue;
+          const tag = node.tagName && node.tagName.toLowerCase();
+          if (PAGE_CONTAINERS.indexOf(tag) >= 0) themeOneContainer(node, latestVars);
+          if (node.querySelectorAll) {
+            PAGE_CONTAINERS.forEach((t) => {
+              node.querySelectorAll(t).forEach((el) => themeOneContainer(el, latestVars));
+            });
+          }
+        }
+      }
     });
     themeObserver.observe(document.body, { childList: true, subtree: true });
   }

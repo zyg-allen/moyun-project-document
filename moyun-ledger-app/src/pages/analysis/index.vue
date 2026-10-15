@@ -442,7 +442,7 @@ export default {
 }
 
 /* 通用卡片 */
-.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 20rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 20rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
 .flex-row { display: flex; align-items: center; }
 .flex-1 { flex: 1; min-width: 0; }

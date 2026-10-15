@@ -234,7 +234,7 @@ export default {
 .year-arrow { font-size: 44rpx; padding: 0 24rpx; opacity: 0.85; }
 .year-text { font-size: 34rpx; font-weight: 700; }
 
-.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }
 .chart-title { font-size: 28rpx; font-weight: 600; margin: 8rpx 0 20rpx; }
 .empty { text-align: center; color: var(--text-muted); padding: 40rpx 0; font-size: 24rpx; }
 

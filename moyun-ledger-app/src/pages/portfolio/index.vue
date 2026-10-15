@@ -447,7 +447,7 @@ export default {
 .summary.liability .summary-amount { color: var(--expense); }
 .summary-sub { font-size: 24rpx; color: var(--text-sub); }
 
-.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 12rpx; }
 .link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }

@@ -368,7 +368,7 @@ export default {
 .cell-value { font-size: 34rpx; font-weight: 600; }
 .hero-divider { width: 1rpx; height: 48rpx; background: var(--border); }
 
-.card { background: var(--card); border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
 .link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .month-row { display: flex; }

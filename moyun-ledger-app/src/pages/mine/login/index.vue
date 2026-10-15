@@ -120,7 +120,7 @@ export default {
 <style scoped>
 .page { padding-bottom: 60rpx; min-height: 100vh; background: var(--surface); }
 
-.card { background: var(--card); border-radius: 20rpx; margin: 24rpx; padding: 32rpx; }
+.card { background: var(--card); border-radius: 20rpx; margin: 24rpx; padding: 24rpx 32rpx; }
 
 .field { margin-bottom: 24rpx; }
 .field-label { font-size: 26rpx; color: var(--text-sub); margin-bottom: 8rpx; display: block; }

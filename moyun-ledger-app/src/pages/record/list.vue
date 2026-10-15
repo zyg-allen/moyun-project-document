@@ -563,7 +563,7 @@ export default {
 .summary-nums .income { color: var(--income); }
 .summary-nums .expense { color: var(--expense); }
 
-.card { background: var(--card); border-radius: 20rpx; padding: 8rpx 24rpx; margin: 16rpx 24rpx; }
+.card { background: var(--card); border-radius: 20rpx; padding: 8rpx 32rpx; margin: 16rpx 24rpx; }
 
 .filter-banner {
   display: flex; align-items: center; gap: 16rpx;

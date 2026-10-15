@@ -98,7 +98,7 @@ page {
 .card {
   background: var(--card);
   border-radius: 20rpx;
-  padding: 24rpx;
+  padding: 24rpx 32rpx;
   margin: 0 24rpx 24rpx;
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }

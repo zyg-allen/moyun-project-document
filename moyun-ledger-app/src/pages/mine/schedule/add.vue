@@ -297,8 +297,9 @@ export default {
     async loadForEdit() {
       try {
         const data = await getScheduleTask(this.editId) || {};
-        const t = data.task;
-        if (!t) { uni.showToast({ title: '任务不存在或已删除', icon: 'none' }); return; }
+        // 兼容 data.task 与"直接返回任务对象"两种写法
+        const t = data.task || data;
+        if (!t || !t.id) { uni.showToast({ title: '任务不存在或已删除', icon: 'none' }); return; }
         this.form.type = t.type || 'expense';
         this.form.amount = t.amount != null ? String(t.amount) : '';
         this.form.categoryId = t.categoryId || null;

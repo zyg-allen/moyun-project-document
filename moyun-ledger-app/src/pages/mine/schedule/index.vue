@@ -245,7 +245,12 @@ export default {
     },
     /**
      * 拉取任务列表（分页 + 关键字搜索）。
-     * enabledCount / totalCount 由后端按**该用户全部任务**统计，不随当前页变化。
+     *
+     * ⚠️ 对**新旧两种响应结构**都兼容：
+     *   新（分页）：{ records, total, pages, enabledCount, totalCount }
+     *   旧（未分页）：{ tasks, enabledCount, totalCount }
+     * 这样前端先上线、后端后重启的窗口期内列表也不会空白
+     * （否则读不到 records 就渲染成"无数据"，看起来像接口坏了）。
      */
     async load() {
       try {
@@ -254,10 +259,15 @@ export default {
           pageNum: this.pageNum,
           pageSize: this.pageSize
         }) || {};
-        this.tasks = data.records || [];
-        this.total = data.total || 0;
-        this.pages = data.pages || 0;
-        this.totalCount = data.totalCount || 0;
+        const records = data.records || data.tasks || [];
+        this.tasks = records;
+        this.total = data.total || records.length;
+        // 旧接口没有 pages：按 total / 每页条数兜底，且至少 1 页
+        // （写 `data.pages || 0` 会让"是否还有下一页"的判断永远为假）
+        this.pages = Number(data.pages) > 0
+          ? Number(data.pages)
+          : Math.max(1, Math.ceil(this.total / this.pageSize));
+        this.totalCount = data.totalCount || this.total;
         this.enabledCount = data.enabledCount || 0;
       } catch (e) { /* 拦截器已提示 */ }
     },

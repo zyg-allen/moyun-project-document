@@ -38,7 +38,7 @@
             @change="onSwitchChange(t, $event)"
           />
           <view class="t-btn" @tap="runNow(t)">立即执行</view>
-          <view class="t-btn warn" @tap="showLogs(t)">查看</view>
+          <view class="t-btn warn" @tap="showLogs(t)">执行日志</view>
           <view class="t-btn" @tap="goEdit(t)">编辑</view>
           <view class="t-btn danger" @tap="del(t)">删除</view>
         </view>
@@ -55,29 +55,76 @@
     <!-- 悬浮添加按钮 -->
     <view class="fab" @tap="goAdd">＋</view>
 
-    <!-- 日志弹层：列表按记账日倒序，后端 LIMIT 50（只取最近记录，避免长年任务无限拉取） -->
-    <view class="log-mask" v-if="logsVisible" @tap="logsVisible = false">
+    <!-- 执行日志弹层
+         列表只展示「当月」记录：后端已 LIMIT 50 且按记账日倒序，
+         而当月最多 31 条，必然落在这 50 条内，故前端按月份前缀过滤即可，无需改后端。
+         点击某条进入详情，详情态由 logDetail 切换（标题栏出现「返回」）。 -->
+    <view class="log-mask" v-if="logsVisible" @tap="closeLogs">
       <view class="log-panel" @tap.stop>
-        <view class="log-title">{{ logTitle }}</view>
-        <view class="log-hint">按记账日倒序 · 仅显示最近 {{ LOG_LIMIT }} 条</view>
-        <scroll-view scroll-y class="log-scroll">
-          <view class="log-empty" v-if="!logs.length">暂无执行记录</view>
-          <view class="log-item" v-for="l in logs" :key="l.id">
-            <view class="log-line">
-              <text class="log-date">{{ l.execDate }}</text>
-              <text class="log-status" :class="l.status === 1 ? 'ok' : 'fail'">{{ l.status === 1 ? '成功' : '失败' }}</text>
-              <text class="log-amount">¥{{ toFixedYuan(l.amount) }}</text>
+        <!-- 标题栏 -->
+        <view class="log-head">
+          <text class="log-back" v-if="logDetail" @tap="logDetail = null">‹ 返回</text>
+          <text class="log-title">{{ logDetail ? '执行详情' : '执行日志' }}</text>
+          <text class="log-x" @tap="closeLogs">✕</text>
+        </view>
+
+        <!-- 列表态：当月日志，按记账日倒序 -->
+        <template v-if="!logDetail">
+          <view class="log-hint">{{ logTaskName }} · {{ monthLabel }} · 共 {{ monthLogs.length }} 条</view>
+          <scroll-view scroll-y class="log-scroll">
+            <view class="log-empty" v-if="!monthLogs.length">{{ monthLabel }}暂无执行记录</view>
+            <view class="log-item" v-for="l in monthLogs" :key="l.id" @tap="logDetail = l">
+              <view class="log-line">
+                <text class="log-date">{{ l.execDate }}</text>
+                <text class="log-status" :class="l.status === 1 ? 'ok' : 'fail'">{{ l.status === 1 ? '成功' : '失败' }}</text>
+                <text class="log-amount">¥{{ toFixedYuan(l.amount) }}</text>
+                <text class="log-more">›</text>
+              </view>
+              <view class="log-reason" v-if="l.status === 2">
+                <text class="log-fail">{{ l.failReason || '未知原因' }}</text>
+                <text class="log-retry" @tap.stop="retry(l)">重试</text>
+              </view>
+              <view class="log-sub" v-else-if="l.retryCount">
+                <text>重试 {{ l.retryCount }} 次后成功</text>
+              </view>
             </view>
-            <view class="log-reason" v-if="l.status === 2">
-              <text class="log-fail">{{ l.failReason || '未知原因' }}</text>
-              <text class="log-retry" @tap="retry(l)">重试</text>
-            </view>
-            <view class="log-sub" v-else-if="l.retryCount">
-              <text>重试 {{ l.retryCount }} 次后成功</text>
-            </view>
+          </scroll-view>
+        </template>
+
+        <!-- 详情态 -->
+        <scroll-view scroll-y class="log-scroll" v-else>
+          <view class="d-row">
+            <text class="d-k">记账日期</text>
+            <text class="d-v">{{ logDetail.execDate }}</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">执行结果</text>
+            <text class="d-v" :class="logDetail.status === 1 ? 'ok' : 'fail'">{{ logDetail.status === 1 ? '记账成功' : '记账失败' }}</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">金额</text>
+            <text class="d-v">¥{{ toFixedYuan(logDetail.amount) }}</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">关联流水</text>
+            <text class="d-v">{{ logDetail.transactionId ? ('#' + logDetail.transactionId) : '未生成' }}</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">重试次数</text>
+            <text class="d-v">{{ logDetail.retryCount || 0 }} 次</text>
+          </view>
+          <view class="d-row">
+            <text class="d-k">记录时间</text>
+            <text class="d-v">{{ fmtLogTime(logDetail.createTime) }}</text>
+          </view>
+          <view class="d-block" v-if="logDetail.status === 2">
+            <text class="d-k">失败原因</text>
+            <text class="d-fail">{{ logDetail.failReason || '未知原因' }}</text>
+            <text class="log-retry d-retry" @tap="retry(logDetail)">立即重试</text>
           </view>
         </scroll-view>
-        <view class="log-close" @tap="logsVisible = false">关闭</view>
+
+        <view class="log-close" @tap="closeLogs">关闭</view>
       </view>
     </view>
   </view>
@@ -101,15 +148,28 @@ export default {
       logs: [],
       logsVisible: false,
       logTaskName: '',
-      // 与后端 listLogs 的 LIMIT 50 保持一致：日志列表只取最近记录
-      LOG_LIMIT: 50
+      logTaskId: null,
+      // 非空即进入「执行详情」态（列表态与详情态共用同一个弹层）
+      logDetail: null
     };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     /** uni switch 的 color 需要具体色值（不走 CSS 变量求值），故从主题取强调色的实值 */
     primaryStrong() { return useThemeStore().theme['--primary-strong']; },
-    logTitle() { return this.logTaskName ? ('执行日志 · ' + this.logTaskName) : '执行日志'; }
+    /** 当前月份的 YYYY-MM 前缀，用于过滤出「当月」日志 */
+    monthPrefix() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    },
+    monthLabel() {
+      const d = new Date();
+      return d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月';
+    },
+    /** 当月日志（后端已按记账日倒序返回，过滤后仍是最新在前） */
+    monthLogs() {
+      return this.logs.filter(l => String(l.execDate || '').startsWith(this.monthPrefix));
+    }
   },
   onShow() {
     useThemeStore().restore();
@@ -159,14 +219,25 @@ export default {
         const data = await listScheduleLogs(t.id) || {};
         this.logs = data.records || [];
         this.logTaskName = t.name;
+        this.logTaskId = t.id;
+        this.logDetail = null;   // 每次打开都从列表态开始
         this.logsVisible = true;
       } catch (e) { }
     },
+    closeLogs() { this.logsVisible = false; this.logDetail = null; },
+    /** 后端 LocalDateTime 序列化为 2026-10-14T11:40:00，展示时换成空格 */
+    fmtLogTime(s) { return s ? String(s).replace('T', ' ').slice(0, 19) : '—'; },
     async retry(l) {
       try {
         await retryScheduleLog(l.id);
         uni.showToast({ title: '重试成功', icon: 'success' });
-        this.logs = this.logs.map(x => x.id === l.id ? { ...x, status: 1 } : x);
+        // 重新拉取，让状态/重试次数与后端一致（本地改字段会与 retryCount 不同步）
+        const data = await listScheduleLogs(this.logTaskId) || {};
+        this.logs = data.records || [];
+        // 详情态若正开着同一条，同步刷新；若已不在列表则退回列表态
+        if (this.logDetail) {
+          this.logDetail = this.logs.find(x => x.id === this.logDetail.id) || null;
+        }
         this.load();
       } catch (e) { }
     },
@@ -201,11 +272,13 @@ export default {
 .t-cycle { font-size: 22rpx; color: var(--primary-strong); background: var(--primary-soft); padding: 4rpx 16rpx; border-radius: 16rpx; }
 .t-info { font-size: 22rpx; color: var(--text-sub); margin-top: 10rpx; display: flex; gap: 24rpx; flex-wrap: wrap; }
 .t-info.next { color: var(--text-sub); }
-/* 操作区（下）：与上方信息区用分隔线隔开；开关 + 4 个按钮，
-   375px 屏实测约 295px < 可用 323px，窄屏则由 flex-wrap 自动折行 */
+/* 操作区（下）：与上方信息区用分隔线隔开；开关 + 4 个按钮。
+   按钮文字改回「执行日志」（4 字）后重新配宽：
+   57(开关) + 64 + 64 + 42 + 42 + 24(间隙) = 293px < 375px 屏可用 323px；
+   窄屏由 flex-wrap 自动折行 */
 .t-actions {
   display: flex; align-items: center; flex-wrap: wrap;
-  gap: 16rpx; margin-top: 20rpx; padding-top: 20rpx;
+  gap: 12rpx; margin-top: 20rpx; padding-top: 20rpx;
   border-top: 1rpx solid var(--border);
 }
 .t-switchbox {
@@ -214,7 +287,7 @@ export default {
   margin-right: -10rpx;
 }
 .t-btn {
-  font-size: 22rpx; padding: 8rpx 24rpx; border-radius: 26rpx;
+  font-size: 22rpx; padding: 8rpx 20rpx; border-radius: 26rpx;
   background: var(--primary-soft); color: var(--primary-strong);
 }
 .t-btn.warn { background: var(--warning-bg); color: var(--warning); }
@@ -241,12 +314,24 @@ export default {
   width: 640rpx; max-height: 70vh; background: var(--card); border-radius: 24rpx;
   padding: 32rpx; display: flex; flex-direction: column;
 }
-.log-title { font-size: 30rpx; font-weight: 600; text-align: center; }
+/* 弹层标题栏：列表态为「标题 + ✕」；详情态左侧出现「返回」 */
+.log-head { display: flex; align-items: center; min-height: 72rpx; }
+.log-back { font-size: 26rpx; color: var(--primary-strong); padding-right: 20rpx; }
+.log-title { flex: 1; font-size: 30rpx; font-weight: 600; text-align: center; }
+.log-x {
+  width: 60rpx; height: 72rpx; line-height: 72rpx; text-align: center;
+  font-size: 28rpx; color: var(--text-muted);
+}
+/* 详情态时标题左移，避免右侧 ✕ 把标题挤偏 */
+.log-back + .log-title { text-align: left; }
 .log-hint { font-size: 20rpx; color: var(--text-muted); text-align: center; margin: 6rpx 0 20rpx; }
 .log-scroll { max-height: 50vh; }
 .log-item { padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.log-more { font-size: 28rpx; color: var(--text-muted); margin-left: 12rpx; }
 .log-line { display: flex; justify-content: space-between; align-items: center; font-size: 24rpx; }
-.log-date { color: var(--text-sub); }
+/* 日期占满左侧，状态/金额/箭头统一贴右（4 个子项用 space-between 会被摊开） */
+.log-date { color: var(--text-sub); flex: 1; }
+.log-status { margin-right: 24rpx; }
 .log-status.ok { color: var(--income); }
 .log-status.fail { color: var(--expense); }
 .log-amount { color: var(--text-main); font-weight: 600; }
@@ -259,4 +344,18 @@ export default {
   margin-top: 24rpx; text-align: center; padding: 18rpx;
   background: var(--surface); border-radius: 36rpx; font-size: 26rpx; color: var(--text-sub);
 }
+
+/* ===== 执行详情态 ===== */
+.d-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22rpx 0; border-bottom: 1rpx solid var(--border);
+  font-size: 26rpx;
+}
+.d-k { color: var(--text-sub); flex-shrink: 0; margin-right: 24rpx; }
+.d-v { color: var(--text-main); text-align: right; word-break: break-all; }
+.d-v.ok { color: var(--income); font-weight: 600; }
+.d-v.fail { color: var(--expense); font-weight: 600; }
+.d-block { display: flex; flex-direction: column; padding: 22rpx 0; }
+.d-fail { font-size: 24rpx; color: var(--expense); line-height: 1.6; margin-top: 12rpx; word-break: break-all; }
+.d-retry { align-self: flex-start; margin-top: 20rpx; }
 </style>

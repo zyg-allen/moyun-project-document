@@ -323,10 +323,10 @@ export default {
     promptLogin() {
       uni.showModal({
         title: '提示',
-        content: '登录后才能选择账户和负债，请先在「我的」页面登录',
+        content: '登录后才能选择账户和负债',
         confirmText: '去登录',
         success: (r) => {
-          if (r.confirm) uni.switchTab({ url: '/pages/mine/index' });
+          if (r.confirm) uni.navigateTo({ url: '/pages/mine/login/index' });
         }
       });
     },
@@ -339,8 +339,9 @@ export default {
         this.loadCategories();
       } catch (e) {
         // 失败标记：否则 picker 提示"暂无账户"，用户会真去建重复账户
+        // （401 已由 utils/request.js 的 handleUnauthorized 统一登出并跳登录页，
+        //   这里不再重复弹窗，否则会叠在登录页之上）
         this.optionsError = true;
-        if (e && e.code === 401) this.promptLogin();
       }
     },
     async loadCategories() {

@@ -23,6 +23,44 @@ if (!rawBaseUrl) {
 }
 export const BASE_URL = rawBaseUrl;
 
+/** 需要登录态的页面：已在其上时不再重复跳转，避免来回叠加 */
+const AUTH_PAGES = [
+  'pages/mine/login/index',
+  'pages/mine/register/index',
+  'pages/mine/forgot-password/index'
+];
+
+/**
+ * 401 统一处理：登出 → 提示 → 跳登录页
+ *
+ * 本文件顶部注释一直写着「401 跳转登录页」，但此前只做了 logout + toast：
+ * 用户被登出后仍停在原页面，页面数据已失效却**没有任何去登录的路径**
+ * （只有记账页自己弹了个引导去「我的」的弹窗）。
+ *
+ * 去重的必要性：一个页面常并发发起多个请求（Promise.all），令牌过期时会
+ * 同时收到多个 401；逐个处理会连弹多个 toast、连续 navigateTo 多个登录页，
+ * 把页面堆栈搞乱。故用 authRedirecting 锁住，跳转完成后释放。
+ */
+let authRedirecting = false;
+const handleUnauthorized = (userStore) => {
+  userStore.logout();
+  if (authRedirecting) return;
+  if (typeof getCurrentPages === 'function') {
+    const stack = getCurrentPages();
+    const current = stack.length ? stack[stack.length - 1].route : '';
+    if (AUTH_PAGES.includes(current)) return;
+  }
+  authRedirecting = true;
+  uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
+  // 稍等再跳，让 toast 有机会被看到（跳转会立即关掉 toast）
+  setTimeout(() => {
+    uni.navigateTo({
+      url: '/pages/mine/login/index',
+      complete: () => { authRedirecting = false; }
+    });
+  }, 600);
+};
+
 const request = (options) => {
   return new Promise((resolve, reject) => {
     const userStore = useUserStore();
@@ -37,8 +75,7 @@ const request = (options) => {
       header,
       success: (res) => {
         if (res.statusCode === 401) {
-          userStore.logout();
-          uni.showToast({ title: '请先登录', icon: 'none' });
+          handleUnauthorized(userStore);
           const err = new Error('未登录'); err.code = 401;
           reject(err);
           return;
@@ -52,8 +89,7 @@ const request = (options) => {
         // AjaxResult: { code, msg, data }，code=200 成功
         // 注意：未登录/登录过期时后端以 HTTP 200 + code:401 返回，需在此统一处理
         if (body.code === 401) {
-          userStore.logout();
-          uni.showToast({ title: '请先登录', icon: 'none' });
+          handleUnauthorized(userStore);
           const err = new Error('未登录'); err.code = 401;
           reject(err);
           return;

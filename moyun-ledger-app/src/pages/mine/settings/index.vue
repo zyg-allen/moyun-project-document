@@ -69,6 +69,12 @@
       <view class="mail-edit" v-else>
         <view class="mail-btn" @tap="startEditMail">{{ email ? '修改邮箱' : '绑定邮箱' }}</view>
       </view>
+
+      <!-- 服务状态 / 授权码帮助：URL 抽在 utils/appInfo.js，为空则不渲染，避免死链 -->
+      <view class="mail-help" v-if="mailHelpUrl" @tap="openMailHelp">
+        <text>如何获取 / 更新邮箱授权码？</text>
+        <text class="mail-help-arrow">›</text>
+      </view>
     </view>
 
     <view class="card">
@@ -82,7 +88,7 @@
 <script>
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
-import { APP_VERSION_TEXT } from '@/utils/appInfo';
+import { APP_VERSION_TEXT, MAIL_HELP_URL } from '@/utils/appInfo';
 import { getUserInfo, updateProfile } from '@/api/ledger';
 
 export default {
@@ -102,7 +108,9 @@ export default {
       email: '',
       mailNotify: false,
       editingMail: false,
-      emailInput: ''
+      emailInput: '',
+      // 邮件帮助外链（utils/appInfo.js 单一来源；为空则不渲染入口）
+      mailHelpUrl: MAIL_HELP_URL
     };
   },
   onShow() {
@@ -144,6 +152,25 @@ export default {
         this.mailNotify = on;
         uni.showToast({ title: on ? '已开启邮件提醒' : '已关闭邮件提醒', icon: 'none' });
       } catch (e) { /* 拦截器已提示 */ }
+    },
+    /**
+     * 打开邮件帮助外链（授权码获取 / 服务状态）。
+     *
+     * 平台分流与 mine/index.vue 的链接型入口**保持一致**，
+     * 这样后续接入 App / 小程序无需改动这里：
+     *   H5         → window.open（web-view 在 H5 是 iframe，跨域受限，直开外链更可靠）
+     *   App/小程序  → pages/webview/index?src=...
+     */
+    openMailHelp() {
+      const url = this.mailHelpUrl;
+      if (!url) return;
+      // #ifdef H5
+      window.open(url, '_blank');
+      return;
+      // #endif
+      // #ifndef H5
+      uni.navigateTo({ url: '/pages/webview/index?src=' + encodeURIComponent(url) });
+      // #endif
     },
     startEditMail() {
       this.emailInput = this.email;
@@ -236,6 +263,13 @@ export default {
   background: var(--primary); color: var(--on-primary);
 }
 .mail-btn.ghost { background: var(--surface); color: var(--text-sub); }
+/* 邮件帮助外链入口 */
+.mail-help {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 20rpx; margin-top: 20rpx; border-top: 1rpx solid var(--border);
+  font-size: 24rpx; color: var(--primary-text);
+}
+.mail-help-arrow { color: var(--text-muted); font-size: 28rpx; }
 
 /* ---------- 外观模式选择（日间/暗色/护眼） ---------- */
 .appearance-grid { display: flex; gap: 24rpx; margin-top: 24rpx; }

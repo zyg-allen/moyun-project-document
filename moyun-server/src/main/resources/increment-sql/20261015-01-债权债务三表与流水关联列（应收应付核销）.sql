@@ -1,4 +1,20 @@
 -- ============================================================
+-- 增量脚本（存量库执行件）
+--
+-- 对应 init-sql 的目标态：moyun-db-ddl.sql 中已含这三张表
+-- （见 README「init-sql 是目标态，increment-sql 是存量库执行件，两者必须同步修改」）
+--
+-- ⚠️ 与 init 版的关键差异：
+--   init 版为「重建目标态」会 DROP TABLE IF EXISTS；
+--   本文件面向**已有数据的线上库**，一律 CREATE TABLE IF NOT EXISTS，
+--   绝不 DROP —— 否则一次升级就会抹掉全部应收/应付/核销记录。
+--
+-- ⚠️ 末尾两条 ALTER 非幂等：MySQL 8.0 不支持 ADD COLUMN IF NOT EXISTS。
+--   存量库执行前请先确认列不存在：
+--     SHOW COLUMNS FROM ledger_transaction LIKE 'receivable_id';
+--   已存在则跳过该 ALTER（报 1060 Duplicate column name 即表示已加过）。
+-- ============================================================
+-- ============================================================
 -- 记账-债权债务（应收/应付）与核销流水
 -- 新增时间：2026-10-15
 --
@@ -24,8 +40,7 @@
 -- -----------------------------------------------------------
 -- 1. 应收款（别人欠我的钱）
 -- -----------------------------------------------------------
-drop table if exists `ledger_receivable`;
-CREATE TABLE `ledger_receivable` (
+CREATE TABLE IF NOT EXISTS `ledger_receivable` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '应收款ID',
     `user_id` bigint NOT NULL COMMENT '门户用户ID',
     `counterparty` varchar(100) NOT NULL COMMENT '对方名称（欠款人）',
@@ -52,8 +67,7 @@ CREATE TABLE `ledger_receivable` (
 -- -----------------------------------------------------------
 -- 2. 应付款（我欠别人的钱）—— 与应收款对称
 -- -----------------------------------------------------------
-drop table if exists `ledger_payable`;
-CREATE TABLE `ledger_payable` (
+CREATE TABLE IF NOT EXISTS `ledger_payable` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '应付款ID',
     `user_id` bigint NOT NULL COMMENT '门户用户ID',
     `counterparty` varchar(100) NOT NULL COMMENT '对方名称（债权人）',
@@ -85,8 +99,7 @@ CREATE TABLE `ledger_payable` (
 --   ② 可撤销——删掉一条核销记录就能回滚 paid_amount，不必猜原始值；
 --   ③ 与库存/资金流水对账时，它是唯一的中间凭据。
 -- -----------------------------------------------------------
-drop table if exists `ledger_debt_repayment`;
-CREATE TABLE `ledger_debt_repayment` (
+CREATE TABLE IF NOT EXISTS `ledger_debt_repayment` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '核销流水ID',
     `user_id` bigint NOT NULL COMMENT '门户用户ID（冗余，便于按用户直接查全部核销）',
     `debt_type` varchar(20) NOT NULL COMMENT '债务类型：receivable=应收 payable=应付',

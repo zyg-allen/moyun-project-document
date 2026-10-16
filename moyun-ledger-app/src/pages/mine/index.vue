@@ -107,6 +107,7 @@ export default {
         { key: 'setting', icon: '⚙️', label: '记账设置', color: '' },
         { key: 'savings', icon: '🏦', label: '存钱计划', color: '' },
         { key: 'schedule', icon: '⏰', label: '定时记账', color: '' },
+        { key: 'debt', icon: '🤝', label: '债权债务', color: '' },
         { key: 'feedback', icon: '💬', label: '意见反馈', color: '' },
         { key: 'personalize', icon: '🎨', label: '个性化', color: '#e57373', badge: 'NEW' },
         { key: 'catIcon', icon: '🎭', label: '分类图标', color: '', badge: 'NEW' }
@@ -205,6 +206,7 @@ export default {
         setting: '/pages/mine/settings/index',
         savings: '/pages/mine/savings/index',
         schedule: '/pages/mine/schedule/index',
+        debt: '/pages/mine/debts/index',
         memo: '/pages/mine/memo/index',
         feedback: '/pages/mine/feedback/index'
       };

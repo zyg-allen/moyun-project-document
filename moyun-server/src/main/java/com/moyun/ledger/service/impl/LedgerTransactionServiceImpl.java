@@ -376,10 +376,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 throw new IllegalArgumentException("转账两个账户不能相同");
             }
         }
-        //|| LedgerTransaction.TYPE_BORROW.equals(type) 借款时，不必校验负债账户，此时，如果不选，默认生成新的负债记录和流水即可
-        if (LedgerTransaction.TYPE_REPAYMENT.equals(type) ) {
-            if (dto.getLiabilityId() == null) {
-                throw new IllegalArgumentException("还款/借款必须指定负债账户");
+        // 还款支持两种债务载体，二者其一即可：
+        //   ① liabilityId —— 既有的「负债账户」模型（房贷/车贷/信用卡等）；
+        //   ② payableId   —— 新的「应付款」模型（欠供应商/个人的钱，见 ledger_payable）。
+        // 增量兼容而非替换：老流程传 liabilityId 时行为完全不变。
+        if (LedgerTransaction.TYPE_REPAYMENT.equals(type)) {
+            if (dto.getLiabilityId() == null && dto.getPayableId() == null) {
+                throw new IllegalArgumentException("还款必须指定负债账户或应付款");
             }
         }
         if (LedgerTransaction.TYPE_INCOME.equals(type) || LedgerTransaction.TYPE_EXPENSE.equals(type)

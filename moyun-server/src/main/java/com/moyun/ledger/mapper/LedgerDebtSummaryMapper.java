@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Select;
 import java.math.BigDecimal;
 
 /**
- * 债务汇总查询（只读聚合）。
+ * 债务汇总查询（只读聚合，指向债权债务统一表 ledger_obligation）。
  *
  * <p>为什么单独一个 Mapper 而不复用实体 Mapper：这里要的是 `SUM(total - paid)` 的
  * 库内聚合，走实体查询会把全部债务行捞到内存再累加 —— 数据量上来后明显吃亏。</p>
@@ -18,12 +18,12 @@ import java.math.BigDecimal;
 public interface LedgerDebtSummaryMapper {
 
     /** 应收未结余额合计（别人还欠我的） */
-    @Select("SELECT IFNULL(SUM(total_amount - paid_amount), 0) FROM ledger_receivable "
-            + "WHERE user_id = #{userId} AND status = 1 AND settle_status <> 'settled'")
+    @Select("SELECT IFNULL(SUM(total_amount - paid_amount), 0) FROM ledger_obligation "
+            + "WHERE user_id = #{userId} AND type = 'receivable' AND status = 1 AND settle_status <> 'settled'")
     BigDecimal sumReceivableOutstanding(@Param("userId") Long userId);
 
     /** 应付未结余额合计（我还欠别人的） */
-    @Select("SELECT IFNULL(SUM(total_amount - paid_amount), 0) FROM ledger_payable "
-            + "WHERE user_id = #{userId} AND status = 1 AND settle_status <> 'settled'")
+    @Select("SELECT IFNULL(SUM(total_amount - paid_amount), 0) FROM ledger_obligation "
+            + "WHERE user_id = #{userId} AND type = 'payable' AND status = 1 AND settle_status <> 'settled'")
     BigDecimal sumPayableOutstanding(@Param("userId") Long userId);
 }

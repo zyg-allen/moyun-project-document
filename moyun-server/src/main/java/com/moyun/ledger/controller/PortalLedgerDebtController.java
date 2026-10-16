@@ -1,8 +1,8 @@
 package com.moyun.ledger.controller;
 
 import com.moyun.core.base.AjaxResult;
-import com.moyun.ledger.domain.entity.LedgerPayable;
-import com.moyun.ledger.domain.entity.LedgerReceivable;
+
+import com.moyun.ledger.domain.entity.LedgerObligation;
 import com.moyun.ledger.service.ILedgerDebtService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,13 +50,13 @@ public class PortalLedgerDebtController {
 
     @Operation(summary = "新增应收款")
     @PostMapping("/receivables")
-    public AjaxResult createReceivable(@RequestBody LedgerReceivable bo) {
+    public AjaxResult createReceivable(@RequestBody LedgerObligation bo) {
         return AjaxResult.success(debtService.createReceivable(PortalSecurityUtils.getUserId(), bo));
     }
 
     @Operation(summary = "修改应收款")
     @PutMapping("/receivables/{id}")
-    public AjaxResult updateReceivable(@PathVariable("id") Long id, @RequestBody LedgerReceivable bo) {
+    public AjaxResult updateReceivable(@PathVariable("id") Long id, @RequestBody LedgerObligation bo) {
         debtService.updateReceivable(PortalSecurityUtils.getUserId(), id, bo);
         return AjaxResult.success();
     }
@@ -88,13 +88,13 @@ public class PortalLedgerDebtController {
 
     @Operation(summary = "新增应付款")
     @PostMapping("/payables")
-    public AjaxResult createPayable(@RequestBody LedgerPayable bo) {
+    public AjaxResult createPayable(@RequestBody LedgerObligation bo) {
         return AjaxResult.success(debtService.createPayable(PortalSecurityUtils.getUserId(), bo));
     }
 
     @Operation(summary = "修改应付款")
     @PutMapping("/payables/{id}")
-    public AjaxResult updatePayable(@PathVariable("id") Long id, @RequestBody LedgerPayable bo) {
+    public AjaxResult updatePayable(@PathVariable("id") Long id, @RequestBody LedgerObligation bo) {
         debtService.updatePayable(PortalSecurityUtils.getUserId(), id, bo);
         return AjaxResult.success();
     }

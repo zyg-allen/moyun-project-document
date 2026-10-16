@@ -1,15 +1,14 @@
 package com.moyun.ledger.service;
 
 import com.moyun.ledger.domain.entity.LedgerDebtRepayment;
-import com.moyun.ledger.domain.entity.LedgerPayable;
-import com.moyun.ledger.domain.entity.LedgerReceivable;
+import com.moyun.ledger.domain.entity.LedgerObligation;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 
 /**
- * 债权债务服务：应收/应付的增删改查 + 核销。
+ * 债权债务服务：应收/应付统一走 ledger_obligation 一张表，type 区分。
  *
  * <p>设计要点：核销**复用** {@link ILedgerTransactionService#createTransaction} 生成资金流水，
  * 不另写一套余额变动逻辑 —— 否则资产联动口径会分叉成两份，早晚对不上账。</p>
@@ -23,11 +22,11 @@ public interface ILedgerDebtService {
     Map<String, Object> listReceivables(Long userId, String keyword, String settleStatus,
                                        Integer pageNum, Integer pageSize);
 
-    LedgerReceivable getReceivable(Long userId, Long id);
+    LedgerObligation getReceivable(Long userId, Long id);
 
-    Long createReceivable(Long userId, LedgerReceivable bo);
+    Long createReceivable(Long userId, LedgerObligation bo);
 
-    void updateReceivable(Long userId, Long id, LedgerReceivable bo);
+    void updateReceivable(Long userId, Long id, LedgerObligation bo);
 
     void deleteReceivable(Long userId, Long id);
 
@@ -36,11 +35,11 @@ public interface ILedgerDebtService {
     Map<String, Object> listPayables(Long userId, String keyword, String settleStatus,
                                     Integer pageNum, Integer pageSize);
 
-    LedgerPayable getPayable(Long userId, Long id);
+    LedgerObligation getPayable(Long userId, Long id);
 
-    Long createPayable(Long userId, LedgerPayable bo);
+    Long createPayable(Long userId, LedgerObligation bo);
 
-    void updatePayable(Long userId, Long id, LedgerPayable bo);
+    void updatePayable(Long userId, Long id, LedgerObligation bo);
 
     void deletePayable(Long userId, Long id);
 

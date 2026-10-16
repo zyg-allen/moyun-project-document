@@ -40,56 +40,30 @@
 -- -----------------------------------------------------------
 -- 1. 应收款（别人欠我的钱）
 -- -----------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `ledger_receivable` (
-    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '应收款ID',
-    `user_id` bigint NOT NULL COMMENT '门户用户ID',
-    `counterparty` varchar(100) NOT NULL COMMENT '对方名称（欠款人）',
-    `counterparty_id` bigint DEFAULT NULL COMMENT '对方用户ID（对方也是平台用户时填写）',
-    `warehouse_id` bigint DEFAULT NULL COMMENT '归属仓库ID（库存模块上线后使用；个人记账为 NULL）',
-    `source_type` varchar(30) NOT NULL DEFAULT 'manual' COMMENT '来源：manual=手工, sale_credit=销售赊账, lend=借出',
-    `source_id` bigint DEFAULT NULL COMMENT '来源单据ID（如销售单ID）',
-    `total_amount` decimal(18,2) NOT NULL COMMENT '应收总额（元）',
-    `paid_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '已收金额（元）',
-    `settle_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '结算状态：pending=未收 partial=部分收 settled=已结清',
-    `due_date` date DEFAULT NULL COMMENT '约定收款日期',
+CREATE TABLE IF NOT EXISTS `ledger_obligation` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '往来ID',
+    `user_id` bigint NOT NULL COMMENT '归属用户ID（主体）',
+    `type` varchar(20) NOT NULL DEFAULT 'receivable' COMMENT '类型：receivable=应收 payable=应付（后期可加 investment）',
+    `counterparty` varchar(100) NOT NULL COMMENT '对方名称',
+    `counterparty_id` bigint DEFAULT NULL COMMENT '对方用户ID（对方也是本系统用户时）',
+    `warehouse_id` bigint DEFAULT NULL COMMENT '关联仓库ID（赊销/赊购产生时）',
+    `source_type` varchar(30) NOT NULL DEFAULT 'manual' COMMENT '来源：manual=手工 lend=借出 sale_credit=赊销 purchase_credit=赊购 borrow=借款',
+    `source_id` bigint DEFAULT NULL COMMENT '来源单据ID',
+    `total_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '总额（元）',
+    `paid_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '已结金额（元）；未结余额 = total - paid，不落列',
+    `settle_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '结算状态：pending=未结 partial=部分结 settled=已结清',
+    `due_date` date DEFAULT NULL COMMENT '到期日',
     `remark` varchar(500) DEFAULT NULL COMMENT '备注',
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '行状态：1=正常 0=已删除',
     `create_by` varchar(64) DEFAULT NULL,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    KEY `idx_user_status` (`user_id`,`status`),
-    KEY `idx_settle_status` (`user_id`,`settle_status`,`status`),
+    KEY `idx_user_type` (`user_id`,`type`,`status`),
+    KEY `idx_settle` (`settle_status`),
     KEY `idx_source` (`source_type`,`source_id`),
-    KEY `idx_due_date` (`user_id`,`due_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-应收款（别人欠我的）';
-
--- -----------------------------------------------------------
--- 2. 应付款（我欠别人的钱）—— 与应收款对称
--- -----------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `ledger_payable` (
-    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '应付款ID',
-    `user_id` bigint NOT NULL COMMENT '门户用户ID',
-    `counterparty` varchar(100) NOT NULL COMMENT '对方名称（债权人）',
-    `counterparty_id` bigint DEFAULT NULL COMMENT '对方用户ID',
-    `warehouse_id` bigint DEFAULT NULL COMMENT '归属仓库ID',
-    `source_type` varchar(30) NOT NULL DEFAULT 'manual' COMMENT '来源：manual=手工, purchase_credit=采购赊账, borrow=借款',
-    `source_id` bigint DEFAULT NULL COMMENT '来源单据ID（如采购单ID）',
-    `total_amount` decimal(18,2) NOT NULL COMMENT '应付总额（元）',
-    `paid_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '已还金额（元）',
-    `settle_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '结算状态：pending=未还 partial=部分还 settled=已结清',
-    `due_date` date DEFAULT NULL COMMENT '约定还款日期',
-    `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-    `status` tinyint NOT NULL DEFAULT 1 COMMENT '行状态：1=正常 0=已删除',
-    `create_by` varchar(64) DEFAULT NULL,
-    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_user_status` (`user_id`,`status`),
-    KEY `idx_settle_status` (`user_id`,`settle_status`,`status`),
-    KEY `idx_source` (`source_type`,`source_id`),
-    KEY `idx_due_date` (`user_id`,`due_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-应付款（我欠别人的）';
+    KEY `idx_due_date` (`due_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-债权债务统一表（应收/应付，一张表+type）';
 
 -- -----------------------------------------------------------
 -- 3. 债务核销流水（每一次收款/还款都留痕）

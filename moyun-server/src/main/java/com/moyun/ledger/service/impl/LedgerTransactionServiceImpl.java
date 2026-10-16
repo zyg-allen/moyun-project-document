@@ -8,14 +8,14 @@ import com.moyun.ledger.domain.dto.TransactionCreateDTO;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerBudget;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
-import com.moyun.ledger.domain.entity.LedgerReceivable;
+import com.moyun.ledger.domain.entity.LedgerObligation;
 import com.moyun.ledger.domain.entity.LedgerNetWorthSnapshot;
 import com.moyun.ledger.domain.entity.LedgerTransaction;
 import com.moyun.ledger.domain.query.TransactionQuery;
 import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
 import com.moyun.ledger.mapper.LedgerLiabilityAccountMapper;
 import com.moyun.ledger.mapper.LedgerNetWorthSnapshotMapper;
-import com.moyun.ledger.mapper.LedgerReceivableMapper;
+import com.moyun.ledger.mapper.LedgerObligationMapper;
 import com.moyun.ledger.mapper.LedgerTransactionMapper;
 import com.moyun.ledger.service.ILedgerTransactionService;
 import org.slf4j.Logger;
@@ -71,7 +71,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     private com.moyun.ledger.mapper.LedgerBudgetMapper budgetMapper;
 
     /** 借出联动：自动生成应收款 */
-    private LedgerReceivableMapper receivableMapper;
+    private LedgerObligationMapper obligationMapper;
 
     @Autowired
     private com.moyun.core.config.redis.RedisCache redisCache;
@@ -693,16 +693,17 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             cp = (dto.getDescription() != null && !dto.getDescription().isBlank())
                     ? dto.getDescription() : "借出";
         }
-        LedgerReceivable r = new LedgerReceivable();
+        LedgerObligation r = new LedgerObligation();
         r.setUserId(txn.getUserId());
         r.setCounterparty(cp);
-        r.setSourceType(LedgerReceivable.SOURCE_LEND);
+        r.setType(LedgerObligation.TYPE_RECEIVABLE);
+        r.setSourceType(LedgerObligation.SOURCE_LEND);
         r.setSourceId(txn.getId());
         r.setTotalAmount(txn.getAmount());
         r.setPaidAmount(java.math.BigDecimal.ZERO);
-        r.setSettleStatus(LedgerReceivable.SETTLE_PENDING);
-        r.setStatus(LedgerReceivable.STATUS_NORMAL);
-        receivableMapper.insert(r);
+        r.setSettleStatus(LedgerObligation.SETTLE_PENDING);
+        r.setStatus(LedgerObligation.STATUS_NORMAL);
+        obligationMapper.insert(r);
         // 回填关联，使「流水 → 应收」可双向追溯
         txn.setReceivableId(r.getId());
         updateById(txn);

@@ -222,9 +222,11 @@ const LIAB_TYPES = [
 export default {
   mixins: [keyboardAware, submitLock],
   components: { KeyboardAwareSheet },  // 键盘安全弹层
-  return {
+  data() {
+    return {
       // 应收款（借出）：只取未结清的，已结清的早已变成现金，再列会重复计算
-      receivables: [],activeTab: 'asset',
+      receivables: [],
+      activeTab: 'asset',
       // 资产
       accounts: [],
       showArchived: false,
@@ -314,8 +316,8 @@ export default {
         const res = await listAssets(true);
         this.accounts = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
-    }
-      this.loadReceivables();,
+      this.loadReceivables();
+    },
     addAsset() {
       this.assetForm = { id: null, name: '', type: 'cash', initialBalance: '', includeInTotal: 1 };
       this.assetEditing = true;

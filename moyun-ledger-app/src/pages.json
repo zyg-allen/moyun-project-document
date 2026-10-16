@@ -45,8 +45,9 @@
       { "pagePath": "pages/dashboard/index", "text": "总览" },
       { "pagePath": "pages/portfolio/index", "text": "资产负债" },
       { "pagePath": "pages/record/index", "text": "记一笔" },
+      { "pagePath": "pages/warehouse/index", "text": "仓库" },
       { "pagePath": "pages/analysis/index", "text": "分析" },
-      { "pagePath": "pages/mine/index", "text": "更多" }
+      { "pagePath": "pages/mine/index", "text": "我的" }
     ]
   }
 }

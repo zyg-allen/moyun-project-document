@@ -19,7 +19,7 @@
         <text class="link" @tap="openProductSheet()">＋新增商品</text>
       </view>
       <view v-if="!products.length" class="empty">还没有商品，点「＋新增商品」添加</view>
-      <view v-for="p in products" :key="p.id" class="row">
+      <view v-for="p in products" :key="p.id" class="row" @tap="openStock(p)">
         <view class="flex-1 min-w-0">
           <view class="row-name">{{ p.name }}</view>
           <view class="row-sub">{{ p.category || '未分类' }} · {{ p.unit || '个' }}</view>
@@ -66,13 +66,40 @@
         </view>
       </view>
     </view>
+
+    <!-- 出入库弹层 -->
+    <view class="mask" v-if="stockTarget" @tap="stockTarget = null">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">出入库 · {{ stockTarget.name }}</view>
+        <view class="sheet-sub">当前库存 {{ stockTarget.stockQuantity || 0 }}</view>
+        <view class="f-row">
+          <text class="f-label">方向</text>
+          <view class="seg">
+            <view class="seg-item" :class="{ on: stockMode === 'in' }" @tap="stockMode = 'in'">入库 +</view>
+            <view class="seg-item" :class="{ on: stockMode === 'out' }" @tap="stockMode = 'out'">出库 −</view>
+          </view>
+        </view>
+        <view class="f-row">
+          <text class="f-label">数量</text>
+          <input class="f-input" type="number" v-model="stockQty" placeholder="0" />
+        </view>
+        <view class="f-row">
+          <text class="f-label">备注</text>
+          <input class="f-input" v-model="stockRemark" placeholder="选填" />
+        </view>
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="stockTarget = null">取消</view>
+          <view class="btn" @tap="saveStock">确认</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { listWarehouses, createWarehouse, listProducts, createProduct } from '@/api/ledger';
+import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut } from '@/api/ledger';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
@@ -91,7 +118,11 @@ export default {
       productSheet: false,
       whForm: { name: '', type: 'personal' },
       whTypeIndex: 0,
-      pForm: { name: '', category: '', costPrice: '', sellPrice: '' }
+      pForm: { name: '', category: '', costPrice: '', sellPrice: '' },
+      stockTarget: null,
+      stockMode: 'in',
+      stockQty: '',
+      stockRemark: ''
     };
   },
   computed: {
@@ -129,6 +160,28 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     openWhSheet() { this.whForm = { name: '', type: 'personal' }; this.whTypeIndex = 0; this.whSheet = true; },
+    openStock(p) {
+      this.stockTarget = p;
+      this.stockMode = 'in';
+      this.stockQty = '';
+      this.stockRemark = '';
+    },
+    async saveStock() {
+      const qty = parseInt(this.stockQty, 10);
+      if (!qty || qty <= 0) { uni.showToast({ title: '请输入数量', icon: 'none' }); return; }
+      try {
+        const fn = this.stockMode === 'in' ? stockIn : stockOut;
+        await fn({
+          warehouseId: this.currentId,
+          productId: this.stockTarget.id,
+          quantity: qty,
+          remark: this.stockRemark || undefined
+        });
+        uni.showToast({ title: this.stockMode === 'in' ? '已入库' : '已出库', icon: 'success' });
+        this.stockTarget = null;
+        this.loadProducts();
+      } catch (e) { /* 拦截器已提示 */ }
+    },
     openProductSheet() { this.pForm = { name: '', category: '', costPrice: '', sellPrice: '' }; this.productSheet = true; },
     onWhTypeChange(e) { this.whTypeIndex = e.detail.value; this.whForm.type = WH_TYPES[e.detail.value][0]; },
     async saveWh() {
@@ -181,6 +234,10 @@ export default {
 .mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.45); z-index: 999; display: flex; align-items: center; justify-content: center; }
 .sheet { width: 620rpx; background: var(--card); border-radius: 24rpx; padding: 32rpx; }
 .sheet-title { font-size: 30rpx; font-weight: 600; text-align: center; color: var(--text-main); margin-bottom: 16rpx; }
+.sheet-sub { font-size: 24rpx; color: var(--text-sub); text-align: center; margin-bottom: 12rpx; }
+.seg { display: flex; background: var(--surface); border-radius: 12rpx; overflow: hidden; }
+.seg-item { flex: 1; text-align: center; padding: 14rpx 0; font-size: 26rpx; color: var(--text-sub); }
+.seg-item.on { background: var(--primary-soft); color: var(--primary-text); font-weight: 600; }
 .f-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid var(--border); }
 .f-label { width: 150rpx; font-size: 26rpx; color: var(--text-main); flex-shrink: 0; }
 .f-input { flex: 1; min-width: 0; font-size: 26rpx; text-align: right; color: var(--text-main); }

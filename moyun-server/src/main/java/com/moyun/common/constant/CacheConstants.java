@@ -28,6 +28,11 @@ public class CacheConstants {
     public static final String SYS_DICT_KEY = "sys_dict:";
 
     /**
+     * 树形字典 cache key
+     */
+    public static final String SYS_DICT_TREE_KEY = "sys_dict_tree:";
+
+    /**
      * 防重提交 redis key
      */
     public static final String REPEAT_SUBMIT_KEY = "repeat_submit:";

@@ -63,6 +63,22 @@ public interface SysDictDataMapper {
     public int countDictDataByType(String dictType);
 
     /**
+     * 查询某父节点下的字典数据数量（树形字典删除前校验子节点）
+     *
+     * @param parentDictId 父字典编码
+     * @return 子节点数量
+     */
+    public int countDictDataByParent(Long parentDictId);
+
+    /**
+     * 查询某节点下启用状态（status='0'）的子孙节点数量（停用父节点前校验）
+     *
+     * @param dictCode 字典编码
+     * @return 启用中的子孙节点数量
+     */
+    public int countEnabledDescendants(@Param("dictCode") Long dictCode);
+
+    /**
      * 通过字典ID删除字典数据信息
      *
      * @param dictCode 字典数据ID

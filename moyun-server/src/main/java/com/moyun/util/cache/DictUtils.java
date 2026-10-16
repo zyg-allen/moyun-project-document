@@ -150,14 +150,41 @@ public class DictUtils
         SpringUtils.getBean(RedisCache.class).deleteObject(getCacheKey(key));
     }
 
+    public static void setDictTreeCache(String dictType, List<SysDictData> tree)
+    {
+        SpringUtils.getBean(RedisCache.class).setCacheObject(getDictTreeCacheKey(dictType), tree);
+    }
+
+    public static List<SysDictData> getDictTreeCache(String dictType)
+    {
+        return SpringUtils.getBean(RedisCache.class).getCacheObject(getDictTreeCacheKey(dictType));
+    }
+
+    public static void removeDictTreeCache(String dictType)
+    {
+        SpringUtils.getBean(RedisCache.class).deleteObject(getDictTreeCacheKey(dictType));
+    }
+
     public static void clearDictCache()
     {
-        Collection<String> keys = SpringUtils.getBean(RedisCache.class).keys(CacheConstants.SYS_DICT_KEY + "*");
-        SpringUtils.getBean(RedisCache.class).deleteObject(keys);
+        RedisCache redisCache = SpringUtils.getBean(RedisCache.class);
+        Collection<String> keys = redisCache.keys(CacheConstants.SYS_DICT_KEY + "*");
+        if (keys != null && !keys.isEmpty()) {
+            redisCache.deleteObject(keys);
+        }
+        Collection<String> treeKeys = redisCache.keys(CacheConstants.SYS_DICT_TREE_KEY + "*");
+        if (treeKeys != null && !treeKeys.isEmpty()) {
+            redisCache.deleteObject(treeKeys);
+        }
     }
 
     public static String getCacheKey(String configKey)
     {
         return CacheConstants.SYS_DICT_KEY + configKey;
+    }
+
+    public static String getDictTreeCacheKey(String dictType)
+    {
+        return CacheConstants.SYS_DICT_TREE_KEY + dictType;
     }
 }

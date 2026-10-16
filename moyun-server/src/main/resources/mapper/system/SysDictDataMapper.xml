@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
@@ -14,6 +14,9 @@
         <result property="listClass" column="list_class"/>
         <result property="isDefault" column="is_default"/>
         <result property="status" column="status"/>
+        <result property="platformCode" column="platform_code"/>
+        <result property="parentDictId" column="parent_dict_id"/>
+        <result property="isFirstLevel" column="is_first_level"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -30,6 +33,9 @@
                list_class,
                is_default,
                status,
+               platform_code,
+               parent_dict_id,
+               is_first_level,
                create_by,
                create_time,
                remark
@@ -44,6 +50,9 @@
             </if>
             <if test="dictData.dictLabel != null and dictData.dictLabel != ''">
                 AND dict_label like concat('%', #{dictData.dictLabel}, '%')
+            </if>
+            <if test="dictData.platformCode != null and dictData.platformCode != ''">
+                AND platform_code = #{dictData.platformCode}
             </if>
             <if test="dictData.status != null and dictData.status != ''">
                 AND status = #{dictData.status}
@@ -61,6 +70,9 @@
             </if>
             <if test="dictLabel != null and dictLabel != ''">
                 AND dict_label like concat('%', #{dictLabel}, '%')
+            </if>
+            <if test="platformCode != null and platformCode != ''">
+                AND platform_code = #{platformCode}
             </if>
             <if test="status != null and status != ''">
                 AND status = #{status}
@@ -92,6 +104,28 @@
         where dict_type = #{dictType}
     </select>
 
+    <select id="countDictDataByParent" resultType="Integer">
+        select count(1)
+        from sys_dict_data
+        where parent_dict_id = #{parentDictId}
+    </select>
+
+    <select id="countEnabledDescendants" resultType="Integer">
+        WITH RECURSIVE cte AS (
+            SELECT dict_code
+            FROM sys_dict_data
+            WHERE parent_dict_id = #{dictCode}
+            UNION ALL
+            SELECT d.dict_code
+            FROM sys_dict_data d
+            INNER JOIN cte ON d.parent_dict_id = cte.dict_code
+        )
+        SELECT COUNT(1)
+        FROM cte c
+        INNER JOIN sys_dict_data d ON d.dict_code = c.dict_code
+        WHERE d.status = '0'
+    </select>
+
     <delete id="deleteDictDataById" parameterType="Long">
         delete
         from sys_dict_data
@@ -116,6 +150,9 @@
             <if test="listClass != null">list_class = #{listClass},</if>
             <if test="isDefault != null and isDefault != ''">is_default = #{isDefault},</if>
             <if test="status != null">status = #{status},</if>
+            <if test="platformCode != null">platform_code = #{platformCode},</if>
+            <if test="parentDictId != null">parent_dict_id = #{parentDictId},</if>
+            <if test="isFirstLevel != null and isFirstLevel != ''">is_first_level = #{isFirstLevel},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             update_time = sysdate()
@@ -139,6 +176,9 @@
         <if test="listClass != null and listClass != ''">list_class,</if>
         <if test="isDefault != null and isDefault != ''">is_default,</if>
         <if test="status != null">status,</if>
+        <if test="platformCode != null and platformCode != ''">platform_code,</if>
+        <if test="parentDictId != null">parent_dict_id,</if>
+        <if test="isFirstLevel != null and isFirstLevel != ''">is_first_level,</if>
         <if test="remark != null and remark != ''">remark,</if>
         <if test="createBy != null and createBy != ''">create_by,</if>
         create_time
@@ -151,10 +191,13 @@
         <if test="listClass != null and listClass != ''">#{listClass},</if>
         <if test="isDefault != null and isDefault != ''">#{isDefault},</if>
         <if test="status != null">#{status},</if>
+        <if test="platformCode != null and platformCode != ''">#{platformCode},</if>
+        <if test="parentDictId != null">#{parentDictId},</if>
+        <if test="isFirstLevel != null and isFirstLevel != ''">#{isFirstLevel},</if>
         <if test="remark != null and remark != ''">#{remark},</if>
         <if test="createBy != null and createBy != ''">#{createBy},</if>
         sysdate()
         )
     </insert>
 
-</mapper> 
+</mapper>

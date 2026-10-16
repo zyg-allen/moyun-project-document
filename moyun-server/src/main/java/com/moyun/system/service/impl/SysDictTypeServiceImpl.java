@@ -16,9 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -97,6 +102,56 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService {
     }
 
     /**
+     * 根据字典类型查询树形字典数据（公共查询，带缓存，仅启用节点）
+     */
+    @Override
+    public List<SysDictData> selectDictTreeByType(String dictType) {
+        List<SysDictData> tree = DictUtils.getDictTreeCache(dictType);
+        if (StringUtils.isNotNull(tree)) {
+            return tree;
+        }
+        List<SysDictData> flatList = selectDictDataByType(dictType);
+        tree = buildDictTree(flatList);
+        DictUtils.setDictTreeCache(dictType, tree);
+        return tree;
+    }
+
+    /**
+     * 将平铺字典数据按 parentDictId 组装成树。
+     * <p>parentDictId 为空或 0 视为一级；父节点缺失的孤儿节点提升为一级，避免数据丢失。</p>
+     */
+    private List<SysDictData> buildDictTree(List<SysDictData> flatList) {
+        List<SysDictData> roots = new ArrayList<>();
+        if (flatList == null || flatList.isEmpty()) {
+            return roots;
+        }
+        Set<Long> ids = flatList.stream().map(SysDictData::getDictCode)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, List<SysDictData>> childrenMap = flatList.stream()
+                .filter(d -> d.getParentDictId() != null && d.getParentDictId() != 0L)
+                .collect(Collectors.groupingBy(SysDictData::getParentDictId));
+        for (SysDictData node : flatList) {
+            Long parentId = node.getParentDictId();
+            if (parentId == null || parentId == 0L || !ids.contains(parentId)) {
+                roots.add(node);
+            }
+        }
+        Comparator<SysDictData> sortComparator = Comparator.comparing(
+                SysDictData::getDictSort, Comparator.nullsLast(Long::compareTo));
+        roots.sort(sortComparator);
+        for (List<SysDictData> children : childrenMap.values()) {
+            children.sort(sortComparator);
+        }
+        for (SysDictData node : flatList) {
+            List<SysDictData> children = childrenMap.get(node.getDictCode());
+            if (children != null && !children.isEmpty()) {
+                node.setChildren(children);
+            }
+        }
+        return roots;
+    }
+
+    /**
      * 根据字典类型ID查询信息
      *
      * @param dictId 字典类型ID
@@ -135,6 +190,7 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService {
             }
             dictTypeMapper.deleteDictTypeById(dictId);
             DictUtils.removeDictCache(dictType.getDictType());
+            DictUtils.removeDictTreeCache(dictType.getDictType());
         }
     }
 
@@ -159,6 +215,10 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService {
         Collection<String> keys = redisCache.keys(CacheConstants.SYS_DICT_KEY + "*");
         if (StringUtils.isNotEmpty(keys)) {
             redisCache.deleteObject(keys);
+        }
+        Collection<String> treeKeys = redisCache.keys(CacheConstants.SYS_DICT_TREE_KEY + "*");
+        if (StringUtils.isNotEmpty(treeKeys)) {
+            redisCache.deleteObject(treeKeys);
         }
     }
 
@@ -211,9 +271,11 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService {
         if (row > 0) {
             // 清除旧缓存
             DictUtils.removeDictCache(oldDictType);
+            DictUtils.removeDictTreeCache(oldDictType);
             // 加载新缓存
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(newDictType);
             DictUtils.setDictCache(newDictType, dictDatas);
+            DictUtils.removeDictTreeCache(newDictType);
         }
         return row;
     }

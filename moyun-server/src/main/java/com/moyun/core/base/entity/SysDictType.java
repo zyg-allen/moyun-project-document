@@ -43,6 +43,18 @@ public class SysDictType extends BaseEntity {
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
+    /**
+     * 端代码（sys_platform.platform_code，空=全局）
+     */
+    @Excel(name = "端代码")
+    private String platformCode;
+
+    /**
+     * 结构类型（0=普通字典 1=树形字典）
+     */
+    @Excel(name = "结构类型", readConverterExp = "0=普通,1=树形")
+    private String isTree;
+
     @NotBlank(message = "字典名称不能为空")
     @Size(min = 0, max = 100, message = "字典类型名称长度不能超过100个字符")
     public String getDictName() {

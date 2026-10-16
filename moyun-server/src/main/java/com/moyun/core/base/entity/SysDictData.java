@@ -4,7 +4,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
+
+import java.util.List;
 
 import com.moyun.common.annotation.Excel.ColumnType;
 import com.moyun.common.annotation.Excel;
@@ -71,6 +74,30 @@ public class SysDictData extends BaseEntity {
      */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
+
+    /**
+     * 端代码（sys_platform.platform_code，空=全局）
+     */
+    @Excel(name = "端代码")
+    private String platformCode;
+
+    /**
+     * 父字典编码（sys_dict_data.dict_code，0=一级）
+     */
+    @Excel(name = "父字典编码", cellType = ColumnType.NUMERIC)
+    private Long parentDictId;
+
+    /**
+     * 是否一级（0=否 1=是）
+     */
+    @Excel(name = "是否一级", readConverterExp = "0=否,1=是")
+    private String isFirstLevel;
+
+    /**
+     * 子节点（树形字典专用，非数据库字段）
+     */
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private List<SysDictData> children;
 
     @NotBlank(message = "字典标签不能为空")
     @Size(min = 0, max = 100, message = "字典标签长度不能超过100个字符")

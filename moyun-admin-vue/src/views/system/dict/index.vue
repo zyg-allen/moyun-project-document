@@ -19,6 +19,36 @@
                @keyup.enter="handleQuery"
             />
          </el-form-item>
+         <el-form-item label="结构类型" prop="isTree">
+            <el-select
+               v-model="queryParams.isTree"
+               placeholder="字典结构"
+               clearable
+               style="width: 240px"
+            >
+               <el-option
+                  v-for="dict in structureOptions"
+                  :key="dict.value"
+                  :label="dict.label"
+                  :value="dict.value"
+               />
+            </el-select>
+         </el-form-item>
+         <el-form-item label="端代码" prop="platformCode">
+            <el-select
+               v-model="queryParams.platformCode"
+               placeholder="所属端"
+               clearable
+               style="width: 240px"
+            >
+               <el-option
+                  v-for="item in platformOptions"
+                  :key="item.platformCode"
+                  :label="item.platformName"
+                  :value="item.platformCode"
+               />
+            </el-select>
+         </el-form-item>
          <el-form-item label="状态" prop="status">
             <el-select
                v-model="queryParams.status"
@@ -107,12 +137,24 @@
          <el-table-column label="字典名称" align="center" prop="dictName" :show-overflow-tooltip="true"/>
          <el-table-column label="字典类型" align="center" :show-overflow-tooltip="true">
             <template #default="scope">
-               <router-link :to="'/system/dict-data/index/' + scope.row.dictId" class="link-type">
+               <router-link :to="dictDataPath(scope.row)" class="link-type">
                   <span>{{ scope.row.dictType }}</span>
                </router-link>
             </template>
          </el-table-column>
-         <el-table-column label="状态" align="center" prop="status">
+         <el-table-column label="结构类型" align="center" width="100">
+             <template #default="scope">
+                <el-tag :type="scope.row.isTree === '1' ? 'success' : 'info'">
+                   {{ scope.row.isTree === '1' ? '树形' : '普通' }}
+                </el-tag>
+             </template>
+          </el-table-column>
+          <el-table-column label="端代码" align="center" width="120">
+             <template #default="scope">
+                <span>{{ resolvePlatformName(scope.row.platformCode) }}</span>
+             </template>
+          </el-table-column>
+          <el-table-column label="状态" align="center" prop="status">
             <template #default="scope">
                <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
             </template>
@@ -148,6 +190,16 @@
             <el-form-item label="字典类型" prop="dictType">
                <el-input v-model="form.dictType" placeholder="请输入字典类型" />
             </el-form-item>
+            <el-form-item label="结构类型" prop="isTree">
+               <el-radio-group v-model="form.isTree">
+                  <el-radio v-for="dict in structureOptions" :key="dict.value" :label="dict.value">{{ dict.label }}</el-radio>
+               </el-radio-group>
+            </el-form-item>
+            <el-form-item label="端代码" prop="platformCode">
+               <el-select v-model="form.platformCode" placeholder="所属端（空=全局）" clearable style="width: 100%">
+                  <el-option v-for="item in platformOptions" :key="item.platformCode" :label="item.platformName" :value="item.platformCode" />
+               </el-select>
+            </el-form-item>
             <el-form-item label="状态" prop="status">
                <el-radio-group v-model="form.status">
                   <el-radio
@@ -174,9 +226,18 @@
 <script setup name="Dict">
 import useDictStore from '@/store/modules/dict'
 import { listType, getType, delType, addType, updateType, refreshCache } from "@/api/system/dict/type";
+import { platformOptionselect } from "@/api/system/platform";
 
 const { proxy } = getCurrentInstance();
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable");
+
+// 字典结构类型（0=普通 1=树形）
+const structureOptions = ref([
+  { value: "0", label: "普通" },
+  { value: "1", label: "树形" }
+]);
+// 端下拉选项（来源 sys_platform）
+const platformOptions = ref([]);
 
 const typeList = ref([]);
 const open = ref(false);
@@ -196,6 +257,8 @@ const data = reactive({
     pageSize: 10,
     dictName: undefined,
     dictType: undefined,
+    isTree: undefined,
+    platformCode: undefined,
     status: undefined
   },
   rules: {
@@ -215,6 +278,24 @@ function getList() {
     loading.value = false;
   });
 }
+/** 字典数据页路由（按结构类型分发：普通→数据页，树形→树形页） */
+function dictDataPath(row) {
+  return (row.isTree === "1")
+    ? "/system/dict-tree/index/" + row.dictId
+    : "/system/dict-data/index/" + row.dictId;
+}
+/** 端代码 → 端名称 */
+function resolvePlatformName(code) {
+  if (!code) return "";
+  const item = platformOptions.value.find(p => p.platformCode === code);
+  return item ? item.platformName : code;
+}
+/** 查询端下拉选项 */
+function getPlatformOptions() {
+  platformOptionselect().then(response => {
+    platformOptions.value = response.data;
+  });
+}
 /** 取消按钮 */
 function cancel() {
   open.value = false;
@@ -226,6 +307,8 @@ function reset() {
     dictId: undefined,
     dictName: undefined,
     dictType: undefined,
+    isTree: "0",
+    platformCode: undefined,
     status: "0",
     remark: undefined
   };
@@ -309,4 +392,5 @@ function handleRefreshCache() {
 }
 
 getList();
+getPlatformOptions();
 </script>

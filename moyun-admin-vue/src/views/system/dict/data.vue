@@ -20,6 +20,16 @@
                @keyup.enter="handleQuery"
             />
          </el-form-item>
+         <el-form-item label="端代码" prop="platformCode">
+            <el-select v-model="queryParams.platformCode" placeholder="所属端" clearable style="width: 200px">
+               <el-option
+                  v-for="item in platformOptions"
+                  :key="item.platformCode"
+                  :label="item.platformName"
+                  :value="item.platformCode"
+               />
+            </el-select>
+         </el-form-item>
          <el-form-item label="状态" prop="status">
             <el-select v-model="queryParams.status" placeholder="数据状态" clearable style="width: 200px">
                <el-option
@@ -97,6 +107,11 @@
          </el-table-column>
          <el-table-column label="字典键值" align="center" prop="dictValue" />
          <el-table-column label="字典排序" align="center" prop="dictSort" />
+          <el-table-column label="端代码" align="center" width="120">
+             <template #default="scope">
+                <span>{{ resolvePlatformName(scope.row.platformCode) }}</span>
+             </template>
+          </el-table-column>
          <el-table-column label="状态" align="center" prop="status">
             <template #default="scope">
                <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
@@ -129,6 +144,16 @@
          <el-form ref="dataRef" :model="form" :rules="rules" label-width="80px">
             <el-form-item label="字典类型">
                <el-input v-model="form.dictType" :disabled="true" />
+            </el-form-item>
+            <el-form-item label="端代码" prop="platformCode">
+               <el-select v-model="form.platformCode" placeholder="所属端（空=全局）" clearable style="width: 100%">
+                  <el-option
+                     v-for="item in platformOptions"
+                     :key="item.platformCode"
+                     :label="item.platformName"
+                     :value="item.platformCode"
+                  />
+               </el-select>
             </el-form-item>
             <el-form-item label="数据标签" prop="dictLabel">
                <el-input v-model="form.dictLabel" placeholder="请输入数据标签" />
@@ -179,6 +204,7 @@
 import useDictStore from '@/store/modules/dict'
 import { optionselect as getDictOptionselect, getType } from "@/api/system/dict/type";
 import { listData, getData, delData, addData, updateData } from "@/api/system/dict/data";
+import { platformOptionselect } from "@/api/system/platform";
 
 const { proxy } = getCurrentInstance();
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable");
@@ -194,6 +220,8 @@ const total = ref(0);
 const title = ref("");
 const defaultDictType = ref("");
 const typeOptions = ref([]);
+// 端下拉选项（来源 sys_platform）
+const platformOptions = ref([]);
 const route = useRoute();
 // 数据标签回显样式
 const listClassOptions = ref([
@@ -212,6 +240,7 @@ const data = reactive({
     pageSize: 10,
     dictType: undefined,
     dictLabel: undefined,
+    platformCode: undefined,
     status: undefined
   },
   rules: {
@@ -232,11 +261,23 @@ function getTypes(dictId) {
   });
 }
 
-/** 查询字典类型列表 */
+/** 查询字典类型列表（仅普通字典） */
 function getTypeList() {
   getDictOptionselect().then(response => {
-    typeOptions.value = response.data;
+    typeOptions.value = (response.data || []).filter(item => item.isTree !== "1");
   });
+}
+/** 查询端下拉选项 */
+function getPlatformOptions() {
+  platformOptionselect().then(response => {
+    platformOptions.value = response.data;
+  });
+}
+/** 端代码 → 端名称 */
+function resolvePlatformName(code) {
+  if (!code) return "";
+  const item = platformOptions.value.find(p => p.platformCode === code);
+  return item ? item.platformName : code;
 }
 /** 查询字典数据列表 */
 function getList() {
@@ -261,6 +302,7 @@ function reset() {
     cssClass: undefined,
     listClass: "default",
     dictSort: 0,
+    platformCode: undefined,
     status: "0",
     remark: undefined
   };
@@ -347,4 +389,5 @@ function handleExport() {
 
 getTypes(route.params && route.params.dictId);
 getTypeList();
+getPlatformOptions();
 </script>

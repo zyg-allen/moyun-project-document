@@ -159,6 +159,20 @@ export const dynamicRoutes = [
     ]
   },
   {
+    path: '/system/dict-tree',
+    component: Layout,
+    hidden: true,
+    permissions: ['system:dict:list'],
+    children: [
+      {
+        path: 'index/:dictId(\\d+)',
+        component: () => import('@/views/system/dict/tree'),
+        name: 'DictTree',
+        meta: { title: '树形字典', activeMenu: '/system/system-config/dict' }
+      }
+    ]
+  },
+  {
     path: '/monitor/job-log',
     component: Layout,
     hidden: true,

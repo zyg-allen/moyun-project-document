@@ -183,6 +183,7 @@ mysql -u root -p moyun-db < increment-sql/20260928-13-岗位模板数据补齐�
 mysql -u root -p moyun-db < increment-sql/20260928-14-portal_ai_task增列payload.sql
 mysql -u root -p moyun-db < increment-sql/20260929-02-简历解析配置表.sql
 mysql -u root -p moyun-db < increment-sql/20260929-03-简历解析配置菜单.sql
+mysql -u root -p moyun-db < increment-sql/20261017-02-字典树形结构扩展（sys_dict_type与sys_dict_data加列）.sql
 ```
 
 > **SQL 双轨铁律**（v13.28 起，详见《项目开发规范》2.8 与《项目现状总结》变更铁律第 9 条）：

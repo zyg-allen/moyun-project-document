@@ -2,6 +2,7 @@ package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysDictData;
+import com.moyun.core.mvc.handler.BusinessException;
 import com.moyun.system.mapper.SysDictDataMapper;
 import com.moyun.system.service.ISysDictDataService;
 import com.moyun.util.cache.DictUtils;
@@ -76,9 +77,16 @@ public class SysDictDataServiceImpl implements ISysDictDataService {
     public void deleteDictDataByIds(Long[] dictCodes) {
         for (Long dictCode : dictCodes) {
             SysDictData data = selectDictDataById(dictCode);
+            if (data == null) {
+                continue;
+            }
+            if (dictDataMapper.countDictDataByParent(dictCode) > 0) {
+                throw new BusinessException(String.format("「%s」存在子节点，不能删除", data.getDictLabel()));
+            }
             dictDataMapper.deleteDictDataById(dictCode);
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());
             DictUtils.setDictCache(data.getDictType(), dictDatas);
+            DictUtils.removeDictTreeCache(data.getDictType());
         }
     }
 
@@ -94,6 +102,7 @@ public class SysDictDataServiceImpl implements ISysDictDataService {
         if (row > 0) {
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());
             DictUtils.setDictCache(data.getDictType(), dictDatas);
+            DictUtils.removeDictTreeCache(data.getDictType());
         }
         return row;
     }
@@ -106,10 +115,18 @@ public class SysDictDataServiceImpl implements ISysDictDataService {
      */
     @Override
     public int updateDictData(SysDictData data) {
+        // 停用前校验：存在启用中的子孙节点时禁止停用（逐级：父停用须先停用全部子节点）
+        if ("1".equals(data.getStatus())) {
+            SysDictData existing = selectDictDataById(data.getDictCode());
+            if (existing != null && dictDataMapper.countEnabledDescendants(data.getDictCode()) > 0) {
+                throw new BusinessException(String.format("「%s」存在启用中的子节点，不能停用", existing.getDictLabel()));
+            }
+        }
         int row = dictDataMapper.updateDictData(data);
         if (row > 0) {
             List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());
             DictUtils.setDictCache(data.getDictType(), dictDatas);
+            DictUtils.removeDictTreeCache(data.getDictType());
         }
         return row;
     }

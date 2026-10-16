@@ -81,6 +81,35 @@ public class SysDictDataController extends BaseController {
     }
 
     /**
+     * 根据字典类型查询树形字典（公共查询，仅启用节点，带缓存）
+     */
+    @Operation(summary = "根据字典类型查询树形字典", description = "返回组装好的树形字典数据（仅启用节点），供前端级联与下拉使用")
+    @GetMapping(value = "/tree/{dictType}")
+    public AjaxResult dictTree(@Parameter(description = "字典类型") @PathVariable String dictType) {
+        List<SysDictData> data = dictTypeService.selectDictTreeByType(dictType);
+        if (StringUtils.isNull(data)) {
+            data = new ArrayList<SysDictData>();
+        }
+        return success(data);
+    }
+
+    /**
+     * 根据字典类型查询树形字典全量数据（管理页用，含停用节点，平铺返回）
+     */
+    @Operation(summary = "根据字典类型查询树形字典全量数据", description = "返回指定类型的全量字典数据（含停用节点），供树形字典维护页组装树")
+    @PreAuthorize("@ss.hasPermi('system:dict:list')")
+    @GetMapping(value = "/tree/all/{dictType}")
+    public AjaxResult dictTreeAll(@Parameter(description = "字典类型") @PathVariable String dictType) {
+        SysDictData query = new SysDictData();
+        query.setDictType(dictType);
+        List<SysDictData> data = dictDataService.selectDictDataList(query);
+        if (StringUtils.isNull(data)) {
+            data = new ArrayList<SysDictData>();
+        }
+        return success(data);
+    }
+
+    /**
      * 新增字典类型
      */
     @Operation(summary = "新增字典数据", description = "创建新字典数据")

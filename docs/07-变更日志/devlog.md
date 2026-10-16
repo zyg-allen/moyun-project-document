@@ -2,6 +2,13 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v14.77 (2026-10-17) 字典管理扩展树形字典：两表加列 + 树形维护页 + 路由分发 + 缓存化公共树查询
+
+- **后端**：`SysDictType` 加 `platformCode/isTree`；`SysDictData` 加 `platformCode/parentDictId/isFirstLevel/children`（children 非库字段）；`CacheConstants` 加 `SYS_DICT_TREE_KEY`；`DictUtils` 加树缓存 get/set/remove 并扩展清缓存；两个 Mapper XML 补列与查询/增改；`SysDictDataMapper` 加 `countDictDataByParent`（删除前拦截子节点）；`ISysDictTypeService` 加 `selectDictTreeByType`（公共树查询，仅启用节点，Redis 缓存，供前端与 Service 复用）；`SysDictDataController` 加 `/tree/{dictType}`（公共树）与 `/tree/all/{dictType}`（管理页全量）；新增 `SysPlatform` 实体/Mapper/Service/Controller 提供 `/system/platform/optionselect`（端代码下拉）。
+- **前端**：`dict/index.vue` 加结构类型/端代码筛选列与「按 isTree 分发路由」；`dict/data.vue` 加端代码筛选列与表单；新建 `dict/tree.vue`（参考菜单管理：树表 + 上级 tree-select + 展开折叠 + 防成环）；`router` 加 `/system/dict-tree` 隐藏路由。
+  - 细化：结构类型表格列区分颜色（普通=info/树形=success）；树形页表格隐藏端代码列（数据库保留，前端暂不展示）；树形页「删除」改为「逻辑停用/启用」（停用有引用核对提示、后台仍可见，仅限内部同级别使用，禁止对用户端开放）；停用父节点前校验「存在启用中的子孙节点即禁止停用」（`countEnabledDescendants` 递归 CTE，逐级生效）。
+- **SQL 双轨**：`init-sql/moyun-db-ddl.sql` 两表加 5 列；新增 `increment-sql/20261017-02`（幂等，information_schema 前置判断）。
+
 ## v13.67 (2026-10-13) 语音面试三页：面包屑回归全站一致 + 颜色跟随主题（移除硬编码紫）
 
 修复用户反馈的三个问题。**根因同源：我上一轮"严格对齐静态页"时引入的硬编码色值，

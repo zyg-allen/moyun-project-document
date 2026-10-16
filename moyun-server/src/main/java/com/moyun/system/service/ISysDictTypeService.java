@@ -45,6 +45,15 @@ public interface ISysDictTypeService {
     public List<SysDictData> selectDictDataByType(String dictType);
 
     /**
+     * 根据字典类型查询树形字典数据（公共查询，含子节点，带缓存）
+     * <p>供前端级联/下拉与后端 Service 复用；仅返回启用（status='0'）节点。</p>
+     *
+     * @param dictType 字典类型
+     * @return 树形字典数据（根节点集合，子节点挂在 children）
+     */
+    public List<SysDictData> selectDictTreeByType(String dictType);
+
+    /**
      * 根据字典类型ID查询信息
      *
      * @param dictId 字典类型ID

@@ -1,5 +1,6 @@
 package com.moyun.ledger.domain.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -29,4 +30,8 @@ public class LedgerProduct {
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /** 非持久化：列表展示时的当前库存数量（来自 ledger_stock，查询时回填） */
+    @TableField(exist = false)
+    private Integer stockQuantity;
 }

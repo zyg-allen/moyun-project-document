@@ -99,6 +99,31 @@
           </view>
         </view>
       </view>
+
+      <!-- 应付款（借款）：与资产侧的「应收款」左右对称。
+           应付是负债（我欠别人的），放在负债侧才符合会计口径。 -->
+      <view class="card">
+        <view class="card-title flex-row">
+          <text class="flex-1">应付款（借款）</text>
+          <text class="link" @tap="goDebt('payable')">全部 ›</text>
+        </view>
+        <view v-if="payables.length === 0" class="empty">没有你欠别人的钱</view>
+        <view v-for="p in payables" :key="p.id" class="row" @tap="goDebt('payable', p.id)">
+          <view class="row-icon" style="background: var(--expense-bg)"><text>📌</text></view>
+          <view class="flex-1">
+            <view class="row-name">{{ p.counterparty }}</view>
+            <view class="row-type">
+              <text class="debt-status" :class="p.settleStatus">{{ settleText(p.settleStatus) }}</text>
+              <text v-if="p.dueDate"> · {{ p.dueDate }} 到期</text>
+            </view>
+          </view>
+          <view class="row-actions">
+            <view class="row-balance liab">
+              {{ privacyMode ? '****' : '¥ ' + formatAmount(outstanding(p)) }}
+            </view>
+          </view>
+        </view>
+      </view>
     </template>
 
     <!-- 添加按钮（随 Tab 切换） -->
@@ -195,7 +220,7 @@
 import keyboardAware from '@/mixins/keyboardAware';
 import submitLock from '@/mixins/submitLock';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
-import { listAssets, listReceivables, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
+import { listAssets, listReceivables, listPayables, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
 import { formatAmount, toFixedYuan, toNum, safeSum, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
@@ -226,6 +251,8 @@ export default {
     return {
       // 应收款（借出）：只取未结清的，已结清的早已变成现金，再列会重复计算
       receivables: [],
+      // 应付款（借款）：同理只取未结清的
+      payables: [],
       activeTab: 'asset',
       // 资产
       accounts: [],
@@ -281,6 +308,13 @@ export default {
         this.receivables = (res.records || []).filter(r => r.settleStatus !== 'settled');
       } catch (e) { /* 拦截器已提示 */ }
     },
+    /** 应付款（借款）：与应收对称，同样只取未结清的 */
+    async loadPayables() {
+      try {
+        const res = await listPayables({ settleStatus: '', pageSize: 20 }) || {};
+        this.payables = (res.records || []).filter(p => p.settleStatus !== 'settled');
+      } catch (e) { /* 拦截器已提示 */ }
+    },
     /** 未结余额 = 总额 - 已收 */
     outstanding(r) {
       return Number(r.totalAmount || 0) - Number(r.paidAmount || 0);
@@ -317,6 +351,7 @@ export default {
         this.accounts = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
       this.loadReceivables();
+      this.loadPayables();
     },
     addAsset() {
       this.assetForm = { id: null, name: '', type: 'cash', initialBalance: '', includeInTotal: 1 };

@@ -308,6 +308,42 @@ export const deleteMemo = (id) => del('/portal/ledger/memos/' + id);
 
 
 
+// ---------------- 债权债务（应收 / 应付 / 核销） ----------------
+
+/**
+ * 应收款列表（别人欠我的）。
+ * 返回 { records, total, pageNum, pageSize, pages }；
+ * 后端始终按当前登录用户过滤，且不接受前端传 userId。
+ */
+export const listReceivables = (params) => get('/portal/ledger/debts/receivables', params || {});
+export const getReceivable = (id) => get('/portal/ledger/debts/receivables/' + id);
+export const createReceivable = (data) => post('/portal/ledger/debts/receivables', data);
+export const updateReceivable = (id, data) => put('/portal/ledger/debts/receivables/' + id, data);
+export const deleteReceivable = (id) => del('/portal/ledger/debts/receivables/' + id);
+
+/** 应付款列表（我欠别人的），与应收对称 */
+export const listPayables = (params) => get('/portal/ledger/debts/payables', params || {});
+export const getPayable = (id) => get('/portal/ledger/debts/payables/' + id);
+export const createPayable = (data) => post('/portal/ledger/debts/payables', data);
+export const updatePayable = (id, data) => put('/portal/ledger/debts/payables/' + id, data);
+export const deletePayable = (id) => del('/portal/ledger/debts/payables/' + id);
+
+/**
+ * 核销债务（收款 / 还款）。
+ * @param {{debtType:'receivable'|'payable', debtId:number, amount:number|string,
+ *          accountId:number, repayDate?:string, remark?:string}} data
+ */
+export const settleDebt = (data) => post('/portal/ledger/debts/settle', data);
+
+/** 某笔债务的核销记录 */
+export const listDebtRepayments = (params) => get('/portal/ledger/debts/repayments', params || {});
+
+/**
+ * 债务汇总：{ receivableOutstanding, payableOutstanding }
+ * 口径：只算**未结余额**（total - paid）—— 已结清部分早已变成现金或已从现金支出，
+ * 重复计入会双重计算。资产总览用它对账。
+ */
+export const getDebtSummary = () => get('/portal/ledger/debts/summary');
 // ---------------- 定时记账 ----------------
 
 /**

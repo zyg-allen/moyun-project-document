@@ -483,9 +483,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     BigDecimal assetAfter = applyAssetDelta(txn.getAccountId(), amount.negate(), txn.getUserId());
                     txn.setBalanceAfter(assetAfter);
                 }
-                // 还款 = 已还期数 +1（与欠款原子同写，避免读到旧值）
-                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount.negate(), txn.getUserId(), 1);
-                txn.setLiabilityBalanceAfter(liabilityAfter);
+                // 负债侧仅在指定了负债账户时才动 —— 走「应付款」的还款只影响资金账户，
+                // 应付余额由 LedgerDebtService.settle 负责扣减（两处各管一账，不重复扣）。
+                if (txn.getLiabilityId() != null) {
+                    BigDecimal liabilityAfter = applyLiabilityDelta(
+                            txn.getLiabilityId(), amount.negate(), txn.getUserId(), 1);
+                    txn.setLiabilityBalanceAfter(liabilityAfter);
+                }
                 break;
             }
             case LedgerTransaction.TYPE_BORROW: {
@@ -566,8 +570,10 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 if (old.getAccountId() != null) {
                     applyAssetDelta(old.getAccountId(), amount, old.getUserId());
                 }
-                // 冲正一笔还款 = 已还期数 -1
-                applyLiabilityDelta(old.getLiabilityId(), amount, old.getUserId(), -1);
+                // 冲正一笔还款 = 已还期数 -1（仅在走负债账户时；走应付款的由 settle 侧回滚）
+                if (old.getLiabilityId() != null) {
+                    applyLiabilityDelta(old.getLiabilityId(), amount, old.getUserId(), -1);
+                }
                 break;
             case LedgerTransaction.TYPE_BORROW:
                 if (old.getAccountId() != null) {

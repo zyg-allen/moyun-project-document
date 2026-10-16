@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.entity.LedgerDebtRepayment;
+import com.moyun.ledger.domain.dto.TransactionCreateDTO;
+import com.moyun.ledger.domain.entity.LedgerTransaction;
 import com.moyun.ledger.domain.entity.LedgerPayable;
 import com.moyun.ledger.domain.entity.LedgerReceivable;
 import com.moyun.ledger.mapper.LedgerDebtRepaymentMapper;
@@ -227,12 +229,96 @@ public class LedgerDebtServiceImpl implements ILedgerDebtService {
         payableMapper.updateById(db);
     }
 
-    // ---------------- 核销（下一轮实现） ----------------
+    // ---------------- 核销 ----------------
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> settle(Long userId, String debtType, Long debtId, BigDecimal amount,
                                       Long accountId, LocalDate repayDate, String remark) {
-        throw new ServiceException("核销功能开发中");
+        if (!LedgerDebtRepayment.DEBT_RECEIVABLE.equals(debtType)
+                && !LedgerDebtRepayment.DEBT_PAYABLE.equals(debtType)) {
+            throw new ServiceException("非法债务类型");
+        }
+        if (amount == null || amount.compareTo(ZERO) <= 0) {
+            throw new ServiceException("核销金额必须大于0");
+        }
+        LocalDate date = repayDate == null ? LocalDate.now() : repayDate;
+
+        Long txId;
+        String settledStatus;
+        if (LedgerDebtRepayment.DEBT_RECEIVABLE.equals(debtType)) {
+            LedgerReceivable d = getOwnedReceivable(userId, debtId);
+            BigDecimal outstanding = nz(d.getTotalAmount()).subtract(nz(d.getPaidAmount()));
+            if (amount.compareTo(outstanding) > 0) {
+                throw new ServiceException("核销金额超过未结余额（当前 " + outstanding.toPlainString() + " 元）");
+            }
+            // 收款 = 资金账户增加。走独立的 collect 类型而非 income ——
+            // 收债不是收入（钱本来就是我的），计入收入报表会让当月收入虚高。
+            txId = createSettleTransaction(userId, LedgerTransaction.TYPE_COLLECT, amount, accountId,
+                    date, d.getCounterparty(), remark, d.getId(), null);
+            d.setPaidAmount(nz(d.getPaidAmount()).add(amount));
+            d.setSettleStatus(resolveSettleStatus(d.getTotalAmount(), d.getPaidAmount()));
+            receivableMapper.updateById(d);
+            settledStatus = d.getSettleStatus();
+        } else {
+            LedgerPayable d = getOwnedPayable(userId, debtId);
+            BigDecimal outstanding = nz(d.getTotalAmount()).subtract(nz(d.getPaidAmount()));
+            if (amount.compareTo(outstanding) > 0) {
+                throw new ServiceException("核销金额超过未结余额（当前 " + outstanding.toPlainString() + " 元）");
+            }
+            // 还款 = 资金账户减少，带 payableId 走 repayment。
+            // validate 已允许「负债账户 or 应付款」二选一，余额分支也已判空，
+            // 故这里不会去动负债账户；应付余额由本方法扣减。
+            txId = createSettleTransaction(userId, LedgerTransaction.TYPE_REPAYMENT, amount, accountId,
+                    date, d.getCounterparty(), remark, null, d.getId());
+            d.setPaidAmount(nz(d.getPaidAmount()).add(amount));
+            d.setSettleStatus(resolveSettleStatus(d.getTotalAmount(), d.getPaidAmount()));
+            payableMapper.updateById(d);
+            settledStatus = d.getSettleStatus();
+        }
+
+        // 核销流水留痕：它是「这笔债分几次还的」唯一凭据，也是撤销时的回滚依据
+        LedgerDebtRepayment r = new LedgerDebtRepayment();
+        r.setUserId(userId);
+        r.setDebtType(debtType);
+        r.setDebtId(debtId);
+        r.setAmount(amount);
+        r.setAccountId(accountId);
+        r.setTransactionId(txId);
+        r.setRepayDate(date);
+        r.setOperatorId(userId);
+        r.setRemark(remark);
+        r.setStatus(LedgerDebtRepayment.STATUS_NORMAL);
+        repaymentMapper.insert(r);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("repaymentId", r.getId());
+        result.put("transactionId", txId);
+        result.put("settleStatus", settledStatus);
+        return result;
+    }
+
+    /**
+     * 生成核销的资金流水。
+     *
+     * <p>复用 {@link ILedgerTransactionService#createTransaction} ——
+     * 绝不在这里另写一套余额变动，否则资产联动口径会分叉成两份，早晚对不上账。</p>
+     */
+    private Long createSettleTransaction(Long userId, String type, BigDecimal amount, Long accountId,
+                                        LocalDate date, String counterparty, String remark,
+                                        Long receivableId, Long payableId) {
+        TransactionCreateDTO dto = new TransactionCreateDTO();
+        dto.setType(type);
+        dto.setAmount(amount);
+        dto.setAccountId(accountId);
+        dto.setTransactionDate(date);
+        String desc = (remark != null && !remark.isBlank() ? remark : "债务核销") + " - " + counterparty;
+        dto.setDescription(desc.length() > 200 ? desc.substring(0, 200) : desc);
+        dto.setReceivableId(receivableId);
+        dto.setPayableId(payableId);
+        // 债权转换不是当期收支行为，不计预算（与 lend/collect 同口径）
+        dto.setIsBudget(0);
+        return transactionService.createTransaction(userId, dto);
     }
 
     @Override

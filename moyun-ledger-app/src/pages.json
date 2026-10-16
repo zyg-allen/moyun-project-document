@@ -15,6 +15,7 @@
     { "path": "pages/mine/savings/index", "style": { "navigationBarTitleText": "存钱" } },
     { "path": "pages/mine/savings/create", "style": { "navigationBarTitleText": "新建计划" } },
     { "path": "pages/mine/savings/detail", "style": { "navigationBarTitleText": "计划详情" } },
+    { "path": "pages/warehouse/index", "style": { "navigationBarTitleText": "仓库", "navigationStyle": "custom" } },
     { "path": "pages/mine/debts/index", "style": { "navigationBarTitleText": "债权债务", "navigationStyle": "custom" } },
     { "path": "pages/mine/schedule/index", "style": { "navigationBarTitleText": "定时记账" } },
     { "path": "pages/mine/schedule/add", "style": { "navigationBarTitleText": "添加计划" } },

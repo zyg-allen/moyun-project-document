@@ -412,3 +412,16 @@ export const resetPassword = (data) => post('/portal/sms/reset-password', data);
  * 邮箱模式 { username, password, email, emailCode, code?, uuid? }
  */
 export const register = (data) => post('/portal/register', data);
+
+// ---------------- 库存（仓库/商品/出入库/流水） ----------------
+export const listWarehouses = () => get('/portal/ledger/inventory/warehouses');
+export const createWarehouse = (data) => post('/portal/ledger/inventory/warehouses', data);
+export const updateWarehouse = (id, data) => put('/portal/ledger/inventory/warehouses/' + id, data);
+export const deleteWarehouse = (id) => del('/portal/ledger/inventory/warehouses/' + id);
+export const listProducts = (warehouseId, params) => get('/portal/ledger/inventory/warehouses/' + warehouseId + '/products', params || {});
+export const createProduct = (data) => post('/portal/ledger/inventory/products', data);
+export const updateProduct = (id, data) => put('/portal/ledger/inventory/products/' + id, data);
+export const deleteProduct = (id) => del('/portal/ledger/inventory/products/' + id);
+export const stockIn = (data) => post('/portal/ledger/inventory/stock/in', data);
+export const stockOut = (data) => post('/portal/ledger/inventory/stock/out', data);
+export const listStockFlows = (warehouseId, params) => get('/portal/ledger/inventory/warehouses/' + warehouseId + '/flows', params || {});

@@ -213,7 +213,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     private Map<String, Object> applyStockChange(Long userId, Long warehouseId, Long productId,
                                                  int change, String flowType, String remark) {
         getOwnedWarehouse(userId, warehouseId);
-        getOwnedProduct(userId, productId);
+        LedgerProduct p = getOwnedProduct(userId, productId);
         if (change == 0) {
             throw new ServiceException("数量不能为0");
         }
@@ -228,7 +228,10 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         if (after < 0) {
             throw new ServiceException("库存不足：当前 " + before + "，本次 " + Math.abs(change));
         }
+        // 库存按成本价计（文档 2.1）：cost_value = 成本价 × 数量，供总资产公式用
+        BigDecimal costPrice = p.getCostPrice() == null ? BigDecimal.ZERO : p.getCostPrice();
         s.setQuantity(after);
+        s.setCostValue(costPrice.multiply(BigDecimal.valueOf(after)));
         stockMapper.updateById(s);
 
         LedgerStockFlow f = new LedgerStockFlow();
@@ -238,6 +241,8 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         f.setQuantityBefore(before);
         f.setQuantityChange(change);
         f.setQuantityAfter(after);
+        f.setCostBefore(costPrice.multiply(BigDecimal.valueOf(before)));
+        f.setCostAfter(costPrice.multiply(BigDecimal.valueOf(after)));
         f.setOperatorId(userId);
         f.setRemark(remark);
         f.setStatus(LedgerStockFlow.STATUS_NORMAL);

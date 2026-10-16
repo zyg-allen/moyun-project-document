@@ -37,8 +37,31 @@
           </view>
         </view>
       </view>
+      <!-- 应收款（借出）：应收是资产，放在资产侧，与负债侧的「应付款」左右对称。
+           total 计入总资产 —— 借出时现金减少、债权增加，一减一增净资产不变。 -->
+      <view class="card">
+        <view class="card-title flex-row">
+          <text class="flex-1">应收款（借出）</text>
+          <text class="link" @tap="goDebt('receivable')">全部 ›</text>
+        </view>
+        <view v-if="receivables.length === 0" class="empty">没有别人欠你的钱</view>
+        <view v-for="r in receivables" :key="r.id" class="row" @tap="goDebt('receivable', r.id)">
+          <view class="row-icon" style="background: var(--income-bg)"><text>🤝</text></view>
+          <view class="flex-1">
+            <view class="row-name">{{ r.counterparty }}</view>
+            <view class="row-type">
+              <text class="debt-status" :class="r.settleStatus">{{ settleText(r.settleStatus) }}</text>
+              <text v-if="r.dueDate"> · {{ r.dueDate }} 到期</text>
+            </view>
+          </view>
+          <view class="row-actions">
+            <view class="row-balance">
+              {{ privacyMode ? '****' : '¥ ' + formatAmount(outstanding(r)) }}
+            </view>
+          </view>
+        </view>
+      </view>
     </template>
-
     <!-- ========== 负债视图 ========== -->
     <template v-else>
       <view class="summary liability">
@@ -172,7 +195,7 @@
 import keyboardAware from '@/mixins/keyboardAware';
 import submitLock from '@/mixins/submitLock';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
-import { listAssets, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
+import { listAssets, listReceivables, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
 import { formatAmount, toFixedYuan, toNum, safeSum, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
@@ -199,9 +222,9 @@ const LIAB_TYPES = [
 export default {
   mixins: [keyboardAware, submitLock],
   components: { KeyboardAwareSheet },  // 键盘安全弹层
-  data() {
-    return {
-      activeTab: 'asset',
+  return {
+      // 应收款（借出）：只取未结清的，已结清的早已变成现金，再列会重复计算
+      receivables: [],activeTab: 'asset',
       // 资产
       accounts: [],
       showArchived: false,
@@ -249,6 +272,23 @@ export default {
   },
 
   methods: {
+    /** 应收款（借出）：只取未结清，已结清的早已变成现金 */
+    async loadReceivables() {
+      try {
+        const res = await listReceivables({ settleStatus: '', pageSize: 20 }) || {};
+        this.receivables = (res.records || []).filter(r => r.settleStatus !== 'settled');
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 未结余额 = 总额 - 已收 */
+    outstanding(r) {
+      return Number(r.totalAmount || 0) - Number(r.paidAmount || 0);
+    },
+    settleText(s) {
+      return s === 'partial' ? '部分还' : (s === 'settled' ? '已结清' : '未还');
+    },
+    goDebt(type, id) {
+      uni.navigateTo({ url: '/pages/mine/debts/index?type=' + type + (id ? '&id=' + id : '') });
+    },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onAssetBalanceInput(e) { applyAmountInput(e, this, 'assetForm.initialBalance'); },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
@@ -274,7 +314,8 @@ export default {
         const res = await listAssets(true);
         this.accounts = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
-    },
+    }
+      this.loadReceivables();,
     addAsset() {
       this.assetForm = { id: null, name: '', type: 'cash', initialBalance: '', includeInTotal: 1 };
       this.assetEditing = true;

@@ -96,12 +96,24 @@
           <text class="pick-value">{{ selectedReceivableName || '选择应收款' }} ▾</text>
         </picker>
       </view>
+      <!-- 借款：向谁借（填了→自动建应付款；留空→走下方负债账户） -->
+      <view class="pick-row" v-if="form.type === 'borrow'">
+        <text class="pick-label">向谁借</text>
+        <input class="pick-value" v-model="form.counterparty" placeholder="对方姓名（选填）" />
+      </view>
+      <!-- 还款：还哪笔应付（核销应付款） -->
+      <view class="pick-row" v-if="form.type === 'repayment'">
+        <text class="pick-label">应付</text>
+        <picker :range="payableNames" @change="onPayableChange">
+          <text class="pick-value">{{ selectedPayableName || '选择应付款' }} ▾</text>
+        </picker>
+      </view>
       <view class="pick-row" v-if="needTarget" @tap="pickTarget">
         <text class="pick-label">转入账户</text>
         <text class="pick-value">{{ selectedTargetName || '选择账户' }} ▾</text>
       </view>
       <view class="pick-row" v-if="needLiability" @tap="pickLiability">
-        <text class="pick-label">{{ form.type === 'repayment' ? '还款至' : '借款自' }}</text>
+        <text class="pick-label">{{ form.type === 'repayment' ? '还负债账户' : '关联负债账户' }}</text>
         <view class="pick-value-area">
           <text class="pick-value">{{ selectedLiabilityName || '选择借款项目' }} ▾</text>
           <text v-if="form.liabilityId" class="pick-clear" @tap.stop="clearLiability">✕ 清除</text>
@@ -190,7 +202,7 @@
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import keyboardAware from '@/mixins/keyboardAware';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
-import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, listReceivables, settleDebt, uploadVoucher } from '@/api/ledger';
+import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, listReceivables, listPayables, settleDebt, uploadVoucher } from '@/api/ledger';
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
@@ -241,13 +253,16 @@ export default {
       form: {
         type: 'expense', accountId: null, targetAccountId: null, liabilityId: null,
         categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
-        // 借出：对方名称（自动生成应收款用）；收款：所选应收款ID（核销用）
-        counterparty: '', receivableId: null,
+        // 借出：对方名称（自动生成应收款用）；收款：所选应收款ID（核销用）；
+        // 借款：对方名称（生成应付款用）；还款：所选应付款ID（核销用）
+        counterparty: '', receivableId: null, payableId: null,
         transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
         transactionTime: `${pad(today.getHours())}:${pad(today.getMinutes())}`
       },
       // 应收款列表（收款类型下拉选择「来源」用）
       receivables: [],
+      // 应付款列表（还款类型下拉选择「还哪笔应付」用）
+      payables: [],
       picker: { visible: false, mode: '', title: '', items: [], selectedId: null },
       /** 账户/负债选项加载失败（与"确实没有账户"区分，避免误去重复建账户） */
       optionsError: false,
@@ -315,6 +330,13 @@ export default {
       const r = this.receivables.find(x => x.id === this.form.receivableId);
       return r ? `${r.counterparty}（待收 ${formatAbsAmount(this.outstanding(r))}）` : '';
     },
+    payableNames() {
+      return this.payables.map(p => `${p.counterparty}（待还 ${formatAbsAmount(this.outstanding(p))}）`);
+    },
+    selectedPayableName() {
+      const p = this.payables.find(x => x.id === this.form.payableId);
+      return p ? `${p.counterparty}（待还 ${formatAbsAmount(this.outstanding(p))}）` : '';
+    },
     /** 未结余额 = 总额 - 已收（与债务页同口径） */
     outstanding(d) {
       return Number(d.totalAmount || 0) - Number(d.paidAmount || 0);
@@ -328,7 +350,13 @@ export default {
       if (this.form.type === 'adjust') return amountNum !== 0 && !!this.form.accountId;
       if (amountNum <= 0) return false;
       if (this.needTarget) return !!this.form.accountId && !!this.form.targetAccountId;
-      if (this.needLiability) return  (this.form.type === 'borrow' || !!this.form.accountId);
+      if (this.needLiability) {
+        // 还款：必须选「应付」或「负债账户」其一，且要资金账户
+        if (this.form.type === 'repayment') {
+          return (!!this.form.payableId || !!this.form.liabilityId) && !!this.form.accountId;
+        }
+        return (this.form.type === 'borrow' || !!this.form.accountId);
+      }
       // 收款：必须选一笔应收款来源 + 入账账户
       if (this.form.type === 'collect') return !!this.form.receivableId && !!this.form.accountId;
       // 收支类必须选分类：否则报表「分类 TOP」按 categoryId 聚合时会被跳过，
@@ -371,6 +399,7 @@ export default {
         this.liabilities = ((liabilities && liabilities.records) || []).filter(l => l.settleFlag !== 1);
         this.optionsError = false;
         this.loadReceivables();
+        this.loadPayables();
         this.loadCategories();
       } catch (e) {
         // 失败标记：否则 picker 提示"暂无账户"，用户会真去建重复账户
@@ -384,6 +413,13 @@ export default {
         // 只取未结清的：收款只能核销还没还完的应收
         const res = await listReceivables({ settleStatus: '', pageSize: 100 }) || {};
         this.receivables = (res.records || []).filter(r => r.settleStatus !== 'settled');
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    async loadPayables() {
+      try {
+        // 只取未结清的：还款只能核销还没还完的应付
+        const res = await listPayables({ settleStatus: '', pageSize: 100 }) || {};
+        this.payables = (res.records || []).filter(p => p.settleStatus !== 'settled');
       } catch (e) { /* 拦截器已提示 */ }
     },
     async loadCategories() {
@@ -502,6 +538,10 @@ export default {
     onReceivableChange(e) {
       const r = this.receivables[e.detail.value];
       this.form.receivableId = r ? r.id : null;
+    },
+    onPayableChange(e) {
+      const p = this.payables[e.detail.value];
+      this.form.payableId = p ? p.id : null;
     },
     pickAsset() {
       this.openPicker('asset', '选择账户', this.assets.map(a => ({
@@ -736,6 +776,7 @@ export default {
         categoryId: this.form.categoryId,
         accountId: this.form.accountId,
         liabilityId: this.form.liabilityId,
+        payableId: this.form.payableId || null,
         targetAccountId: this.form.targetAccountId,
         description: this.form.description || null,
         merchant: this.form.merchant || null,

@@ -84,6 +84,18 @@
         <text class="pick-label">{{ accountLabel }}</text>
         <text class="pick-value">{{ selectedAssetName || '选择账户' }} ▾</text>
       </view>
+      <!-- 借出：对方名称（自动生成应收款的对方） -->
+      <view class="pick-row" v-if="form.type === 'lend'">
+        <text class="pick-label">借给谁</text>
+        <input class="pick-value" v-model="form.counterparty" placeholder="对方姓名 / 称呼" />
+      </view>
+      <!-- 收款：下拉选应收款来源（核销哪一笔） -->
+      <view class="pick-row" v-if="form.type === 'collect'">
+        <text class="pick-label">应收来源</text>
+        <picker :range="receivableNames" @change="onReceivableChange">
+          <text class="pick-value">{{ selectedReceivableName || '选择应收款' }} ▾</text>
+        </picker>
+      </view>
       <view class="pick-row" v-if="needTarget" @tap="pickTarget">
         <text class="pick-label">转入账户</text>
         <text class="pick-value">{{ selectedTargetName || '选择账户' }} ▾</text>
@@ -178,7 +190,7 @@
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import keyboardAware from '@/mixins/keyboardAware';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
-import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, uploadVoucher } from '@/api/ledger';
+import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, listReceivables, settleDebt, uploadVoucher } from '@/api/ledger';
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
@@ -229,9 +241,13 @@ export default {
       form: {
         type: 'expense', accountId: null, targetAccountId: null, liabilityId: null,
         categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
+        // 借出：对方名称（自动生成应收款用）；收款：所选应收款ID（核销用）
+        counterparty: '', receivableId: null,
         transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
         transactionTime: `${pad(today.getHours())}:${pad(today.getMinutes())}`
       },
+      // 应收款列表（收款类型下拉选择「来源」用）
+      receivables: [],
       picker: { visible: false, mode: '', title: '', items: [], selectedId: null },
       /** 账户/负债选项加载失败（与"确实没有账户"区分，避免误去重复建账户） */
       optionsError: false,
@@ -291,6 +307,18 @@ export default {
       const c = this.categories.find(x => x.id === this.form.categoryId);
       return c ? c.name : '';
     },
+    /** 收款：应收款下拉的名称列表（对方 + 未结余额） */
+    receivableNames() {
+      return this.receivables.map(r => `${r.counterparty}（待收 ${formatAbsAmount(this.outstanding(r))}）`);
+    },
+    selectedReceivableName() {
+      const r = this.receivables.find(x => x.id === this.form.receivableId);
+      return r ? `${r.counterparty}（待收 ${formatAbsAmount(this.outstanding(r))}）` : '';
+    },
+    /** 未结余额 = 总额 - 已收（与债务页同口径） */
+    outstanding(d) {
+      return Number(d.totalAmount || 0) - Number(d.paidAmount || 0);
+    },
     quickAddOk() {
       // 历史欠款可空（=0）：借款页补录时通常只建项目，欠款由本次记账累加
       return !!(this.quickAdd.name && this.quickAdd.name.trim()) && toNum(this.quickAdd.balanceYuan || '0') >= 0;
@@ -301,6 +329,8 @@ export default {
       if (amountNum <= 0) return false;
       if (this.needTarget) return !!this.form.accountId && !!this.form.targetAccountId;
       if (this.needLiability) return  (this.form.type === 'borrow' || !!this.form.accountId);
+      // 收款：必须选一笔应收款来源 + 入账账户
+      if (this.form.type === 'collect') return !!this.form.receivableId && !!this.form.accountId;
       // 收支类必须选分类：否则报表「分类 TOP」按 categoryId 聚合时会被跳过，
       // 导致「收入/支出分类 TOP」缺数据（此前收入可无分类保存 → category_id=NULL）
       if (this.form.type === 'expense' || this.form.type === 'income') {
@@ -340,6 +370,7 @@ export default {
         this.assets = (assets && assets.records) || [];
         this.liabilities = ((liabilities && liabilities.records) || []).filter(l => l.settleFlag !== 1);
         this.optionsError = false;
+        this.loadReceivables();
         this.loadCategories();
       } catch (e) {
         // 失败标记：否则 picker 提示"暂无账户"，用户会真去建重复账户
@@ -347,6 +378,13 @@ export default {
         //   这里不再重复弹窗，否则会叠在登录页之上）
         this.optionsError = true;
       }
+    },
+    async loadReceivables() {
+      try {
+        // 只取未结清的：收款只能核销还没还完的应收
+        const res = await listReceivables({ settleStatus: '', pageSize: 100 }) || {};
+        this.receivables = (res.records || []).filter(r => r.settleStatus !== 'settled');
+      } catch (e) { /* 拦截器已提示 */ }
     },
     async loadCategories() {
       try {
@@ -460,6 +498,10 @@ export default {
       this.form.transactionTime = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
       this.refreshRemark();
       uni.showToast({ title: '已选今天', icon: 'none' });
+    },
+    onReceivableChange(e) {
+      const r = this.receivables[e.detail.value];
+      this.form.receivableId = r ? r.id : null;
     },
     pickAsset() {
       this.openPicker('asset', '选择账户', this.assets.map(a => ({
@@ -681,6 +723,11 @@ export default {
      * `if (this.saving) return` 会因锁已被持有而永远直接返回（保存失效）。
      */
     async saveTransaction(amountNum) {
+      // 收款走核销（settle），而不是裸记一笔：核销会同时「加现金 + 减应收」，
+      // 若走 createTransaction(type=collect) 只会加现金、应收不动，净资产就虚增了。
+      if (this.form.type === 'collect') {
+        return this.saveCollect(amountNum);
+      }
       // 客户端幂等键：后端按 clientUuid 查重（DB 唯一索引兜底），双击/网络重试不会重复入账
       const clientUuid = 'tx-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
       const data = {
@@ -692,6 +739,7 @@ export default {
         targetAccountId: this.form.targetAccountId,
         description: this.form.description || null,
         merchant: this.form.merchant || null,
+        counterparty: this.form.counterparty || null,
         voucherUrl: this.form.voucherUrl || null,
         transactionDate: this.form.transactionDate,
         transactionTime: this.form.transactionTime,
@@ -722,6 +770,30 @@ export default {
         this.refreshRemark();
         const assets = await listAssets(false).catch(() => null);
         if (assets && assets.records) this.assets = assets.records;
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /**
+     * 收款：核销一笔应收款。
+     *
+     * 走债务核销 settle（后端三处原子落账：资金流水 + 应收扣减 + 核销流水），
+     * 而非 createTransaction —— 收款是「债权变现金」，不是新增收入。
+     */
+    async saveCollect(amountNum) {
+      try {
+        await settleDebt({
+          debtType: 'receivable',
+          debtId: this.form.receivableId,
+          amount: amountNum,
+          accountId: this.form.accountId,
+          remark: this.form.description || undefined
+        });
+        uni.showToast({ title: '已收款', icon: 'success' });
+        this.amountYuan = '';
+        this.form.receivableId = null;
+        this.form.description = '';
+        this.descEdited = false;
+        // 收款后该笔应收余额变了，重新拉取应收列表（核销弹层里的余额也会刷新）
+        this.loadReceivables();
       } catch (e) { /* 拦截器已提示 */ }
     },
     // ---------------- 凭证截图 ----------------

@@ -31,6 +31,12 @@ public class TransactionCreateDTO {
     /** 关联负债账户ID（还款/借款必填） */
     private Long liabilityId;
 
+    /** 关联应收款ID（借出/收款时填写，用于双向追溯） */
+    private Long receivableId;
+
+    /** 关联应付款ID（借款/还款时填写） */
+    private Long payableId;
+
     /** 转账目标资产账户ID（transfer 必填） */
     private Long targetAccountId;
 

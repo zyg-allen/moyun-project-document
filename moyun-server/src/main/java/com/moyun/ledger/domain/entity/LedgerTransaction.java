@@ -46,6 +46,17 @@ public class LedgerTransaction {
      * 类型：余额校准（差额留痕，可正可负；不计预算）
      */
     public static final String TYPE_ADJUST = "adjust";
+    /**
+     * 类型：借出（资产-，同时生成等额应收款，净资产不变）
+     *
+     * <p>与支出同为"资金账户减少"，但不计入支出报表 —— 钱只是换了形态（现金→债权），
+     * 没有真正花掉。报表按 type 过滤，故新类型天然被排除在收支之外。</p>
+     */
+    public static final String TYPE_LEND = "lend";
+    /**
+     * 类型：收款（资产+，同时核销等额应收款，净资产不变）
+     */
+    public static final String TYPE_COLLECT = "collect";
 
     /**
      * 状态：正常
@@ -88,6 +99,12 @@ public class LedgerTransaction {
      * 关联负债账户（还款/借款）
      */
     private Long liabilityId;
+
+    /** 关联应收款ID（借出/收款） */
+    private Long receivableId;
+
+    /** 关联应付款ID（借款/还款） */
+    private Long payableId;
 
     /**
      * 转账目标资产账户

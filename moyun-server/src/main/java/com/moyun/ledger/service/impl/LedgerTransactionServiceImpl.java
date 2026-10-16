@@ -341,7 +341,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 || LedgerTransaction.TYPE_TRANSFER.equals(type)
                 || LedgerTransaction.TYPE_REPAYMENT.equals(type)
                 || LedgerTransaction.TYPE_BORROW.equals(type)
-                || LedgerTransaction.TYPE_ADJUST.equals(type);
+                || LedgerTransaction.TYPE_ADJUST.equals(type)
+                || LedgerTransaction.TYPE_LEND.equals(type)
+                || LedgerTransaction.TYPE_COLLECT.equals(type);
         if (!typeOk) {
             throw new IllegalArgumentException("非法记账类型：" + type);
         }
@@ -381,7 +383,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             }
         }
         if (LedgerTransaction.TYPE_INCOME.equals(type) || LedgerTransaction.TYPE_EXPENSE.equals(type)
-                || LedgerTransaction.TYPE_ADJUST.equals(type)) {
+                || LedgerTransaction.TYPE_ADJUST.equals(type)
+                || LedgerTransaction.TYPE_LEND.equals(type)
+                || LedgerTransaction.TYPE_COLLECT.equals(type)) {
             if (dto.getAccountId() == null) {
                 throw new IllegalArgumentException("必须指定资产账户");
             }
@@ -395,8 +399,11 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
      * 仅校验新建：修改走冲正+重放（语义为修正历史账，以当前余额强卡历史账会误伤）。
      */
     private void checkSufficientBalance(Long userId, TransactionCreateDTO dto) {
+        // 借出同样是"钱出去"，必须做余额充足校验 ——
+        // 否则会出现"账上没钱也能借出 10 万"的凭空资产。
         if (!LedgerTransaction.TYPE_EXPENSE.equals(dto.getType())
-                && !LedgerTransaction.TYPE_TRANSFER.equals(dto.getType())) {
+                && !LedgerTransaction.TYPE_TRANSFER.equals(dto.getType())
+                && !LedgerTransaction.TYPE_LEND.equals(dto.getType())) {
             return;
         }
         LedgerAssetAccount account = assetAccountMapper.selectById(dto.getAccountId());
@@ -406,7 +413,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         if (account.getBalance().compareTo(dto.getAmount()) < 0) {
             throw new IllegalArgumentException("「" + account.getName() + "」余额不足（当前 "
                     + account.getBalance().toPlainString() + " 元），无法记此笔"
-                    + (LedgerTransaction.TYPE_EXPENSE.equals(dto.getType()) ? "支出" : "转出")
+                    + (LedgerTransaction.TYPE_EXPENSE.equals(dto.getType()) ? "支出"
+                        : (LedgerTransaction.TYPE_LEND.equals(dto.getType()) ? "借出" : "转出"))
                     + "。请先记一笔该账户的收入，或从余额充足的账户转账过来，说明资金来源");
         }
     }
@@ -418,6 +426,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         txn.setCategoryId(dto.getCategoryId());
         txn.setAccountId(dto.getAccountId());
         txn.setLiabilityId(dto.getLiabilityId());
+        txn.setReceivableId(dto.getReceivableId());
+        txn.setPayableId(dto.getPayableId());
         txn.setTargetAccountId(dto.getTargetAccountId());
         txn.setDescription(dto.getDescription());
         txn.setMerchant(dto.getMerchant());
@@ -428,9 +438,12 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         txn.setTransactionTime(dto.getTransactionTime() != null && !dto.getTransactionTime().isEmpty()
                 ? dto.getTransactionTime()
                 : java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")));
-        // adjust 不计预算，其余默认计入
-        txn.setIsBudget(LedgerTransaction.TYPE_ADJUST.equals(dto.getType()) ? 0
-                : (dto.getIsBudget() != null ? dto.getIsBudget() : 1));
+        // adjust / 借出 / 收款 不计预算：前两者是账目校准与债权转换，不是当期的收支行为，
+        // 计入预算会让"本月预算执行"虚高或虚低。
+        boolean noBudget = LedgerTransaction.TYPE_ADJUST.equals(dto.getType())
+                || LedgerTransaction.TYPE_LEND.equals(dto.getType())
+                || LedgerTransaction.TYPE_COLLECT.equals(dto.getType());
+        txn.setIsBudget(noBudget ? 0 : (dto.getIsBudget() != null ? dto.getIsBudget() : 1));
         txn.setStatus(LedgerTransaction.STATUS_NORMAL);
     }
 
@@ -504,6 +517,19 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 txn.setBalanceAfter(after);
                 break;
             }
+            case LedgerTransaction.TYPE_LEND: {
+                // 借出：资金账户减少（与支出同为资产 −）。
+                // 净资产不变由"同时生成等额应收款"保证（应收计入总资产，见资产总览口径）。
+                BigDecimal after = applyAssetDelta(txn.getAccountId(), amount.negate(), txn.getUserId());
+                txn.setBalanceAfter(after);
+                break;
+            }
+            case LedgerTransaction.TYPE_COLLECT: {
+                // 收款：资金账户增加（与收入同为资产 +），同时核销等额应收款（资产 −），净资产不变
+                BigDecimal after = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
+                txn.setBalanceAfter(after);
+                break;
+            }
             default:
                 throw new IllegalArgumentException("非法记账类型：" + type);
         }
@@ -517,6 +543,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         BigDecimal amount = old.getAmount();
         switch (type) {
             case LedgerTransaction.TYPE_INCOME:
+                applyAssetDelta(old.getAccountId(), amount.negate(), old.getUserId());
+                break;
+            // 借出/收款是上面各类型的镜像：冲正即反向执行同一矩阵
+            case LedgerTransaction.TYPE_LEND:
+                applyAssetDelta(old.getAccountId(), amount, old.getUserId());
+                break;
+            case LedgerTransaction.TYPE_COLLECT:
                 applyAssetDelta(old.getAccountId(), amount.negate(), old.getUserId());
                 break;
             case LedgerTransaction.TYPE_EXPENSE:

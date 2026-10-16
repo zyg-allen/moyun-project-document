@@ -188,8 +188,10 @@ const TYPE_DEFS = [
   { key: 'expense', label: '支出' },
   { key: 'income', label: '收入' },
   { key: 'transfer', label: '转账' },
-  { key: 'repayment', label: '还款' },
+  { key: 'lend', label: '借出' },
+  { key: 'collect', label: '收款' },
   { key: 'borrow', label: '借款' },
+  { key: 'repayment', label: '还款' },
   { key: 'adjust', label: '校准' }
 ];
 
@@ -197,14 +199,16 @@ const TYPE_HINTS = {
   expense: '支出 = 从所选资产账户扣钱，计入当月预算统计',
   income: '收入 = 钱进入所选资产账户，计入月度收支统计',
   transfer: '转账 = 资产账户间互转：A 减、B 加，总资产不变',
-  repayment: '还款 = 资产账户出钱，欠款对应减少；余额不足会提示补录资金来源',
+  lend: '借出 = 钱借出去变成债权：账户减少、等额记入应收，净资产不变',
+  collect: '收款 = 收债变回现金：账户增加、核销等额应收，净资产不变',
   borrow: '借款 = 欠款增加，钱进入所选资产账户（可不选账户，仅记录欠款）',
+  repayment: '还款 = 资产账户出钱，欠款对应减少；余额不足会提示补录资金来源',
   adjust: '校准 = 在账户当前余额上累加差额（正数调增、负数调减），用于补记遗漏造成的余额偏差，不计入收支统计'
 };
 
 /** 分类 icon 标识 → emoji 已收敛到 @/utils/categoryIcon 统一维护 */
 
-const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' };
+const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', lend: '借出', collect: '收款', borrow: '借款', repayment: '还款', adjust: '校准' };
 
 export default {
   mixins: [keyboardAware],
@@ -253,7 +257,7 @@ export default {
     needTarget() { return this.form.type === 'transfer'; },
     needLiability() { return ['repayment', 'borrow'].includes(this.form.type); },
     accountLabel() {
-      return { expense: '支出账户', income: '收入账户', transfer: '转出账户', repayment: '扣款账户', borrow: '入账账户(选填)', adjust: '校准账户' }[this.form.type] || '账户';
+      return { expense: '支出账户', income: '收入账户', transfer: '转出账户', lend: '借出账户', collect: '收款账户', repayment: '扣款账户', borrow: '入账账户(选填)', adjust: '校准账户' }[this.form.type] || '账户';
     },
     /** 按当前类型过滤分类：每种交易类型只显示对应分类 */
     filteredCategories() {
@@ -654,6 +658,10 @@ export default {
       switch (this.form.type) {
         case 'adjust':
           return `将在「${acc}」当前余额上${amountNum > 0 ? '加' : '减'} ¥${amt}（不是设为该值），确认无误？`;
+        case 'lend':
+          return `记借出 ¥${amt}：「${acc}」扣款，等额记入应收款。确认？`;
+        case 'collect':
+          return `记收款 ¥${amt}：「${acc}」入账，等额核销应收款。确认？`;
         case 'borrow': {
           const li = this.selectedLiabilityName || '自动新建借款项目';
           return `记借款 ¥${amt}：欠款增加（${li}）${this.form.accountId ? `，资金进入「${acc}」` : '，不入资产账户'}。确认？`;

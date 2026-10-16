@@ -275,7 +275,10 @@ export default {
     assetFilteredList() { return this.showArchived ? this.accounts : this.assetEnabled; },
     assetTotalText() {
       const list = this.assetEnabled.filter(a => a.includeInTotal === 1);
-      return formatAmount(safeSum(list, 'balance'));
+      const cash = safeSum(list, 'balance');
+      // 应收是资产：总资产 = 资金 + 应收（只算未结余额，已结清早已变成现金，重复算会双计）
+      const receivable = this.receivables.reduce((s, r) => s + this.outstanding(r), 0);
+      return formatAmount(cash + receivable);
     },
     liabActive() { return this.liabilities.filter(l => l.status === 1 && l.settleFlag !== 1); },
     settledCount() { return this.liabilities.filter(l => l.settleFlag === 1).length; },
@@ -284,7 +287,10 @@ export default {
     },
     liabTotalText() {
       const list = this.liabilities.filter(l => l.status === 1 && l.settleFlag !== 1 && l.includeInTotal === 1);
-      return formatAmount(safeSum(list, 'balance'));
+      const debt = safeSum(list, 'balance');
+      // 应付是负债：总负债 = 现有负债 + 应付（只算未结余额）
+      const payable = this.payables.reduce((s, p) => s + this.outstanding(p), 0);
+      return formatAmount(debt + payable);
     },
     /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
     assetSheetTitle() { return this.assetForm.id ? '编辑账户' : '新增资产账户'; },

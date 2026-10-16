@@ -55,6 +55,9 @@ public class TransactionCreateDTO {
     /** 商户名称 */
     private String merchant;
 
+    /** 对方名称（借出时必填/选填：用于自动生成应收款） */
+    private String counterparty;
+
     /** 凭证截图URL（门户文件服务地址，选填） */
     private String voucherUrl;
 

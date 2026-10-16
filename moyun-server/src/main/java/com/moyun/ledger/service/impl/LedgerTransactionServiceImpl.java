@@ -8,12 +8,14 @@ import com.moyun.ledger.domain.dto.TransactionCreateDTO;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerBudget;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
+import com.moyun.ledger.domain.entity.LedgerReceivable;
 import com.moyun.ledger.domain.entity.LedgerNetWorthSnapshot;
 import com.moyun.ledger.domain.entity.LedgerTransaction;
 import com.moyun.ledger.domain.query.TransactionQuery;
 import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
 import com.moyun.ledger.mapper.LedgerLiabilityAccountMapper;
 import com.moyun.ledger.mapper.LedgerNetWorthSnapshotMapper;
+import com.moyun.ledger.mapper.LedgerReceivableMapper;
 import com.moyun.ledger.mapper.LedgerTransactionMapper;
 import com.moyun.ledger.service.ILedgerTransactionService;
 import org.slf4j.Logger;
@@ -68,6 +70,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     @Autowired
     private com.moyun.ledger.mapper.LedgerBudgetMapper budgetMapper;
 
+    /** 借出联动：自动生成应收款 */
+    private LedgerReceivableMapper receivableMapper;
+
     @Autowired
     private com.moyun.core.config.redis.RedisCache redisCache;
 
@@ -97,6 +102,11 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         applyDto(txn, dto);
         applyBalanceEffect(txn, null);
         save(txn);
+        // 借出：现金减少的同时**自动生成一笔等额应收款** —— 否则净资产会凭空少一块。
+        // 「借出不是支出」的落地：钱只是换了形态（现金→债权），必须有债权接住。
+        if (LedgerTransaction.TYPE_LEND.equals(txn.getType())) {
+            createReceivableForLend(txn, dto);
+        }
         refreshNetWorthSnapshot(userId, txn.getTransactionDate());
         return txn.getId();
     }
@@ -671,6 +681,33 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     /**
      * 刷新指定日期的净资产快照（事务内 upsert）
      */
+    /**
+     * 借出联动：自动创建应收款并回填流水关联。
+     *
+     * 幂等由 clientUuid 保证 —— 只有「新建」流水才走到这里，重复提交在 createTransaction
+     * 开头已短路返回，故不会重复建应收。应收总额与流水金额一致，核销后由 settle 反向减少。
+     */
+    private void createReceivableForLend(LedgerTransaction txn, TransactionCreateDTO dto) {
+        String cp = dto.getCounterparty();
+        if (cp == null || cp.isBlank()) {
+            cp = (dto.getDescription() != null && !dto.getDescription().isBlank())
+                    ? dto.getDescription() : "借出";
+        }
+        LedgerReceivable r = new LedgerReceivable();
+        r.setUserId(txn.getUserId());
+        r.setCounterparty(cp);
+        r.setSourceType(LedgerReceivable.SOURCE_LEND);
+        r.setSourceId(txn.getId());
+        r.setTotalAmount(txn.getAmount());
+        r.setPaidAmount(java.math.BigDecimal.ZERO);
+        r.setSettleStatus(LedgerReceivable.SETTLE_PENDING);
+        r.setStatus(LedgerReceivable.STATUS_NORMAL);
+        receivableMapper.insert(r);
+        // 回填关联，使「流水 → 应收」可双向追溯
+        txn.setReceivableId(r.getId());
+        updateById(txn);
+    }
+
     private void refreshNetWorthSnapshot(Long userId, LocalDate date) {
         // 聚合启用且计入合计的账户现值
         LambdaQueryWrapper<LedgerAssetAccount> aq = new LambdaQueryWrapper<>();

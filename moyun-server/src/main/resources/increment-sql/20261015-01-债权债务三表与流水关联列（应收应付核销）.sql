@@ -125,10 +125,32 @@ CREATE TABLE IF NOT EXISTS `ledger_debt_repayment` (
 --       这样从一条流水能直接跳到对应债务，从一笔债务也能列出它的所有资金流水。
 -- 不加外键约束：与库内既有 ledger_* 表一致（靠应用层保证），便于后续分库/归档。
 -- -----------------------------------------------------------
-ALTER TABLE `ledger_transaction`
-    ADD COLUMN `receivable_id` bigint DEFAULT NULL COMMENT '关联应收款ID（借出/收款时填写）' AFTER `liability_id`,
-    ADD COLUMN `payable_id` bigint DEFAULT NULL COMMENT '关联应付款ID（借款/还款时填写）' AFTER `receivable_id`;
+-- 关联列（幂等：MySQL 8.0 无 ADD COLUMN IF NOT EXISTS，先查 information_schema 再决定）
+SET @has_recv := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_transaction' AND COLUMN_NAME = 'receivable_id');
+SET @sql := IF(@has_recv = 0,
+  'ALTER TABLE `ledger_transaction` ADD COLUMN `receivable_id` bigint DEFAULT NULL COMMENT ''关联应收款ID（借出/收款时填写）'' AFTER `liability_id`',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-ALTER TABLE `ledger_transaction`
-    ADD KEY `idx_receivable` (`receivable_id`),
-    ADD KEY `idx_payable` (`payable_id`);
+SET @has_pay := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_transaction' AND COLUMN_NAME = 'payable_id');
+SET @sql := IF(@has_pay = 0,
+  'ALTER TABLE `ledger_transaction` ADD COLUMN `payable_id` bigint DEFAULT NULL COMMENT ''关联应付款ID（借款/还款时填写）'' AFTER `receivable_id`',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 索引（幂等）
+SET @has_i1 := (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_transaction' AND INDEX_NAME = 'idx_receivable');
+SET @sql := IF(@has_i1 = 0,
+  'ALTER TABLE `ledger_transaction` ADD KEY `idx_receivable` (`receivable_id`)',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @has_i2 := (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_transaction' AND INDEX_NAME = 'idx_payable');
+SET @sql := IF(@has_i2 = 0,
+  'ALTER TABLE `ledger_transaction` ADD KEY `idx_payable` (`payable_id`)',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

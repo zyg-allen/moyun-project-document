@@ -31,7 +31,7 @@
             <view class="flex-1">
               <view class="row-name">
                 {{ a.name }}
-                <text v-if="a.riskLevel && a.riskLevel !== 'normal'" class="risk-tag">{{ assetRiskText(a.riskLevel) }}</text>
+                <text v-if="a.riskLevel && a.riskLevel !== '正常'" class="risk-tag">{{ a.riskLevel }}</text>
                 <text v-if="a.status === 0" class="archived-tag">已归档</text>
               </view>
               <view class="row-type">{{ assetTypeText(a.accountType) }}</view>
@@ -68,7 +68,7 @@
             <view class="flex-1">
               <view class="row-name">
                 {{ l.name }}
-                <text v-if="l.riskLevel && l.riskLevel !== 'normal'" class="risk-tag">{{ liabRiskText(l.riskLevel) }}</text>
+                <text v-if="l.riskLevel && l.riskLevel !== '正常'" class="risk-tag">{{ l.riskLevel }}</text>
                 <text v-if="l.settleFlag === 1" class="settle-tag">已结清</text>
                 <text v-if="l.status === 0" class="archived-tag">已归档</text>
               </view>
@@ -114,9 +114,12 @@
       </view>
       <view class="field">
         <text class="field-label">风险</text>
-        <picker class="fill-picker" :range="riskLevelsAsset.map(r => r[1])" @change="onAssetRiskChange">
-          <view class="field-picker">{{ assetRiskText(assetForm.riskLevel) }} ▾</view>
-        </picker>
+        <view class="risk-chips">
+          <text v-for="r in assetRiskPresets" :key="r" class="risk-chip"
+                :class="{ on: assetForm.riskLevel === r }" @tap="assetForm.riskLevel = r">{{ r }}</text>
+        </view>
+        <input v-model="assetForm.riskLevel" placeholder="或输入自定义标签（如：急催 / 失联）" class="field-input"
+          adjust-position :cursor-spacing="24" />
       </view>
       <view class="field" v-if="!assetForm.id">
         <text class="field-label">初始余额(元)</text>
@@ -159,9 +162,12 @@
         </view>
         <view class="field">
           <text class="field-label">风险</text>
-          <picker class="fill-picker" :range="riskLevelsLiab.map(r => r[1])" @change="onLiabRiskChange">
-            <view class="field-picker">{{ liabRiskText(liabForm.riskLevel) }} ▾</view>
-          </picker>
+          <view class="risk-chips">
+            <text v-for="r in liabRiskPresets" :key="r" class="risk-chip"
+                  :class="{ on: liabForm.riskLevel === r }" @tap="liabForm.riskLevel = r">{{ r }}</text>
+          </view>
+          <input v-model="liabForm.riskLevel" placeholder="或输入自定义标签（如：协商中）" class="field-input"
+            adjust-position :cursor-spacing="24" />
         </view>
         <view class="field" v-if="!liabForm.id">
           <text class="field-label">当前欠款(元)</text>
@@ -219,14 +225,18 @@ const ASSET_ICONS = {
   investment: { emoji: '📈', bg: '#6BCB77' },
   fixed: { emoji: '🏠', bg: '#9AD2A9' }
 };
-// 资产风险（应收款催收）：正常/关注/坏账
-const RISK_LEVELS_ASSET = [
-  ['normal', '正常'], ['attention', '关注'], ['bad_debt', '坏账']
-];
-// 负债风险（我欠别人）：正常/逾期/违约
-const RISK_LEVELS_LIAB = [
-  ['normal', '正常'], ['overdue', '逾期'], ['default', '违约']
-];
+// 资产风险预设：按账户类型语义不同（可自定义输入）
+const ASSET_RISK_PRESETS = {
+  fund: ['正常', '冻结', '异常'],
+  receivable: ['正常', '关注', '坏账'],
+  investment: ['正常', '关注', '亏损'],
+  fixed: ['正常', '关注', '贬值']
+};
+// 负债风险预设（我欠别人）
+const LIAB_RISK_PRESETS = {
+  debt: ['正常', '逾期', '违约'],
+  credit: ['正常', '逾期', '违约']
+};
 const LIAB_TYPES = [
   ['debt', '普通负债'], ['credit', '赊账应付']
 ];
@@ -244,15 +254,13 @@ export default {
       // 分组折叠状态（key = 'a_'+类型 / 'l_'+类型，true=收起）
       collapsed: {},
       assetEditing: false,
-      assetForm: { id: null, name: '', accountType: 'fund', description: '', riskLevel: 'normal', initialBalance: '', includeInTotal: 1 },
+      assetForm: { id: null, name: '', accountType: 'fund', description: '', riskLevel: '正常', initialBalance: '', includeInTotal: 1 },
       assetTypes: ASSET_TYPES,
       // 负债
       liabilities: [],
       liabEditing: false,
       liabForm: this.emptyLiabForm(),
       liabTypes: LIAB_TYPES,
-      riskLevelsAsset: RISK_LEVELS_ASSET,
-      riskLevelsLiab: RISK_LEVELS_LIAB,
       days: Array.from({ length: 28 }, (_, i) => (i + 1) + '日')
     };
   },
@@ -290,6 +298,14 @@ export default {
         label,
         items: this.liabFilteredList.filter(l => l.accountType === type)
       }));
+    },
+    /** 资产风险快捷标签：按账户类型语义不同（仍可自由输入自定义） */
+    assetRiskPresets() {
+      return ASSET_RISK_PRESETS[this.assetForm.accountType] || ['正常'];
+    },
+    /** 负债风险快捷标签（我欠别人） */
+    liabRiskPresets() {
+      return LIAB_RISK_PRESETS[this.liabForm.accountType] || ['正常', '逾期', '违约'];
     },
     /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
     /** 弹层标题：按账户类型动态（新增/编辑 + 类型名） */
@@ -370,26 +386,15 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     addAsset(type) {
-      this.assetForm = { id: null, name: '', accountType: type || 'fund', description: '', riskLevel: 'normal', initialBalance: '', includeInTotal: 1 };
+      this.assetForm = { id: null, name: '', accountType: type || 'fund', description: '', riskLevel: '正常', initialBalance: '', includeInTotal: 1 };
       this.assetEditing = true;
     },
     editAsset(a) {
-      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, description: a.description || '', riskLevel: a.riskLevel || 'normal', initialBalance: '', includeInTotal: a.includeInTotal };
+      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, description: a.description || '', riskLevel: a.riskLevel || '正常', initialBalance: '', includeInTotal: a.includeInTotal };
       this.assetEditing = true;
     },
     onAssetTypeChange(e) { this.assetForm.accountType = this.assetTypes[e.detail.value][0]; },
-    onAssetRiskChange(e) { this.assetForm.riskLevel = RISK_LEVELS_ASSET[e.detail.value][0]; },
     onAssetTotalChange(e) { this.assetForm.includeInTotal = e.detail.value ? 1 : 0; },
-    /** 资产风险文案（正常/关注/坏账） */
-    assetRiskText(level) {
-      const f = RISK_LEVELS_ASSET.find(r => r[0] === level);
-      return f ? f[1] : '';
-    },
-    /** 负债风险文案（正常/逾期/违约） */
-    liabRiskText(level) {
-      const f = RISK_LEVELS_LIAB.find(r => r[0] === level);
-      return f ? f[1] : '';
-    },
     async saveAsset() {
       return this.withSubmitLock(async () => {
               if (!this.assetForm.name.trim()) {
@@ -431,7 +436,7 @@ export default {
     },
     // ===== 负债 =====
     emptyLiabForm() {
-      return { id: null, name: '', accountType: 'debt', description: '', riskLevel: 'normal', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
+      return { id: null, name: '', accountType: 'debt', description: '', riskLevel: '正常', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
     },
     liabTypeText(type) {
       const found = this.liabTypes.find(t => t[0] === type);
@@ -457,7 +462,6 @@ export default {
       this.liabEditing = true;
     },
     onLiabTypeChange(e) { this.liabForm.accountType = this.liabTypes[e.detail.value][0]; },
-    onLiabRiskChange(e) { this.liabForm.riskLevel = RISK_LEVELS_LIAB[e.detail.value][0]; },
     onDayChange(e) { this.liabForm.repaymentDay = e.detail.value + 1; },
     onLiabTotalChange(e) { this.liabForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveLiability() {
@@ -588,8 +592,15 @@ export default {
 .row-name { font-size: 28rpx; }
 .archived-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid var(--income); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
-/* 风险标记：关注=橙，坏账=红 */
+/* 风险标记 */
 .risk-tag { font-size: 20rpx; color: #E8A33D; border: 1rpx solid #E8A33D; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+/* 风险快捷标签（可自定义输入，标签可点选） */
+.risk-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 12rpx; }
+.risk-chip {
+  font-size: 24rpx; color: var(--text-sub); background: var(--surface);
+  border: 1rpx solid transparent; border-radius: 28rpx; padding: 8rpx 24rpx;
+}
+.risk-chip.on { color: var(--primary); border-color: var(--primary); background: var(--primary-soft, #eef2ff); }
 .row-type { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .row-balance { font-size: 32rpx; font-weight: 600; }
 /* 负债金额：红色（欠的钱），资产金额保持默认 */

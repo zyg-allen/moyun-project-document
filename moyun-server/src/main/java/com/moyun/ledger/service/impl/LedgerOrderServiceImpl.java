@@ -121,7 +121,7 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
         acc.setPaidAmount(ZERO);
         acc.setBalance(total);
         acc.setSettleStatus("pending");
-        acc.setRiskLevel("normal");
+        acc.setRiskLevel("正常");
         acc.setIncludeInTotal(1);
         acc.setStatus(LedgerAssetAccount.STATUS_ENABLED);
         acc.setVersion(0);
@@ -180,7 +180,7 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
         acc.setPaidAmount(ZERO);
         acc.setBalance(total);
         acc.setSettleStatus("pending");
-        acc.setRiskLevel("normal");
+        acc.setRiskLevel("正常");
         acc.setIncludeInTotal(1);
         acc.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
         acc.setSettleFlag(0);

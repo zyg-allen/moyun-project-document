@@ -721,7 +721,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         acc.setPaidAmount(java.math.BigDecimal.ZERO);
         acc.setBalance(txn.getAmount());
         acc.setSettleStatus("pending");
-        acc.setRiskLevel("normal");
+        acc.setRiskLevel("正常");
         acc.setIncludeInTotal(1);
         acc.setStatus(LedgerAssetAccount.STATUS_ENABLED);
         acc.setVersion(0);
@@ -745,7 +745,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         acc.setPaidAmount(java.math.BigDecimal.ZERO);
         acc.setBalance(txn.getAmount());
         acc.setSettleStatus("pending");
-        acc.setRiskLevel("normal");
+        acc.setRiskLevel("正常");
         acc.setIncludeInTotal(1);
         acc.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
         acc.setSettleFlag(0);

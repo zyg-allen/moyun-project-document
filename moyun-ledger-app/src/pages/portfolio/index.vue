@@ -118,7 +118,7 @@
           <text v-for="r in assetRiskPresets" :key="r" class="risk-chip"
                 :class="{ on: assetForm.riskLevel === r }" @tap="assetForm.riskLevel = r">{{ r }}</text>
         </view>
-        <input v-model="assetForm.riskLevel" placeholder="或输入自定义标签（如：急催 / 失联）" class="field-input"
+        <input v-model="assetForm.riskLevel" maxlength="10" placeholder="或输入自定义标签（≤10字，如：急催 / 失联）" class="field-input"
           adjust-position :cursor-spacing="24" />
       </view>
       <view class="field" v-if="!assetForm.id">
@@ -166,7 +166,7 @@
             <text v-for="r in liabRiskPresets" :key="r" class="risk-chip"
                   :class="{ on: liabForm.riskLevel === r }" @tap="liabForm.riskLevel = r">{{ r }}</text>
           </view>
-          <input v-model="liabForm.riskLevel" placeholder="或输入自定义标签（如：协商中）" class="field-input"
+          <input v-model="liabForm.riskLevel" maxlength="10" placeholder="或输入自定义标签（≤10字，如：协商中）" class="field-input"
             adjust-position :cursor-spacing="24" />
         </view>
         <view class="field" v-if="!liabForm.id">

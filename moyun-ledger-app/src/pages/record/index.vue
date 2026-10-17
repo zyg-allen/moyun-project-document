@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page" :style="themeVars">
     <!-- 顶部：类型Tab + 语义提示 -->
     <view class="type-bar">
@@ -390,12 +390,23 @@ export default {
       this.refreshRemark();
     },
     pickCategoryCell(c) {
-      const selecting = this.form.categoryId !== c.id;
-      this.form.categoryId = selecting ? c.id : null;
+      const same = String(this.form.categoryId) === String(c.id);
+      // 再次点击同一大类 = 取消选中
+      if (same) {
+        this.form.categoryId = null;
+        this.form.subCategoryId = null;
+        this.refreshRemark();
+        return;
+      }
+      this.form.categoryId = c.id;
       this.form.subCategoryId = null;
       this.refreshRemark();
-      // 选中分类后自动收起宫格：把屏幕让给金额/备注等后续输入（再次点击同一分类=取消选中，保持展开）
-      if (selecting) this.catCollapsed = true;
+      // 选中大类后收起宫格，把屏幕让给金额/备注
+      this.catCollapsed = true;
+      // 该大类有子分类 → 弹层让用户选二级（选完自动收起）；没有 → 直接选中
+      if (this.subCategories.length) {
+        this.$nextTick(() => this.openSubPicker());
+      }
     },
     /** 在当前大类下新增自定义分类（仅自己可见，创建后自动选中） */
     addCustomCategory() {
@@ -450,13 +461,14 @@ export default {
     buildRemarkPrefix() {
       const dateStr = (this.form.transactionDate || '').replace(/-/g, '');
       const typeName = TYPE_NAMES[this.form.type] || this.form.type;
-      const parent = this.categories.find(c => c.id === this.form.categoryId);
-      const sub = this.categories.find(c => c.id === this.form.subCategoryId);
+      const parent = this.categories.find(c => String(c.id) === String(this.form.categoryId));
+      const sub = this.categories.find(c => String(c.id) === String(this.form.subCategoryId));
       let cat = '';
+      // 备注拼接：一级-二级（只有一级时仅一级）
       if (parent && sub) {
-        cat = `-${sub.name}（${parent.name}—${sub.name}）`;
+        cat = `-${parent.name}-${sub.name}`;
       } else if (parent) {
-        cat = `-${parent.name}（${parent.name}）`;
+        cat = `-${parent.name}`;
       }
       return `${dateStr} ${typeName}${cat}`;
     },

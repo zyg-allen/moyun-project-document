@@ -25,16 +25,11 @@
                 <text>{{ iconOf(c.icon) }}</text>
               </view>
               <text class="cat-name">{{ c.name }}</text>
-              <!-- 子分类：默认收起只显示数量，点开看明细；「＋」直接加子分类 -->
+              <!-- 子分类：点开弹框维护（新增/修改/删除） -->
               <view class="sub-bar">
-                <text class="sub-toggle" @tap.stop="toggleSub(c)">
-                  {{ subOf(c).length ? subOf(c).length + ' 个子类' : '加子类' }}
-                  <text v-if="subOf(c).length" class="sub-arrow">{{ isSubOpen(c) ? '▾' : '▸' }}</text>
+                <text class="sub-toggle" @tap.stop="openSubSheet(c)">
+                  {{ subOf(c).length ? subOf(c).length + ' 个子类 ▸' : '子分类 ▸' }}
                 </text>
-                <text class="add-sub" @tap.stop="startSub(c)">＋</text>
-              </view>
-              <view v-if="subOf(c).length && isSubOpen(c)" class="sub-tags">
-                <text v-for="s in subOf(c)" :key="s.id" class="sub-tag">{{ s.name }}</text>
               </view>
             </view>
           </view>
@@ -53,7 +48,7 @@
         </view>
         <input
           v-model="newName"
-          :placeholder="subParent ? ('添加「' + subParent.name + '」的子分类') : ('新' + currentTabLabel + '分类名（图标选填）')"
+          :placeholder="'新' + currentTabLabel + '分类名（图标选填）'"
           class="add-input"
           :cursor-spacing="24"
           adjust-position
@@ -76,6 +71,31 @@
             </view>
           </view>
         </scroll-view>
+      </view>
+    </view>
+
+    <!-- ===== 子分类维护弹框 ===== -->
+    <view v-if="subSheet.visible" class="sheet-mask" @tap="closeSubSheet">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-head">
+          <text class="sheet-title">「{{ subSheet.parent.name }}」的子分类</text>
+          <text class="sheet-close" @tap="closeSubSheet">×</text>
+        </view>
+
+        <scroll-view class="sheet-body" scroll-y>
+          <view v-if="!subSheet.list.length" class="sheet-empty">还没有子分类，在下方输入名称添加</view>
+          <view v-for="s in subSheet.list" :key="s.id" class="sub-row">
+            <text class="sub-row-name">{{ s.name }}</text>
+            <text class="sub-row-act" @tap.stop="editSub(s)">改</text>
+            <text class="sub-row-act del" @tap.stop="deleteSub(s)">删</text>
+          </view>
+        </scroll-view>
+
+        <view class="sheet-add">
+          <input v-model="subSheet.newName" placeholder="新子分类名称" class="sheet-input"
+            :cursor-spacing="24" adjust-position @confirm="addSub" />
+          <view class="sheet-add-btn" @tap="addSub">添加</view>
+        </view>
       </view>
     </view>
   </view>
@@ -131,8 +151,8 @@ export default {
       newName: '',
       newIcon: '',        // 选填；空则后端用默认图标
       iconPickerOpen: false,
-      subParent: null,    // 非空=正在为某个一级分类添加子分类
-      subOpen: {},        // 子分类展开状态（key=一级分类id，true=展开）
+      // 子分类维护弹框：parent=当前一级分类，list=其子分类
+      subSheet: { visible: false, parent: {}, list: [], newName: '' },
     };
   },
   onShow() {
@@ -148,10 +168,68 @@ export default {
     subOf(parent) {
       return this.list.filter(c => String(c.parentId) === String(parent.id));
     },
-    /** 子分类是否展开 */
-    isSubOpen(c) { return !!this.subOpen[c.id]; },
-    /** 展开/收起子分类，不占常驻空间 */
-    toggleSub(c) { this.$set(this.subOpen, c.id, !this.subOpen[c.id]); },
+    /** 打开子分类维护弹框 */
+    openSubSheet(c) {
+      this.subSheet = { visible: true, parent: c, list: this.subOf(c), newName: '' };
+    },
+    closeSubSheet() {
+      this.subSheet.visible = false;
+    },
+    /** 刷新弹框内的子分类列表（增删改后调用） */
+    async refreshSubSheet() {
+      await this.load();
+      this.subSheet.list = this.subOf(this.subSheet.parent);
+    },
+    /** 弹框内新增子分类 */
+    async addSub() {
+      const name = (this.subSheet.newName || '').trim();
+      if (!name) {
+        uni.showToast({ title: '请输入子分类名称', icon: 'none' });
+        return;
+      }
+      try {
+        await createCategory({ name, type: this.type, parentId: this.subSheet.parent.id });
+        this.subSheet.newName = '';
+        await this.refreshSubSheet();
+        uni.showToast({ title: '已添加', icon: 'success' });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 弹框内修改子分类（弹输入框） */
+    editSub(s) {
+      uni.showModal({
+        title: '修改子分类',
+        editable: true,
+        content: s.name,
+        success: async (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) {
+            uni.showToast({ title: '名称不能为空', icon: 'none' });
+            return;
+          }
+          try {
+            await updateCategory(s.id, { name, type: this.type, parentId: this.subSheet.parent.id });
+            await this.refreshSubSheet();
+            uni.showToast({ title: '已修改', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 弹框内删除子分类（后端校验流水/子分类引用） */
+    deleteSub(s) {
+      uni.showModal({
+        title: '删除确认',
+        content: '删除「' + s.name + '」？已被流水引用的分类不能删除',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteCategory(s.id);
+            await this.refreshSubSheet();
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
     /** 选择/取消选择图标（再点一次取消，保持"选填"语义） */
     pickIcon(key) {
       this.newIcon = this.newIcon === key ? '' : key;
@@ -167,12 +245,6 @@ export default {
         this.list = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
     },
-    /** 开始为某个一级分类添加子分类 */
-    startSub(c) {
-      this.subParent = c;
-      this.newName = '';
-      this.newIcon = '';
-    },
     async addCat() {
       return this.withSubmitLock(async () => {
               if (!this.newName.trim()) {
@@ -181,15 +253,12 @@ export default {
               }
               try {
                 const payload = { name: this.newName.trim(), type: this.type };
-                // 二级分类：挂到当前一级分类下
-                if (this.subParent) payload.parentId = this.subParent.id;
                 // 图标选填：未选则不传，由后端保持默认
                 if (this.newIcon) payload.icon = this.newIcon;
                 await createCategory(payload);
                 this.newName = '';
                 this.newIcon = '';
                 this.iconPickerOpen = false;
-                this.subParent = null;
                 this.load();
               } catch (e) { /* 拦截器已提示 */ }
       });
@@ -254,11 +323,6 @@ export default {
 }
 .sub-toggle { font-size: 18rpx; color: var(--text-muted); }
 .sub-arrow { font-size: 16rpx; color: var(--text-muted); }
-.add-sub {
-  font-size: 20rpx; color: var(--primary);
-  background: var(--primary-soft, #eef2ff); border-radius: 50%;
-  width: 30rpx; height: 30rpx; line-height: 28rpx; text-align: center;
-}
 .sub-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6rpx; margin-top: 8rpx; }
 .sub-tag {
   font-size: 18rpx; color: var(--text-muted); background: var(--surface);
@@ -315,4 +379,41 @@ export default {
 }
 /* 提交锁生效时给出视觉反馈（与全局 .btn-primary.disabled 一致） */
 .add-btn.disabled { opacity: 0.5; }
+/* ===== 子分类维护弹框 ===== */
+.sheet-mask {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0,0,0,.45); z-index: 900;
+  display: flex; align-items: flex-end;
+}
+.sheet {
+  width: 100%; background: var(--card);
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  max-height: 72vh; display: flex; flex-direction: column;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; }
+.sheet-title { font-size: 30rpx; font-weight: 600; color: var(--text-main); }
+.sheet-close { font-size: 40rpx; color: var(--text-muted); padding: 0 8rpx; line-height: 1; }
+.sheet-body { flex: 1; max-height: 48vh; }
+.sheet-empty { text-align: center; color: var(--text-muted); font-size: 24rpx; padding: 40rpx 0; }
+.sub-row {
+  display: flex; align-items: center; gap: 16rpx;
+  padding: 20rpx 16rpx; border-bottom: 1rpx solid var(--border);
+}
+.sub-row-name { flex: 1; font-size: 28rpx; color: var(--text-main); }
+.sub-row-act {
+  font-size: 24rpx; color: var(--primary); padding: 4rpx 16rpx;
+  border: 1rpx solid var(--primary); border-radius: 20rpx;
+}
+.sub-row-act.del { color: #E85D5D; border-color: #E85D5D; }
+.sheet-add { display: flex; align-items: center; gap: 16rpx; margin-top: 16rpx; }
+.sheet-input {
+  flex: 1; height: 76rpx; background: var(--surface);
+  border-radius: 40rpx; padding: 0 28rpx; font-size: 26rpx;
+}
+.sheet-add-btn {
+  height: 76rpx; line-height: 76rpx; padding: 0 36rpx;
+  background: var(--primary-strong); color: var(--on-primary);
+  border-radius: 40rpx; font-size: 26rpx;
+}
 </style>

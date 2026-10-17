@@ -179,6 +179,36 @@
         </scroll-view>
         <view class="picker-cancel" @tap="picker.visible = false">取消</view>
     </KeyboardAwareSheet>
+
+    <!-- ===== 二级分类网格弹框（仿分类宫格：图标 + 名称） ===== -->
+    <view v-if="subPickerVisible" class="subsheet-mask" @tap="subPickerVisible = false">
+      <view class="subsheet" @tap.stop>
+        <view class="subsheet-head">
+          <text class="subsheet-close" @tap="subPickerVisible = false">×</text>
+          <text class="subsheet-title">{{ selectedCategoryName }}</text>
+          <text class="subsheet-edit" @tap="goCategories">编辑</text>
+        </view>
+        <scroll-view scroll-y class="subsheet-body">
+          <view class="subsheet-grid">
+            <view class="subsheet-cell" :class="{ on: !form.subCategoryId }" @tap="chooseSub(null)">
+              <view class="subsheet-icon" :class="{ on: !form.subCategoryId }">
+                <text>∅</text>
+              </view>
+              <text class="subsheet-name" :class="{ on: !form.subCategoryId }">不细分</text>
+            </view>
+            <view v-for="s in subCategories" :key="s.id" class="subsheet-cell"
+                  @tap="chooseSub(s)">
+              <view class="subsheet-icon"
+                    :class="{ on: form.subCategoryId === s.id }"
+                    :style="form.subCategoryId === s.id ? '' : 'background:' + softColor(s.color)">
+                <text>{{ iconOf(s.icon) }}</text>
+              </view>
+              <text class="subsheet-name" :class="{ on: form.subCategoryId === s.id }">{{ s.name }}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -228,6 +258,7 @@ export default {
       types: TYPE_DEFS,
       amountYuan: '',
       catCollapsed: false,
+    subPickerVisible: false,   // 二级分类网格弹框
       assets: [],
       liabilities: [],
       categories: [],
@@ -535,15 +566,22 @@ export default {
       if (mode === 'asset') this.form.accountId = item.id;
       if (mode === 'target') this.form.targetAccountId = item.id;
       if (mode === 'liability') this.form.liabilityId = item.id;
-      // 二级分类：选完即收起；「不细分」传 null
-      if (mode === 'subcat') this.form.subCategoryId = item.id || null;
       this.picker.visible = false;
     },
-    /** 打开二级分类选择器（不细分 + 各二级），选完自动收起 */
+    /** 打开二级分类网格弹框（不细分 + 各二级） */
     openSubPicker() {
-      const items = [{ id: null, name: '不细分（归入大类）' }]
-        .concat(this.subCategories.map(s => ({ id: s.id, name: s.name })));
-      this.openPicker('subcat', '选择二级分类', items, this.form.subCategoryId);
+      this.subPickerVisible = true;
+    },
+    /** 选中二级分类（传 null = 不细分）后自动收起 */
+    chooseSub(s) {
+      this.form.subCategoryId = s ? s.id : null;
+      this.subPickerVisible = false;
+      this.refreshRemark();
+    },
+    /** 去分类管理页维护子分类 */
+    goCategories() {
+      this.subPickerVisible = false;
+      uni.navigateTo({ url: '/pages/mine/categories/index' });
     },
     clearLiability() {
       this.form.liabilityId = null;
@@ -989,4 +1027,46 @@ export default {
 .qa-btn.cancel { background: var(--surface); color: var(--text-sub); }
 .qa-btn.ok { background: var(--primary); color: var(--on-primary); }
 .qa-btn.ok.disabled { opacity: 0.4; }
+/* ===== 二级分类网格弹框 ===== */
+.subsheet-mask {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0,0,0,.45); z-index: 900;
+  display: flex; align-items: flex-end;
+}
+.subsheet {
+  width: 100%; background: var(--card);
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 24rpx 16rpx calc(24rpx + env(safe-area-inset-bottom));
+  max-height: 72vh; display: flex; flex-direction: column;
+}
+.subsheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12rpx 16rpx;
+}
+.subsheet-close { font-size: 44rpx; color: var(--text-muted); line-height: 1; padding: 0 8rpx; width: 60rpx; }
+.subsheet-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); flex: 1; text-align: center; }
+.subsheet-edit {
+  font-size: 24rpx; color: var(--on-primary); background: var(--primary-strong);
+  border-radius: 28rpx; padding: 8rpx 28rpx;
+}
+.subsheet-body { max-height: 56vh; }
+.subsheet-grid { display: flex; flex-wrap: wrap; padding: 8rpx 0; }
+.subsheet-cell {
+  width: 16.66%; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14rpx 0;
+}
+.subsheet-icon {
+  width: 88rpx; height: 88rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40rpx; background: var(--surface);
+  transition: transform .12s;
+}
+.subsheet-icon.on { background: var(--primary-strong); }
+.subsheet-cell:active .subsheet-icon { transform: scale(.94); }
+.subsheet-name {
+  font-size: 22rpx; color: var(--text-sub); margin-top: 10rpx;
+  max-width: 108rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subsheet-name.on { color: var(--primary); font-weight: 600; }
 </style>

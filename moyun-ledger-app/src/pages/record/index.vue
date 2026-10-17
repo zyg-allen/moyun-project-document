@@ -710,6 +710,7 @@ export default {
         type: this.form.type,
         amount: amountNum,
         categoryId: this.form.categoryId,
+        subCategoryId: this.form.subCategoryId || null,
         accountId: this.form.accountId,
         liabilityId: this.form.liabilityId,
         targetAccountId: this.form.targetAccountId,

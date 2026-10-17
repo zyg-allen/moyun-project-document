@@ -25,6 +25,9 @@ public class TransactionCreateDTO {
     /** 分类ID */
     private Long categoryId;
 
+    /** 二级分类ID（未选二级为 null） */
+    private Long subCategoryId;
+
     /** 关联资产账户ID（还款扣款方/转出方/校准账户；borrow 信用卡消费可空） */
     private Long accountId;
 

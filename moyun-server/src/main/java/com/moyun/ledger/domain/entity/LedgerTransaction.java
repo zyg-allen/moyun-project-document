@@ -91,6 +91,11 @@ public class LedgerTransaction {
     private Long categoryId;
 
     /**
+     * 二级分类ID（ledger_category，未选二级为 null）
+     */
+    private Long subCategoryId;
+
+    /**
      * 关联资产账户（支出/收入/转出方/还款扣款方/校准账户）
      */
     private Long accountId;

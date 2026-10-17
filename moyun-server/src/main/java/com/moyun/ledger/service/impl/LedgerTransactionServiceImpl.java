@@ -453,6 +453,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         txn.setType(dto.getType());
         txn.setAmount(dto.getAmount());
         txn.setCategoryId(dto.getCategoryId());
+        txn.setSubCategoryId(dto.getSubCategoryId());
         txn.setAccountId(dto.getAccountId());
         txn.setLiabilityId(dto.getLiabilityId());
         txn.setReceivableId(dto.getReceivableId());

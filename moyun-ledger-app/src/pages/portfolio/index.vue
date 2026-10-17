@@ -113,7 +113,7 @@
          />
       </view>
       <view class="field">
-        <text class="field-label">风险</text>
+        <text class="field-label">关注</text>
         <view class="risk-chips">
           <text v-for="r in assetRiskPresets" :key="r" class="risk-chip"
                 :class="{ on: assetForm.riskLevel === r }" @tap="assetForm.riskLevel = r">{{ r }}</text>
@@ -161,7 +161,7 @@
            />
         </view>
         <view class="field">
-          <text class="field-label">风险</text>
+          <text class="field-label">关注</text>
           <view class="risk-chips">
             <text v-for="r in liabRiskPresets" :key="r" class="risk-chip"
                   :class="{ on: liabForm.riskLevel === r }" @tap="liabForm.riskLevel = r">{{ r }}</text>

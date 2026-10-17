@@ -115,10 +115,6 @@ export default {
         .map(([name, items]) => ({ name, items, order: items[0].sortOrder || 0 }))
         .sort((a, b) => a.order - b.order);
     },
-    /** 某一级分类的子分类 */
-    subOf(parent) {
-      return this.list.filter(c => c.parentId === parent.id);
-    },
     /** 可选图标（来自统一图标映射，保证选择后能正确渲染） */
     iconOptions() { return ICON_MAP; }
   },
@@ -142,6 +138,10 @@ export default {
 
   methods: {
     iconOf(icon) { return categoryIcon(icon); },
+    /** 某一级分类的子分类（模板调用 subOf(c)，必须是 methods 才能带参） */
+    subOf(parent) {
+      return this.list.filter(c => c.parentId === parent.id);
+    },
     /** 选择/取消选择图标（再点一次取消，保持"选填"语义） */
     pickIcon(key) {
       this.newIcon = this.newIcon === key ? '' : key;

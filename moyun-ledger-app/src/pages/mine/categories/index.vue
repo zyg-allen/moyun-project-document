@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="分类管理" />
 
@@ -25,12 +25,17 @@
                 <text>{{ iconOf(c.icon) }}</text>
               </view>
               <text class="cat-name">{{ c.name }}</text>
-              <!-- 子分类（二级）：展示在当前一级下方 -->
-              <view v-if="subOf(c).length" class="sub-tags">
+              <!-- 子分类：默认收起只显示数量，点开看明细；「＋」直接加子分类 -->
+              <view class="sub-bar">
+                <text class="sub-toggle" @tap.stop="toggleSub(c)">
+                  {{ subOf(c).length ? subOf(c).length + ' 个子类' : '加子类' }}
+                  <text v-if="subOf(c).length" class="sub-arrow">{{ isSubOpen(c) ? '▾' : '▸' }}</text>
+                </text>
+                <text class="add-sub" @tap.stop="startSub(c)">＋</text>
+              </view>
+              <view v-if="subOf(c).length && isSubOpen(c)" class="sub-tags">
                 <text v-for="s in subOf(c)" :key="s.id" class="sub-tag">{{ s.name }}</text>
               </view>
-              <!-- 添加子分类 -->
-              <text class="add-sub" @tap.stop="startSub(c)">＋子</text>
             </view>
           </view>
           <view v-if="g.items.length === 0" class="empty">暂无分类</view>
@@ -127,6 +132,7 @@ export default {
       newIcon: '',        // 选填；空则后端用默认图标
       iconPickerOpen: false,
       subParent: null,    // 非空=正在为某个一级分类添加子分类
+      subOpen: {},        // 子分类展开状态（key=一级分类id，true=展开）
     };
   },
   onShow() {
@@ -142,6 +148,10 @@ export default {
     subOf(parent) {
       return this.list.filter(c => String(c.parentId) === String(parent.id));
     },
+    /** 子分类是否展开 */
+    isSubOpen(c) { return !!this.subOpen[c.id]; },
+    /** 展开/收起子分类，不占常驻空间 */
+    toggleSub(c) { this.$set(this.subOpen, c.id, !this.subOpen[c.id]); },
     /** 选择/取消选择图标（再点一次取消，保持"选填"语义） */
     pickIcon(key) {
       this.newIcon = this.newIcon === key ? '' : key;
@@ -237,17 +247,24 @@ export default {
 }
 .cat-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 /* 二级分类 */
-.sub-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6rpx; margin-top: 6rpx; }
+/* 子分类：常驻只占一行（数量 + 加号），点开才展示明细 */
+.sub-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8rpx; margin-top: 6rpx; width: 100%;
+}
+.sub-toggle { font-size: 18rpx; color: var(--text-muted); }
+.sub-arrow { font-size: 16rpx; color: var(--text-muted); }
+.add-sub {
+  font-size: 20rpx; color: var(--primary);
+  background: var(--primary-soft, #eef2ff); border-radius: 50%;
+  width: 30rpx; height: 30rpx; line-height: 28rpx; text-align: center;
+}
+.sub-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6rpx; margin-top: 8rpx; }
 .sub-tag {
   font-size: 18rpx; color: var(--text-muted); background: var(--surface);
-  padding: 2rpx 10rpx; border-radius: 12rpx; max-width: 88rpx;
+  padding: 2rpx 10rpx; border-radius: 12rpx; max-width: 120rpx;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.add-sub {
-  position: absolute; bottom: 6rpx; right: 8rpx;
-  font-size: 18rpx; color: var(--primary); padding: 2rpx 8rpx;
-}
-.empty { text-align: center; color: var(--text-muted); padding: 40rpx 0; font-size: 26rpx; }
 
 .cat-remove {
   position: absolute; top: 4rpx; right: 12rpx;

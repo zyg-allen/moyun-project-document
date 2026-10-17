@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- 顶部：类型Tab + 语义提示 -->
     <view class="type-bar">
@@ -41,17 +41,10 @@
           </view>
         </view>
       </scroll-view>
-      <!-- 二级分类：可选，不选即归入大类（统计为「大类（未细分）」） -->
-      <scroll-view v-if="subCategories.length" scroll-x class="sub-cat-bar">
-        <view class="sub-cat-tag" :class="{ active: !form.subCategoryId }"
-              @tap="form.subCategoryId = null">不细分</view>
-        <view v-for="s in subCategories" :key="s.id" class="sub-cat-tag" :class="{ active: form.subCategoryId === s.id }"
-              @tap="form.subCategoryId = form.subCategoryId === s.id ? null : s.id">
-          {{ s.name }}
-        </view>
-      </scroll-view>
-      <view v-if="subCategories.length" class="sub-cat-hint">
-        {{ form.subCategoryId ? '已选二级分类，报表可按二级下钻' : '未选二级：统计时归入大类（显示为“未细分”）' }}
+      <!-- 二级分类：紧凑触发行，点开弹层选择，选完自动收起 -->
+      <view v-if="subCategories.length" class="pick-row" @tap="openSubPicker">
+        <text class="pick-label">二级</text>
+        <text class="pick-value">{{ selectedSubName || '不细分（归入大类）' }} ▾</text>
       </view>
     </view>
 
@@ -297,6 +290,12 @@ export default {
       if (!this.form.categoryId) return [];
       return this.categories.filter(c => c.parentId === this.form.categoryId);
     },
+    /** 已选二级分类名（紧凑触发行展示） */
+    selectedSubName() {
+      if (!this.form.subCategoryId) return '';
+      const s = this.categories.find(c => String(c.id) === String(this.form.subCategoryId));
+      return s ? s.name : '';
+    },
     selectedAssetName() {
       const a = this.assets.find(x => x.id === this.form.accountId);
       return a ? a.name : '';
@@ -397,10 +396,6 @@ export default {
       this.refreshRemark();
       // 选中分类后自动收起宫格：把屏幕让给金额/备注等后续输入（再次点击同一分类=取消选中，保持展开）
       if (selecting) this.catCollapsed = true;
-    },
-    pickSubCategory(s) {
-      this.form.subCategoryId = this.form.subCategoryId === s.id ? null : s.id;
-      this.refreshRemark();
     },
     /** 在当前大类下新增自定义分类（仅自己可见，创建后自动选中） */
     addCustomCategory() {
@@ -528,7 +523,15 @@ export default {
       if (mode === 'asset') this.form.accountId = item.id;
       if (mode === 'target') this.form.targetAccountId = item.id;
       if (mode === 'liability') this.form.liabilityId = item.id;
+      // 二级分类：选完即收起；「不细分」传 null
+      if (mode === 'subcat') this.form.subCategoryId = item.id || null;
       this.picker.visible = false;
+    },
+    /** 打开二级分类选择器（不细分 + 各二级），选完自动收起 */
+    openSubPicker() {
+      const items = [{ id: null, name: '不细分（归入大类）' }]
+        .concat(this.subCategories.map(s => ({ id: s.id, name: s.name })));
+      this.openPicker('subcat', '选择二级分类', items, this.form.subCategoryId);
     },
     clearLiability() {
       this.form.liabilityId = null;
@@ -840,19 +843,6 @@ export default {
 .cat-del-x:active { background: var(--expense-bg); color: var(--expense); }
 
 /* 二级分类横滑 */
-.sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid var(--border); }
-.sub-cat-tag {
-  display: inline-block; font-size: 24rpx; color: var(--text-sub);
-  background: var(--surface); border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
-}
-.sub-cat-tag.active { background: var(--primary); color: var(--on-primary); }
-/* 二级分类帮助提示：说明「不选二级」的统计口径 */
-.sub-cat-hint {
-  padding: 0 20rpx 12rpx;
-  font-size: 20rpx;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
 
 /* 备注行（突出） */
 .note-card {

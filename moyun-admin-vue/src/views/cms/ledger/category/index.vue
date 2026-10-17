@@ -71,7 +71,11 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="图标" prop="icon" width="90" align="center" show-overflow-tooltip />
+      <el-table-column label="图标" width="80" align="center">
+        <template #default="scope">
+          <span class="icon-emoji" :title="scope.row.icon || ''">{{ iconEmoji(scope.row.icon) }}</span>
+        </template>
+      </el-table-column>
 
       <el-table-column label="排序" prop="sortOrder" width="70" align="center" />
 
@@ -172,6 +176,8 @@ const { proxy } = getCurrentInstance();
 const isSystemRow = (row) => Number(row.userId) === 0;
 /** 一级分类判断：parentId 为 null/0/'0' 都算一级（Long 序列化成字符串） */
 const isTopLevel = (row) => !row.parentId || Number(row.parentId) === 0;
+/** 图标 key → emoji（表格展示用，兜底 🏷️） */
+const iconEmoji = (icon) => ICON_EMOJI[icon] || '🏷️';
 
 /** 大类（交易类型）中文名 */
 const TYPE_LABELS = {
@@ -348,4 +354,5 @@ getList();
 .field-hint { margin-left: 10px; font-size: 12px; color: var(--el-text-color-placeholder); }
 .opt-emoji { margin-right: 8px; }
 .readonly-hint { font-size: 12px; color: var(--el-text-color-placeholder); }
+.icon-emoji { font-size: 18px; line-height: 1; }
 </style>

@@ -92,7 +92,7 @@
     <KeyboardAwareSheet v-model="assetEditing" :title="assetSheetTitle">
       <view class="field">
         <text class="field-label">名称</text>
-        <input v-model="assetForm.name" placeholder="如：招商银行储蓄卡" class="field-input"
+        <input v-model="assetForm.name" :placeholder="assetNamePlaceholder" class="field-input"
           adjust-position
           :cursor-spacing="24"
          />
@@ -121,11 +121,10 @@
 
     <!-- 负债弹层（键盘安全：同资产弹层） -->
     <KeyboardAwareSheet v-model="liabEditing" :title="liabSheetTitle">
-        <view class="sheet-title">{{ liabForm.id ? '编辑负债' : '新增负债' }}</view>
       <view class="sheet" @tap.stop>
         <view class="field">
           <text class="field-label">名称</text>
-          <input v-model="liabForm.name" placeholder="如：招行信用卡" class="field-input"
+          <input v-model="liabForm.name" :placeholder="liabNamePlaceholder" class="field-input"
             adjust-position
             :cursor-spacing="24"
            />
@@ -259,8 +258,32 @@ export default {
       }));
     },
     /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
-    assetSheetTitle() { return this.assetForm.id ? '编辑账户' : '新增资产账户'; },
-    liabSheetTitle() { return this.liabForm.id ? '编辑负债' : '新增负债'; }
+    /** 弹层标题：按账户类型动态（新增/编辑 + 类型名） */
+    assetSheetTitle() {
+      const t = this.assetTypes.find(x => x[0] === this.assetForm.accountType);
+      return (this.assetForm.id ? '编辑' : '新增') + (t ? t[1] : '账户');
+    },
+    liabSheetTitle() {
+      const t = this.liabTypes.find(x => x[0] === this.liabForm.accountType);
+      return (this.liabForm.id ? '编辑' : '新增') + (t ? t[1] : '负债');
+    },
+    /** 名称输入框提示：按账户类型给不同例子 */
+    assetNamePlaceholder() {
+      const map = {
+        fund: '如：微信 / 招行储蓄卡 / 现金',
+        receivable: '如：张三（借款）',
+        investment: '如：沪深300基金 / 茅台股票',
+        fixed: '如：自住房 / 家用车'
+      };
+      return map[this.assetForm.accountType] || '给账户起个名字';
+    },
+    liabNamePlaceholder() {
+      const map = {
+        debt: '如：招行信用卡 / 房贷',
+        credit: '如：李四（欠款） / 拼多多待结算'
+      };
+      return map[this.liabForm.accountType] || '给账户起个名字';
+    },
   },
   onShow() {
     useThemeStore().restore();

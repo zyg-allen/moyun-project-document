@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page" :style="themeVars">
     <NavBar title="分类管理" />
 
@@ -22,7 +22,8 @@
               <!-- 自定义分类：右上角删除 ×（仅图标，不占文字位） -->
               <text v-if="c.isSystem !== 1" class="cat-remove" @tap.stop="removeCat(c)">×</text>
               <view class="cat-icon" :style="{ background: softColor(c.color) }">
-                <text>{{ iconOf(c.icon) }}</text>
+                <image v-if="isImg(c.icon)" :src="c.icon" class="cat-img" mode="aspectFill" />
+                <text v-else>{{ iconOf(c.icon) }}</text>
               </view>
               <text class="cat-name">{{ c.name }}</text>
               <!-- 子分类：点开弹框维护（新增/修改/删除） -->
@@ -44,7 +45,8 @@
       <view class="add-row">
         <!-- 图标按钮：显示当前选中图标，点击展开选择器 -->
         <view class="add-icon-btn" :class="{ on: iconPickerOpen }" @tap="iconPickerOpen = !iconPickerOpen">
-          <text class="add-icon-emoji">{{ iconOf(newIcon) }}</text>
+          <image v-if="isImg(newIcon)" :src="newIcon" class="add-icon-img" mode="aspectFill" />
+          <text v-else class="add-icon-emoji">{{ iconOf(newIcon) }}</text>
         </view>
         <input
           v-model="newName"
@@ -57,7 +59,10 @@
       </view>
       <!-- 图标选择面板（折叠，默认收起，不点不占位） -->
       <view v-if="iconPickerOpen" class="icon-panel">
-        <view class="icon-panel-title">选择图标（选填，不选则用默认标签）</view>
+        <view class="icon-panel-title">选择图标（选填，可选 emoji 或上传图片）</view>
+        <view class="icon-upload-row">
+          <view class="icon-upload-btn" @tap="uploadIcon">📷 上传图片图标</view>
+        </view>
         <scroll-view class="icon-scroll" scroll-y>
           <view class="icon-grid">
             <view
@@ -105,7 +110,8 @@
             <view v-for="s in subSheet.list" :key="s.id" class="sheet-sub-cell" @tap="onSubTap(s)">
               <view v-if="subEditMode" class="sheet-sub-del" @tap.stop="deleteSub(s)">×</view>
               <view class="sheet-sub-icon" :style="{ background: softColor(s.color) }">
-                <text>{{ iconOf(s.icon) }}</text>
+                <image v-if="isImg(s.icon)" :src="s.icon" class="sub-img" mode="aspectFill" />
+                <text v-else>{{ iconOf(s.icon) }}</text>
               </view>
               <text class="sheet-sub-name">{{ s.name }}</text>
             </view>
@@ -123,9 +129,9 @@
 <script>
 import submitLock from '@/mixins/submitLock';
 import keyboardAware from '@/mixins/keyboardAware';
-import { listCategories, createCategory, updateCategory, deleteCategory } from '@/api/ledger';
+import { listCategories, createCategory, updateCategory, deleteCategory, uploadCategoryIcon } from '@/api/ledger';
 import { useThemeStore } from '@/stores/theme';
-import { categoryIcon, softColor as toSoftColor, ICON_MAP } from '@/utils/categoryIcon';
+import { categoryIcon, softColor as toSoftColor, isImageIcon, ICON_MAP } from '@/utils/categoryIcon';
 
 const TYPE_TABS = [
   { key: 'expense',   label: '支出' },
@@ -184,6 +190,22 @@ export default {
 
   methods: {
     iconOf(icon) { return categoryIcon(icon); },
+    /** icon 是否为图片地址 */
+    isImg(icon) { return isImageIcon(icon); },
+    /** 上传自定义图标图片（选填，成功后写入 newIcon） */
+    uploadIcon() {
+      uni.chooseImage({
+        count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'],
+        success: async (res) => {
+          try {
+            uni.showLoading({ title: '上传中' });
+            this.newIcon = await uploadCategoryIcon(res.tempFilePaths[0]);
+            uni.hideLoading();
+            uni.showToast({ title: '图片已选择', icon: 'success' });
+          } catch (e) { uni.hideLoading(); }
+        }
+      });
+    },
     /** 某一级分类的子分类（模板调用 subOf(c)，必须是 methods 才能带参） */
     subOf(parent) {
       return this.list.filter(c => String(c.parentId) === String(parent.id));
@@ -509,5 +531,14 @@ export default {
   position: absolute; top: 4rpx; right: 10rpx;
   width: 34rpx; height: 34rpx; line-height: 32rpx; text-align: center;
   border-radius: 50%; background: #E85D5D; color: #fff; font-size: 24rpx; z-index: 2;
+}
+/* ===== 图片图标 ===== */
+.cat-img { width: 100%; height: 100%; border-radius: 50%; }
+.sub-img { width: 100%; height: 100%; border-radius: 50%; }
+.add-icon-img { width: 100%; height: 100%; border-radius: 50%; }
+.icon-upload-row { padding: 0 0 12rpx; }
+.icon-upload-btn {
+  display: inline-block; font-size: 22rpx; color: var(--primary);
+  border: 1rpx dashed var(--primary); border-radius: 24rpx; padding: 8rpx 24rpx;
 }
 </style>

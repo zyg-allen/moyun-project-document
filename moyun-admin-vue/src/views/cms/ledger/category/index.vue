@@ -73,7 +73,8 @@
 
       <el-table-column label="图标" width="80" align="center">
         <template #default="scope">
-          <span class="icon-emoji" :title="scope.row.icon || ''">{{ iconEmoji(scope.row.icon) }}</span>
+          <img v-if="isImgIcon(scope.row.icon)" :src="scope.row.icon" class="icon-img" :title="scope.row.icon" />
+          <span v-else class="icon-emoji" :title="scope.row.icon || ''">{{ iconEmoji(scope.row.icon) }}</span>
         </template>
       </el-table-column>
 
@@ -134,11 +135,19 @@
         </el-form-item>
 
         <el-form-item label="图标">
-          <el-select v-model="form.icon" placeholder="选择图标（选填）" clearable filterable style="width: 100%">
-            <el-option v-for="ic in ICON_OPTIONS" :key="ic.key" :label="ic.label" :value="ic.key">
-              <span class="opt-emoji">{{ ic.emoji }}</span>{{ ic.label }}
-            </el-option>
-          </el-select>
+          <div style="width: 100%">
+            <el-select v-model="form.icon" placeholder="选择 emoji 图标（选填）" clearable filterable style="width: 100%">
+              <el-option v-for="ic in ICON_OPTIONS" :key="ic.key" :label="ic.label" :value="ic.key">
+                <span class="opt-emoji">{{ ic.emoji }}</span>{{ ic.label }}
+              </el-option>
+            </el-select>
+            <!-- 图片图标：当前值已是 URL 则直接编辑；否则提供 URL 输入框 -->
+            <el-input v-if="isImgIcon(form.icon)" v-model="form.icon" placeholder="图片 URL" style="margin-top: 8px">
+              <template #prefix><img :src="form.icon" class="icon-img-preview" /></template>
+            </el-input>
+            <el-input v-else v-model="form.iconUrlInput" placeholder="或粘贴图片 URL（优先于 emoji）"
+              style="margin-top: 8px" @change="onIconUrlChange" />
+          </div>
         </el-form-item>
 
         <el-form-item label="颜色">
@@ -178,6 +187,12 @@ const isSystemRow = (row) => Number(row.userId) === 0;
 const isTopLevel = (row) => !row.parentId || Number(row.parentId) === 0;
 /** 图标 key → emoji（表格展示用，兜底 🏷️） */
 const iconEmoji = (icon) => ICON_EMOJI[icon] || '🏷️';
+/** icon 是否为图片地址（http / 站内路径 / data:） */
+const isImgIcon = (icon) => {
+  if (!icon) return false;
+  const s = String(icon);
+  return s.startsWith('http') || s.startsWith('/') || s.startsWith('data:');
+};
 
 /** 大类（交易类型）中文名 */
 const TYPE_LABELS = {
@@ -289,7 +304,7 @@ function openAdd(parent) {
     id: null,
     type: parent ? parent.type : (query.value.type || "expense"),
     parentId: parent ? parent.id : 0,
-    name: "", icon: "", color: "#6a4fd4", sortOrder: 0, status: 1
+    name: "", icon: "", iconUrlInput: "", color: "#6a4fd4", sortOrder: 0, status: 1
   };
   open.value = true;
   nextTick(() => formRef.value && formRef.value.clearValidate());
@@ -301,11 +316,16 @@ function openEdit(row) {
     // 一级统一回填 0（与下拉「无（一级分类）」的 :value=0 对齐），二级保留父 id
     parentId: isTopLevel(row) ? 0 : row.parentId,
     name: row.name,
-    icon: row.icon || "", color: row.color || "#6a4fd4",
+    icon: row.icon || "", iconUrlInput: isImgIcon(row.icon) ? "" : "", color: row.color || "#6a4fd4",
     sortOrder: row.sortOrder ?? 0, status: row.status ?? 1
   };
   open.value = true;
   nextTick(() => formRef.value && formRef.value.clearValidate());
+}
+
+function onIconUrlChange(val) {
+  const v = (val || '').trim();
+  if (v) form.value.icon = v;
 }
 
 function submitForm() {
@@ -355,4 +375,6 @@ getList();
 .opt-emoji { margin-right: 8px; }
 .readonly-hint { font-size: 12px; color: var(--el-text-color-placeholder); }
 .icon-emoji { font-size: 18px; line-height: 1; }
+.icon-img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
+.icon-img-preview { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
 </style>

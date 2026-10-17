@@ -25,7 +25,8 @@
                 @longpress="onCategoryLongPress(c)">
             <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
                   :style="form.categoryId === c.id ? '' : 'background:' + softColor(c.color)">
-              <text>{{ iconOf(c.icon) }}</text>
+              <image v-if="isImg(c.icon)" :src="c.icon" class="grid-icon-img" mode="aspectFill" />
+              <text v-else>{{ iconOf(c.icon) }}</text>
             </view>
             <text class="cat-name" :class="{ selected: form.categoryId === c.id }">{{ c.name }}</text>
             <!-- 自定义分类：右上角 × 删除（不再显示「自」角标），@tap.stop 避免触发选分类 -->
@@ -201,7 +202,8 @@
               <view class="subsheet-icon"
                     :class="{ on: form.subCategoryId === s.id }"
                     :style="form.subCategoryId === s.id ? '' : 'background:' + softColor(s.color)">
-                <text>{{ iconOf(s.icon) }}</text>
+                <image v-if="isImg(s.icon)" :src="s.icon" class="grid-icon-img" mode="aspectFill" />
+                <text v-else>{{ iconOf(s.icon) }}</text>
               </view>
               <text class="subsheet-name" :class="{ on: form.subCategoryId === s.id }">{{ s.name }}</text>
             </view>
@@ -220,7 +222,7 @@ import { createTransaction, listAssets, listLiabilities, listCategories, createC
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
-import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
+import { categoryIcon, softColor as toSoftColor, isImageIcon } from '@/utils/categoryIcon';
 
 const TYPE_DEFS = [
   { key: 'expense', label: '支出' },
@@ -380,6 +382,8 @@ export default {
   },
   methods: {
     iconOf(icon) { return categoryIcon(icon); },
+    /** icon 是否为图片地址（上传的自定义图标） */
+    isImg(icon) { return isImageIcon(icon); },
     /** 分类颜色 → 浅色底（与分类管理页一致，避免 emoji 撞色） */
     softColor(color) { return toSoftColor(color); },
     promptLogin() {
@@ -1067,4 +1071,6 @@ export default {
   max-width: 108rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .subsheet-name.on { color: var(--primary); font-weight: 600; }
+/* 图片图标（上传的自定义图标） */
+.grid-icon-img { width: 100%; height: 100%; border-radius: 50%; }
 </style>

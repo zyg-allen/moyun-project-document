@@ -43,3 +43,16 @@ export function softColor(hex) {
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},0.18)`;
 }
+
+/**
+ * 判断 icon 值是否为图片地址。
+ * 支持三种存法：
+ *   - emoji key（如 food）        → 用 ICON_MAP 映射 emoji
+ *   - 站内相对路径（/profile/..）  → 图片
+ *   - 完整 URL（http/data:）       → 图片
+ */
+export function isImageIcon(icon) {
+  if (!icon) return false;
+  const s = String(icon);
+  return s.startsWith('http') || s.startsWith('/') || s.startsWith('data:');
+}

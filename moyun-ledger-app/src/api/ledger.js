@@ -206,14 +206,14 @@ export const exportTransactionsCsv = (startDate, endDate) => {
  * @param {string} filePath uni.chooseImage 返回的本地临时路径
  * @returns {Promise<string>} 文件访问 URL（SysFile.fileUrl）
  */
-export const uploadVoucher = (filePath) => {
+export const uploadFile = (filePath, businessType) => {
   const userStore = useUserStore();
   return new Promise((resolve, reject) => {
     uni.uploadFile({
       url: BASE_URL + '/portal/file/upload',
       filePath,
       name: 'file',
-      formData: { businessType: 'ledger_voucher' },
+      formData: { businessType: businessType || 'ledger_voucher' },
       header: userStore.token ? { 'Authorization': 'Bearer ' + userStore.token } : {},
       success: (res) => {
         try {
@@ -239,6 +239,11 @@ export const uploadVoucher = (filePath) => {
     });
   });
 };
+
+/** 上传凭证截图 */
+export const uploadVoucher = (filePath) => uploadFile(filePath, 'ledger_voucher');
+/** 上传分类/账户图标图片（返回 fileUrl，存进 icon 字段） */
+export const uploadCategoryIcon = (filePath) => uploadFile(filePath, 'ledger_category_icon');
 
 
 // ---------------- AI 财务分析 ----------------

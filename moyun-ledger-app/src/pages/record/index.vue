@@ -41,10 +41,10 @@
           </view>
         </view>
       </scroll-view>
-      <!-- 二级分类：紧凑触发行，点开弹层选择，选完自动收起 -->
-      <view v-if="subCategories.length" class="pick-row" @tap="openSubPicker">
+      <!-- 二级分类：选中大类后常驻一行，点开弹层选择，选完自动收起 -->
+      <view v-if="form.categoryId" class="pick-row" @tap="openSubPicker">
         <text class="pick-label">二级</text>
-        <text class="pick-value">{{ selectedSubName || '不细分（归入大类）' }} ▾</text>
+        <text class="pick-value">{{ selectedSubName || '不细分（大类本身）' }} ▾</text>
       </view>
     </view>
 
@@ -434,10 +434,8 @@ export default {
       this.refreshRemark();
       // 选中大类后收起宫格，把屏幕让给金额/备注
       this.catCollapsed = true;
-      // 该大类有子分类 → 弹层让用户选二级（选完自动收起）；没有 → 直接选中
-      if (this.subCategories.length) {
-        this.$nextTick(() => this.openSubPicker());
-      }
+      // 一律弹框：有二级选二级；没有二级就选「不细分」（即大类本身）
+      this.$nextTick(() => this.openSubPicker());
     },
     /** 在当前大类下新增自定义分类（仅自己可见，创建后自动选中） */
     addCustomCategory() {

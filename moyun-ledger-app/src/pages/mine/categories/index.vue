@@ -77,25 +77,44 @@
     <!-- ===== 子分类维护弹框 ===== -->
     <view v-if="subSheet.visible" class="sheet-mask" @tap="closeSubSheet">
       <view class="sheet" @tap.stop>
-        <view class="sheet-head">
-          <text class="sheet-title">「{{ subSheet.parent.name }}」的子分类</text>
-          <text class="sheet-close" @tap="closeSubSheet">×</text>
+        <!-- 一级分类操作（系统预设不可删） -->
+        <view class="sheet-actions">
+          <text v-if="Number(subSheet.parent.isSystem) === 0" class="sheet-act del"
+            @tap.stop="deleteParent">删除</text>
+          <text class="sheet-act edit" @tap.stop="editParent">编辑</text>
         </view>
 
-        <scroll-view class="sheet-body" scroll-y>
-          <view v-if="!subSheet.list.length" class="sheet-empty">还没有子分类，在下方输入名称添加</view>
-          <view v-for="s in subSheet.list" :key="s.id" class="sub-row">
-            <text class="sub-row-name">{{ s.name }}</text>
-            <text class="sub-row-act" @tap.stop="editSub(s)">改</text>
-            <text class="sub-row-act del" @tap.stop="deleteSub(s)">删</text>
+        <!-- 一级分类信息 -->
+        <view class="sheet-hero">
+          <view class="sheet-hero-icon" :style="{ background: softColor(subSheet.parent.color) }">
+            <text>{{ iconOf(subSheet.parent.icon) }}</text>
+          </view>
+          <text class="sheet-hero-name">{{ subSheet.parent.name }}</text>
+        </view>
+
+        <!-- 二级分类 -->
+        <view class="sheet-sub-head">
+          <text class="sheet-sub-title">二级分类</text>
+          <text class="sheet-act edit" @tap.stop="subEditMode = !subEditMode">
+            {{ subEditMode ? '完成' : '编辑' }}
+          </text>
+        </view>
+
+        <scroll-view scroll-y class="sheet-sub-body">
+          <view class="sheet-sub-grid">
+            <view v-for="s in subSheet.list" :key="s.id" class="sheet-sub-cell" @tap="onSubTap(s)">
+              <view v-if="subEditMode" class="sheet-sub-del" @tap.stop="deleteSub(s)">×</view>
+              <view class="sheet-sub-icon" :style="{ background: softColor(s.color) }">
+                <text>{{ iconOf(s.icon) }}</text>
+              </view>
+              <text class="sheet-sub-name">{{ s.name }}</text>
+            </view>
+            <view class="sheet-sub-cell" @tap="addSubPrompt">
+              <view class="sheet-sub-icon add">＋</view>
+              <text class="sheet-sub-name">添加</text>
+            </view>
           </view>
         </scroll-view>
-
-        <view class="sheet-add">
-          <input v-model="subSheet.newName" placeholder="新子分类名称" class="sheet-input"
-            :cursor-spacing="24" adjust-position @confirm="addSub" />
-          <view class="sheet-add-btn" @tap="addSub">添加</view>
-        </view>
       </view>
     </view>
   </view>
@@ -104,7 +123,7 @@
 <script>
 import submitLock from '@/mixins/submitLock';
 import keyboardAware from '@/mixins/keyboardAware';
-import { listCategories, createCategory, deleteCategory } from '@/api/ledger';
+import { listCategories, createCategory, updateCategory, deleteCategory } from '@/api/ledger';
 import { useThemeStore } from '@/stores/theme';
 import { categoryIcon, softColor as toSoftColor, ICON_MAP } from '@/utils/categoryIcon';
 
@@ -153,6 +172,7 @@ export default {
       iconPickerOpen: false,
       // 子分类维护弹框：parent=当前一级分类，list=其子分类
       subSheet: { visible: false, parent: {}, list: [], newName: '' },
+      subEditMode: false,   // 二级分类编辑态（显示删除×，点击改名）
     };
   },
   onShow() {
@@ -180,19 +200,74 @@ export default {
       await this.load();
       this.subSheet.list = this.subOf(this.subSheet.parent);
     },
-    /** 弹框内新增子分类 */
-    async addSub() {
-      const name = (this.subSheet.newName || '').trim();
-      if (!name) {
-        uni.showToast({ title: '请输入子分类名称', icon: 'none' });
+    /** 弹框内新增子分类（弹输入框） */
+    addSubPrompt() {
+      uni.showModal({
+        title: '新增子分类',
+        editable: true,
+        placeholderText: '子分类名称',
+        success: async (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) {
+            uni.showToast({ title: '名称不能为空', icon: 'none' });
+            return;
+          }
+          try {
+            await createCategory({ name, type: this.type, parentId: this.subSheet.parent.id });
+            await this.refreshSubSheet();
+            uni.showToast({ title: '已添加', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 点击二级分类：编辑态=改名；普通态给提示 */
+    onSubTap(s) {
+      if (this.subEditMode) {
+        this.editSub(s);
         return;
       }
-      try {
-        await createCategory({ name, type: this.type, parentId: this.subSheet.parent.id });
-        this.subSheet.newName = '';
-        await this.refreshSubSheet();
-        uni.showToast({ title: '已添加', icon: 'success' });
-      } catch (e) { /* 拦截器已提示 */ }
+      uni.showToast({ title: '点右上「编辑」可修改/删除', icon: 'none' });
+    },
+    /** 删除当前一级分类（系统预设不可删，由后端兜底） */
+    deleteParent() {
+      const p = this.subSheet.parent;
+      uni.showModal({
+        title: '删除确认',
+        content: '删除「' + p.name + '」？已被流水或子分类引用的不能删除',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteCategory(p.id);
+            this.closeSubSheet();
+            await this.load();
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 重命名当前一级分类 */
+    editParent() {
+      const p = this.subSheet.parent;
+      uni.showModal({
+        title: '编辑分类名',
+        editable: true,
+        content: p.name,
+        success: async (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) {
+            uni.showToast({ title: '名称不能为空', icon: 'none' });
+            return;
+          }
+          try {
+            await updateCategory(p.id, { name, type: this.type });
+            p.name = name;
+            await this.load();
+            uni.showToast({ title: '已修改', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
     },
     /** 弹框内修改子分类（弹输入框） */
     editSub(s) {
@@ -391,29 +466,48 @@ export default {
   padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
   max-height: 72vh; display: flex; flex-direction: column;
 }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; }
-.sheet-title { font-size: 30rpx; font-weight: 600; color: var(--text-main); }
-.sheet-close { font-size: 40rpx; color: var(--text-muted); padding: 0 8rpx; line-height: 1; }
-.sheet-body { flex: 1; max-height: 48vh; }
-.sheet-empty { text-align: center; color: var(--text-muted); font-size: 24rpx; padding: 40rpx 0; }
-.sub-row {
-  display: flex; align-items: center; gap: 16rpx;
-  padding: 20rpx 16rpx; border-bottom: 1rpx solid var(--border);
+.sheet-actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-bottom: 8rpx; }
+.sheet-act {
+  font-size: 24rpx; padding: 6rpx 28rpx; border-radius: 24rpx;
+  border: 1rpx solid var(--primary); color: var(--primary);
 }
-.sub-row-name { flex: 1; font-size: 28rpx; color: var(--text-main); }
-.sub-row-act {
-  font-size: 24rpx; color: var(--primary); padding: 4rpx 16rpx;
-  border: 1rpx solid var(--primary); border-radius: 20rpx;
+.sheet-act.del { border-color: #E85D5D; color: #E85D5D; }
+/* 一级分类头部 */
+.sheet-hero {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16rpx 0 24rpx;
 }
-.sub-row-act.del { color: #E85D5D; border-color: #E85D5D; }
-.sheet-add { display: flex; align-items: center; gap: 16rpx; margin-top: 16rpx; }
-.sheet-input {
-  flex: 1; height: 76rpx; background: var(--surface);
-  border-radius: 40rpx; padding: 0 28rpx; font-size: 26rpx;
+.sheet-hero-icon {
+  width: 112rpx; height: 112rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 52rpx;
 }
-.sheet-add-btn {
-  height: 76rpx; line-height: 76rpx; padding: 0 36rpx;
-  background: var(--primary-strong); color: var(--on-primary);
-  border-radius: 40rpx; font-size: 26rpx;
+.sheet-hero-name { font-size: 30rpx; font-weight: 600; color: var(--text-main); margin-top: 12rpx; }
+/* 二级分类区 */
+.sheet-sub-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8rpx 4rpx 12rpx;
+}
+.sheet-sub-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); }
+.sheet-sub-body { max-height: 46vh; }
+.sheet-sub-grid { display: flex; flex-wrap: wrap; padding-bottom: 12rpx; }
+.sheet-sub-cell {
+  width: 20%; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 12rpx 0; position: relative;
+}
+.sheet-sub-icon {
+  width: 92rpx; height: 92rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 42rpx; background: var(--surface);
+}
+.sheet-sub-icon.add { color: var(--text-muted); font-size: 40rpx; }
+.sheet-sub-name {
+  font-size: 22rpx; color: var(--text-sub); margin-top: 10rpx;
+  max-width: 120rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sheet-sub-del {
+  position: absolute; top: 4rpx; right: 10rpx;
+  width: 34rpx; height: 34rpx; line-height: 32rpx; text-align: center;
+  border-radius: 50%; background: #E85D5D; color: #fff; font-size: 24rpx; z-index: 2;
 }
 </style>

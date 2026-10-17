@@ -131,11 +131,14 @@ public class CmsLedgerCategoryController extends BaseController {
         category.setId(null);
         category.setUserId(0L);
         category.setIsSystem(1);
-        if (category.getParentId() == null) {
-            category.setParentId(0L);
+        // parentId 空/0 = 一级分类，统一存 NULL（与既有预设数据一致，避免 0 与 NULL 两套表达）
+        Long pid = category.getParentId();
+        if (pid != null && pid == 0L) {
+            pid = null;
         }
-        categoryService.assertParentValid(category.getParentId(), category.getType());
-        categoryService.assertNameUnique(0L, category.getType(), category.getParentId(), category.getName(), null);
+        category.setParentId(pid);
+        categoryService.assertParentValid(pid, category.getType());
+        categoryService.assertNameUnique(0L, category.getType(), pid, category.getName(), null);
         if (category.getStatus() == null) {
             category.setStatus(LedgerCategory.STATUS_ENABLED);
         }
@@ -160,13 +163,27 @@ public class CmsLedgerCategoryController extends BaseController {
         category.setId(id);
         category.setUserId(exist.getUserId());
         category.setIsSystem(exist.getIsSystem());
-        if (category.getParentId() == null) {
-            category.setParentId(exist.getParentId());
+        // parentId 0/null 都归一为一级（存 NULL）
+        Long pid = category.getParentId();
+        if (pid == null) {
+            pid = exist.getParentId();
         }
-        categoryService.assertParentValid(category.getParentId(), category.getType());
+        if (pid != null && pid == 0L) {
+            pid = null;
+        }
+        category.setParentId(pid);
+        categoryService.assertParentValid(pid, category.getType());
         categoryService.assertNameUnique(exist.getUserId(), category.getType(),
-                category.getParentId(), category.getName(), id);
-        return categoryService.updateById(category) ? success() : error("修改失败");
+                pid, category.getName(), id);
+        boolean ok = categoryService.updateById(category);
+        // updateById 跳过 null 字段：从二级改回一级时，需显式把 parent_id 置空
+        if (ok && pid == null && exist.getParentId() != null) {
+            categoryService.lambdaUpdate()
+                    .eq(LedgerCategory::getId, id)
+                    .set(LedgerCategory::getParentId, null)
+                    .update();
+        }
+        return ok ? success() : error("修改失败");
     }
 
     @Operation(summary = "启用/停用系统预设分类")

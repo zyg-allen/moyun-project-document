@@ -64,7 +64,7 @@
 
       <el-table-column label="归属 / 创建人" min-width="150" align="center">
         <template #default="scope">
-          <el-tag v-if="scope.row.userId === 0" size="small" type="success" effect="plain">系统预设</el-tag>
+          <el-tag v-if="isSystemRow(scope.row)" size="small" type="success" effect="plain">系统预设</el-tag>
           <el-tag v-else size="small" type="warning" effect="plain">
             {{ scope.row.userName || ('用户#' + scope.row.userId) }}
           </el-tag>
@@ -86,8 +86,8 @@
       <el-table-column label="操作" width="290" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
           <!-- 系统预设：可维护 -->
-          <template v-if="scope.row.userId === 0">
-            <el-button v-if="!scope.row.parentId" link type="primary" icon="Plus"
+          <template v-if="isSystemRow(scope.row)">
+            <el-button v-if="isTopLevel(scope.row)" link type="primary" icon="Plus"
               @click="openAdd(scope.row)" v-hasPermi="['cms:ledgerCategory:add']">子分类</el-button>
             <el-button link type="primary" icon="Edit" @click="openEdit(scope.row)"
               v-hasPermi="['cms:ledgerCategory:edit']">修改</el-button>
@@ -168,6 +168,11 @@ import { listLedgerCategory, addLedgerCategory, updateLedgerCategory,
 
 const { proxy } = getCurrentInstance();
 
+/** Long 字段后端序列化为字符串，userId 必须数字化后再比较（0=系统预设） */
+const isSystemRow = (row) => Number(row.userId) === 0;
+/** 一级分类判断：parentId 为 null/0/'0' 都算一级（Long 序列化成字符串） */
+const isTopLevel = (row) => !row.parentId || Number(row.parentId) === 0;
+
 /** 大类（交易类型）中文名 */
 const TYPE_LABELS = {
   income: '收入', expense: '支出', transfer: '转账',
@@ -236,7 +241,7 @@ const dialogTitle = computed(() => {
 /** 父分类下拉：当前大类下的一级分类（编辑时排除自身） */
 const parentOptions = computed(() =>
   list.value.filter(c =>
-    !c.parentId && (!form.value.type || c.type === form.value.type) && c.id !== form.value.id
+    isTopLevel(c) && (!form.value.type || c.type === form.value.type) && String(c.id) !== String(form.value.id)
   )
 );
 
@@ -286,7 +291,10 @@ function openAdd(parent) {
 
 function openEdit(row) {
   form.value = {
-    id: row.id, type: row.type, parentId: row.parentId || 0, name: row.name,
+    id: row.id, type: row.type,
+    // 一级统一回填 0（与下拉「无（一级分类）」的 :value=0 对齐），二级保留父 id
+    parentId: isTopLevel(row) ? 0 : row.parentId,
+    name: row.name,
     icon: row.icon || "", color: row.color || "#6a4fd4",
     sortOrder: row.sortOrder ?? 0, status: row.status ?? 1
   };

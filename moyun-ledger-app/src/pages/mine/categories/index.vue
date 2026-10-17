@@ -104,7 +104,7 @@ export default {
     grouped() {
       if (!this.list.length) return [];
       const map = new Map();
-      const top = this.list.filter(c => !c.parentId);
+      const top = this.list.filter(c => !c.parentId || Number(c.parentId) === 0);
       for (const c of top) {
         const g = c.groupName || '其他';
         if (!map.has(g)) map.set(g, []);
@@ -140,7 +140,7 @@ export default {
     iconOf(icon) { return categoryIcon(icon); },
     /** 某一级分类的子分类（模板调用 subOf(c)，必须是 methods 才能带参） */
     subOf(parent) {
-      return this.list.filter(c => c.parentId === parent.id);
+      return this.list.filter(c => String(c.parentId) === String(parent.id));
     },
     /** 选择/取消选择图标（再点一次取消，保持"选填"语义） */
     pickIcon(key) {

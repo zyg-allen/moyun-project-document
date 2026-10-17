@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 记账-负债账户
+ * 记账-负债账户（方案A：普通负债/赊账应付 统一一张表，account_type 区分）
  *
  * <p>注意：不继承 BaseEntity；status=0 为手动删除归档，
  * settle_flag=1 为还款结清（正向业务态），两者语义独立。
@@ -21,16 +21,10 @@ import java.time.LocalDateTime;
 @TableName("ledger_liability_account")
 public class LedgerLiabilityAccount {
 
-    /** 类型：信用卡 */
-    public static final String TYPE_CREDIT_CARD = "credit_card";
-    /** 类型：消费贷 */
-    public static final String TYPE_CONSUMER_LOAN = "consumer_loan";
-    /** 类型：银行贷款 */
-    public static final String TYPE_BANK_LOAN = "bank_loan";
-    /** 类型：个人借款 */
-    public static final String TYPE_PERSONAL_LOAN = "personal_loan";
-    /** 类型：其他 */
-    public static final String TYPE_OTHER = "other";
+    /** 账户类型：普通负债（借款/信用卡/车贷房贷） */
+    public static final String ACCOUNT_TYPE_DEBT = "debt";
+    /** 账户类型：赊账应付 */
+    public static final String ACCOUNT_TYPE_CREDIT = "credit";
 
     /** 状态：启用（在还） */
     public static final int STATUS_ENABLED = 1;
@@ -43,11 +37,14 @@ public class LedgerLiabilityAccount {
     /** 门户用户ID（portal_user.id） */
     private Long userId;
 
-    /** 负债名称，如“招行信用卡” */
+    /** 负债名称，用户命名："李四（欠款）"、"招商信用卡" */
     private String name;
 
-    /** 类型：credit_card/consumer_loan/bank_loan/personal_loan/other */
-    private String type;
+    /** 账户类型（第二层）：debt/credit */
+    private String accountType;
+
+    /** 描述（简单记录情况） */
+    private String description;
 
     /** 当前欠款（元） */
     private BigDecimal balance;
@@ -72,6 +69,18 @@ public class LedgerLiabilityAccount {
 
     /** 到期日 */
     private LocalDate dueDate;
+
+    /** 总额（赊账类用） */
+    private BigDecimal totalAmount;
+
+    /** 已还（赊账类用） */
+    private BigDecimal paidAmount;
+
+    /** 结算状态：pending/partial/settled（赊账类用） */
+    private String settleStatus;
+
+    /** 风险标记：normal/attention/bad_debt */
+    private String riskLevel;
 
     /** 是否计入总负债：1=是 0=否 */
     private Integer includeInTotal;

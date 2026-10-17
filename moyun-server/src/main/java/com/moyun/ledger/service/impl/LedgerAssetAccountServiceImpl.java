@@ -148,8 +148,8 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
             uw.set(LedgerAssetAccount::getName, account.getName());
             any = true;
         }
-        if (account.getType() != null) {
-            uw.set(LedgerAssetAccount::getType, account.getType());
+        if (account.getAccountType() != null) {
+            uw.set(LedgerAssetAccount::getAccountType, account.getAccountType());
             any = true;
         }
         if (account.getIncludeInTotal() != null) {

@@ -6,10 +6,11 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 记账-资产账户
+ * 记账-资产账户（方案A：资金/应收/投资/固定资产 统一一张表，account_type 区分）
  *
  * <p>注意：不继承 BaseEntity（表无 create_by/update_by/del_flag 审计字段）；
  * 删除即 status=0 停用归档，流水永久保留。
@@ -20,22 +21,14 @@ import java.time.LocalDateTime;
 @TableName("ledger_asset_account")
 public class LedgerAssetAccount {
 
-    /** 类型：现金 */
-    public static final String TYPE_CASH = "cash";
-    /** 类型：储蓄卡 */
-    public static final String TYPE_SAVINGS = "savings";
-    /** 类型：电子钱包 */
-    public static final String TYPE_EWALLET = "ewallet";
-    /** 类型：储值卡 */
-    public static final String TYPE_STORED_VALUE = "stored_value";
-    /** 类型：投资 */
-    public static final String TYPE_INVESTMENT = "investment";
-    /** 类型：固定资产 */
-    public static final String TYPE_FIXED_ASSET = "fixed_asset";
-    /** 类型：债权 */
-    public static final String TYPE_RECEIVABLE = "receivable";
-    /** 类型：其他 */
-    public static final String TYPE_OTHER = "other";
+    /** 账户类型：资金账户（流动资产） */
+    public static final String ACCOUNT_TYPE_FUND = "fund";
+    /** 账户类型：应收款（借出） */
+    public static final String ACCOUNT_TYPE_RECEIVABLE = "receivable";
+    /** 账户类型：投资 */
+    public static final String ACCOUNT_TYPE_INVESTMENT = "investment";
+    /** 账户类型：固定资产（折合） */
+    public static final String ACCOUNT_TYPE_FIXED = "fixed";
 
     /** 状态：启用 */
     public static final int STATUS_ENABLED = 1;
@@ -48,17 +41,35 @@ public class LedgerAssetAccount {
     /** 门户用户ID（portal_user.id） */
     private Long userId;
 
-    /** 账户名称，如“招商银行储蓄卡” */
+    /** 账户名称，用户命名："微信"、"张三（借款）" */
     private String name;
 
-    /** 类型：cash/savings/ewallet/stored_value/investment/fixed_asset/receivable/other */
-    private String type;
+    /** 账户类型（第二层）：fund/receivable/investment/fixed */
+    private String accountType;
 
-    /** 当前余额（元）。禁止直接编辑，校准必须走 adjust 记账 */
+    /** 描述（简单记录情况） */
+    private String description;
+
+    /** 当前余额（元）。禁止直接编辑，校准必须走 adjust 记账（资金类用） */
     private BigDecimal balance;
 
     /** 估值（元；投资/固定资产用，可≠balance） */
     private BigDecimal valuation;
+
+    /** 总额（应收/投资/固定类用） */
+    private BigDecimal totalAmount;
+
+    /** 已收（应收类用） */
+    private BigDecimal paidAmount;
+
+    /** 结算状态：pending/partial/settled（应收类用） */
+    private String settleStatus;
+
+    /** 到期日（应收类用） */
+    private LocalDate dueDate;
+
+    /** 风险标记：normal/attention/bad_debt */
+    private String riskLevel;
 
     /** 是否计入总资产：1=是 0=否 */
     private Integer includeInTotal;

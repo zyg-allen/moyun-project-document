@@ -282,10 +282,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
                 .map(a -> a.getBalance() == null ? BigDecimal.ZERO : a.getBalance())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal liquidAsset = assetAccounts.stream()
-                .filter(a -> LedgerAssetAccount.TYPE_CASH.equals(a.getType())
-                        || LedgerAssetAccount.TYPE_SAVINGS.equals(a.getType())
-                        || LedgerAssetAccount.TYPE_EWALLET.equals(a.getType())
-                        || LedgerAssetAccount.TYPE_STORED_VALUE.equals(a.getType()))
+                .filter(a -> LedgerAssetAccount.ACCOUNT_TYPE_FUND.equals(a.getAccountType()))
                 .map(a -> a.getBalance() == null ? BigDecimal.ZERO : a.getBalance())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -552,7 +549,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     private Map<String, Object> debtFact(LedgerLiabilityAccount d) {
         Map<String, Object> f = new LinkedHashMap<>();
         f.put("name", d.getName());
-        f.put("type", d.getType());
+        f.put("type", d.getAccountType());
         f.put("balance", d.getBalance());
         if (d.getMonthlyPayment() != null) f.put("monthlyPayment", d.getMonthlyPayment());
         if (d.getAnnualRate() != null) f.put("annualRate", d.getAnnualRate());

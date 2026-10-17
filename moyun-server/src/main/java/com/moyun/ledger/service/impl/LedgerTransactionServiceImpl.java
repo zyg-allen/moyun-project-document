@@ -8,14 +8,12 @@ import com.moyun.ledger.domain.dto.TransactionCreateDTO;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerBudget;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
-import com.moyun.ledger.domain.entity.LedgerObligation;
 import com.moyun.ledger.domain.entity.LedgerNetWorthSnapshot;
 import com.moyun.ledger.domain.entity.LedgerTransaction;
 import com.moyun.ledger.domain.query.TransactionQuery;
 import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
 import com.moyun.ledger.mapper.LedgerLiabilityAccountMapper;
 import com.moyun.ledger.mapper.LedgerNetWorthSnapshotMapper;
-import com.moyun.ledger.mapper.LedgerObligationMapper;
 import com.moyun.ledger.mapper.LedgerTransactionMapper;
 import com.moyun.ledger.service.ILedgerTransactionService;
 import org.slf4j.Logger;
@@ -69,9 +67,6 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
 
     @Autowired
     private com.moyun.ledger.mapper.LedgerBudgetMapper budgetMapper;
-
-    /** 借出联动：自动生成应收款 */
-    private LedgerObligationMapper obligationMapper;
 
     @Autowired
     private com.moyun.core.config.redis.RedisCache redisCache;
@@ -538,7 +533,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                         String name = (txn.getDescription() != null && !txn.getDescription().isEmpty())
                                 ? txn.getDescription() : "借款";
                         newAccount.setName(name);
-                        newAccount.setType(LedgerLiabilityAccount.TYPE_OTHER);
+                        newAccount.setAccountType(LedgerLiabilityAccount.ACCOUNT_TYPE_DEBT);
                         newAccount.setBalance(BigDecimal.ZERO);
                         newAccount.setPrincipal(amount);
                         newAccount.setIncludeInTotal(1);
@@ -717,89 +712,92 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             cp = (dto.getDescription() != null && !dto.getDescription().isBlank())
                     ? dto.getDescription() : "借出";
         }
-        LedgerObligation r = new LedgerObligation();
-        r.setUserId(txn.getUserId());
-        r.setCounterparty(cp);
-        r.setType(LedgerObligation.TYPE_RECEIVABLE);
-        r.setSourceType(LedgerObligation.SOURCE_LEND);
-        r.setSourceId(txn.getId());
-        r.setTotalAmount(txn.getAmount());
-        r.setPaidAmount(java.math.BigDecimal.ZERO);
-        r.setSettleStatus(LedgerObligation.SETTLE_PENDING);
-        r.setStatus(LedgerObligation.STATUS_NORMAL);
-        obligationMapper.insert(r);
-        // 回填关联，使「流水 → 应收」可双向追溯
-        txn.setReceivableId(r.getId());
+        LedgerAssetAccount acc = new LedgerAssetAccount();
+        acc.setUserId(txn.getUserId());
+        acc.setName(cp);
+        acc.setAccountType(LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE);
+        acc.setTotalAmount(txn.getAmount());
+        acc.setPaidAmount(java.math.BigDecimal.ZERO);
+        acc.setBalance(txn.getAmount());
+        acc.setSettleStatus("pending");
+        acc.setRiskLevel("normal");
+        acc.setIncludeInTotal(1);
+        acc.setStatus(LedgerAssetAccount.STATUS_ENABLED);
+        acc.setVersion(0);
+        assetAccountMapper.insert(acc);
+        txn.setReceivableId(acc.getId());
         updateById(txn);
     }
 
-    /** 借款(对方)→应付款：自动建 obligation/payable，并回填流水关联 */
+    /** 借款(对方)→应付款：自动建负债账户(account_type=debt)，并回填流水关联 */
     private void createPayableForBorrow(LedgerTransaction txn, TransactionCreateDTO dto) {
         String cp = dto.getCounterparty();
         if (cp == null || cp.isBlank()) {
             cp = (dto.getDescription() != null && !dto.getDescription().isBlank())
                     ? dto.getDescription() : "借款";
         }
-        LedgerObligation o = new LedgerObligation();
-        o.setUserId(txn.getUserId());
-        o.setType(LedgerObligation.TYPE_PAYABLE);
-        o.setCounterparty(cp);
-        o.setSourceType(LedgerObligation.SOURCE_BORROW);
-        o.setSourceId(txn.getId());
-        o.setTotalAmount(txn.getAmount());
-        o.setPaidAmount(java.math.BigDecimal.ZERO);
-        o.setSettleStatus(LedgerObligation.SETTLE_PENDING);
-        o.setStatus(LedgerObligation.STATUS_NORMAL);
-        obligationMapper.insert(o);
-        txn.setPayableId(o.getId());
+        LedgerLiabilityAccount acc = new LedgerLiabilityAccount();
+        acc.setUserId(txn.getUserId());
+        acc.setName(cp);
+        acc.setAccountType(LedgerLiabilityAccount.ACCOUNT_TYPE_DEBT);
+        acc.setTotalAmount(txn.getAmount());
+        acc.setPaidAmount(java.math.BigDecimal.ZERO);
+        acc.setBalance(txn.getAmount());
+        acc.setSettleStatus("pending");
+        acc.setRiskLevel("normal");
+        acc.setIncludeInTotal(1);
+        acc.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
+        acc.setSettleFlag(0);
+        acc.setVersion(0);
+        liabilityAccountMapper.insert(acc);
+        txn.setPayableId(acc.getId());
         updateById(txn);
     }
 
-    /** 还款→核销应付款：paid_amount += 金额，结算状态由唯一推导点重算 */
+    /** 还款→核销应付（赊账 account_type=credit）：paid_amount += 金额，余额同步减 */
     private void settlePayableForRepayment(LedgerTransaction txn) {
         Long payableId = txn.getPayableId();
         if (payableId == null) {
             return;
         }
-        LedgerObligation o = obligationMapper.selectById(payableId);
-        if (o == null || !LedgerObligation.TYPE_PAYABLE.equals(o.getType())) {
+        LedgerLiabilityAccount acc = liabilityAccountMapper.selectById(payableId);
+        if (acc == null) {
             return;
         }
-        java.math.BigDecimal paid = nz(o.getPaidAmount()).add(txn.getAmount());
-        o.setPaidAmount(paid);
-        o.setSettleStatus(resolveSettleStatus(o.getTotalAmount(), o.getPaidAmount()));
-        obligationMapper.updateById(o);
+        java.math.BigDecimal paid = nz(acc.getPaidAmount()).add(txn.getAmount());
+        acc.setPaidAmount(paid);
+        acc.setBalance(nz(acc.getBalance()).subtract(txn.getAmount()));
+        acc.setSettleStatus(resolveSettleStatus(acc.getTotalAmount(), acc.getPaidAmount()));
+        liabilityAccountMapper.updateById(acc);
     }
 
     /**
      * 冲正借出/借款/还款自动联动的债权债务（编辑/删除时回滚）。
-     *
-     * 负债账户(房贷/车贷)的回退仍由 reverseBalanceEffect 里的 applyLiabilityDelta 处理，
-     * 这里只回滚 obligation（应收/应付）。同时补上「借出→应收」编辑/删除未回滚的既有缺口。
      */
     private void reverseObligationLinkage(LedgerTransaction old) {
         if (LedgerTransaction.TYPE_BORROW.equals(old.getType()) && old.getPayableId() != null) {
-            LedgerObligation o = obligationMapper.selectById(old.getPayableId());
-            if (o != null && LedgerObligation.SOURCE_BORROW.equals(o.getSourceType())) {
-                o.setStatus(LedgerObligation.STATUS_DELETED);
-                obligationMapper.updateById(o);
+            LedgerLiabilityAccount acc = liabilityAccountMapper.selectById(old.getPayableId());
+            if (acc != null && LedgerLiabilityAccount.ACCOUNT_TYPE_DEBT.equals(acc.getAccountType())) {
+                acc.setStatus(LedgerLiabilityAccount.STATUS_ARCHIVED);
+                liabilityAccountMapper.updateById(acc);
             }
         } else if (LedgerTransaction.TYPE_REPAYMENT.equals(old.getType()) && old.getPayableId() != null) {
-            LedgerObligation o = obligationMapper.selectById(old.getPayableId());
-            if (o != null) {
-                java.math.BigDecimal paid = nz(o.getPaidAmount()).subtract(old.getAmount());
+            LedgerLiabilityAccount acc = liabilityAccountMapper.selectById(old.getPayableId());
+            if (acc != null) {
+                java.math.BigDecimal paid = nz(acc.getPaidAmount()).subtract(old.getAmount());
                 if (paid.compareTo(java.math.BigDecimal.ZERO) < 0) {
                     paid = java.math.BigDecimal.ZERO;
                 }
-                o.setPaidAmount(paid);
-                o.setSettleStatus(resolveSettleStatus(o.getTotalAmount(), o.getPaidAmount()));
-                obligationMapper.updateById(o);
+                acc.setPaidAmount(paid);
+                acc.setBalance(nz(acc.getBalance()).add(old.getAmount()));
+                acc.setSettleStatus(resolveSettleStatus(acc.getTotalAmount(), acc.getPaidAmount()));
+                liabilityAccountMapper.updateById(acc);
             }
         } else if (LedgerTransaction.TYPE_LEND.equals(old.getType()) && old.getReceivableId() != null) {
-            LedgerObligation o = obligationMapper.selectById(old.getReceivableId());
-            if (o != null && LedgerObligation.SOURCE_LEND.equals(o.getSourceType())) {
-                o.setStatus(LedgerObligation.STATUS_DELETED);
-                obligationMapper.updateById(o);
+            LedgerAssetAccount acc = assetAccountMapper.selectById(old.getReceivableId());
+            if (acc != null && LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE.equals(acc.getAccountType())) {
+                acc.setStatus(LedgerAssetAccount.STATUS_ARCHIVED);
+                assetAccountMapper.updateById(acc);
             }
         }
     }
@@ -812,9 +810,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         java.math.BigDecimal t = nz(total);
         java.math.BigDecimal p = nz(paid);
         if (p.compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return LedgerObligation.SETTLE_PENDING;
+            return "pending";
         }
-        return p.compareTo(t) >= 0 ? LedgerObligation.SETTLE_SETTLED : LedgerObligation.SETTLE_PARTIAL;
+        return p.compareTo(t) >= 0 ? "settled" : "partial";
     }
 
     private void refreshNetWorthSnapshot(Long userId, LocalDate date) {

@@ -59,7 +59,7 @@ public class PortalLedgerAssetController {
         Long userId = PortalSecurityUtils.getUserId();
         LedgerAssetAccount account = new LedgerAssetAccount();
         account.setName((String) body.get("name"));
-        account.setType((String) body.get("type"));
+        account.setAccountType((String) body.get("accountType"));
         account.setIcon((String) body.get("icon"));
         if (body.get("includeInTotal") != null) {
             account.setIncludeInTotal(((Number) body.get("includeInTotal")).intValue());
@@ -89,7 +89,7 @@ public class PortalLedgerAssetController {
         account.setId(id);
         // 白名单字段显式映射：不在白名单里的键（如 balance/version/status/initialBalance）一律忽略
         if (body.containsKey("name")) account.setName(LedgerAccountFields.asString(body.get("name")));
-        if (body.containsKey("type")) account.setType(LedgerAccountFields.asString(body.get("type")));
+        if (body.containsKey("type")) account.setAccountType(LedgerAccountFields.asString(body.get("accountType")));
         if (body.containsKey("icon")) account.setIcon(LedgerAccountFields.asString(body.get("icon")));
         if (body.containsKey("includeInTotal")) account.setIncludeInTotal(LedgerAccountFields.asInt(body.get("includeInTotal")));
         if (body.containsKey("hideBalance")) account.setHideBalance(LedgerAccountFields.asInt(body.get("hideBalance")));

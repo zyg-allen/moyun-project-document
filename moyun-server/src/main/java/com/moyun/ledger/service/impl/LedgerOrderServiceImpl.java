@@ -2,7 +2,8 @@ package com.moyun.ledger.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.ledger.domain.entity.LedgerObligation;
+import com.moyun.ledger.domain.entity.LedgerAssetAccount;
+import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
 import com.moyun.ledger.domain.entity.LedgerProduct;
 import com.moyun.ledger.domain.entity.LedgerPurchaseOrder;
 import com.moyun.ledger.domain.entity.LedgerPurchaseOrderItem;
@@ -11,7 +12,8 @@ import com.moyun.ledger.domain.entity.LedgerSaleOrderItem;
 import com.moyun.ledger.domain.entity.LedgerStock;
 import com.moyun.ledger.domain.entity.LedgerStockFlow;
 import com.moyun.ledger.domain.entity.LedgerWarehouse;
-import com.moyun.ledger.mapper.LedgerObligationMapper;
+import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
+import com.moyun.ledger.mapper.LedgerLiabilityAccountMapper;
 import com.moyun.ledger.mapper.LedgerProductMapper;
 import com.moyun.ledger.mapper.LedgerPurchaseOrderItemMapper;
 import com.moyun.ledger.mapper.LedgerPurchaseOrderMapper;
@@ -45,7 +47,9 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
     @Autowired
     private LedgerStockFlowMapper stockFlowMapper;
     @Autowired
-    private LedgerObligationMapper obligationMapper;
+    private LedgerAssetAccountMapper assetAccountMapper;
+    @Autowired
+    private LedgerLiabilityAccountMapper liabilityAccountMapper;
     @Autowired
     private LedgerSaleOrderMapper saleOrderMapper;
     @Autowired
@@ -108,22 +112,22 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
                     "销售出库-" + order.getId());
         }
 
-        // 赊账：自动建应收
-        LedgerObligation ob = new LedgerObligation();
-        ob.setUserId(userId);
-        ob.setType(LedgerObligation.TYPE_RECEIVABLE);
-        ob.setCounterparty(order.getCustomerName());
-        ob.setCounterpartyId(order.getCustomerId());
-        ob.setWarehouseId(wh.getId());
-        ob.setSourceType(LedgerObligation.SOURCE_SALE_CREDIT);
-        ob.setSourceId(order.getId());
-        ob.setTotalAmount(total);
-        ob.setPaidAmount(ZERO);
-        ob.setSettleStatus(LedgerObligation.SETTLE_PENDING);
-        ob.setStatus(LedgerObligation.STATUS_NORMAL);
-        obligationMapper.insert(ob);
+        // 赊账：自动建应收账户（资产账户 account_type=receivable）
+        LedgerAssetAccount acc = new LedgerAssetAccount();
+        acc.setUserId(userId);
+        acc.setName(order.getCustomerName());
+        acc.setAccountType(LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE);
+        acc.setTotalAmount(total);
+        acc.setPaidAmount(ZERO);
+        acc.setBalance(total);
+        acc.setSettleStatus("pending");
+        acc.setRiskLevel("normal");
+        acc.setIncludeInTotal(1);
+        acc.setStatus(LedgerAssetAccount.STATUS_ENABLED);
+        acc.setVersion(0);
+        assetAccountMapper.insert(acc);
 
-        order.setObligationId(ob.getId());
+        order.setObligationId(acc.getId());
         saleOrderMapper.updateById(order);
         return order.getId();
     }
@@ -167,20 +171,23 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
                     "采购入库-" + order.getId());
         }
 
-        LedgerObligation ob = new LedgerObligation();
-        ob.setUserId(userId);
-        ob.setType(LedgerObligation.TYPE_PAYABLE);
-        ob.setCounterparty(order.getSupplierName());
-        ob.setWarehouseId(wh.getId());
-        ob.setSourceType(LedgerObligation.SOURCE_PURCHASE_CREDIT);
-        ob.setSourceId(order.getId());
-        ob.setTotalAmount(total);
-        ob.setPaidAmount(ZERO);
-        ob.setSettleStatus(LedgerObligation.SETTLE_PENDING);
-        ob.setStatus(LedgerObligation.STATUS_NORMAL);
-        obligationMapper.insert(ob);
+        // 赊账：自动建应付账户（负债账户 account_type=credit）
+        LedgerLiabilityAccount acc = new LedgerLiabilityAccount();
+        acc.setUserId(userId);
+        acc.setName(order.getSupplierName());
+        acc.setAccountType(LedgerLiabilityAccount.ACCOUNT_TYPE_CREDIT);
+        acc.setTotalAmount(total);
+        acc.setPaidAmount(ZERO);
+        acc.setBalance(total);
+        acc.setSettleStatus("pending");
+        acc.setRiskLevel("normal");
+        acc.setIncludeInTotal(1);
+        acc.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
+        acc.setSettleFlag(0);
+        acc.setVersion(0);
+        liabilityAccountMapper.insert(acc);
 
-        order.setObligationId(ob.getId());
+        order.setObligationId(acc.getId());
         purchaseOrderMapper.updateById(order);
         return order.getId();
     }

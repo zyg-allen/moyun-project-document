@@ -111,17 +111,14 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
                 .eq(LedgerAssetAccount::getIncludeInTotal, 1));
         for (LedgerAssetAccount a : assets) {
             BigDecimal amount = a.getBalance() == null ? BigDecimal.ZERO : a.getBalance();
-            switch (a.getType() == null ? "" : a.getType()) {
-                case LedgerAssetAccount.TYPE_CASH:
-                case LedgerAssetAccount.TYPE_SAVINGS:
-                case LedgerAssetAccount.TYPE_EWALLET:
-                case LedgerAssetAccount.TYPE_STORED_VALUE:
+            switch (a.getAccountType() == null ? "" : a.getAccountType()) {
+                case LedgerAssetAccount.ACCOUNT_TYPE_FUND:
                     bs.setCurrentAssets(bs.getCurrentAssets().add(amount));
                     break;
-                case LedgerAssetAccount.TYPE_INVESTMENT:
+                case LedgerAssetAccount.ACCOUNT_TYPE_INVESTMENT:
                     bs.setInvestmentAssets(bs.getInvestmentAssets().add(amount));
                     break;
-                case LedgerAssetAccount.TYPE_FIXED_ASSET:
+                case LedgerAssetAccount.ACCOUNT_TYPE_FIXED:
                     bs.setSelfUseAssets(bs.getSelfUseAssets().add(amount));
                     break;
                 default:
@@ -152,12 +149,10 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         bs.setNetAssets(bs.getTotalAssets().subtract(bs.getTotalLiabilities()));
     }
 
-    /** 长期负债判定：银行贷款恒为长期；消费贷/个人借款按总期数≥24期为长期；信用卡/其他为短期 */
+    /** 长期负债判定：赊账应付(credit)为短期；普通负债(debt)按总期数≥24期为长期 */
     private boolean isLongTermDebt(LedgerLiabilityAccount d) {
-        String type = d.getType() == null ? "" : d.getType();
-        if (LedgerLiabilityAccount.TYPE_BANK_LOAN.equals(type)) return true;
-        if (LedgerLiabilityAccount.TYPE_CREDIT_CARD.equals(type)
-                || LedgerLiabilityAccount.TYPE_OTHER.equals(type)) return false;
+        String type = d.getAccountType() == null ? "" : d.getAccountType();
+        if (LedgerLiabilityAccount.ACCOUNT_TYPE_CREDIT.equals(type)) return false;
         return d.getTotalTerms() != null && d.getTotalTerms() >= 24;
     }
 
@@ -525,7 +520,7 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         for (LedgerAssetAccount a : assetAccountMapper.selectList(aw)) {
             Map<String, Object> row = new HashMap<>();
             row.put("name", a.getName());
-            row.put("type", a.getType());
+            row.put("type", a.getAccountType());
             row.put("balance", a.getBalance());
             accountDistribution.add(row);
         }
@@ -541,7 +536,7 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         for (LedgerLiabilityAccount l : liabilityAccountMapper.selectList(lw)) {
             Map<String, Object> row = new HashMap<>();
             row.put("name", l.getName());
-            row.put("type", l.getType());
+            row.put("type", l.getAccountType());
             row.put("balance", l.getBalance());
             row.put("monthlyPayment", l.getMonthlyPayment());
             row.put("repaymentDay", l.getRepaymentDay());

@@ -130,7 +130,7 @@ class LedgerAccountMetaUpdateIsolationDbTest {
         LedgerAssetAccount payload = new LedgerAssetAccount();
         payload.setId(id);
         payload.setName("现金（改名）");
-        payload.setType("cash");
+        payload.setAccountType("fund");
         payload.setIncludeInTotal(0);
         assetService.updateAccount(UID, payload);
 
@@ -180,7 +180,7 @@ class LedgerAccountMetaUpdateIsolationDbTest {
         LedgerLiabilityAccount payload = new LedgerLiabilityAccount();
         payload.setId(id);
         payload.setName("信用卡（改名）");
-        payload.setType("credit_card");
+        payload.setAccountType("debt");
         payload.setIncludeInTotal(0);
         liabilityService.updateAccount(UID, payload);
 
@@ -257,14 +257,14 @@ class LedgerAccountMetaUpdateIsolationDbTest {
     private static LedgerAssetAccount asset(String name) {
         LedgerAssetAccount a = new LedgerAssetAccount();
         a.setName(name);
-        a.setType(LedgerAssetAccount.TYPE_CASH);
+        a.setAccountType(LedgerAssetAccount.ACCOUNT_TYPE_FUND);
         return a;
     }
 
     private static LedgerLiabilityAccount liability(String name) {
         LedgerLiabilityAccount l = new LedgerLiabilityAccount();
         l.setName(name);
-        l.setType(LedgerLiabilityAccount.TYPE_CREDIT_CARD);
+        l.setAccountType(LedgerLiabilityAccount.ACCOUNT_TYPE_DEBT);
         return l;
     }
 

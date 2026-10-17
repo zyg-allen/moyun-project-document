@@ -165,7 +165,7 @@ class LedgerLiabilityTermsAndProgressDbTest {
     private static LedgerLiabilityAccount liability(String name) {
         LedgerLiabilityAccount l = new LedgerLiabilityAccount();
         l.setName(name);
-        l.setType(LedgerLiabilityAccount.TYPE_CREDIT_CARD);
+        l.setAccountType(LedgerLiabilityAccount.ACCOUNT_TYPE_DEBT);
         return l;
     }
 

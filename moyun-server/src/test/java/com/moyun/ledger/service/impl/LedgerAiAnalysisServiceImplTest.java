@@ -88,14 +88,14 @@ class LedgerAiAnalysisServiceImplTest {
         // 资产：现金3万 + 储蓄2万（流动）+ 基金5万（计入总资产但非流动）
         // 注：includeInTotal/status 过滤由 SQL 完成，mock 模拟"SQL 过滤后"的返回（只含 includeInTotal=1）
         when(assetAccountMapper.selectList(any())).thenReturn(List.of(
-                asset(LedgerAssetAccount.TYPE_CASH, "30000", 1),
-                asset(LedgerAssetAccount.TYPE_SAVINGS, "20000", 1),
-                asset("fund", "50000", 1)));
+                asset(LedgerAssetAccount.ACCOUNT_TYPE_FUND, "30000", 1),
+                asset(LedgerAssetAccount.ACCOUNT_TYPE_FUND, "20000", 1),
+                asset(LedgerAssetAccount.ACCOUNT_TYPE_INVESTMENT, "50000", 1)));
 
         // 负债：房贷余额5万 / 月供2000（计入负债总额）
         LedgerLiabilityAccount debt = new LedgerLiabilityAccount();
         debt.setName("房贷");
-        debt.setType("mortgage");
+        debt.setAccountType("debt");
         debt.setBalance(new BigDecimal("50000"));
         debt.setMonthlyPayment(new BigDecimal("2000"));
         debt.setIncludeInTotal(1);
@@ -328,7 +328,7 @@ class LedgerAiAnalysisServiceImplTest {
     private LedgerAssetAccount asset(String type, String balance, Integer includeInTotal) {
         LedgerAssetAccount a = new LedgerAssetAccount();
         a.setUserId(USER_ID);
-        a.setType(type);
+        a.setAccountType(type);
         a.setBalance(new BigDecimal(balance));
         a.setIncludeInTotal(includeInTotal);
         a.setStatus(1);

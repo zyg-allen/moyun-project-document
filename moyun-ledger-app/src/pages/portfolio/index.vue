@@ -11,16 +11,18 @@
       <view class="summary">
         <view class="summary-label">总资产（计入合计的账户）</view>
         <view class="summary-amount">{{ privacyMode ? '****' : '¥ ' + assetTotalText }}</view>
-        <view class="summary-sub">共 {{ assetEnabled.length }} 个账户</view>
+        <view class="summary-sub">共 {{ assetEnabled.length }} 个账户
+          <text class="link" @tap="showArchived = !showArchived">{{ showArchived ? ' · 隐藏归档' : ' · 显示归档' }}</text>
+        </view>
       </view>
 
-      <view class="card">
+      <view v-for="g in assetGroups" :key="g.type" class="card">
         <view class="card-title flex-row">
-          <text class="flex-1">资金账户</text>
-          <text class="link" @tap="showArchived = !showArchived">{{ showArchived ? '隐藏归档' : '显示归档' }}</text>
+          <text class="flex-1">{{ g.label }}</text>
+          <text class="add-mini" @tap="addAsset(g.type)">＋</text>
         </view>
-        <view v-if="assetFilteredList.length === 0" class="empty">还没有资产账户，点下方「+」添加</view>
-        <view v-for="a in assetFilteredList" :key="a.id" class="row" @tap="viewTxn('asset', a)">
+        <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
+        <view v-for="a in g.items" :key="a.id" class="row" @tap="viewTxn('asset', a)">
           <view class="row-icon" :style="{ background: assetIcon(a.accountType).bg }">
             <text>{{ assetIcon(a.accountType).emoji }}</text>
           </view>
@@ -45,16 +47,17 @@
         <view class="summary-amount">{{ privacyMode ? '****' : '¥ ' + liabTotalText }}</view>
         <view class="summary-sub">
           在还 {{ liabActive.length }} 笔<text v-if="settledCount > 0"> · 已结清 {{ settledCount }} 笔</text>
+          <text class="link" @tap="showArchived = !showArchived">{{ showArchived ? ' · 隐藏归档' : ' · 显示归档' }}</text>
         </view>
       </view>
 
-      <view class="card">
+      <view v-for="g in liabGroups" :key="g.type" class="card">
         <view class="card-title flex-row">
-          <text class="flex-1">负债列表</text>
-          <text class="link" @tap="showArchived = !showArchived">{{ showArchived ? '隐藏归档' : '显示全部' }}</text>
+          <text class="flex-1">{{ g.label }}</text>
+          <text class="add-mini" @tap="addLiability(g.type)">＋</text>
         </view>
-        <view v-if="liabFilteredList.length === 0" class="empty">无债一身轻～点下方「＋」登记负债</view>
-        <view v-for="l in liabFilteredList" :key="l.id" class="row" @tap="viewTxn('liability', l)">
+        <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
+        <view v-for="l in g.items" :key="l.id" class="row" @tap="viewTxn('liability', l)">
           <view class="row-icon liab" :class="l.accountType">{{ liabTypeText(l.accountType).slice(0, 1) }}</view>
           <view class="flex-1">
             <view class="row-name">
@@ -77,8 +80,7 @@
       </view>
     </template>
 
-    <!-- 添加按钮（随 Tab 切换） -->
-    <view class="fab" @tap="activeTab === 'asset' ? addAsset() : addLiability()">＋</view>
+    <!-- 添加按钮已移到各分类组标题右侧（点「＋」= 新增该类型账户） -->
 
     <!-- 资产弹层（键盘安全：H5 抬升 + 小程序 adjust-position + 内容可滚动） -->
     <KeyboardAwareSheet v-model="assetEditing" :title="assetSheetTitle">
@@ -232,6 +234,22 @@ export default {
       const list = this.liabilities.filter(l => l.status === 1 && l.settleFlag !== 1 && l.includeInTotal === 1);
       return formatAmount(safeSum(list, 'balance'));
     },
+    /** 资产按账户类型分组（资金/应收/投资/固定），每组标题右侧可「＋」新增该类账户 */
+    assetGroups() {
+      return this.assetTypes.map(([type, label]) => ({
+        type,
+        label,
+        items: this.assetFilteredList.filter(a => a.accountType === type)
+      }));
+    },
+    /** 负债按账户类型分组（普通负债/赊账应付） */
+    liabGroups() {
+      return this.liabTypes.map(([type, label]) => ({
+        type,
+        label,
+        items: this.liabFilteredList.filter(l => l.accountType === type)
+      }));
+    },
     /** 弹层标题（避免在模板里写嵌套引号，模板属性用双引号包单引号易被编译器误判） */
     assetSheetTitle() { return this.assetForm.id ? '编辑账户' : '新增资产账户'; },
     liabSheetTitle() { return this.liabForm.id ? '编辑负债' : '新增负债'; }
@@ -282,8 +300,8 @@ export default {
         this.accounts = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
     },
-    addAsset() {
-      this.assetForm = { id: null, name: '', accountType: 'fund', initialBalance: '', includeInTotal: 1 };
+    addAsset(type) {
+      this.assetForm = { id: null, name: '', accountType: type || 'fund', initialBalance: '', includeInTotal: 1 };
       this.assetEditing = true;
     },
     editAsset(a) {
@@ -341,8 +359,9 @@ export default {
         this.liabilities = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
     },
-    addLiability() {
+    addLiability(type) {
       this.liabForm = this.emptyLiabForm();
+      if (type) this.liabForm.accountType = type;
       this.liabEditing = true;
     },
     editLiability(l) {
@@ -456,6 +475,12 @@ export default {
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 12rpx; }
+/* 分类组右侧「＋」：新增该类型账户 */
+.add-mini {
+  width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
+  border-radius: 50%; background: var(--primary-soft, #eef2ff);
+  color: var(--primary); font-size: 34rpx; font-weight: 600;
+}
 .link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 

@@ -25,6 +25,12 @@
                 <text>{{ iconOf(c.icon) }}</text>
               </view>
               <text class="cat-name">{{ c.name }}</text>
+              <!-- 子分类（二级）：展示在当前一级下方 -->
+              <view v-if="subOf(c).length" class="sub-tags">
+                <text v-for="s in subOf(c)" :key="s.id" class="sub-tag">{{ s.name }}</text>
+              </view>
+              <!-- 添加子分类 -->
+              <text class="add-sub" @tap.stop="startSub(c)">＋子</text>
             </view>
           </view>
           <view v-if="g.items.length === 0" class="empty">暂无分类</view>
@@ -42,7 +48,7 @@
         </view>
         <input
           v-model="newName"
-          :placeholder="'新' + currentTabLabel + '分类名（图标选填）'"
+          :placeholder="subParent ? ('添加「' + subParent.name + '」的子分类') : ('新' + currentTabLabel + '分类名（图标选填）')"
           class="add-input"
           :cursor-spacing="24"
           adjust-position
@@ -94,11 +100,12 @@ export default {
       const t = TYPE_TABS.find(x => x.key === this.type);
       return t ? t.label : '';
     },
-    /** 按 group_name 语义分组 */
+    /** 按 group_name 语义分组（只列一级，二级挂在对应一级下） */
     grouped() {
       if (!this.list.length) return [];
       const map = new Map();
-      for (const c of this.list) {
+      const top = this.list.filter(c => !c.parentId);
+      for (const c of top) {
         const g = c.groupName || '其他';
         if (!map.has(g)) map.set(g, []);
         map.get(g).push(c);
@@ -107,6 +114,10 @@ export default {
       return Array.from(map.entries())
         .map(([name, items]) => ({ name, items, order: items[0].sortOrder || 0 }))
         .sort((a, b) => a.order - b.order);
+    },
+    /** 某一级分类的子分类 */
+    subOf(parent) {
+      return this.list.filter(c => c.parentId === parent.id);
     },
     /** 可选图标（来自统一图标映射，保证选择后能正确渲染） */
     iconOptions() { return ICON_MAP; }
@@ -119,6 +130,7 @@ export default {
       newName: '',
       newIcon: '',        // 选填；空则后端用默认图标
       iconPickerOpen: false,
+      subParent: null,    // 非空=正在为某个一级分类添加子分类
     };
   },
   onShow() {
@@ -145,6 +157,12 @@ export default {
         this.list = (res && res.records) || [];
       } catch (e) { /* 拦截器已提示 */ }
     },
+    /** 开始为某个一级分类添加子分类 */
+    startSub(c) {
+      this.subParent = c;
+      this.newName = '';
+      this.newIcon = '';
+    },
     async addCat() {
       return this.withSubmitLock(async () => {
               if (!this.newName.trim()) {
@@ -153,12 +171,15 @@ export default {
               }
               try {
                 const payload = { name: this.newName.trim(), type: this.type };
+                // 二级分类：挂到当前一级分类下
+                if (this.subParent) payload.parentId = this.subParent.id;
                 // 图标选填：未选则不传，由后端保持默认
                 if (this.newIcon) payload.icon = this.newIcon;
                 await createCategory(payload);
                 this.newName = '';
                 this.newIcon = '';
                 this.iconPickerOpen = false;
+                this.subParent = null;
                 this.load();
               } catch (e) { /* 拦截器已提示 */ }
       });
@@ -215,6 +236,17 @@ export default {
   font-size: 34rpx;
 }
 .cat-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
+/* 二级分类 */
+.sub-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6rpx; margin-top: 6rpx; }
+.sub-tag {
+  font-size: 18rpx; color: var(--text-muted); background: var(--surface);
+  padding: 2rpx 10rpx; border-radius: 12rpx; max-width: 88rpx;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.add-sub {
+  position: absolute; bottom: 6rpx; right: 8rpx;
+  font-size: 18rpx; color: var(--primary); padding: 2rpx 8rpx;
+}
 .empty { text-align: center; color: var(--text-muted); padding: 40rpx 0; font-size: 26rpx; }
 
 .cat-remove {

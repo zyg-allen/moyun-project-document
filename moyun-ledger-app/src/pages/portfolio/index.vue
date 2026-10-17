@@ -171,7 +171,7 @@
 import keyboardAware from '@/mixins/keyboardAware';
 import submitLock from '@/mixins/submitLock';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
-import { listAssets, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
+import { listAssets, listAccountTypes, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
 import { formatAmount, toFixedYuan, toNum, safeSum, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
@@ -204,17 +204,19 @@ export default {
       privacyMode: false,
       assetEditing: false,
       assetForm: { id: null, name: '', accountType: 'fund', initialBalance: '', includeInTotal: 1 },
-      assetTypeNames: ASSET_TYPES.map(t => t[1]),
+      assetTypes: ASSET_TYPES,
       // 负债
       liabilities: [],
       liabEditing: false,
       liabForm: this.emptyLiabForm(),
-      liabTypeNames: LIAB_TYPES.map(t => t[1]),
+      liabTypes: LIAB_TYPES,
       days: Array.from({ length: 28 }, (_, i) => (i + 1) + '日')
     };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
+    assetTypeNames() { return this.assetTypes.map(t => t[1]); },
+    liabTypeNames() { return this.liabTypes.map(t => t[1]); },
     assetEnabled() { return this.accounts.filter(a => a.status === 1); },
     assetFilteredList() { return this.showArchived ? this.accounts : this.assetEnabled; },
     assetTotalText() {
@@ -239,6 +241,7 @@ export default {
     this.privacyMode = uni.getStorageSync('ledger_privacy') === '1';
     this.loadAssets();
     this.loadLiabilities();
+    this.loadAccountTypes();
   },
   onPullDownRefresh() {
     Promise.all([this.loadAssets(), this.loadLiabilities()]).finally(() => uni.stopPullDownRefresh());
@@ -262,8 +265,16 @@ export default {
     // ===== 资产 =====
     assetIcon(type) { return ASSET_ICONS[type] || ASSET_ICONS.other; },
     assetTypeText(type) {
-      const found = ASSET_TYPES.find(t => t[0] === type);
+      const found = this.assetTypes.find(t => t[0] === type);
       return found ? found[1] : type;
+    },
+    /** 账户类型：字典优先，枚举兜底 */
+    async loadAccountTypes() {
+      try {
+        const res = await listAccountTypes() || {};
+        if (res.asset && res.asset.length) this.assetTypes = res.asset.map(x => [x.value, x.label]);
+        if (res.liability && res.liability.length) this.liabTypes = res.liability.map(x => [x.value, x.label]);
+      } catch (e) { /* 拦截器已提示，用枚举兜底 */ }
     },
     async loadAssets() {
       try {
@@ -279,7 +290,7 @@ export default {
       this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, initialBalance: '', includeInTotal: a.includeInTotal };
       this.assetEditing = true;
     },
-    onAssetTypeChange(e) { this.assetForm.accountType = ASSET_TYPES[e.detail.value][0]; },
+    onAssetTypeChange(e) { this.assetForm.accountType = this.assetTypes[e.detail.value][0]; },
     onAssetTotalChange(e) { this.assetForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveAsset() {
       return this.withSubmitLock(async () => {
@@ -321,7 +332,7 @@ export default {
       return { id: null, name: '', accountType: 'debt', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
     },
     liabTypeText(type) {
-      const found = LIAB_TYPES.find(t => t[0] === type);
+      const found = this.liabTypes.find(t => t[0] === type);
       return found ? found[1] : type;
     },
     async loadLiabilities() {
@@ -342,7 +353,7 @@ export default {
       };
       this.liabEditing = true;
     },
-    onLiabTypeChange(e) { this.liabForm.accountType = LIAB_TYPES[e.detail.value][0]; },
+    onLiabTypeChange(e) { this.liabForm.accountType = this.liabTypes[e.detail.value][0]; },
     onDayChange(e) { this.liabForm.repaymentDay = e.detail.value + 1; },
     onLiabTotalChange(e) { this.liabForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveLiability() {

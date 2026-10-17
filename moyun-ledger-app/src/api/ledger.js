@@ -320,3 +320,7 @@ export const deleteProduct = (id) => del('/portal/ledger/inventory/products/' + 
 export const stockIn = (data) => post('/portal/ledger/inventory/stock/in', data);
 export const stockOut = (data) => post('/portal/ledger/inventory/stock/out', data);
 export const listStockFlows = (warehouseId, params) => get('/portal/ledger/inventory/warehouses/' + warehouseId + '/flows', params || {});
+
+// ---------------- 账户类型（字典树） ----------------
+/** 账户类型：{ asset: [{value,label}...], liability: [{value,label}...] } */
+export const listAccountTypes = () => get('/portal/ledger/accountTypes');

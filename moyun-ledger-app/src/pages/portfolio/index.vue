@@ -21,15 +21,15 @@
         </view>
         <view v-if="assetFilteredList.length === 0" class="empty">还没有资产账户，点下方「+」添加</view>
         <view v-for="a in assetFilteredList" :key="a.id" class="row" @tap="viewTxn('asset', a)">
-          <view class="row-icon" :style="{ background: assetIcon(a.type).bg }">
-            <text>{{ assetIcon(a.type).emoji }}</text>
+          <view class="row-icon" :style="{ background: assetIcon(a.accountType).bg }">
+            <text>{{ assetIcon(a.accountType).emoji }}</text>
           </view>
           <view class="flex-1">
             <view class="row-name">
               {{ a.name }}
               <text v-if="a.status === 0" class="archived-tag">已归档</text>
             </view>
-            <view class="row-type">{{ assetTypeText(a.type) }}</view>
+            <view class="row-type">{{ assetTypeText(a.accountType) }}</view>
           </view>
           <view class="row-actions">
             <view class="pencil-btn" @tap.stop="editAsset(a)">✎</view>
@@ -55,7 +55,7 @@
         </view>
         <view v-if="liabFilteredList.length === 0" class="empty">无债一身轻～点下方「＋」登记负债</view>
         <view v-for="l in liabFilteredList" :key="l.id" class="row" @tap="viewTxn('liability', l)">
-          <view class="row-icon liab" :class="l.type">{{ liabTypeText(l.type).slice(0, 1) }}</view>
+          <view class="row-icon liab" :class="l.accountType">{{ liabTypeText(l.accountType).slice(0, 1) }}</view>
           <view class="flex-1">
             <view class="row-name">
               {{ l.name }}
@@ -63,7 +63,7 @@
               <text v-if="l.status === 0" class="archived-tag">已归档</text>
             </view>
             <view class="row-type">
-              {{ liabTypeText(l.type) }}
+              {{ liabTypeText(l.accountType) }}
               <text v-if="l.monthlyPayment"> · 月供 ¥{{ formatAmount(l.monthlyPayment) }}</text>
               <text v-if="l.repaymentDay"> · {{ l.repaymentDay }}日还款</text>
               <text v-if="l.totalTerms"> · {{ l.paidTerms || 0 }}/{{ l.totalTerms }}期</text>
@@ -92,7 +92,7 @@
       <view class="field">
         <text class="field-label">类型</text>
         <picker class="fill-picker" :range="assetTypeNames" @change="onAssetTypeChange">
-          <view class="field-picker">{{ assetTypeText(assetForm.type) }} ▾</view>
+          <view class="field-picker">{{ assetTypeText(assetForm.accountType) }} ▾</view>
         </picker>
       </view>
       <view class="field" v-if="!assetForm.id">
@@ -125,7 +125,7 @@
         <view class="field">
           <text class="field-label">类型</text>
           <picker class="fill-picker" :range="liabTypeNames" @change="onLiabTypeChange">
-            <view class="field-picker">{{ liabTypeText(liabForm.type) }} ▾</view>
+            <view class="field-picker">{{ liabTypeText(liabForm.accountType) }} ▾</view>
           </picker>
         </view>
         <view class="field" v-if="!liabForm.id">
@@ -176,23 +176,16 @@ import { formatAmount, toFixedYuan, toNum, safeSum, applyAmountInput } from '@/u
 import { useThemeStore } from '@/stores/theme';
 
 const ASSET_TYPES = [
-  ['cash', '现金'], ['savings', '储蓄卡'], ['ewallet', '电子钱包'],
-  ['stored_value', '储值卡'], ['investment', '投资'], ['fixed_asset', '固定资产'],
-  ['receivable', '债权'], ['other', '其他']
+  ['fund', '资金账户'], ['receivable', '应收款'], ['investment', '投资'], ['fixed', '固定资产']
 ];
 const ASSET_ICONS = {
-  cash: { emoji: '💰', bg: '#F5C518' },
-  savings: { emoji: '🏦', bg: '#4A9EFF' },
-  ewallet: { emoji: '📱', bg: '#91CEA1' },
-  stored_value: { emoji: '🎫', bg: '#FF9F43' },
-  investment: { emoji: '📈', bg: '#6BCB77' },
-  fixed_asset: { emoji: '🏠', bg: '#9AD2A9' },
+  fund: { emoji: '💰', bg: '#F5C518' },
   receivable: { emoji: '🤝', bg: '#EE8FA9' },
-  other: { emoji: '🔖', bg: '#B0B0B0' }
+  investment: { emoji: '📈', bg: '#6BCB77' },
+  fixed: { emoji: '🏠', bg: '#9AD2A9' }
 };
 const LIAB_TYPES = [
-  ['credit_card', '信用卡'], ['consumer_loan', '消费贷'],
-  ['bank_loan', '银行贷款'], ['personal_loan', '个人借款'], ['other', '其他']
+  ['debt', '普通负债'], ['credit', '赊账应付']
 ];
 
 export default {
@@ -210,7 +203,7 @@ export default {
       showArchived: false,
       privacyMode: false,
       assetEditing: false,
-      assetForm: { id: null, name: '', type: 'cash', initialBalance: '', includeInTotal: 1 },
+      assetForm: { id: null, name: '', accountType: 'fund', initialBalance: '', includeInTotal: 1 },
       assetTypeNames: ASSET_TYPES.map(t => t[1]),
       // 负债
       liabilities: [],
@@ -279,14 +272,14 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     addAsset() {
-      this.assetForm = { id: null, name: '', type: 'cash', initialBalance: '', includeInTotal: 1 };
+      this.assetForm = { id: null, name: '', accountType: 'fund', initialBalance: '', includeInTotal: 1 };
       this.assetEditing = true;
     },
     editAsset(a) {
-      this.assetForm = { id: a.id, name: a.name, type: a.type, initialBalance: '', includeInTotal: a.includeInTotal };
+      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, initialBalance: '', includeInTotal: a.includeInTotal };
       this.assetEditing = true;
     },
-    onAssetTypeChange(e) { this.assetForm.type = ASSET_TYPES[e.detail.value][0]; },
+    onAssetTypeChange(e) { this.assetForm.accountType = ASSET_TYPES[e.detail.value][0]; },
     onAssetTotalChange(e) { this.assetForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveAsset() {
       return this.withSubmitLock(async () => {
@@ -297,11 +290,11 @@ export default {
               try {
                 if (this.assetForm.id) {
                   await updateAsset(this.assetForm.id, {
-                    name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal
+                    name: this.assetForm.name, accountType: this.assetForm.accountType, includeInTotal: this.assetForm.includeInTotal
                   });
                 } else {
                   await createAsset({
-                    name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal,
+                    name: this.assetForm.name, accountType: this.assetForm.accountType, includeInTotal: this.assetForm.includeInTotal,
                     initialBalance: toNum(this.assetForm.initialBalance)
                   });
                 }
@@ -325,7 +318,7 @@ export default {
     },
     // ===== 负债 =====
     emptyLiabForm() {
-      return { id: null, name: '', type: 'credit_card', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
+      return { id: null, name: '', accountType: 'debt', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
     },
     liabTypeText(type) {
       const found = LIAB_TYPES.find(t => t[0] === type);
@@ -343,13 +336,13 @@ export default {
     },
     editLiability(l) {
       this.liabForm = {
-        id: l.id, name: l.name, type: l.type, initialBalance: '',
+        id: l.id, name: l.name, accountType: l.accountType, initialBalance: '',
         monthlyPayment: l.monthlyPayment ? toFixedYuan(l.monthlyPayment) : '',
         repaymentDay: l.repaymentDay, totalTerms: l.totalTerms || '', includeInTotal: l.includeInTotal
       };
       this.liabEditing = true;
     },
-    onLiabTypeChange(e) { this.liabForm.type = LIAB_TYPES[e.detail.value][0]; },
+    onLiabTypeChange(e) { this.liabForm.accountType = LIAB_TYPES[e.detail.value][0]; },
     onDayChange(e) { this.liabForm.repaymentDay = e.detail.value + 1; },
     onLiabTotalChange(e) { this.liabForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveLiability() {
@@ -361,14 +354,14 @@ export default {
               try {
                 if (this.liabForm.id) {
                   await updateLiability(this.liabForm.id, {
-                    name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
+                    name: this.liabForm.name, accountType: this.liabForm.accountType, includeInTotal: this.liabForm.includeInTotal,
                     monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
                     repaymentDay: this.liabForm.repaymentDay || null,
                     totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
                   });
                 } else {
                   await createLiability({
-                    name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
+                    name: this.liabForm.name, accountType: this.liabForm.accountType, includeInTotal: this.liabForm.includeInTotal,
                     initialBalance: toNum(this.liabForm.initialBalance),
                     monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
                     repaymentDay: this.liabForm.repaymentDay || null,

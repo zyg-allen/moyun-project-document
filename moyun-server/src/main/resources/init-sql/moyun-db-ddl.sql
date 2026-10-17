@@ -555,8 +555,14 @@ CREATE TABLE `ledger_asset_account` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '资产账户ID',
                                         `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
                                         `name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '账户名称，如"招商银行储蓄卡"',
-                                        `type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：cash/savings/ewallet/stored_value/investment/fixed_asset/receivable/other',
+                                        `account_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'fund' COMMENT '账户类型：fund资金/receivable应收/investment投资/fixed固定资产',
+                                        `description` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '描述（简单记录情况）',
                                         `balance` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '当前余额（元）',
+                                        `total_amount` decimal(18,2) DEFAULT NULL COMMENT '总额（应收/投资/固定类用）',
+                                        `paid_amount` decimal(18,2) DEFAULT NULL COMMENT '已收（应收类用）',
+                                        `settle_status` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '结算状态：pending/partial/settled',
+                                        `due_date` date DEFAULT NULL COMMENT '到期日（应收类用）',
+                                        `risk_level` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'normal' COMMENT '风险标记：normal/attention/bad_debt',
                                         `valuation` decimal(18,2) DEFAULT NULL COMMENT '估值（元；投资/固定资产用，可≠balance）',
                                         `include_in_total` tinyint NOT NULL DEFAULT '1' COMMENT '是否计入总资产：1=是 0=否',
                                         `icon` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '图标',
@@ -614,7 +620,8 @@ CREATE TABLE `ledger_liability_account` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '负债账户ID',
                                             `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
                                             `name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '负债名称，如"招行信用卡"',
-                                            `type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：credit_card/consumer_loan/bank_loan/personal_loan/other',
+                                            `account_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'debt' COMMENT '账户类型：debt普通负债/credit赊账应付',
+                                            `description` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '描述（简单记录情况）',
                                             `balance` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '当前欠款（元）',
                                             `principal` decimal(18,2) DEFAULT NULL COMMENT '初始本金（元）',
                                             `annual_rate` decimal(10,4) DEFAULT NULL COMMENT '年利率（%）',
@@ -623,6 +630,10 @@ CREATE TABLE `ledger_liability_account` (
                                             `monthly_payment` decimal(18,2) DEFAULT NULL COMMENT '每期还款额（元）',
                                             `repayment_day` tinyint DEFAULT NULL COMMENT '还款日（每月几号，1-28）',
                                             `due_date` date DEFAULT NULL COMMENT '到期日',
+                                            `total_amount` decimal(18,2) DEFAULT NULL COMMENT '总额（赊账类用）',
+                                            `paid_amount` decimal(18,2) DEFAULT NULL COMMENT '已还（赊账类用）',
+                                            `settle_status` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '结算状态：pending/partial/settled',
+                                            `risk_level` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'normal' COMMENT '风险标记：normal/attention/bad_debt',
                                             `include_in_total` tinyint NOT NULL DEFAULT '1' COMMENT '是否计入总负债：1=是 0=否',
                                             `icon` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '图标',
                                             `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序',
@@ -4165,78 +4176,6 @@ ALTER TABLE `ai_execute_log`
 -- 以下为债权债务三表与流水关联列（由 ledger-debt-v1.sql 并入）
 -- ============================================================
 -- ============================================================
--- 记账-债权债务（应收/应付）与核销流水
--- 新增时间：2026-10-15
---
--- 设计说明（与《库存投资管理模块_核心数据表SQL建表语句.sql》的差异，均为刻意取舍）：
---
--- 1) 表名统一加 ledger_ 前缀：库内该域名下 14 张表全部是 ledger_*，
---    参考文档里的裸名（receivable/payable/transaction）是本项目的 SQLite 原型设计稿，
---    直接照搬会破坏「按前缀识别业务域」的既有约定。
---
--- 2) 结算状态用 settle_status，而不是 status：
---    status 在全项目（ledger_asset_account / ledger_liability_account /
---    ledger_schedule_task …）已经是「行状态：1=正常 0=已删除」的固定语义。
---    若把 pending/partial/settled 塞进 status，同一列在不同表里含义不同，
---    后续所有通用逻辑（逻辑删除、状态过滤）都会踩雷。
---
--- 3) 金额口径：
---    total_amount 债务总额；paid_amount 已核销额；余额 = total - paid（不落列，避免三方不一致）。
---    settle_status 由 paid_amount 与 total_amount 的关系推导并冗余存储，便于列表直接筛选。
---
--- 4) 软删除：与全项目一致用 status + del_flag 双轨（此处只需 status）。
--- ============================================================
-
--- -----------------------------------------------------------
--- 1. 应收款（别人欠我的钱）
--- -----------------------------------------------------------
-drop table if exists `ledger_obligation`;
-CREATE TABLE `ledger_obligation` (
-    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '往来ID',
-    `user_id` bigint NOT NULL COMMENT '归属用户ID（主体）',
-    `type` varchar(20) NOT NULL DEFAULT 'receivable' COMMENT '类型：receivable=应收 payable=应付（后期可加 investment）',
-    `counterparty` varchar(100) NOT NULL COMMENT '对方名称',
-    `counterparty_id` bigint DEFAULT NULL COMMENT '对方用户ID（对方也是本系统用户时）',
-    `warehouse_id` bigint DEFAULT NULL COMMENT '关联仓库ID（赊销/赊购产生时）',
-    `source_type` varchar(30) NOT NULL DEFAULT 'manual' COMMENT '来源：manual=手工 lend=借出 sale_credit=赊销 purchase_credit=赊购 borrow=借款',
-    `source_id` bigint DEFAULT NULL COMMENT '来源单据ID',
-    `total_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '总额（元）',
-    `paid_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '已结金额（元）；未结余额 = total - paid，不落列',
-    `settle_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '结算状态：pending=未结 partial=部分结 settled=已结清',
-    `due_date` date DEFAULT NULL COMMENT '到期日',
-    `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-    `status` tinyint NOT NULL DEFAULT 1 COMMENT '行状态：1=正常 0=已删除',
-    `create_by` varchar(64) DEFAULT NULL,
-    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_user_type` (`user_id`,`type`,`status`),
-    KEY `idx_settle` (`settle_status`),
-    KEY `idx_source` (`source_type`,`source_id`),
-    KEY `idx_due_date` (`due_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-债权债务统一表（应收/应付，一张表+type）';
-
-drop table if exists `ledger_debt_repayment`;
-CREATE TABLE `ledger_debt_repayment` (
-    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '核销流水ID',
-    `user_id` bigint NOT NULL COMMENT '门户用户ID（冗余，便于按用户直接查全部核销）',
-    `debt_type` varchar(20) NOT NULL COMMENT '债务类型：receivable=应收 payable=应付',
-    `debt_id` bigint NOT NULL COMMENT '对应 ledger_receivable.id 或 ledger_payable.id',
-    `amount` decimal(18,2) NOT NULL COMMENT '本次核销金额（元）',
-    `account_id` bigint DEFAULT NULL COMMENT '资金账户ID（钱进/出哪个账户）',
-    `transaction_id` bigint DEFAULT NULL COMMENT '关联的资金流水ID（ledger_transaction.id）',
-    `repay_date` date NOT NULL COMMENT '核销日期',
-    `operator_id` bigint DEFAULT NULL COMMENT '操作人用户ID（多人协作用于审计）',
-    `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-    `status` tinyint NOT NULL DEFAULT 1 COMMENT '行状态：1=正常 0=已撤销',
-    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_debt` (`debt_type`,`debt_id`,`status`),
-    KEY `idx_user_date` (`user_id`,`repay_date`),
-    KEY `idx_transaction` (`transaction_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-债务核销流水';
-
--- -----------------------------------------------------------
 -- 4. 扩展 ledger_transaction：建立与债权债务的双向关联
 --
 -- 用途：七种记账类型里的「借出/收款」挂 receivable_id，「借款/还款」挂 payable_id，
@@ -4384,7 +4323,7 @@ CREATE TABLE `ledger_stock_flow` (
 --
 -- 设计要点（相对参考文档的取舍）：
 -- 1) 一张订单带 payment_type（cash=现结 / credit=赊账）：
---    credit 时自动联动 ledger_obligation（应收/应付）与库存，无需用户手动记。
+--    credit 时自动建应收/应付账户与变动库存，无需用户手动记。
 -- 2) 金额一律 decimal(18,2)，软删 status（与记账域一致）。
 -- 3) 订单只做「单据」，库存变动由 ledger_stock_flow 留痕（可追溯）。
 -- ============================================================
@@ -4402,7 +4341,7 @@ CREATE TABLE `ledger_sale_order` (
     `total_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '应收总额（按售价）',
     `cost_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '成本总额',
     `profit_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '利润（售价-成本）',
-    `obligation_id` bigint DEFAULT NULL COMMENT '赊账时关联的 ledger_obligation.id',
+    `obligation_id` bigint DEFAULT NULL COMMENT '赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account.id）',
     `transaction_id` bigint DEFAULT NULL COMMENT '现结时关联的资金流水ID',
     `operator_id` bigint NOT NULL COMMENT '操作人用户ID',
     `remark` varchar(500) DEFAULT NULL,
@@ -4442,7 +4381,7 @@ CREATE TABLE `ledger_purchase_order` (
     `supplier_id` bigint DEFAULT NULL,
     `payment_type` varchar(20) NOT NULL DEFAULT 'cash' COMMENT '付款方式：cash=现结 credit=赊账',
     `total_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '应付总额',
-    `obligation_id` bigint DEFAULT NULL COMMENT '赊账时关联的 ledger_obligation.id',
+    `obligation_id` bigint DEFAULT NULL COMMENT '赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account.id）',
     `transaction_id` bigint DEFAULT NULL COMMENT '现结时关联的资金流水ID',
     `operator_id` bigint NOT NULL COMMENT '操作人用户ID',
     `remark` varchar(500) DEFAULT NULL,

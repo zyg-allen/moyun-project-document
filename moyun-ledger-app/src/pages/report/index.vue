@@ -63,6 +63,22 @@
         </view>
         <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
       </view>
+
+      <!-- 二级分类下钻（选过二级的流水） -->
+      <template v-if="categoryExpenseSub.length || categoryIncomeSub.length">
+        <view class="chart-title" style="margin-top: 24rpx">二级分类明细</view>
+        <view v-if="!categoryExpenseSub.length && !categoryIncomeSub.length" class="empty">暂无二级分类数据</view>
+        <view v-for="(c, i) in categoryExpenseSub.slice(0, 10)" :key="'es' + i" class="rank-row">
+          <text class="rank-name">{{ c.name }}</text>
+          <view class="rank-bar"><view class="rank-inner expense" :style="{ width: rankPercent(c.amount, expenseTotal) + '%' }"></view></view>
+          <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
+        </view>
+        <view v-for="(c, i) in categoryIncomeSub.slice(0, 5)" :key="'is' + i" class="rank-row">
+          <text class="rank-name">{{ c.name }}</text>
+          <view class="rank-bar"><view class="rank-inner income" :style="{ width: rankPercent(c.amount, incomeTotal) + '%' }"></view></view>
+          <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
+        </view>
+      </template>
     </view>
 
     <!-- 净资产趋势（近30天） -->
@@ -150,6 +166,8 @@ export default {
     monthlyTrend() { return this.report.monthlyTrend || []; },
     categoryExpense() { return this.report.categoryExpense || []; },
     categoryIncome() { return this.report.categoryIncome || []; },
+    categoryExpenseSub() { return this.report.categoryExpenseSub || []; },
+    categoryIncomeSub() { return this.report.categoryIncomeSub || []; },
     netWorthTrend() { return this.report.netWorthTrend || []; },
     accountDistribution() { return this.report.accountDistribution || []; },
     liabilityOverview() { return this.report.liabilityOverview || []; },

@@ -31,7 +31,7 @@
             <view class="flex-1">
               <view class="row-name">
                 {{ a.name }}
-                <text v-if="a.riskLevel && a.riskLevel !== 'normal'" class="risk-tag">{{ riskText(a.riskLevel) }}</text>
+                <text v-if="a.riskLevel && a.riskLevel !== 'normal'" class="risk-tag">{{ assetRiskText(a.riskLevel) }}</text>
                 <text v-if="a.status === 0" class="archived-tag">已归档</text>
               </view>
               <view class="row-type">{{ assetTypeText(a.accountType) }}</view>
@@ -68,7 +68,7 @@
             <view class="flex-1">
               <view class="row-name">
                 {{ l.name }}
-                <text v-if="l.riskLevel && l.riskLevel !== 'normal'" class="risk-tag">{{ riskText(l.riskLevel) }}</text>
+                <text v-if="l.riskLevel && l.riskLevel !== 'normal'" class="risk-tag">{{ liabRiskText(l.riskLevel) }}</text>
                 <text v-if="l.settleFlag === 1" class="settle-tag">已结清</text>
                 <text v-if="l.status === 0" class="archived-tag">已归档</text>
               </view>
@@ -114,8 +114,8 @@
       </view>
       <view class="field">
         <text class="field-label">风险</text>
-        <picker class="fill-picker" :range="riskLevels.map(r => r[1])" @change="onAssetRiskChange">
-          <view class="field-picker">{{ riskText(assetForm.riskLevel) }} ▾</view>
+        <picker class="fill-picker" :range="riskLevelsAsset.map(r => r[1])" @change="onAssetRiskChange">
+          <view class="field-picker">{{ assetRiskText(assetForm.riskLevel) }} ▾</view>
         </picker>
       </view>
       <view class="field" v-if="!assetForm.id">
@@ -159,8 +159,8 @@
         </view>
         <view class="field">
           <text class="field-label">风险</text>
-          <picker class="fill-picker" :range="riskLevels.map(r => r[1])" @change="onLiabRiskChange">
-            <view class="field-picker">{{ riskText(liabForm.riskLevel) }} ▾</view>
+          <picker class="fill-picker" :range="riskLevelsLiab.map(r => r[1])" @change="onLiabRiskChange">
+            <view class="field-picker">{{ liabRiskText(liabForm.riskLevel) }} ▾</view>
           </picker>
         </view>
         <view class="field" v-if="!liabForm.id">
@@ -219,8 +219,13 @@ const ASSET_ICONS = {
   investment: { emoji: '📈', bg: '#6BCB77' },
   fixed: { emoji: '🏠', bg: '#9AD2A9' }
 };
-const RISK_LEVELS = [
+// 资产风险（应收款催收）：正常/关注/坏账
+const RISK_LEVELS_ASSET = [
   ['normal', '正常'], ['attention', '关注'], ['bad_debt', '坏账']
+];
+// 负债风险（我欠别人）：正常/逾期/违约
+const RISK_LEVELS_LIAB = [
+  ['normal', '正常'], ['overdue', '逾期'], ['default', '违约']
 ];
 const LIAB_TYPES = [
   ['debt', '普通负债'], ['credit', '赊账应付']
@@ -231,10 +236,6 @@ export default {
   components: { KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     return {
-      // 应收款（借出）：只取未结清的，已结清的早已变成现金，再列会重复计算
-      receivables: [],
-      // 应付款（借款）：同理只取未结清的
-      payables: [],
       activeTab: 'asset',
       // 资产
       accounts: [],
@@ -250,7 +251,8 @@ export default {
       liabEditing: false,
       liabForm: this.emptyLiabForm(),
       liabTypes: LIAB_TYPES,
-      riskLevels: RISK_LEVELS,
+      riskLevelsAsset: RISK_LEVELS_ASSET,
+      riskLevelsLiab: RISK_LEVELS_LIAB,
       days: Array.from({ length: 28 }, (_, i) => (i + 1) + '日')
     };
   },
@@ -376,11 +378,16 @@ export default {
       this.assetEditing = true;
     },
     onAssetTypeChange(e) { this.assetForm.accountType = this.assetTypes[e.detail.value][0]; },
-    onAssetRiskChange(e) { this.assetForm.riskLevel = RISK_LEVELS[e.detail.value][0]; },
+    onAssetRiskChange(e) { this.assetForm.riskLevel = RISK_LEVELS_ASSET[e.detail.value][0]; },
     onAssetTotalChange(e) { this.assetForm.includeInTotal = e.detail.value ? 1 : 0; },
-    /** 风险等级文案 */
-    riskText(level) {
-      const f = RISK_LEVELS.find(r => r[0] === level);
+    /** 资产风险文案（正常/关注/坏账） */
+    assetRiskText(level) {
+      const f = RISK_LEVELS_ASSET.find(r => r[0] === level);
+      return f ? f[1] : '';
+    },
+    /** 负债风险文案（正常/逾期/违约） */
+    liabRiskText(level) {
+      const f = RISK_LEVELS_LIAB.find(r => r[0] === level);
       return f ? f[1] : '';
     },
     async saveAsset() {
@@ -450,7 +457,7 @@ export default {
       this.liabEditing = true;
     },
     onLiabTypeChange(e) { this.liabForm.accountType = this.liabTypes[e.detail.value][0]; },
-    onLiabRiskChange(e) { this.liabForm.riskLevel = RISK_LEVELS[e.detail.value][0]; },
+    onLiabRiskChange(e) { this.liabForm.riskLevel = RISK_LEVELS_LIAB[e.detail.value][0]; },
     onDayChange(e) { this.liabForm.repaymentDay = e.detail.value + 1; },
     onLiabTotalChange(e) { this.liabForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveLiability() {

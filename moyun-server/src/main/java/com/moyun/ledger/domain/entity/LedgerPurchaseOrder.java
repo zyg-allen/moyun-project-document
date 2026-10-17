@@ -22,7 +22,7 @@ public class LedgerPurchaseOrder {
     private Long supplierId;
     private String paymentType;
     private BigDecimal totalAmount;
-    private Long obligationId;
+    private Long linkedAccountId;
     private Long transactionId;
     private Long operatorId;
     private String remark;

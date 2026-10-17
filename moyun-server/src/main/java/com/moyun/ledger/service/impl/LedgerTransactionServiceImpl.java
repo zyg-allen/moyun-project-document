@@ -199,7 +199,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         }
         // 1. 旧记录反向冲正（冲正不计快照列，直接回退余额 + 回滚自动联动的债权债务）
         reverseBalanceEffect(old);
-        reverseObligationLinkage(old);
+        reverseAccountLinkage(old);
         // 2. 新记录正向重放
         LedgerTransaction txn = new LedgerTransaction();
         txn.setId(old.getId());
@@ -242,7 +242,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         }
         // 1. 反向冲正余额 + 回滚自动联动的债权债务
         reverseBalanceEffect(old);
-        reverseObligationLinkage(old);
+        reverseAccountLinkage(old);
         // 2. 逻辑删除（快照保留在流水行，历史报表可追溯）
         LambdaUpdateWrapper<LedgerTransaction> uw = new LambdaUpdateWrapper<>();
         uw.eq(LedgerTransaction::getId, id)
@@ -403,8 +403,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             }
         }
         // 还款支持两种债务载体，二者其一即可：
-        //   ① liabilityId —— 既有的「负债账户」模型（房贷/车贷/信用卡等）；
-        //   ② payableId   —— 新的「应付款」模型（欠供应商/个人的钱，见 ledger_payable）。
+        //   ① liabilityId —— 负债账户（普通负债/赊账应付，ledger_liability_account）；
+        //   ② payableId   —— 赊账下单自动生成的应付账户（同一张表，account_type=credit）。
         // 增量兼容而非替换：老流程传 liabilityId 时行为完全不变。
         if (LedgerTransaction.TYPE_REPAYMENT.equals(type)) {
             if (dto.getLiabilityId() == null && dto.getPayableId() == null) {
@@ -524,8 +524,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     BigDecimal assetAfter = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
                     txn.setBalanceAfter(assetAfter);
                 }
-                // 并存：填了「对方(counterparty)」→ 建应付款(obligation/payable)，不走负债账户；
-                // 否则沿用既有「负债账户」自动创建（房贷/车贷等分期负债）。
+                // 并存：填了「对方(counterparty)」→ 建应付账户（ledger_liability_account,
+                // account_type=credit），不走负债账户；否则沿用「负债账户」自动创建（房贷/车贷等分期负债）。
                 boolean borrowAsPayable = dto.getCounterparty() != null && !dto.getCounterparty().isBlank();
                 if (!borrowAsPayable) {
                     if (txn.getLiabilityId() == null) {
@@ -775,7 +775,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     /**
      * 冲正借出/借款/还款自动联动的债权债务（编辑/删除时回滚）。
      */
-    private void reverseObligationLinkage(LedgerTransaction old) {
+    private void reverseAccountLinkage(LedgerTransaction old) {
         if (LedgerTransaction.TYPE_BORROW.equals(old.getType()) && old.getPayableId() != null) {
             LedgerLiabilityAccount acc = liabilityAccountMapper.selectById(old.getPayableId());
             if (acc != null && LedgerLiabilityAccount.ACCOUNT_TYPE_DEBT.equals(acc.getAccountType())) {

@@ -4341,7 +4341,7 @@ CREATE TABLE `ledger_sale_order` (
     `total_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '应收总额（按售价）',
     `cost_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '成本总额',
     `profit_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '利润（售价-成本）',
-    `obligation_id` bigint DEFAULT NULL COMMENT '赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account.id）',
+    `linked_account_id` bigint DEFAULT NULL COMMENT '赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account.id）',
     `transaction_id` bigint DEFAULT NULL COMMENT '现结时关联的资金流水ID',
     `operator_id` bigint NOT NULL COMMENT '操作人用户ID',
     `remark` varchar(500) DEFAULT NULL,
@@ -4350,7 +4350,7 @@ CREATE TABLE `ledger_sale_order` (
     PRIMARY KEY (`id`),
     KEY `idx_user_wh` (`user_id`,`warehouse_id`),
     KEY `idx_order_no` (`order_no`),
-    KEY `idx_obligation` (`obligation_id`)
+    KEY `idx_linked_account` (`linked_account_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-销售单';
 
 -- 销售明细
@@ -4381,7 +4381,7 @@ CREATE TABLE `ledger_purchase_order` (
     `supplier_id` bigint DEFAULT NULL,
     `payment_type` varchar(20) NOT NULL DEFAULT 'cash' COMMENT '付款方式：cash=现结 credit=赊账',
     `total_amount` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '应付总额',
-    `obligation_id` bigint DEFAULT NULL COMMENT '赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account.id）',
+    `linked_account_id` bigint DEFAULT NULL COMMENT '赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account.id）',
     `transaction_id` bigint DEFAULT NULL COMMENT '现结时关联的资金流水ID',
     `operator_id` bigint NOT NULL COMMENT '操作人用户ID',
     `remark` varchar(500) DEFAULT NULL,
@@ -4390,7 +4390,7 @@ CREATE TABLE `ledger_purchase_order` (
     PRIMARY KEY (`id`),
     KEY `idx_user_wh` (`user_id`,`warehouse_id`),
     KEY `idx_order_no` (`order_no`),
-    KEY `idx_obligation` (`obligation_id`)
+    KEY `idx_linked_account` (`linked_account_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-采购单';
 
 -- 采购明细

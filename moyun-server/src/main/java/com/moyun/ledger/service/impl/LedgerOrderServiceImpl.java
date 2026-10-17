@@ -127,7 +127,7 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
         acc.setVersion(0);
         assetAccountMapper.insert(acc);
 
-        order.setObligationId(acc.getId());
+        order.setLinkedAccountId(acc.getId());
         saleOrderMapper.updateById(order);
         return order.getId();
     }
@@ -187,7 +187,7 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
         acc.setVersion(0);
         liabilityAccountMapper.insert(acc);
 
-        order.setObligationId(acc.getId());
+        order.setLinkedAccountId(acc.getId());
         purchaseOrderMapper.updateById(order);
         return order.getId();
     }

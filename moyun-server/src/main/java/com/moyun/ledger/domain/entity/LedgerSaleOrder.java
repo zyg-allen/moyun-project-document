@@ -24,7 +24,7 @@ public class LedgerSaleOrder {
     private BigDecimal totalAmount;
     private BigDecimal costAmount;
     private BigDecimal profitAmount;
-    private Long obligationId;
+    private Long linkedAccountId;
     private Long transactionId;
     private Long operatorId;
     private String remark;

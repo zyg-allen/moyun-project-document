@@ -8,11 +8,11 @@ import com.moyun.ledger.domain.entity.LedgerSaleOrderItem;
 import java.util.List;
 
 /**
- * 订单服务：销售/采购下单，赊账时自动联动债权债务与库存。
+ * 订单服务：销售/采购下单，赊账时自动联动账户与库存。
  *
- * <p>目标③「库存赊账自动生成应收/应付」的核心：
- * 赊销 → 减库存 + 自动建应收(obligation/receivable)；
- * 赊购 → 加库存 + 自动建应付(obligation/payable)。</p>
+ * <p>「库存赊账自动生成应收/应付」的核心：
+ * 赊销 → 减库存 + 自动建应收账户（ledger_asset_account, account_type=receivable）；
+ * 赊购 → 加库存 + 自动建应付账户（ledger_liability_account, account_type=credit）。</p>
  *
  * @author moyun
  */

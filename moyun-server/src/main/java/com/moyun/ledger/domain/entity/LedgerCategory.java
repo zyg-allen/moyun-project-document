@@ -67,4 +67,12 @@ public class LedgerCategory {
     /** 当前用户使用该分类的流水笔数（非表字段，记一笔页常用排序用） */
     @TableField(exist = false)
     private Long usedCount;
+
+    /** 子分类（后台树形表格用，非表字段） */
+    @TableField(exist = false)
+    private java.util.List<LedgerCategory> children;
+
+    /** 归属用户名（后台展示"谁建的"，非表字段） */
+    @TableField(exist = false)
+    private String userName;
 }

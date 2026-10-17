@@ -110,6 +110,13 @@ public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper,
         if (txnCount != null && txnCount > 0) {
             throw new IllegalArgumentException("该分类已绑定 " + txnCount + " 笔流水，不能删除（可将其停用）");
         }
+        // 作为二级分类被流水引用 → 同样不能删
+        Long subTxnCount = transactionMapper.selectCount(new LambdaQueryWrapper<LedgerTransaction>()
+                .eq(LedgerTransaction::getSubCategoryId, categoryId)
+                .eq(LedgerTransaction::getStatus, LedgerTransaction.STATUS_NORMAL));
+        if (subTxnCount != null && subTxnCount > 0) {
+            throw new IllegalArgumentException("该分类已被 " + subTxnCount + " 笔流水作为二级分类引用，不能删除（可将其停用）");
+        }
         // 存在子分类 → 不能删除（避免悬挂引用）
         Long childCount = count(new LambdaQueryWrapper<LedgerCategory>()
                 .eq(LedgerCategory::getParentId, categoryId));

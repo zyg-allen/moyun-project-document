@@ -2,9 +2,9 @@
   <div class="app-container ledger-cat">
 
     <!-- ===== 查询条件 ===== -->
-    <el-form :model="query" :inline="true" label-width="72px" class="query-form">
-      <el-form-item label="大类">
-        <el-select v-model="query.type" placeholder="全部" clearable style="width: 140px" @change="handleQuery">
+    <el-form :model="query" :inline="true" label-width="80px" class="query-form">
+      <el-form-item label="记账类型">
+        <el-select v-model="query.type" placeholder="全部类型" clearable style="width: 140px" @change="handleQuery">
           <el-option v-for="(label, key) in TYPE_LABELS" :key="key" :label="label" :value="key" />
         </el-select>
       </el-form-item>
@@ -36,7 +36,10 @@
         </el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-tag type="info" effect="plain">用户自定义分类为只读，后台不可改删</el-tag>
+        <el-tag type="info" effect="plain">结构：记账类型 → 大类（一级）→ 细类（二级）</el-tag>
+      </el-col>
+      <el-col :span="1.5">
+        <el-tag type="info" effect="plain">用户自定义分类只读</el-tag>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
@@ -53,7 +56,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="大类" width="90" align="center">
+      <el-table-column label="记账类型" width="100" align="center">
         <template #default="scope">
           <el-tag size="small" effect="plain">{{ TYPE_LABELS[scope.row.type] || scope.row.type }}</el-tag>
         </template>
@@ -127,7 +130,11 @@
         </el-form-item>
 
         <el-form-item label="图标">
-          <el-input v-model="form.icon" placeholder="选填，如：food / car" maxlength="30" />
+          <el-select v-model="form.icon" placeholder="选择图标（选填）" clearable filterable style="width: 100%">
+            <el-option v-for="ic in ICON_OPTIONS" :key="ic.key" :label="ic.label" :value="ic.key">
+              <span class="opt-emoji">{{ ic.emoji }}</span>{{ ic.label }}
+            </el-option>
+          </el-select>
         </el-form-item>
 
         <el-form-item label="颜色">
@@ -167,6 +174,41 @@ const TYPE_LABELS = {
   lend: '借出', collect: '收款', borrow: '借款', repayment: '还款', adjust: '校准'
 };
 
+/** 图标候选（与移动端 utils/categoryIcon.js 的 ICON_MAP 对齐） */
+const ICON_EMOJI = {
+  food: '🍜', transport: '🚌', shopping: '🛍️', home: '🏠', entertainment: '🎮',
+  medical: '💊', education: '📚', phone: '📱', daily: '🧻', gift: '🎁',
+  pet: '🐾', travel: '✈️', 'house-loan': '🏦', 'car-loan': '🚗', repayment: '💳',
+  interest: '📈', other: '🔖',
+  salary: '💰', bonus: '🎉', parttime: '💼', invest: '📊', redpacket: '🧧',
+  refund: '↩️', 'borrow-in': '🤝', secondhand: '♻️',
+  'transfer-self': '🔄', 'transfer-friend': '👥', 'transfer-proxy': '🔀',
+  'transfer-refund': '↩️', 'transfer-other': '🔖',
+  'repay-card': '💳', 'repay-loan': '🏦', 'repay-personal': '🤝',
+  'repay-interest': '📈', 'repay-other': '🔖',
+  'borrow-card': '💳', 'borrow-online': '🌐', 'borrow-bank': '🏦',
+  'borrow-installment': '📅', 'borrow-personal': '🤝', 'borrow-other': '🔖',
+  'adjust-balance': '⚖️', 'adjust-fee': '💸', 'adjust-fx': '💱', 'adjust-other': '🔖'
+};
+const ICON_CN = {
+  food: '餐饮', transport: '交通', shopping: '购物', home: '居家', entertainment: '娱乐',
+  medical: '医疗', education: '教育', phone: '通讯', daily: '日用', gift: '礼物',
+  pet: '宠物', travel: '旅行', 'house-loan': '房贷', 'car-loan': '车贷', repayment: '还款',
+  interest: '利息', other: '其他',
+  salary: '工资', bonus: '奖金', parttime: '兼职', invest: '理财', redpacket: '红包',
+  refund: '退款', 'borrow-in': '借入', secondhand: '二手',
+  'transfer-self': '自己转账', 'transfer-friend': '转朋友', 'transfer-proxy': '代付',
+  'transfer-refund': '退款转回', 'transfer-other': '其他转账',
+  'repay-card': '信用卡还款', 'repay-loan': '贷款还款', 'repay-personal': '个人还款',
+  'repay-interest': '还利息', 'repay-other': '其他还款',
+  'borrow-card': '信用卡', 'borrow-online': '网贷', 'borrow-bank': '银行借款',
+  'borrow-installment': '分期', 'borrow-personal': '个人借款', 'borrow-other': '其他借款',
+  'adjust-balance': '余额校准', 'adjust-fee': '手续费', 'adjust-fx': '汇率差', 'adjust-other': '其他校准'
+};
+const ICON_OPTIONS = Object.keys(ICON_EMOJI).map(key => ({
+  key, emoji: ICON_EMOJI[key], label: `${ICON_CN[key] || key}（${key}）`
+}));
+
 const loading = ref(false);
 const submitting = ref(false);
 const showSearch = ref(true);
@@ -178,7 +220,8 @@ const total = ref(0);
 const formRef = ref();
 const form = ref({});
 
-const query = ref({ type: "", name: "", owner: "", pageNum: 1, pageSize: 10 });
+// 进入页面默认一个记账类型（支出），只展示该类下的大类；重置可看全部
+const query = ref({ type: "expense", name: "", owner: "", pageNum: 1, pageSize: 10 });
 
 const rules = {
   type: [{ required: true, message: "请选择所属大类", trigger: "change" }],
@@ -295,5 +338,6 @@ getList();
 .cat-name.is-sub { padding-left: 8px; color: var(--el-text-color-regular); }
 .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
 .field-hint { margin-left: 10px; font-size: 12px; color: var(--el-text-color-placeholder); }
+.opt-emoji { margin-right: 8px; }
 .readonly-hint { font-size: 12px; color: var(--el-text-color-placeholder); }
 </style>

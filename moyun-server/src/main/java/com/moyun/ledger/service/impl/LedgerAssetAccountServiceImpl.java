@@ -152,6 +152,10 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
             uw.set(LedgerAssetAccount::getAccountType, account.getAccountType());
             any = true;
         }
+        if (account.getRiskLevel() != null) {
+            uw.set(LedgerAssetAccount::getRiskLevel, account.getRiskLevel());
+            any = true;
+        }
         if (account.getIncludeInTotal() != null) {
             uw.set(LedgerAssetAccount::getIncludeInTotal, account.getIncludeInTotal());
             any = true;

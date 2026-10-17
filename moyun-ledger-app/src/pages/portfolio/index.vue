@@ -31,6 +31,7 @@
             <view class="flex-1">
               <view class="row-name">
                 {{ a.name }}
+                <text v-if="a.riskLevel && a.riskLevel !== 'normal'" class="risk-tag">{{ riskText(a.riskLevel) }}</text>
                 <text v-if="a.status === 0" class="archived-tag">已归档</text>
               </view>
               <view class="row-type">{{ assetTypeText(a.accountType) }}</view>
@@ -67,6 +68,7 @@
             <view class="flex-1">
               <view class="row-name">
                 {{ l.name }}
+                <text v-if="l.riskLevel && l.riskLevel !== 'normal'" class="risk-tag">{{ riskText(l.riskLevel) }}</text>
                 <text v-if="l.settleFlag === 1" class="settle-tag">已结清</text>
                 <text v-if="l.status === 0" class="archived-tag">已归档</text>
               </view>
@@ -110,6 +112,12 @@
           :cursor-spacing="24"
          />
       </view>
+      <view class="field">
+        <text class="field-label">风险</text>
+        <picker class="fill-picker" :range="riskLevels.map(r => r[1])" @change="onAssetRiskChange">
+          <view class="field-picker">{{ riskText(assetForm.riskLevel) }} ▾</view>
+        </picker>
+      </view>
       <view class="field" v-if="!assetForm.id">
         <text class="field-label">初始余额(元)</text>
         <input v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input" @input="onAssetBalanceInput"
@@ -148,6 +156,12 @@
             adjust-position
             :cursor-spacing="24"
            />
+        </view>
+        <view class="field">
+          <text class="field-label">风险</text>
+          <picker class="fill-picker" :range="riskLevels.map(r => r[1])" @change="onLiabRiskChange">
+            <view class="field-picker">{{ riskText(liabForm.riskLevel) }} ▾</view>
+          </picker>
         </view>
         <view class="field" v-if="!liabForm.id">
           <text class="field-label">当前欠款(元)</text>
@@ -205,6 +219,9 @@ const ASSET_ICONS = {
   investment: { emoji: '📈', bg: '#6BCB77' },
   fixed: { emoji: '🏠', bg: '#9AD2A9' }
 };
+const RISK_LEVELS = [
+  ['normal', '正常'], ['attention', '关注'], ['bad_debt', '坏账']
+];
 const LIAB_TYPES = [
   ['debt', '普通负债'], ['credit', '赊账应付']
 ];
@@ -226,13 +243,14 @@ export default {
       // 分组折叠状态（key = 'a_'+类型 / 'l_'+类型，true=收起）
       collapsed: {},
       assetEditing: false,
-      assetForm: { id: null, name: '', accountType: 'fund', description: '', initialBalance: '', includeInTotal: 1 },
+      assetForm: { id: null, name: '', accountType: 'fund', description: '', riskLevel: 'normal', initialBalance: '', includeInTotal: 1 },
       assetTypes: ASSET_TYPES,
       // 负债
       liabilities: [],
       liabEditing: false,
       liabForm: this.emptyLiabForm(),
       liabTypes: LIAB_TYPES,
+      riskLevels: RISK_LEVELS,
       days: Array.from({ length: 28 }, (_, i) => (i + 1) + '日')
     };
   },
@@ -350,15 +368,21 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     addAsset(type) {
-      this.assetForm = { id: null, name: '', accountType: type || 'fund', description: '', initialBalance: '', includeInTotal: 1 };
+      this.assetForm = { id: null, name: '', accountType: type || 'fund', description: '', riskLevel: 'normal', initialBalance: '', includeInTotal: 1 };
       this.assetEditing = true;
     },
     editAsset(a) {
-      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, description: a.description || '', initialBalance: '', includeInTotal: a.includeInTotal };
+      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, description: a.description || '', riskLevel: a.riskLevel || 'normal', initialBalance: '', includeInTotal: a.includeInTotal };
       this.assetEditing = true;
     },
     onAssetTypeChange(e) { this.assetForm.accountType = this.assetTypes[e.detail.value][0]; },
+    onAssetRiskChange(e) { this.assetForm.riskLevel = RISK_LEVELS[e.detail.value][0]; },
     onAssetTotalChange(e) { this.assetForm.includeInTotal = e.detail.value ? 1 : 0; },
+    /** 风险等级文案 */
+    riskText(level) {
+      const f = RISK_LEVELS.find(r => r[0] === level);
+      return f ? f[1] : '';
+    },
     async saveAsset() {
       return this.withSubmitLock(async () => {
               if (!this.assetForm.name.trim()) {
@@ -369,12 +393,14 @@ export default {
                 if (this.assetForm.id) {
                   await updateAsset(this.assetForm.id, {
                     name: this.assetForm.name, accountType: this.assetForm.accountType,
-                    description: this.assetForm.description || null, includeInTotal: this.assetForm.includeInTotal
+                    description: this.assetForm.description || null, riskLevel: this.assetForm.riskLevel,
+                    includeInTotal: this.assetForm.includeInTotal
                   });
                 } else {
                   await createAsset({
                     name: this.assetForm.name, accountType: this.assetForm.accountType,
-                    description: this.assetForm.description || null, includeInTotal: this.assetForm.includeInTotal,
+                    description: this.assetForm.description || null, riskLevel: this.assetForm.riskLevel,
+                    includeInTotal: this.assetForm.includeInTotal,
                     initialBalance: toNum(this.assetForm.initialBalance)
                   });
                 }
@@ -398,7 +424,7 @@ export default {
     },
     // ===== 负债 =====
     emptyLiabForm() {
-      return { id: null, name: '', accountType: 'debt', description: '', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
+      return { id: null, name: '', accountType: 'debt', description: '', riskLevel: 'normal', initialBalance: '', monthlyPayment: '', repaymentDay: null, totalTerms: '', includeInTotal: 1 };
     },
     liabTypeText(type) {
       const found = this.liabTypes.find(t => t[0] === type);
@@ -417,13 +443,14 @@ export default {
     },
     editLiability(l) {
       this.liabForm = {
-        id: l.id, name: l.name, accountType: l.accountType, description: l.description || '', initialBalance: '',
+        id: l.id, name: l.name, accountType: l.accountType, description: l.description || '', riskLevel: l.riskLevel || 'normal', initialBalance: '',
         monthlyPayment: l.monthlyPayment ? toFixedYuan(l.monthlyPayment) : '',
         repaymentDay: l.repaymentDay, totalTerms: l.totalTerms || '', includeInTotal: l.includeInTotal
       };
       this.liabEditing = true;
     },
     onLiabTypeChange(e) { this.liabForm.accountType = this.liabTypes[e.detail.value][0]; },
+    onLiabRiskChange(e) { this.liabForm.riskLevel = RISK_LEVELS[e.detail.value][0]; },
     onDayChange(e) { this.liabForm.repaymentDay = e.detail.value + 1; },
     onLiabTotalChange(e) { this.liabForm.includeInTotal = e.detail.value ? 1 : 0; },
     async saveLiability() {
@@ -436,7 +463,8 @@ export default {
                 if (this.liabForm.id) {
                   await updateLiability(this.liabForm.id, {
                     name: this.liabForm.name, accountType: this.liabForm.accountType,
-                    description: this.liabForm.description || null, includeInTotal: this.liabForm.includeInTotal,
+                    description: this.liabForm.description || null, riskLevel: this.liabForm.riskLevel,
+                    includeInTotal: this.liabForm.includeInTotal,
                     monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
                     repaymentDay: this.liabForm.repaymentDay || null,
                     totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
@@ -444,7 +472,8 @@ export default {
                 } else {
                   await createLiability({
                     name: this.liabForm.name, accountType: this.liabForm.accountType,
-                    description: this.liabForm.description || null, includeInTotal: this.liabForm.includeInTotal,
+                    description: this.liabForm.description || null, riskLevel: this.liabForm.riskLevel,
+                    includeInTotal: this.liabForm.includeInTotal,
                     initialBalance: toNum(this.liabForm.initialBalance),
                     monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
                     repaymentDay: this.liabForm.repaymentDay || null,
@@ -552,6 +581,8 @@ export default {
 .row-name { font-size: 28rpx; }
 .archived-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid var(--income); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+/* 风险标记：关注=橙，坏账=红 */
+.risk-tag { font-size: 20rpx; color: #E8A33D; border: 1rpx solid #E8A33D; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .row-type { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
 .row-balance { font-size: 32rpx; font-weight: 600; }
 /* 负债金额：红色（欠的钱），资产金额保持默认 */

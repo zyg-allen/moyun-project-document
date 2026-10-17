@@ -129,6 +129,10 @@ public class LedgerLiabilityAccountServiceImpl
             uw.set(LedgerLiabilityAccount::getAccountType, account.getAccountType());
             any = true;
         }
+        if (account.getRiskLevel() != null) {
+            uw.set(LedgerLiabilityAccount::getRiskLevel, account.getRiskLevel());
+            any = true;
+        }
         if (account.getIncludeInTotal() != null) {
             uw.set(LedgerLiabilityAccount::getIncludeInTotal, account.getIncludeInTotal());
             any = true;

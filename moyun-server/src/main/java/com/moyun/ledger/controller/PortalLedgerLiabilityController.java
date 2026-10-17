@@ -47,6 +47,7 @@ public class PortalLedgerLiabilityController {
         account.setName((String) body.get("name"));
         account.setAccountType((String) body.get("accountType"));
         account.setDescription((String) body.get("description"));
+        account.setRiskLevel((String) body.get("riskLevel"));
         account.setIcon((String) body.get("icon"));
         if (body.get("annualRate") != null) {
             account.setAnnualRate(new java.math.BigDecimal(body.get("annualRate").toString()));
@@ -99,6 +100,7 @@ public class PortalLedgerLiabilityController {
         if (body.containsKey("name")) account.setName(LedgerAccountFields.asString(body.get("name")));
         if (body.containsKey("accountType")) account.setAccountType(LedgerAccountFields.asString(body.get("accountType")));
         if (body.containsKey("description")) account.setDescription(LedgerAccountFields.asString(body.get("description")));
+        if (body.containsKey("riskLevel")) account.setRiskLevel(LedgerAccountFields.asString(body.get("riskLevel")));
         if (body.containsKey("icon")) account.setIcon(LedgerAccountFields.asString(body.get("icon")));
         if (body.containsKey("includeInTotal")) account.setIncludeInTotal(LedgerAccountFields.asInt(body.get("includeInTotal")));
         if (body.containsKey("sortOrder")) account.setSortOrder(LedgerAccountFields.asInt(body.get("sortOrder")));

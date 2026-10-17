@@ -65,6 +65,9 @@ public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper,
         category.setId(null);
         category.setUserId(userId);
         category.setIsSystem(0);
+        // 幂等 + 层级校验：父分类合法、同层级不重名
+        assertParentValid(category.getParentId(), category.getType());
+        assertNameUnique(userId, category.getType(), category.getParentId(), category.getName(), null);
         if (category.getStatus() == null) {
             category.setStatus(LedgerCategory.STATUS_ENABLED);
         }
@@ -83,6 +86,8 @@ public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper,
         }
         category.setUserId(userId);
         category.setIsSystem(0);
+        assertParentValid(category.getParentId(), category.getType());
+        assertNameUnique(userId, category.getType(), category.getParentId(), category.getName(), category.getId());
         updateById(category);
     }
 
@@ -110,6 +115,43 @@ public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper,
                 .eq(LedgerCategory::getParentId, categoryId));
         if (childCount != null && childCount > 0) {
             throw new IllegalArgumentException("该分类下有子分类，请先处理子分类");
+        }
+    }
+
+    @Override
+    public void assertNameUnique(Long userId, String type, Long parentId, String name, Long excludeId) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("分类名称不能为空");
+        }
+        long pid = parentId == null ? 0L : parentId;
+        LambdaQueryWrapper<LedgerCategory> qw = new LambdaQueryWrapper<>();
+        qw.eq(LedgerCategory::getUserId, userId)
+                .eq(LedgerCategory::getType, type)
+                .eq(LedgerCategory::getName, name.trim())
+                .apply("parent_id = {0}", pid);
+        if (excludeId != null) {
+            qw.ne(LedgerCategory::getId, excludeId);
+        }
+        if (count(qw) > 0) {
+            throw new IllegalArgumentException("同层级下已存在「" + name.trim() + "」分类，请勿重复添加");
+        }
+    }
+
+    @Override
+    public void assertParentValid(Long parentId, String type) {
+        if (parentId == null || parentId == 0L) {
+            return; // 一级分类
+        }
+        LedgerCategory parent = getById(parentId);
+        if (parent == null) {
+            throw new IllegalArgumentException("父分类不存在");
+        }
+        if (type != null && !type.equals(parent.getType())) {
+            throw new IllegalArgumentException("子分类大类必须与父分类一致");
+        }
+        long grand = parent.getParentId() == null ? 0L : parent.getParentId();
+        if (grand != 0L) {
+            throw new IllegalArgumentException("分类最多两级，不能再在二级分类下建子分类");
         }
     }
 

@@ -67,14 +67,19 @@ public class CmsLedgerCategoryController extends BaseController {
         return success(Map.of("records", list, "total", list.size()));
     }
 
-    @Operation(summary = "新增系统预设分类（挂指定大类下）")
+    @Operation(summary = "新增系统预设分类（可挂一级或二级）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:add')")
     @PostMapping
     public AjaxResult add(@RequestBody LedgerCategory category) {
         category.setId(null);
         category.setUserId(0L);
         category.setIsSystem(1);
-        category.setParentId(0L);
+        // parentId 空/0 = 一级分类；非空 = 二级分类（挂到该一级下）
+        if (category.getParentId() == null) {
+            category.setParentId(0L);
+        }
+        categoryService.assertParentValid(category.getParentId(), category.getType());
+        categoryService.assertNameUnique(0L, category.getType(), category.getParentId(), category.getName(), null);
         if (category.getStatus() == null) {
             category.setStatus(LedgerCategory.STATUS_ENABLED);
         }
@@ -97,10 +102,15 @@ public class CmsLedgerCategoryController extends BaseController {
             return error("分类不存在");
         }
         category.setId(id);
-        // 保留归属与层级（不允许通过编辑把用户自定义改成系统预设或挪层级）
+        // 归属不可改（系统预设/用户自定义保持原样）；层级允许调整（挪到一级或另一一级下）
         category.setUserId(exist.getUserId());
         category.setIsSystem(exist.getIsSystem());
-        category.setParentId(exist.getParentId());
+        if (category.getParentId() == null) {
+            category.setParentId(exist.getParentId());
+        }
+        categoryService.assertParentValid(category.getParentId(), category.getType());
+        categoryService.assertNameUnique(exist.getUserId(), category.getType(),
+                category.getParentId(), category.getName(), id);
         return categoryService.updateById(category) ? success() : error("修改失败");
     }
 

@@ -45,4 +45,25 @@ public interface ILedgerCategoryService extends IService<LedgerCategory> {
      * </ul>
      */
     void assertCategoryDeletable(Long categoryId);
+
+    /**
+     * 同层级同名校验（幂等）：同一归属 + 同一大类 + 同一父级下不允许重名。
+     *
+     * <p>网络重试/重复提交时直接抛 IllegalArgumentException，避免静默产生重复分类。</p>
+     *
+     * @param userId    归属（0=系统预设，>0=用户自定义）
+     * @param type      大类（income/expense/...）
+     * @param parentId  父分类（0 或 null = 一级分类）
+     * @param name      分类名
+     * @param excludeId 修改时排除自身（新增传 null）
+     */
+    void assertNameUnique(Long userId, String type, Long parentId, String name, Long excludeId);
+
+    /**
+     * 父分类合法性校验：父必须存在、同大类、且本身是一级分类（最多两级）。
+     *
+     * @param parentId 父分类ID（null/0 表示一级，直接放行）
+     * @param type     子分类所属大类
+     */
+    void assertParentValid(Long parentId, String type);
 }

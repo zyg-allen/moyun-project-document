@@ -373,6 +373,21 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         if (!typeOk) {
             throw new IllegalArgumentException("非法记账类型：" + type);
         }
+        // 分类层级一致性：选了二级时，二级必须属于所选一级（防跨级错配，保证统计口径正确）
+        if (dto.getSubCategoryId() != null) {
+            if (dto.getCategoryId() == null) {
+                throw new IllegalArgumentException("选择二级分类时必须同时选择大类");
+            }
+            com.moyun.ledger.domain.entity.LedgerCategory subCategory =
+                    categoryMapper.selectById(dto.getSubCategoryId());
+            if (subCategory == null) {
+                throw new IllegalArgumentException("二级分类不存在");
+            }
+            Long parentId = subCategory.getParentId();
+            if (parentId == null || !parentId.equals(dto.getCategoryId())) {
+                throw new IllegalArgumentException("所选二级分类不属于该大类");
+            }
+        }
         BigDecimal amount = dto.getAmount();
         if (amount == null) {
             throw new IllegalArgumentException("金额不能为空");

@@ -41,13 +41,18 @@
           </view>
         </view>
       </scroll-view>
-      <!-- 二级分类（预留：一级带子分类时横滑展示） -->
+      <!-- 二级分类：可选，不选即归入大类（统计为「大类（未细分）」） -->
       <scroll-view v-if="subCategories.length" scroll-x class="sub-cat-bar">
+        <view class="sub-cat-tag" :class="{ active: !form.subCategoryId }"
+              @tap="form.subCategoryId = null">不细分</view>
         <view v-for="s in subCategories" :key="s.id" class="sub-cat-tag" :class="{ active: form.subCategoryId === s.id }"
               @tap="form.subCategoryId = form.subCategoryId === s.id ? null : s.id">
           {{ s.name }}
         </view>
       </scroll-view>
+      <view v-if="subCategories.length" class="sub-cat-hint">
+        {{ form.subCategoryId ? '已选二级分类，报表可按二级下钻' : '未选二级：统计时归入大类（显示为“未细分”）' }}
+      </view>
     </view>
 
     <!-- 备注行（突出） -->
@@ -841,6 +846,13 @@ export default {
   background: var(--surface); border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
 }
 .sub-cat-tag.active { background: var(--primary); color: var(--on-primary); }
+/* 二级分类帮助提示：说明「不选二级」的统计口径 */
+.sub-cat-hint {
+  padding: 0 20rpx 12rpx;
+  font-size: 20rpx;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
 
 /* 备注行（突出） */
 .note-card {

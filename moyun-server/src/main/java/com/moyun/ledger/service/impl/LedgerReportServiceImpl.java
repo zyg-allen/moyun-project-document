@@ -495,11 +495,18 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         result.put("categoryIncome", buildCategoryRank(byCategory, categoryNames, 0));
         result.put("categoryExpense", buildCategoryRank(byCategory, categoryNames, 1));
 
-        // 1.2b 二级分类收支占比（当年汇总，仅含选过二级的流水；未选二级仍归一级）
+        // 1.2b 二级分类收支占比（当年汇总）
+        //   兼容「用户只选大类、不选二级」：未选二级的归到一级本身，标签显示「xx（未细分）」。
+        //   统计口径：叶子 = COALESCE(sub_category_id, category_id)，保证二级明细之和 = 一级合计。
         Map<Long, BigDecimal[]> bySub = new HashMap<>();
+        java.util.Set<Long> fallbackIds = new java.util.HashSet<>();
         for (LedgerTransaction t : yearTxns) {
-            if (t.getSubCategoryId() == null) continue;
-            BigDecimal[] arr = bySub.computeIfAbsent(t.getSubCategoryId(), k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            if (t.getCategoryId() == null) continue;
+            Long leaf = t.getSubCategoryId() != null ? t.getSubCategoryId() : t.getCategoryId();
+            if (t.getSubCategoryId() == null) {
+                fallbackIds.add(leaf);
+            }
+            BigDecimal[] arr = bySub.computeIfAbsent(leaf, k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
             if (LedgerTransaction.TYPE_INCOME.equals(t.getType())) {
                 arr[0] = arr[0].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
             }
@@ -509,6 +516,11 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         }
         if (!bySub.isEmpty()) {
             Map<Long, String> subNames = loadCategoryNames(userId, bySub.keySet());
+            // 只选大类（无二级）的条目加「（未细分）」后缀，与真正二级区分
+            fallbackIds.forEach(id -> {
+                String n = subNames.get(id);
+                subNames.put(id, (n == null ? "未细分" : n + "（未细分）"));
+            });
             result.put("categoryIncomeSub", buildCategoryRank(bySub, subNames, 0));
             result.put("categoryExpenseSub", buildCategoryRank(bySub, subNames, 1));
         } else {

@@ -17,25 +17,28 @@
       </view>
 
       <view v-for="g in assetGroups" :key="g.type" class="card">
-        <view class="card-title flex-row">
-          <text class="flex-1">{{ g.label }}</text>
-          <text class="add-mini" @tap="addAsset(g.type)">＋</text>
+        <view class="card-title flex-row" @tap="toggleGroup('a_' + g.type)">
+          <text class="flex-1">{{ g.label }} <text class="gcount">{{ g.items.length }}</text></text>
+          <text class="add-mini" @tap.stop="addAsset(g.type)">＋</text>
+          <text class="collapse-arrow">{{ isCollapsed('a_' + g.type) ? '▸' : '▾' }}</text>
         </view>
-        <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
-        <view v-for="a in g.items" :key="a.id" class="row" @tap="viewTxn('asset', a)">
-          <view class="row-icon" :style="{ background: assetIcon(a.accountType).bg }">
-            <text>{{ assetIcon(a.accountType).emoji }}</text>
-          </view>
-          <view class="flex-1">
-            <view class="row-name">
-              {{ a.name }}
-              <text v-if="a.status === 0" class="archived-tag">已归档</text>
+        <view v-if="!isCollapsed('a_' + g.type)">
+          <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
+          <view v-for="a in g.items" :key="a.id" class="row" @tap="viewTxn('asset', a)">
+            <view class="row-icon" :style="{ background: assetIcon(a.accountType).bg }">
+              <text>{{ assetIcon(a.accountType).emoji }}</text>
             </view>
-            <view class="row-type">{{ assetTypeText(a.accountType) }}</view>
-          </view>
-          <view class="row-actions">
-            <view class="pencil-btn" @tap.stop="editAsset(a)">✎</view>
-            <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + formatAmount(a.balance) }}</view>
+            <view class="flex-1">
+              <view class="row-name">
+                {{ a.name }}
+                <text v-if="a.status === 0" class="archived-tag">已归档</text>
+              </view>
+              <view class="row-type">{{ assetTypeText(a.accountType) }}</view>
+            </view>
+            <view class="row-actions">
+              <view class="pencil-btn" @tap.stop="editAsset(a)">✎</view>
+              <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + formatAmount(a.balance) }}</view>
+            </view>
           </view>
         </view>
       </view>
@@ -52,29 +55,32 @@
       </view>
 
       <view v-for="g in liabGroups" :key="g.type" class="card">
-        <view class="card-title flex-row">
-          <text class="flex-1">{{ g.label }}</text>
-          <text class="add-mini" @tap="addLiability(g.type)">＋</text>
+        <view class="card-title flex-row" @tap="toggleGroup('l_' + g.type)">
+          <text class="flex-1">{{ g.label }} <text class="gcount">{{ g.items.length }}</text></text>
+          <text class="add-mini" @tap.stop="addLiability(g.type)">＋</text>
+          <text class="collapse-arrow">{{ isCollapsed('l_' + g.type) ? '▸' : '▾' }}</text>
         </view>
-        <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
-        <view v-for="l in g.items" :key="l.id" class="row" @tap="viewTxn('liability', l)">
-          <view class="row-icon liab" :class="l.accountType">{{ liabTypeText(l.accountType).slice(0, 1) }}</view>
-          <view class="flex-1">
-            <view class="row-name">
-              {{ l.name }}
-              <text v-if="l.settleFlag === 1" class="settle-tag">已结清</text>
-              <text v-if="l.status === 0" class="archived-tag">已归档</text>
+        <view v-if="!isCollapsed('l_' + g.type)">
+          <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
+          <view v-for="l in g.items" :key="l.id" class="row" @tap="viewTxn('liability', l)">
+            <view class="row-icon liab" :class="l.accountType">{{ liabTypeText(l.accountType).slice(0, 1) }}</view>
+            <view class="flex-1">
+              <view class="row-name">
+                {{ l.name }}
+                <text v-if="l.settleFlag === 1" class="settle-tag">已结清</text>
+                <text v-if="l.status === 0" class="archived-tag">已归档</text>
+              </view>
+              <view class="row-type">
+                {{ liabTypeText(l.accountType) }}
+                <text v-if="l.monthlyPayment"> · 月供 ¥{{ formatAmount(l.monthlyPayment) }}</text>
+                <text v-if="l.repaymentDay"> · {{ l.repaymentDay }}日还款</text>
+                <text v-if="l.totalTerms"> · {{ l.paidTerms || 0 }}/{{ l.totalTerms }}期</text>
+              </view>
             </view>
-            <view class="row-type">
-              {{ liabTypeText(l.accountType) }}
-              <text v-if="l.monthlyPayment"> · 月供 ¥{{ formatAmount(l.monthlyPayment) }}</text>
-              <text v-if="l.repaymentDay"> · {{ l.repaymentDay }}日还款</text>
-              <text v-if="l.totalTerms"> · {{ l.paidTerms || 0 }}/{{ l.totalTerms }}期</text>
+            <view class="row-actions">
+              <view class="pencil-btn" @tap.stop="editLiability(l)">✎</view>
+              <view class="row-balance liab">{{ privacyMode ? '****' : '¥ ' + formatAmount(l.balance) }}</view>
             </view>
-          </view>
-          <view class="row-actions">
-            <view class="pencil-btn" @tap.stop="editLiability(l)">✎</view>
-            <view class="row-balance liab">{{ privacyMode ? '****' : '¥ ' + formatAmount(l.balance) }}</view>
           </view>
         </view>
       </view>
@@ -204,6 +210,8 @@ export default {
       accounts: [],
       showArchived: false,
       privacyMode: false,
+      // 分组折叠状态（key = 'a_'+类型 / 'l_'+类型，true=收起）
+      collapsed: {},
       assetEditing: false,
       assetForm: { id: null, name: '', accountType: 'fund', initialBalance: '', includeInTotal: 1 },
       assetTypes: ASSET_TYPES,
@@ -266,6 +274,10 @@ export default {
   },
 
   methods: {
+    /** 分组是否收起（key = 'a_'+类型 / 'l_'+类型） */
+    isCollapsed(key) { return !!this.collapsed[key]; },
+    /** 点分组标题收起/展开 */
+    toggleGroup(key) { this.$set(this.collapsed, key, !this.collapsed[key]); },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onAssetBalanceInput(e) { applyAmountInput(e, this, 'assetForm.initialBalance'); },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
@@ -480,7 +492,11 @@ export default {
   width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
   border-radius: 50%; background: var(--primary-soft, #eef2ff);
   color: var(--primary); font-size: 34rpx; font-weight: 600;
+  margin-left: 16rpx;
 }
+/* 分组标题：数量 + 折叠箭头 */
+.gcount { font-size: 24rpx; color: var(--text-muted); font-weight: 400; }
+.collapse-arrow { font-size: 24rpx; color: var(--text-muted); margin-left: 12rpx; }
 .link { color: var(--primary-text); font-size: 26rpx; font-weight: 400; }
 .empty { text-align: center; color: var(--text-muted); padding: 60rpx 0; font-size: 26rpx; }
 

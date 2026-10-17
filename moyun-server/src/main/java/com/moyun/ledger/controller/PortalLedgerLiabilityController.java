@@ -46,6 +46,7 @@ public class PortalLedgerLiabilityController {
         LedgerLiabilityAccount account = new LedgerLiabilityAccount();
         account.setName((String) body.get("name"));
         account.setAccountType((String) body.get("accountType"));
+        account.setDescription((String) body.get("description"));
         account.setIcon((String) body.get("icon"));
         if (body.get("annualRate") != null) {
             account.setAnnualRate(new java.math.BigDecimal(body.get("annualRate").toString()));
@@ -96,7 +97,8 @@ public class PortalLedgerLiabilityController {
         account.setId(id);
         // 白名单字段显式映射：balance/paid_terms/version/status/settle_flag 不在其中，客户端传了也无效
         if (body.containsKey("name")) account.setName(LedgerAccountFields.asString(body.get("name")));
-        if (body.containsKey("type")) account.setAccountType(LedgerAccountFields.asString(body.get("accountType")));
+        if (body.containsKey("accountType")) account.setAccountType(LedgerAccountFields.asString(body.get("accountType")));
+        if (body.containsKey("description")) account.setDescription(LedgerAccountFields.asString(body.get("description")));
         if (body.containsKey("icon")) account.setIcon(LedgerAccountFields.asString(body.get("icon")));
         if (body.containsKey("includeInTotal")) account.setIncludeInTotal(LedgerAccountFields.asInt(body.get("includeInTotal")));
         if (body.containsKey("sortOrder")) account.setSortOrder(LedgerAccountFields.asInt(body.get("sortOrder")));

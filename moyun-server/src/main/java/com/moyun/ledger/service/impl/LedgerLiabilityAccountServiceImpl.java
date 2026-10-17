@@ -162,6 +162,10 @@ public class LedgerLiabilityAccountServiceImpl
             uw.set(LedgerLiabilityAccount::getDueDate, account.getDueDate());
             any = true;
         }
+        if (provided.contains("description")) {
+            uw.set(LedgerLiabilityAccount::getDescription, account.getDescription());
+            any = true;
+        }
         if (provided.contains("icon")) {
             uw.set(LedgerLiabilityAccount::getIcon, account.getIcon());
             any = true;

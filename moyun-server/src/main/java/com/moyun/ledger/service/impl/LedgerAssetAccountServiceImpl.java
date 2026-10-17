@@ -165,6 +165,10 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
             any = true;
         }
         // —— 可空业务列：显式提供即以传入值为准（null = 清空）——
+        if (provided.contains("description")) {
+            uw.set(LedgerAssetAccount::getDescription, account.getDescription());
+            any = true;
+        }
         if (provided.contains("valuation")) {
             uw.set(LedgerAssetAccount::getValuation, account.getValuation());
             any = true;

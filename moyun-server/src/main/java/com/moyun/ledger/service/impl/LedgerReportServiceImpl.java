@@ -495,6 +495,27 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         result.put("categoryIncome", buildCategoryRank(byCategory, categoryNames, 0));
         result.put("categoryExpense", buildCategoryRank(byCategory, categoryNames, 1));
 
+        // 1.2b 二级分类收支占比（当年汇总，仅含选过二级的流水；未选二级仍归一级）
+        Map<Long, BigDecimal[]> bySub = new HashMap<>();
+        for (LedgerTransaction t : yearTxns) {
+            if (t.getSubCategoryId() == null) continue;
+            BigDecimal[] arr = bySub.computeIfAbsent(t.getSubCategoryId(), k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            if (LedgerTransaction.TYPE_INCOME.equals(t.getType())) {
+                arr[0] = arr[0].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
+            }
+            if (LedgerTransaction.TYPE_EXPENSE.equals(t.getType())) {
+                arr[1] = arr[1].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
+            }
+        }
+        if (!bySub.isEmpty()) {
+            Map<Long, String> subNames = loadCategoryNames(userId, bySub.keySet());
+            result.put("categoryIncomeSub", buildCategoryRank(bySub, subNames, 0));
+            result.put("categoryExpenseSub", buildCategoryRank(bySub, subNames, 1));
+        } else {
+            result.put("categoryIncomeSub", new ArrayList<>());
+            result.put("categoryExpenseSub", new ArrayList<>());
+        }
+
         // 2. 净资产趋势（近 30 天快照）
         LambdaQueryWrapper<LedgerNetWorthSnapshot> sw = new LambdaQueryWrapper<>();
         sw.eq(LedgerNetWorthSnapshot::getUserId, userId)

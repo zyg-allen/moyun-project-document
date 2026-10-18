@@ -475,8 +475,8 @@ export default {
     transferTargetNames() {
       return this.transferTargetList.map(s => s.name + (s.code ? ' · ' + s.code : ''));
     },
-    /** 出入库货架选择器（首项=未上架） */
     /** 出入库货架选择器（只列真实货架） */
+    stockShelfNames() {
       return this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : ''));
     },
     stockShelfLabel() {

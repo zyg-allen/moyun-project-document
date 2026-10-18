@@ -480,9 +480,9 @@ export default {
       return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
     },
     stockShelfLabel() {
-      if (!this.stockShelfId) return '未上架';
+      if (!this.stockShelfId) return '请选择货架';
       const s = this.shelves.find(x => String(x.id) === String(this.stockShelfId));
-      return s ? s.name + (s.code ? ' · ' + s.code : '') : '未上架';
+      return s ? s.name + (s.code ? ' · ' + s.code : '') : '请选择货架';
     },
     /** 类目选择器：一级 + 二级（二级显示「一级 / 二级」） */
     categoryPickerList() {

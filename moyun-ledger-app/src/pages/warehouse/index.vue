@@ -16,7 +16,8 @@
     <view class="card" v-if="currentId">
       <view class="card-title">
         <text class="flex-1">商品</text>
-        <text class="link" @tap="openProductSheet()">＋新增商品</text>
+        <text class="link" @tap="openOrderSheet()">下单</text>
+        <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
       </view>
       <view v-if="!products.length" class="empty">还没有商品，点「＋新增商品」添加</view>
       <view v-for="p in products" :key="p.id" class="row" @tap="openStock(p)">
@@ -93,13 +94,53 @@
         </view>
       </view>
     </view>
+
+    <!-- 下单弹层（赊销自动建应收 / 赊购自动建应付 + 库存联动） -->
+    <view class="mask" v-if="orderSheet" @tap="orderSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">下单</view>
+        <view class="f-row">
+          <text class="f-label">类型</text>
+          <view class="seg">
+            <view class="seg-item" :class="{ on: orderForm.mode === 'sale' }" @tap="orderForm.mode = 'sale'">销售</view>
+            <view class="seg-item" :class="{ on: orderForm.mode === 'purchase' }" @tap="orderForm.mode = 'purchase'">采购</view>
+          </view>
+        </view>
+        <view class="f-row">
+          <text class="f-label">{{ orderForm.mode === 'sale' ? '客户' : '供应商' }}</text>
+          <input class="f-input" v-model="orderForm.party"
+            :placeholder="orderForm.mode === 'sale' ? '客户名称（建应收用）' : '供应商名称（建应付用）'" />
+        </view>
+
+        <!-- 商品明细 -->
+        <view v-for="(it, idx) in orderForm.items" :key="idx" class="order-line">
+          <picker :range="productNames" @change="onOrderItemProduct(idx, $event)">
+            <view class="f-value order-pick">{{ productName(it.productId) || '选商品' }} ▾</view>
+          </picker>
+          <input class="f-input order-qty" type="number" v-model="it.quantity" placeholder="数量" />
+          <input class="f-input order-price" type="digit" v-model="it.unitPrice" placeholder="单价" />
+          <text class="order-del" @tap="removeOrderItem(idx)">×</text>
+        </view>
+        <view class="f-row">
+          <text class="f-label">合计</text>
+          <text class="f-value">¥{{ orderTotalText }}</text>
+        </view>
+        <view class="sheet-sub">赊账下单：发货/收货后自动生成{{ orderForm.mode === 'sale' ? '应收款' : '应付款' }}，可到资产负债页查看</view>
+
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="addOrderItem">＋ 加明细</view>
+          <view class="btn" @tap="submitOrder">提交下单</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut } from '@/api/ledger';
+import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
+  createSaleOrder, createPurchaseOrder } from '@/api/ledger';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
@@ -122,12 +163,22 @@ export default {
       stockTarget: null,
       stockMode: 'in',
       stockQty: '',
-      stockRemark: ''
+      stockRemark: '',
+      // 下单（销售/采购）：赊账自动建应收/应付 + 库存联动
+      orderSheet: false,
+      orderForm: { mode: 'sale', party: '', items: [] }
     };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
-    whTypeNames() { return WH_TYPES.map(t => t[1]); }
+    whTypeNames() { return WH_TYPES.map(t => t[1]); },
+    productNames() { return this.products.map(p => p.name); },
+    orderTotalText() {
+      const sum = (this.orderForm.items || []).reduce((s, it) => {
+        return s + Number(it.quantity || 0) * Number(it.unitPrice || 0);
+      }, 0);
+      return Number(sum).toFixed(2);
+    }
   },
   onShow() {
     useThemeStore().restore();
@@ -135,6 +186,54 @@ export default {
   },
   methods: {
     fmt(v) { return Number(v || 0).toFixed(2); },
+    // ===== 下单 =====
+    /** 打开下单弹层（默认带一行明细） */
+    openOrderSheet() {
+      if (!this.currentId) { uni.showToast({ title: '请先新建/选择仓库', icon: 'none' }); return; }
+      if (!this.products.length) { uni.showToast({ title: '请先添加商品', icon: 'none' }); return; }
+      this.orderForm = { mode: 'sale', party: '', items: [{ productId: null, quantity: '', unitPrice: '' }] };
+      this.orderSheet = true;
+    },
+    addOrderItem() {
+      this.orderForm.items.push({ productId: null, quantity: '', unitPrice: '' });
+    },
+    removeOrderItem(idx) {
+      this.orderForm.items.splice(idx, 1);
+    },
+    onOrderItemProduct(idx, e) {
+      const p = this.products[e.detail.value];
+      if (!p) return;
+      const it = this.orderForm.items[idx];
+      it.productId = p.id;
+      // 首次选商品时用商品售价/成本价兜底，仍可手改
+      if (!it.unitPrice) {
+        it.unitPrice = this.orderForm.mode === 'sale' ? (p.sellPrice || p.costPrice || '') : (p.costPrice || '');
+      }
+    },
+    productName(id) {
+      const p = this.products.find(x => String(x.id) === String(id));
+      return p ? p.name : '';
+    },
+    /** 提交下单：销售→自动建应收；采购→自动建应付；同时联动库存 */
+    async submitOrder() {
+      const party = (this.orderForm.party || '').trim();
+      if (!party) { uni.showToast({ title: '请填' + (this.orderForm.mode === 'sale' ? '客户' : '供应商') + '名称', icon: 'none' }); return; }
+      const items = (this.orderForm.items || [])
+        .filter(it => it.productId && Number(it.quantity) > 0)
+        .map(it => ({ productId: it.productId, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice || 0) }));
+      if (!items.length) { uni.showToast({ title: '请至少填一行有效明细', icon: 'none' }); return; }
+      try {
+        if (this.orderForm.mode === 'sale') {
+          await createSaleOrder({ warehouseId: this.currentId, customerName: party, paymentType: 'credit', items });
+        } else {
+          await createPurchaseOrder({ warehouseId: this.currentId, supplierName: party, paymentType: 'credit', items });
+        }
+        uni.showToast({ title: '下单成功', icon: 'success' });
+        this.orderSheet = false;
+        // 库存已变 → 刷新商品；应收/应付账户由后端生成
+        this.loadProducts();
+      } catch (e) { /* 拦截器已提示 */ }
+    },
     whTypeText(t) { const x = WH_TYPES.find(i => i[0] === t); return x ? x[1] : ''; },
     async loadWarehouses() {
       try {
@@ -245,4 +344,15 @@ export default {
 .sheet-actions { display: flex; gap: 20rpx; margin-top: 28rpx; }
 .btn { flex: 1; text-align: center; padding: 22rpx 0; border-radius: 44rpx; font-size: 28rpx; background: var(--primary); color: var(--on-primary); }
 .btn.ghost { background: var(--surface); color: var(--text-sub); }
+/* ===== 下单明细行 ===== */
+.order-line {
+  display: flex; align-items: center; gap: 10rpx;
+  padding: 12rpx 0; border-bottom: 1rpx solid var(--border);
+}
+.order-pick { flex: 1.4; font-size: 24rpx; }
+.order-qty { flex: 0.7; }
+.order-price { flex: 0.9; }
+.order-del {
+  font-size: 32rpx; color: #E85D5D; padding: 0 8rpx; line-height: 1;
+}
 </style>

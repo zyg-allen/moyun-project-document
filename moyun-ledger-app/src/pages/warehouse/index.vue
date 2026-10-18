@@ -519,6 +519,7 @@ export default {
       pageTotal: 0,
       categoryId: null,
       shelfFilterId: null,
+      catTreeOpen: false,
       productCategories: [],
       catManageSheet: false,
       newCatName: '',
@@ -532,6 +533,15 @@ export default {
     };
   },
   computed: {
+    /** 当前分类的展示名（一级 / 一级 / 二级） */
+    categoryLabel() {
+      for (const c of this.productCategories) {
+        if (String(c.id) === String(this.categoryId)) return c.name;
+        const k = (c.children || []).find(x => String(x.id) === String(this.categoryId));
+        if (k) return c.name + ' / ' + k.name;
+      }
+      return '';
+    },
     themeVars() { return useThemeStore().themeVars; },
     whTypeNames() { return WH_TYPES.map(t => t[1]); },
     productNames() { return this.products.map(p => p.name); },
@@ -589,6 +599,43 @@ export default {
     /** 点图片全屏预览 */
     previewImg(url) {
       if (url) uni.previewImage({ urls: [url] });
+    },
+    /** 按货架筛选（后端按该货架有库存的商品过滤） */
+    pickShelfFilter(s) {
+      this.shelfFilterId = s ? s.id : null;
+      this.pageNum = 1;
+      this.loadProducts();
+    },
+    /** 商品列表翻页 */
+    turnPage(step) {
+      const next = this.pageNum + step;
+      if (next < 1) return;
+      if (step > 0 && this.pageNum * this.pageSize >= this.pageTotal) return;
+      this.pageNum = next;
+      this.loadProducts();
+    },
+    /** 保质期天数 → 人话（30 天=1 个月，365=1 年） */
+    shelfLifeText(days) {
+      const d = Number(days) || 0;
+      if (d <= 0) return '无保质期（长期有效）';
+      if (d % 365 === 0) return d + ' 天（' + (d / 365) + ' 年）';
+      if (d % 30 === 0) return d + ' 天（' + (d / 30) + ' 个月）';
+      return d + ' 天';
+    },
+    /** 到期状态：已过期 / 临期 / 正常 */
+    expiryStatus(date) {
+      if (!date) return null;
+      const t = new Date(String(date).replace(/-/g, '/')).getTime();
+      if (isNaN(t)) return null;
+      const days = Math.ceil((t - Date.now()) / 86400000);
+      if (days < 0) return { text: '已过期 ' + Math.abs(days) + ' 天', bad: true };
+      if (days <= 30) return { text: '还有 ' + days + ' 天（临期）', bad: false };
+      return { text: '还有 ' + days + ' 天', bad: false };
+    },
+    /** 包装类型 → 中文 */
+    packText(t) {
+      const m = { none: '无需', standard: '标准', fragile: '防摔', custom: '特殊' };
+      return m[t] || t;
     },
     fmt(v) { return Number(v || 0).toFixed(2); },
     // ===== 货架（存放位置）=====

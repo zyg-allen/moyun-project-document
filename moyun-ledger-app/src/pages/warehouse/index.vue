@@ -179,7 +179,7 @@
           </picker>
         </view>
         <view class="f-row">
-          <text class="f-label">数量</text>
+          <text class="f-label">{{ qtyLabelOf(stockMode) }}</text>
           <input class="f-input" type="number" v-model="stockQty" placeholder="0" />
         </view>
         <view class="f-row">
@@ -913,12 +913,13 @@ export default {
     stockFromProductDetail() {
       const p = this.productDetail.product;
       if (!p || !p.id) return;
+      // 默认落到「库存最多」的那个货架：否则默认未上架，校准会凭空多出一条库存
+      const dist = (this.productDetail.shelves || []).slice()
+        .sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
+      const top = dist[0];
       this.productDetail.visible = false;
-      this.openStock(p);
+      this.openStock(p, top ? top.shelfId : 0);
     },
-    // ===== 下单 =====
-    /** 打开下单弹层（默认带一行明细） */
-    /** 提交下单：销售→自动建应收；采购→自动建应付；同时联动库存 */
     whTypeText(t) { const x = WH_TYPES.find(i => i[0] === t); return x ? x[1] : ''; },
     async loadWarehouses() {
       try {
@@ -951,14 +952,17 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     openWhSheet() { this.whForm = { name: '', type: 'personal' }; this.whTypeIndex = 0; this.whSheet = true; },
-    openStock(p) {
+    openStock(p, shelfId) {
       this.stockTarget = p;
-      this.stockShelfId = 0;
+      this.stockShelfId = shelfId || 0;
       this.loadShelves();
       this.stockMode = 'in';
       this.stockQty = '';
       this.stockRemark = '';
+      this.stockReason = '';
     },
+    /** 数量标签：校准态叫「实际数量」 */
+    qtyLabelOf(mode) { return mode === 'adjust' ? '实际数量' : '数量'; },
     /** 出入库三态：入库 + / 出库 − / 校准（直接设为实际数量，差异记盘点流水） */
     async saveStock() {
       const raw = String(this.stockQty == null ? '' : this.stockQty).trim();

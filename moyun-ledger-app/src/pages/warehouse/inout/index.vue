@@ -1,6 +1,5 @@
 <template>
   <view class="page" :style="themeVars">
-    <NavBar title="入库 / 出库" />
 
     <view v-if="!enabled" class="locked">
       <view class="locked-icon">📦</view>
@@ -198,7 +197,6 @@
 </template>
 
 <script>
-import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { isWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
@@ -221,7 +219,6 @@ const OUT_TYPES = [
 ];
 
 export default {
-  components: { NavBar },
   data() {
     return {
       enabled: true,
@@ -472,13 +469,13 @@ export default {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; padding-bottom: 180rpx; }
+.page { min-height: 100vh; padding-top: 24rpx; padding-bottom: 180rpx; }
 .locked { padding: 120rpx 40rpx; text-align: center; }
 .locked-icon { font-size: 90rpx; }
 .locked-title { font-size: 34rpx; font-weight: 700; color: var(--text-main); margin-top: 20rpx; }
 .locked-btn { display: inline-block; margin-top: 32rpx; padding: 20rpx 60rpx; background: var(--primary); color: #fff; border-radius: 999rpx; font-size: 28rpx; }
 
-.wh-bar { white-space: nowrap; padding: 16rpx 24rpx 0; }
+.wh-bar { white-space: nowrap; padding: 8rpx 24rpx 0; text-align: center; }
 .wh-tag { display: inline-block; padding: 12rpx 26rpx; margin-right: 12rpx; border-radius: 999rpx; font-size: 26rpx; color: var(--text-sub); background: var(--card); border: 1rpx solid var(--border); }
 .wh-tag.active { color: #fff; background: var(--primary); border-color: var(--primary); }
 .empty-top { padding: 40rpx 24rpx; font-size: 26rpx; color: var(--text-sub); }

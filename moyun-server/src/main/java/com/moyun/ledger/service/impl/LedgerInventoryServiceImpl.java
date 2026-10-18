@@ -750,6 +750,22 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         m.put("monthOutQuantity", monthOut);
         m.put("monthSaleQuantity", monthSaleQty);
         m.put("monthSaleCost", monthSaleCost);
+        // 过期风险：按 expiry_date 统计（临期 30 天内 / 已过期）
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int expiring = 0, expired = 0;
+        for (LedgerProduct x : productMapper.selectList(new LambdaQueryWrapper<LedgerProduct>()
+                .eq(LedgerProduct::getWarehouseId, warehouseId)
+                .eq(LedgerProduct::getStatus, LedgerProduct.STATUS_NORMAL)
+                .isNotNull(LedgerProduct::getExpiryDate))) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(today, x.getExpiryDate());
+            if (days < 0) {
+                expired++;
+            } else if (days <= 30) {
+                expiring++;
+            }
+        }
+        m.put("expiredCount", expired);
+        m.put("expiringCount", expiring);
         m.put("monthSaleAmount", monthSaleAmount);
         m.put("monthGrossProfit", monthSaleAmount.subtract(monthSaleCost));
         return m;

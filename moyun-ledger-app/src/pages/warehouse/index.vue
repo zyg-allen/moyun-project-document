@@ -65,12 +65,18 @@
         <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
       </view>
 
-      <!-- 筛选顺序：分类 → 名称 → 货架（仓库在上方，优先级最高） -->
-      <!-- 分类筛选：树形下拉（选择后收起，不占列表空间） -->
-      <view class="tree-select" @tap="catTreeOpen = !catTreeOpen">
-        <text class="tree-select-label">分类</text>
-        <text class="flex-1 tree-select-text" :class="{ ph: !categoryLabel }">{{ categoryLabel || '全部' }}</text>
-        <text class="tree-select-arrow" :class="{ open: catTreeOpen }">▾</text>
+      <!-- 筛选：分类 + 货架 并排，名称单独一行 -->
+      <view class="filter-row">
+        <view class="tree-select" @tap="catTreeOpen = !catTreeOpen">
+          <text class="tree-select-label">分类</text>
+          <text class="flex-1 tree-select-text" :class="{ ph: !categoryLabel }">{{ categoryLabel || '全部' }}</text>
+          <text class="tree-select-arrow" :class="{ open: catTreeOpen }">▾</text>
+        </view>
+        <view class="tree-select" @tap="shelfOpen = !shelfOpen">
+          <text class="tree-select-label">货架</text>
+          <text class="flex-1 tree-select-text" :class="{ ph: !shelfFilterLabel }">{{ shelfFilterLabel || '全部货架' }}</text>
+          <text class="tree-select-arrow" :class="{ open: shelfOpen }">▾</text>
+        </view>
       </view>
       <view v-if="catTreeOpen" class="tree-panel">
         <view class="tree-item lv1" :class="{ on: !categoryId }" @tap="pickCategoryFilter(null)">
@@ -91,20 +97,6 @@
         </view>
         <view class="tree-manage" @tap.stop="openCatManage">⚙ 管理分类</view>
       </view>
-
-      <!-- 名称筛选 -->
-      <view class="search-row">
-        <input class="search-input" v-model="keyword" placeholder="搜商品名 / 条码"
-               confirm-type="search" @confirm="doSearch" />
-        <text class="search-btn" @tap="doSearch">搜索</text>
-      </view>
-
-      <!-- 货架筛选：下拉框（选择后收起） -->
-      <view class="tree-select" @tap="shelfOpen = !shelfOpen">
-        <text class="tree-select-label">货架</text>
-        <text class="flex-1 tree-select-text" :class="{ ph: !shelfFilterLabel }">{{ shelfFilterLabel || '全部货架' }}</text>
-        <text class="tree-select-arrow" :class="{ open: shelfOpen }">▾</text>
-      </view>
       <view v-if="shelfOpen" class="tree-panel">
         <view class="tree-item lv1" :class="{ on: !shelfFilterId }" @tap="pickShelfFilter(null)">
           <text class="flex-1">全部货架</text>
@@ -115,6 +107,13 @@
           <text class="flex-1">{{ s.name }}</text>
           <text v-if="s.code" class="tree-num">{{ s.code }}</text>
         </view>
+      </view>
+
+      <!-- 名称筛选 -->
+      <view class="search-row">
+        <input class="search-input" v-model="keyword" placeholder="搜商品名 / 条码"
+               confirm-type="search" @confirm="doSearch" />
+        <text class="search-btn" @tap="doSearch">搜索</text>
       </view>
 
       <view v-if="!products.length" class="empty">{{ (keyword || categoryId || shelfFilterId) ? '没有匹配的商品' : '还没有商品，点「＋新增商品」添加' }}</view>
@@ -1450,4 +1449,8 @@ export default {
 .tree-item.on { color: var(--primary); background: rgba(95,167,122,.10); }
 .tree-num { font-size: 21rpx; color: var(--text-sub); }
 .tree-manage { padding: 16rpx 18rpx; font-size: 24rpx; color: var(--primary); border-top: 1rpx solid var(--border); }
+/* 筛选行：分类 + 货架 并排 */
+.filter-row { display: flex; gap: 12rpx; }
+.filter-row .tree-select { flex: 1; min-width: 0; }
+.filter-row .tree-select-label { flex: 0 0 auto; }
 </style>

@@ -330,6 +330,26 @@
           <text class="f-value">¥{{ fmt(productDetail.product.sellPrice) }}</text></view>
         <view class="f-row"><text class="f-label">总库存</text>
           <text class="f-value">{{ productDetail.totalQuantity }} 件 · ¥{{ fmt(productDetail.totalCostValue) }}</text></view>
+        <!-- 盘点补充：保质期 / 包装 / 标签 / 描述 / 动销 -->
+        <view class="f-row" v-if="productDetail.product.productionDate"><text class="f-label">生产日期</text>
+          <text class="f-value">{{ productDetail.product.productionDate }}</text></view>
+        <view class="f-row" v-if="productDetail.product.shelfLifeDays"><text class="f-label">保质期</text>
+          <text class="f-value">{{ shelfLifeText(productDetail.product.shelfLifeDays) }}</text></view>
+        <view class="f-row" v-if="productDetail.product.expiryDate"><text class="f-label">到期日期</text>
+          <view class="exp-wrap">
+            <text class="f-value">{{ productDetail.product.expiryDate }}</text>
+            <text v-if="expiryStatus(productDetail.product.expiryDate)" class="exp-tag" :class="{ bad: expiryStatus(productDetail.product.expiryDate).bad }">{{ expiryStatus(productDetail.product.expiryDate).text }}</text>
+          </view></view>
+        <view class="f-row" v-if="productDetail.product.packagingType && productDetail.product.packagingType !== 'none'"><text class="f-label">包装</text>
+          <text class="f-value">{{ packText(productDetail.product.packagingType) }}</text></view>
+        <view class="f-row" v-if="productDetail.product.tags"><text class="f-label">标签</text>
+          <text class="f-value">{{ productDetail.product.tags }}</text></view>
+        <view class="f-row" v-if="productDetail.product.description"><text class="f-label">描述</text>
+          <text class="f-value">{{ productDetail.product.description }}</text></view>
+        <view class="f-row" v-if="productDetail.product.lastMovedAt"><text class="f-label">最后动销</text>
+          <text class="f-value">{{ (productDetail.product.lastMovedAt || '').slice(0, 10) }}<text v-if="productDetail.product.slowDays !== null && productDetail.product.slowDays !== undefined" class="f-sub">（{{ productDetail.product.slowDays }} 天前）</text></text></view>
+
+        <view class="sheet-sub">�� 盘点：实盘数量 vs 账面</view>
 
         <view class="sheet-sub">库存分布（按货架）</view>
         <scroll-view scroll-y class="detail-items">
@@ -1279,4 +1299,8 @@ export default {
 }
 .wh-tag.active .wh-badge { background: rgba(255,255,255,.28); color: #fff; }
 .wh-name { font-size: 24rpx; }
+.exp-wrap { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8rpx; }
+.exp-tag { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; background: rgba(232,163,61,.16); color: #E8A33D; }
+.exp-tag.bad { background: rgba(232,101,74,.14); color: #E8654A; }
+.f-sub { font-size: 21rpx; color: var(--text-sub); }
 </style>

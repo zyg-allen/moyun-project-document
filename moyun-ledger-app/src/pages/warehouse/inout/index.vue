@@ -195,7 +195,7 @@
 
       <view class="submit-bar" v-if="warehouseId">
         <view class="submit-btn" :class="{ disabled: submitting }" @tap="submit">
-          {{ submitting ? '提交中…' : (mode === 'in' ? (reuseId ? '加库存' : '入库建档') : '确认出库') }}
+          {{ submitting ? '提交中…' : (editingId ? '保存修改' : (mode === 'in' ? (reuseId ? '加库存' : '入库建档') : '确认出库')) }}
         </view>
       </view>
 
@@ -223,7 +223,7 @@ import { useUserStore } from '@/stores/user';
 import { isWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
-  createSaleChannel, createProduct, stockIn, stockOut,
+  createSaleChannel, createProduct, updateProduct, stockIn, stockOut,
   uploadFile, attachProductImage, findSimilarProducts
 } from '@/api/ledger';
 
@@ -274,6 +274,9 @@ export default {
       reuseId: null,
       reuseName: '',
       outProductId: null,
+      editingId: null,
+      pendingEdit: null,
+      pendingOut: null,
       submitting: false,
       packTypes: PACK_TYPES,
       outTypes: OUT_TYPES,
@@ -347,6 +350,11 @@ export default {
       return p ? p.name + '（库存 ' + (p.stockQuantity || 0) + '）' : '';
     }
   },
+  onLoad(options) {
+    this.pendingEdit = (options && options.edit) || null;
+    this.pendingOut = (options && options.out) || null;
+    if (this.pendingOut) this.mode = 'out';
+  },
   onShow() {
     useThemeStore().restore();
     this.enabled = isWarehouseEnabled();
@@ -374,6 +382,39 @@ export default {
       try { this.categories = (await listProductCategories()) || []; } catch (e) { /* 忽略 */ }
       try { this.channels = (await listSaleChannels()) || []; } catch (e) { /* 忽略 */ }
       await this.loadWhData();
+      this.applyPending();
+    },
+    /** 带参数进来时：编辑商品 / 指定出库商品 */
+    applyPending() {
+      if (this.pendingEdit) {
+        const p = this.products.find(x => String(x.id) === String(this.pendingEdit));
+        if (p) this.fillFromProduct(p);
+        this.pendingEdit = null;
+      }
+      if (this.pendingOut) {
+        this.mode = 'out';
+        this.outProductId = this.pendingOut;
+        this.pendingOut = null;
+      }
+    },
+    /** 把商品数据填进表单（编辑模式） */
+    fillFromProduct(p) {
+      this.mode = 'in';
+      this.editingId = p.id;
+      this.f = Object.assign(this.blankForm(), {
+        name: p.name || '',
+        categoryId: p.categoryId || null,
+        unit: p.unit || '件',
+        costPrice: p.costPrice == null ? '' : String(p.costPrice),
+        sellPrice: p.sellPrice == null ? '' : String(p.sellPrice),
+        productionDate: p.productionDate || '',
+        shelfLifeDays: p.shelfLifeDays == null ? '' : String(p.shelfLifeDays),
+        shelfLifeKey: p.shelfLifeDays ? 'custom' : 'none',
+        expiryDate: p.expiryDate || '',
+        packagingType: p.packagingType || 'none',
+        tags: p.tags || '',
+        description: p.description || ''
+      });
     },
     async loadWhData() {
       if (!this.warehouseId) return;
@@ -529,6 +570,30 @@ export default {
       }
 
       if (!(this.f.name || '').trim()) { uni.showToast({ title: '请填商品名称', icon: 'none' }); return; }
+      // 编辑模式：只改商品属性，不产生入库流水
+      if (this.editingId) {
+        await updateProduct(this.editingId, {
+          name: this.f.name.trim(),
+          unit: this.f.unit || '件',
+          categoryId: this.f.categoryId || null,
+          costPrice: this.f.costPrice ? Number(this.f.costPrice) : null,
+          sellPrice: this.f.sellPrice ? Number(this.f.sellPrice) : null,
+          productionDate: this.f.productionDate || null,
+          shelfLifeDays: this.f.shelfLifeDays ? Number(this.f.shelfLifeDays) : null,
+          expiryDate: this.f.expiryDate || null,
+          packagingType: this.f.packagingType || 'none',
+          tags: this.f.tags || null,
+          description: this.f.description || null
+        });
+        if (this.f.imageUrl) {
+          try { await attachProductImage(this.editingId, this.f.imageUrl, 'product'); } catch (e) { /* 忽略 */ }
+        }
+        uni.showToast({ title: '已保存', icon: 'success' });
+        this.editingId = null;
+        this.f = this.blankForm();
+        await this.loadWhData();
+        return;
+      }
       const pid = await createProduct({
         warehouseId: this.warehouseId,
         name: this.f.name.trim(),

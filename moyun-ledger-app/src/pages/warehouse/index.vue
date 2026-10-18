@@ -956,18 +956,12 @@ export default {
         }
       });
     },
+    /** 编辑商品：跳到入库页的编辑模式（同一套属性表单） */
     editProductFromDetail() {
       const p = this.productDetail.product;
       if (!p || !p.id) return;
       this.productDetail.visible = false;
-      this.pForm = {
-        id: p.id,
-        name: p.name || '',
-        category: p.category || '',
-        costPrice: p.costPrice == null ? '' : p.costPrice,
-        unit: p.unit || '', barcode: p.barcode || '', conditionGrade: p.conditionGrade || '', sourceChannel: p.sourceChannel || '', sellPrice: p.sellPrice == null ? '' : p.sellPrice
-      };
-      this.productSheet = true;
+      uni.navigateTo({ url: '/pages/warehouse/inout/index?edit=' + p.id });
     },
     /** 盘点：直接把该商品库存改成实际数量（差异写盘盈/盘亏流水） */
     stocktakeProduct() {
@@ -999,15 +993,12 @@ export default {
         }
       });
     },
+    /** 出入库：跳到入库页的出库模式（同一套交互） */
     stockFromProductDetail() {
       const p = this.productDetail.product;
       if (!p || !p.id) return;
-      // 默认落到「库存最多」的那个货架：否则默认未上架，校准会凭空多出一条库存
-      const dist = (this.productDetail.shelves || []).slice()
-        .sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
-      const top = dist[0];
       this.productDetail.visible = false;
-      this.openStock(p, top ? top.shelfId : 0);
+      uni.navigateTo({ url: '/pages/warehouse/inout/index?out=' + p.id });
     },
     whTypeText(t) { const x = WH_TYPES.find(i => i[0] === t); return x ? x[1] : ''; },
     async loadWarehouses() {

@@ -104,7 +104,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         }
         // 借款(对方)→应付款；还款(应付)→核销应付款（并存：负债账户走 applyLiabilityDelta）
         if (LedgerTransaction.TYPE_BORROW.equals(txn.getType())
-                && dto.getCounterparty() != null && !dto.getCounterparty().isBlank()) {
+                && ((dto.getCounterparty() != null && !dto.getCounterparty().isBlank())
+                    || dto.getPayableId() != null)) {
             createPayableForBorrow(txn, dto);
         }
         if (LedgerTransaction.TYPE_REPAYMENT.equals(txn.getType()) && txn.getPayableId() != null) {
@@ -221,7 +222,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             createReceivableForLend(txn, dto);
         }
         if (LedgerTransaction.TYPE_BORROW.equals(txn.getType())
-                && dto.getCounterparty() != null && !dto.getCounterparty().isBlank()) {
+                && ((dto.getCounterparty() != null && !dto.getCounterparty().isBlank())
+                    || dto.getPayableId() != null)) {
             createPayableForBorrow(txn, dto);
         }
         if (LedgerTransaction.TYPE_REPAYMENT.equals(txn.getType()) && txn.getPayableId() != null) {
@@ -455,6 +457,23 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             java.math.BigDecimal outstanding = nz(ar.getTotalAmount()).subtract(nz(ar.getPaidAmount()));
             if (dto.getAmount() != null && dto.getAmount().compareTo(outstanding) > 0) {
                 throw new IllegalArgumentException("收款金额不能超过未结余额 " + outstanding.stripTrailingZeros().toPlainString() + " 元");
+            }
+        }
+        // 借出关联已有应收：校验归属与类型
+        if (LedgerTransaction.TYPE_LEND.equals(type) && dto.getReceivableId() != null) {
+            LedgerAssetAccount ar = assetAccountMapper.selectById(dto.getReceivableId());
+            if (ar == null || (ar.getUserId() != null && !ar.getUserId().equals(userId))) {
+                throw new IllegalArgumentException("应收款账户不存在或无权操作");
+            }
+            if (!LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE.equals(ar.getAccountType())) {
+                throw new IllegalArgumentException("所选账户不是应收款账户");
+            }
+        }
+        // 借入关联已有应付：校验归属
+        if (LedgerTransaction.TYPE_BORROW.equals(type) && dto.getPayableId() != null) {
+            LedgerLiabilityAccount ap = liabilityAccountMapper.selectById(dto.getPayableId());
+            if (ap == null || (ap.getUserId() != null && !ap.getUserId().equals(userId))) {
+                throw new IllegalArgumentException("应付款账户不存在或无权操作");
             }
         }
     }
@@ -746,6 +765,22 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
      * 开头已短路返回，故不会重复建应收。应收总额与流水金额一致，核销后由 settle 反向减少。
      */
     private void createReceivableForLend(LedgerTransaction txn, TransactionCreateDTO dto) {
+        // 关联已有应收：把钱加到该应收上（总额/余额同步增加），不新建账户
+        if (dto.getReceivableId() != null) {
+            LedgerAssetAccount exist = assetAccountMapper.selectById(dto.getReceivableId());
+            if (exist != null
+                    && LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE.equals(exist.getAccountType())
+                    && txn.getUserId().equals(exist.getUserId())) {
+                exist.setTotalAmount(nz(exist.getTotalAmount()).add(txn.getAmount()));
+                exist.setBalance(nz(exist.getBalance()).add(txn.getAmount()));
+                exist.setSettleStatus(resolveSettleStatus(exist.getTotalAmount(), exist.getPaidAmount()));
+                exist.setStatus(LedgerAssetAccount.STATUS_ENABLED);
+                assetAccountMapper.updateById(exist);
+                txn.setReceivableId(exist.getId());
+                updateById(txn);
+                return;
+            }
+        }
         String cp = dto.getCounterparty();
         if (cp == null || cp.isBlank()) {
             cp = (dto.getDescription() != null && !dto.getDescription().isBlank())
@@ -768,8 +803,23 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         updateById(txn);
     }
 
-    /** 借款(对方)→应付款：自动建负债账户(account_type=debt)，并回填流水关联 */
+    /** 借款(对方)→应付款：关联已有则累加，否则自动建负债账户(account_type=debt) */
     private void createPayableForBorrow(LedgerTransaction txn, TransactionCreateDTO dto) {
+        // 关联已有应付：把钱加到该应付上（总额/余额同步增加），不新建账户
+        if (dto.getPayableId() != null) {
+            LedgerLiabilityAccount exist = liabilityAccountMapper.selectById(dto.getPayableId());
+            if (exist != null && txn.getUserId().equals(exist.getUserId())) {
+                exist.setTotalAmount(nz(exist.getTotalAmount()).add(txn.getAmount()));
+                exist.setBalance(nz(exist.getBalance()).add(txn.getAmount()));
+                exist.setSettleStatus(resolveSettleStatus(exist.getTotalAmount(), exist.getPaidAmount()));
+                exist.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
+                exist.setSettleFlag(0);
+                liabilityAccountMapper.updateById(exist);
+                txn.setPayableId(exist.getId());
+                updateById(txn);
+                return;
+            }
+        }
         String cp = dto.getCounterparty();
         if (cp == null || cp.isBlank()) {
             cp = (dto.getDescription() != null && !dto.getDescription().isBlank())

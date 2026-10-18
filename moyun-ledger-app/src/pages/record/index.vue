@@ -83,20 +83,20 @@
         <text class="pick-label">{{ accountLabel }}</text>
         <text class="pick-value">{{ selectedAssetName || '选择账户' }} ▾</text>
       </view>
-      <!-- 借出：对方名称（自动生成应收款的对方） -->
-      <view class="pick-row" v-if="form.type === 'lend'">
+      <!-- 借出：选择已有应收款（金额累加）或新建一笔 -->
+      <view class="pick-row" v-if="form.type === 'lend'" @tap="pickLendTarget">
         <text class="pick-label">借给谁</text>
-        <input class="pick-value" v-model="form.counterparty" placeholder="对方姓名 / 称呼" />
+        <text class="pick-value">{{ selectedLendTarget || '选择应收款 / 新建' }} ▾</text>
       </view>
       <!-- 收款：选择要核销的应收款（收款=资金增加 + 应收减少） -->
       <view class="pick-row" v-if="form.type === 'collect'" @tap="pickReceivable">
         <text class="pick-label">收谁的款</text>
         <text class="pick-value">{{ selectedReceivableName || '选择应收款' }} ▾</text>
       </view>
-      <!-- 借款：向谁借（填了→自动建负债账户；留空→走下方负债账户） -->
-      <view class="pick-row" v-if="form.type === 'borrow'">
+      <!-- 借入：选择已有应付款（金额累加）或新建一笔 -->
+      <view class="pick-row" v-if="form.type === 'borrow'" @tap="pickBorrowTarget">
         <text class="pick-label">向谁借</text>
-        <input class="pick-value" v-model="form.counterparty" placeholder="对方姓名（选填）" />
+        <text class="pick-value">{{ selectedBorrowTarget || '选择应付款 / 新建' }} ▾</text>
       </view>
       <view class="pick-row" v-if="needTarget" @tap="pickTarget">
         <text class="pick-label">转入账户</text>
@@ -278,7 +278,7 @@ export default {
       /** 用户是否手动改过备注（未改过时自动跟随类型/分类/日期刷新默认前缀） */
       descEdited: false,
       form: {
-        type: 'expense', accountId: null, targetAccountId: null, liabilityId: null, receivableId: null, isBudget: 1,
+        type: 'expense', accountId: null, targetAccountId: null, liabilityId: null, receivableId: null, payableId: null, isBudget: 1,
         categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
         // 借出：对方名称（自动生成应收款用）；收款：所选应收款ID（核销用）；
         // 借款：对方名称（生成应付款用）；还款：所选应付款ID（核销用）
@@ -348,12 +348,45 @@ export default {
       return a ? a.name : '';
     },
     selectedLiabilityName() {
-      const l = this.liabilities.find(x => x.id === this.form.liabilityId);
+      const id = this.form.liabilityId || this.form.payableId;
+      const l = this.liabilities.find(x => String(x.id) === String(id));
       return l ? `${l.name}（欠 ${formatAbsAmount(l.balance)}）` : '';
     },
     /** 可用于核销的应收款账户（account_type=receivable，且未结清） */
     receivables() {
       return this.assets.filter(a => a.accountType === 'receivable' && a.status === 1);
+    },
+    /**
+     * 资金账户：只有 fund 类型是真流动性，收支/转账/借出/借入/还款/收款的
+     * 「账户」都只能是这一类；应收/投资/固定资产不能直接当钱包用。
+     */
+    fundAccounts() {
+      return this.assets.filter(a => a.accountType === 'fund' && a.status === 1);
+    },
+    /** 可关联的应付款（未结清的负债账户：普通负债 + 赊账应付） */
+    payables() {
+      return this.liabilities.filter(l => l.status === 1);
+    },
+    /** 借出对象文案：已有应收 或 待新建的名称 */
+    selectedLendTarget() {
+      if (this.form.receivableId) {
+        const a = this.assets.find(x => String(x.id) === String(this.form.receivableId));
+        if (a) {
+          const outstanding = Number(a.totalAmount || 0) - Number(a.paidAmount || 0);
+          return `${a.name}（待收 ${formatAbsAmount(outstanding)}）`;
+        }
+      }
+      if (this.form.counterparty) return this.form.counterparty + '（新建）';
+      return '';
+    },
+    /** 借入对象文案：已有应付 或 待新建的名称 */
+    selectedBorrowTarget() {
+      if (this.form.payableId) {
+        const l = this.liabilities.find(x => String(x.id) === String(this.form.payableId));
+        if (l) return `${l.name}（欠 ${formatAbsAmount(l.balance)}）`;
+      }
+      if (this.form.counterparty) return this.form.counterparty + '（新建）';
+      return '';
     },
     /** 已选应收款名称（带未结余额） */
     selectedReceivableName() {
@@ -376,14 +409,18 @@ export default {
       if (amountNum <= 0) return false;
       if (this.needTarget) return !!this.form.accountId && !!this.form.targetAccountId;
       if (this.needLiability) {
-        // 还款：必须选负债账户 + 资金账户
+        // 还款：负债账户 或 赊账应付，二者其一 + 资金账户
         if (this.form.type === 'repayment') {
-          return !!this.form.liabilityId && !!this.form.accountId;
+          return (!!this.form.liabilityId || !!this.form.payableId) && !!this.form.accountId;
         }
         return (this.form.type === 'borrow' || !!this.form.accountId);
       }
       // 收款：必须选应收款（核销）+ 入账账户，否则钱进来了应收不动
       if (this.form.type === 'collect') return !!this.form.receivableId && !!this.form.accountId;
+      // 借出：必须选已有应收款 或 填新建应收款名称 + 资金账户
+      if (this.form.type === 'lend') {
+        return (!!this.form.receivableId || !!this.form.counterparty) && !!this.form.accountId;
+      }
       // 收支类必须选分类：否则报表「分类 TOP」按 categoryId 聚合时会被跳过，
       // 导致「收入/支出分类 TOP」缺数据（此前收入可无分类保存 → category_id=NULL）
       if (this.form.type === 'expense' || this.form.type === 'income') {
@@ -444,6 +481,8 @@ export default {
       this.form.categoryId = null;
       this.form.subCategoryId = null;
       this.form.receivableId = null;
+      this.form.payableId = null;
+      this.form.counterparty = '';
       // 切换类型后分类列表整体换批且已清空选择 → 自动展开，便于直接点选新类型的分类
       this.catCollapsed = false;
       this.refreshRemark();
@@ -556,12 +595,12 @@ export default {
       uni.showToast({ title: '已选今天', icon: 'none' });
     },
     pickAsset() {
-      this.openPicker('asset', '选择账户', this.assets.map(a => ({
+      this.openPicker('asset', '选择资金账户', this.fundAccounts.map(a => ({
         id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance)
       })), this.form.accountId);
     },
     pickTarget() {
-      this.openPicker('target', '选择转入账户', this.assets.filter(a => a.id !== this.form.accountId)
+      this.openPicker('target', '选择转入账户', this.fundAccounts.filter(a => a.id !== this.form.accountId)
         .map(a => ({ id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance) })), this.form.targetAccountId);
     },
     pickLiability() {
@@ -574,6 +613,49 @@ export default {
         const outstanding = Number(a.totalAmount || 0) - Number(a.paidAmount || 0);
         return { id: a.id, name: a.name, sub: '待收 ¥' + formatAbsAmount(outstanding) };
       }), this.form.receivableId);
+    },
+    /** 借出对象：已有应收款 或 新建 */
+    pickLendTarget() {
+      const items = this.receivables.map(a => {
+        const outstanding = Number(a.totalAmount || 0) - Number(a.paidAmount || 0);
+        return { id: a.id, name: a.name, sub: '待收 ¥' + formatAbsAmount(outstanding) };
+      });
+      items.push({ id: '__new__', name: '＋ 新建应收款' });
+      this.openPicker('lendTarget', '借给谁', items, this.form.receivableId);
+    },
+    /** 借入对象：已有应付款 或 新建 */
+    pickBorrowTarget() {
+      const items = this.payables.map(l => ({
+        id: l.id, name: l.name, sub: '欠 ¥' + formatAbsAmount(l.balance)
+      }));
+      items.push({ id: '__new__', name: '＋ 新建应付款' });
+      this.openPicker('borrowTarget', '向谁借', items, this.form.payableId);
+    },
+    /** 新建应收款（输入名称，提交时后端按名新建账户） */
+    promptNewLendTarget() {
+      uni.showModal({
+        title: '新建应收款', editable: true, placeholderText: '对方姓名 / 称呼',
+        success: (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) { uni.showToast({ title: '请填名称', icon: 'none' }); return; }
+          this.form.receivableId = null;
+          this.form.counterparty = name;
+        }
+      });
+    },
+    /** 新建应付款（输入名称，提交时后端按名新建账户） */
+    promptNewBorrowTarget() {
+      uni.showModal({
+        title: '新建应付款', editable: true, placeholderText: '对方姓名 / 称呼',
+        success: (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) { uni.showToast({ title: '请填名称', icon: 'none' }); return; }
+          this.form.payableId = null;
+          this.form.counterparty = name;
+        }
+      });
     },
     openPicker(mode, title, items, selectedId) {
       this.quickAdd.visible = false;
@@ -600,8 +682,29 @@ export default {
       const mode = this.picker.mode;
       if (mode === 'asset') this.form.accountId = item.id;
       if (mode === 'target') this.form.targetAccountId = item.id;
-      if (mode === 'liability') this.form.liabilityId = item.id;
+      if (mode === 'liability') {
+        // 赊账应付(credit) 走 payableId（核销 paidAmount）；普通负债(debt) 走 liabilityId
+        const l = this.liabilities.find(x => String(x.id) === String(item.id));
+        if (l && l.accountType === 'credit') {
+          this.form.payableId = l.id;
+          this.form.liabilityId = null;
+        } else {
+          this.form.liabilityId = item.id;
+          this.form.payableId = null;
+        }
+      }
       if (mode === 'receivable') this.form.receivableId = item.id;
+      // 借出/借入：选「新建」走输入框，选已有则关联并清空新建名
+      if (mode === 'lendTarget') {
+        if (item.id === '__new__') { this.picker.visible = false; this.promptNewLendTarget(); return; }
+        this.form.receivableId = item.id;
+        this.form.counterparty = '';
+      }
+      if (mode === 'borrowTarget') {
+        if (item.id === '__new__') { this.picker.visible = false; this.promptNewBorrowTarget(); return; }
+        this.form.payableId = item.id;
+        this.form.counterparty = '';
+      }
       this.picker.visible = false;
     },
     /** 打开二级分类网格弹框（不细分 + 各二级） */
@@ -621,6 +724,7 @@ export default {
     },
     clearLiability() {
       this.form.liabilityId = null;
+      this.form.payableId = null;
       uni.showToast({ title: '已清除，可重新选择', icon: 'none' });
     },
     async saveQuickAdd() {
@@ -807,8 +911,12 @@ export default {
         subCategoryId: this.form.subCategoryId || null,
         accountId: this.form.accountId,
         liabilityId: this.form.liabilityId,
-        // 收款核销的应收款账户（仅 collect 用）
-        receivableId: this.form.type === 'collect' ? (this.form.receivableId || null) : null,
+        // 收款核销 / 借出累加 都指向应收款账户
+        receivableId: (this.form.type === 'collect' || this.form.type === 'lend')
+          ? (this.form.receivableId || null) : null,
+        // 借入累加 / 还款核销赊账应付 都指向应付款账户
+        payableId: (this.form.type === 'borrow' || this.form.type === 'repayment')
+          ? (this.form.payableId || null) : null,
         targetAccountId: this.form.targetAccountId,
         description: this.form.description || null,
         merchant: this.form.merchant || null,
@@ -834,6 +942,8 @@ export default {
         this.form.subCategoryId = null;
         this.form.liabilityId = null;
         this.form.receivableId = null;
+        this.form.payableId = null;
+        this.form.counterparty = '';
         this.form.isBudget = 1;
         // 分类已清空 → 展开宫格，下笔可直接点选（避免收起状态下还要先点一次「展开」）
         this.catCollapsed = false;

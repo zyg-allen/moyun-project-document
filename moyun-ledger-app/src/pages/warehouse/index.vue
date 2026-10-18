@@ -2,15 +2,24 @@
   <view class="page" :style="themeVars">
     <NavBar title="仓库" />
 
-    <!-- 仓库切换（个人/家庭/合伙） -->
-    <scroll-view scroll-x class="wh-bar" v-if="warehouses.length">
-      <view v-for="w in warehouses" :key="w.id" class="wh-tag"
-            :class="{ active: String(w.id) === String(currentId) }" @tap="switchWh(w)">
-        <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
-        <text class="wh-name">{{ w.name }}</text>
+    <!-- 仓库筛选：下拉框 -->
+    <view class="wh-select-wrap" v-if="warehouses.length">
+      <view class="tree-select" @tap="whOpen = !whOpen">
+        <text class="tree-select-label">仓库</text>
+        <text class="flex-1 tree-select-text">{{ currentWhName }}</text>
+        <text class="tree-select-arrow" :class="{ open: whOpen }">▾</text>
       </view>
-      <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
-    </scroll-view>
+      <view v-if="whOpen" class="tree-panel wh-panel">
+        <view v-for="w in warehouses" :key="w.id" class="tree-item lv1"
+              :class="{ on: String(currentId) === String(w.id) }"
+              @tap="switchWh(w); whOpen = false">
+          <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
+          <text class="flex-1 wh-name">{{ w.name }}</text>
+          <text v-if="String(currentId) === String(w.id)" class="wh-cur">当前</text>
+        </view>
+        <view class="tree-manage" @tap.stop="whOpen = false; openWhSheet()">＋ 新建仓库</view>
+      </view>
+    </view>
     <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
 
     <!-- 概览（对齐产品方案 4.9 仓库页结构） -->
@@ -520,6 +529,7 @@ export default {
       categoryId: null,
       shelfFilterId: null,
       catTreeOpen: false,
+      whOpen: false,
       productCategories: [],
       catManageSheet: false,
       newCatName: '',
@@ -533,6 +543,11 @@ export default {
     };
   },
   computed: {
+    /** 当前仓库的展示名（徽标 + 名称） */
+    currentWhName() {
+      const w = this.warehouses.find(x => String(x.id) === String(this.currentId));
+      return w ? (this.whTypeBadge(w.warehouseType) + ' ' + w.name) : '请选择仓库';
+    },
     /** 当前分类的展示名（一级 / 一级 / 二级） */
     categoryLabel() {
       for (const c of this.productCategories) {
@@ -700,6 +715,7 @@ export default {
     doSearch() { this.pageNum = 1; this.loadProducts(); },
     pickCategoryFilter(c) {
       this.categoryId = c ? c.id : null;
+      this.catTreeOpen = false;
       this.pageNum = 1;
       this.loadProducts();
     },
@@ -1430,4 +1446,8 @@ export default {
 .tree-item.on { color: var(--primary); background: rgba(95,167,122,.10); }
 .tree-num { font-size: 21rpx; color: var(--text-sub); }
 .tree-manage { padding: 16rpx 18rpx; font-size: 24rpx; color: var(--primary); border-top: 1rpx solid var(--border); }
+/* 仓库下拉筛选 */
+.wh-select-wrap { padding: 12rpx 20rpx 0; }
+.wh-panel { margin-top: 8rpx; }
+.wh-cur { font-size: 20rpx; color: var(--primary); }
 </style>

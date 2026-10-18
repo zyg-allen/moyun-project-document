@@ -476,8 +476,8 @@ export default {
       return this.transferTargetList.map(s => s.name + (s.code ? ' · ' + s.code : ''));
     },
     /** 出入库货架选择器（首项=未上架） */
-    stockShelfNames() {
-      return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
+    /** 出入库货架选择器（只列真实货架） */
+      return this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : ''));
     },
     stockShelfLabel() {
       if (!this.stockShelfId) return '请选择货架';

@@ -543,7 +543,7 @@ export default {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; padding-top: 24rpx; padding-bottom: 180rpx; }
+.page { min-height: 100vh; padding-top: 24rpx; padding-bottom: 120rpx; }
 .locked { padding: 120rpx 40rpx; text-align: center; }
 .locked-icon { font-size: 90rpx; }
 .locked-title { font-size: 34rpx; font-weight: 700; color: var(--text-main); margin-top: 20rpx; }
@@ -594,8 +594,8 @@ export default {
 .reuse-tip { font-size: 22rpx; color: var(--text-sub); padding: 10rpx 0; }
 .hint-box { margin: 12rpx 0; padding: 16rpx; border-radius: 10rpx; background: var(--bg); font-size: 23rpx; color: var(--text-sub); line-height: 1.6; }
 
-.submit-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 20rpx 24rpx 40rpx; background: var(--bg); }
-.submit-btn { text-align: center; padding: 26rpx 0; border-radius: 14rpx; background: var(--primary); color: #fff; font-size: 30rpx; font-weight: 600; }
+.submit-bar { margin: 24rpx 24rpx 0; padding-bottom: 40rpx; }
+.submit-btn { text-align: center; padding: 28rpx 0; border-radius: 14rpx; background: var(--primary); color: #fff; font-size: 30rpx; font-weight: 600; box-shadow: 0 6rpx 18rpx rgba(0,0,0,.08); }
 .submit-btn.disabled { opacity: .6; }
 
 .mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 999; display: flex; align-items: flex-end; }

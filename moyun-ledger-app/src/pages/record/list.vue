@@ -74,7 +74,7 @@
               </view>
               <view class="txn-meta">
                 <text class="meta-tags">
-                  <text v-if="t.categoryName" class="meta-tag">{{ t.categoryName }}</text>
+                  <text v-if="t.categoryName" class="meta-tag">{{ t.categoryName }}{{ t.subCategoryName ? ' · ' + t.subCategoryName : '' }}</text>
                   <text v-if="t.merchant" class="meta-tag">{{ t.merchant }}</text>
                   <text v-if="accountInfo(t)" class="meta-tag">{{ accountInfo(t) }}</text>
                 </text>
@@ -149,7 +149,7 @@
             </view>
             <view class="txn-meta">
               <text class="meta-tags">
-                <text v-if="t.categoryName" class="meta-tag">{{ t.categoryName }}</text>
+                <text v-if="t.categoryName" class="meta-tag">{{ t.categoryName }}{{ t.subCategoryName ? ' · ' + t.subCategoryName : '' }}</text>
                 <text v-if="accountInfo(t)" class="meta-tag">{{ accountInfo(t) }}</text>
               </text>
               <text class="txn-time">{{ t.transactionTime || '' }}</text>

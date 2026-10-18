@@ -332,6 +332,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             if (t.getTargetAccountId() != null) assetIds.add(t.getTargetAccountId());
             if (t.getLiabilityId() != null) liabilityIds.add(t.getLiabilityId());
             if (t.getCategoryId() != null) categoryIds.add(t.getCategoryId());
+            if (t.getSubCategoryId() != null) categoryIds.add(t.getSubCategoryId());
         }
         Map<Long, String> assetNames = new HashMap<>();
         if (!assetIds.isEmpty()) {
@@ -356,6 +357,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             if (t.getTargetAccountId() != null) t.setTargetAccountName(assetNames.get(t.getTargetAccountId()));
             if (t.getLiabilityId() != null) t.setLiabilityName(liabilityNames.get(t.getLiabilityId()));
             if (t.getCategoryId() != null) t.setCategoryName(categoryNames.get(t.getCategoryId()));
+            if (t.getSubCategoryId() != null) t.setSubCategoryName(categoryNames.get(t.getSubCategoryId()));
         }
     }
 

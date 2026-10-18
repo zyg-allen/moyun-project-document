@@ -205,4 +205,10 @@ public class LedgerTransaction {
      */
     @TableField(exist = false)
     private String categoryName;
+
+    /**
+     * 二级分类名称（展示用；未选二级时为空）
+     */
+    @TableField(exist = false)
+    private String subCategoryName;
 }

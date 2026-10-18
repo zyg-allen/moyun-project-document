@@ -15,7 +15,10 @@
     { "path": "pages/mine/savings/index", "style": { "navigationBarTitleText": "存钱" } },
     { "path": "pages/mine/savings/create", "style": { "navigationBarTitleText": "新建计划" } },
     { "path": "pages/mine/savings/detail", "style": { "navigationBarTitleText": "计划详情" } },
-    { "path": "pages/warehouse/index", "style": { "navigationBarTitleText": "仓库", "navigationStyle": "custom" } },
+    { "path": "pages/warehouse/index", "style": { "navigationBarTitleText": "库存管理", "navigationStyle": "custom" } },
+    { "path": "pages/warehouse/inout/index", "style": { "navigationBarTitleText": "入库/出库", "navigationStyle": "custom" } },
+    { "path": "pages/warehouse/report/index", "style": { "navigationBarTitleText": "仓库报表", "navigationStyle": "custom" } },
+    { "path": "pages/mine/warehouse-settings/index", "style": { "navigationBarTitleText": "仓库设置", "navigationStyle": "custom" } },
     { "path": "pages/mine/schedule/index", "style": { "navigationBarTitleText": "定时记账" } },
     { "path": "pages/mine/schedule/add", "style": { "navigationBarTitleText": "添加计划" } },
     { "path": "pages/mine/memo/index", "style": { "navigationBarTitleText": "备忘录" } },
@@ -44,7 +47,7 @@
       { "pagePath": "pages/dashboard/index", "text": "总览" },
       { "pagePath": "pages/portfolio/index", "text": "资产负债" },
       { "pagePath": "pages/record/index", "text": "记一笔" },
-      { "pagePath": "pages/warehouse/index", "text": "仓库" },
+      { "pagePath": "pages/warehouse/inout/index", "text": "入库/出库" },
       { "pagePath": "pages/analysis/index", "text": "分析" },
       { "pagePath": "pages/mine/index", "text": "我的" }
     ]

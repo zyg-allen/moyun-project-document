@@ -31,6 +31,7 @@
         <view class="ov-cell"><view class="ov-num">{{ overview.monthOutQuantity || 0 }}</view><view class="ov-label">本月出库</view></view>
       </view>
       <view class="ov-tip" v-if="overview.zeroStockCount > 0">⚠ {{ overview.zeroStockCount }} 个商品零库存，可考虑补货</view>
+      <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
     </view>
 
     <!-- 货架列表（存放位置：归属仓库 + 区域/排/层/位 + 图片） -->
@@ -537,6 +538,8 @@ export default {
       const x = this.reasonList[e.detail.value];
       this.stockReason = x ? x[0] : '';
     },
+    /** 进仓库报表 */
+    goReport() { uni.navigateTo({ url: '/pages/warehouse/report/index' }); },
     // ===== 库存流水 =====
     async openFlows() {
       if (!this.currentId) { uni.showToast({ title: '请先选择仓库', icon: 'none' }); return; }
@@ -1211,4 +1214,5 @@ export default {
 .fl-qty { font-size: 30rpx; font-weight: 700; color: #E8654A; }
 .fl-qty.inn { color: #0EA37A; }
 .fl-reason { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
+.ov-more { margin-top: 10rpx; padding-top: 10rpx; border-top: 1rpx solid var(--border); font-size: 23rpx; color: var(--primary); text-align: center; }
 </style>

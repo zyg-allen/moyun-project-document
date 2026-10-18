@@ -1,8 +1,11 @@
 <script>
 import { useThemeStore } from '@/stores/theme';
+import { applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 
 export default {
   onLaunch() {
+    // 仓库管理开关关闭时隐藏「入库/出库」入口
+    applyWarehouseTabBar();
     console.log('墨韵记账 App Launch');
     // 恢复主题（含 TabBar 选中色联动）
     useThemeStore().restore();

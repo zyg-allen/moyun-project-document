@@ -90,6 +90,7 @@
 import { login, getCaptchaImage, getAppFeatures, getAiProfile } from '@/api/ledger';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
+import { applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { storage } from '@/utils/storage';
 import { APP_VERSION_TEXT } from '@/utils/appInfo';
 
@@ -103,6 +104,8 @@ export default {
       profileDone: false,
       // 主功能宫格（内置兜底=仅已上线功能；运行时由后台配置覆盖）
       mainMenus: [
+        { key: 'warehouse', icon: '📦', label: '库存管理', color: '' },
+        { key: 'warehouseSetting', icon: '🏷️', label: '仓库设置', color: '' },
         { key: 'category', icon: '☰', label: '分类管理', color: '' },
         { key: 'setting', icon: '⚙️', label: '记账设置', color: '' },
         { key: 'savings', icon: '🏦', label: '存钱计划', color: '' },
@@ -125,6 +128,8 @@ export default {
     appVersionText() { return APP_VERSION_TEXT; }
   },
   onShow() {
+    // tab 页里同步仓库入口显隐（setTabBarItem 只在 tab 页可靠）
+    applyWarehouseTabBar();
     useThemeStore().restore();
     if (!useUserStore().isLoggedIn && this.captcha.enabled && !this.captcha.img) {
       this.loadCaptcha();
@@ -198,6 +203,8 @@ export default {
     },
     onMenuTap(m) {
       const routes = {
+        warehouse: '/pages/warehouse/index',
+        warehouseSetting: '/pages/mine/warehouse-settings/index',
         category: '/pages/mine/categories/index',
         budget: '/pages/mine/budget/index',
         list: '/pages/record/list',

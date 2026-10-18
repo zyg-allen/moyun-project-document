@@ -457,6 +457,13 @@ export default {
       this.reuseName = '';
       this.similarList = [];
     },
+    /** 按仓库设置里的「默认出入库原因」预选出库类型 */
+    applyDefaultReason() {
+      const r = (this.cfg && this.cfg.defaultReason) || '';
+      if (['sale', 'self_use', 'loss', 'gift', 'other'].includes(r)) {
+        this.f.outType = r;
+      }
+    },
     goCategories() { uni.navigateTo({ url: '/pages/mine/product-categories/index' }); },
     pickCategory() {
       this.openPicker('category', '选择商品分类', this.categoryPickerItems, this.f.categoryId,

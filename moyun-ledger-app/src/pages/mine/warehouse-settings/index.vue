@@ -148,6 +148,8 @@ export default {
         this.categories = (await listProductCategories()) || [];
       } catch (e) { /* 拦截器已提示 */ }
     },
+    /** 进独立的商品分类管理页（两级树 + 图标，与记账分类同体验） */
+    goCategories() { uni.navigateTo({ url: '/pages/mine/product-categories/index' }); },
     openCatSheet() {
       this.newCatName = '';
       this.parentId = 0;

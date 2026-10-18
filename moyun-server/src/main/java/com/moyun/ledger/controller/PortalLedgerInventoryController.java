@@ -63,10 +63,11 @@ public class PortalLedgerInventoryController {
     public AjaxResult listProducts(@PathVariable("warehouseId") Long warehouseId,
                                    @RequestParam(value = "keyword", required = false) String keyword,
                                    @RequestParam(value = "categoryId", required = false) Long categoryId,
+                                   @RequestParam(value = "shelfId", required = false) Long shelfId,
                                    @RequestParam(value = "pageNum", required = false) Integer pageNum,
                                    @RequestParam(value = "pageSize", required = false) Integer pageSize) {
         return AjaxResult.success(inventoryService.listProducts(
-                PortalSecurityUtils.getUserId(), warehouseId, keyword, categoryId, pageNum, pageSize));
+                PortalSecurityUtils.getUserId(), warehouseId, keyword, categoryId, shelfId, pageNum, pageSize));
     }
 
     @Operation(summary = "相似商品推荐（录入前查重，避免重复建档）")

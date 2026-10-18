@@ -30,7 +30,7 @@ public interface ILedgerInventoryService {
 
     /** 商品列表（带当前库存数量 + 类目名），分页 + 关键字 + 类目筛选 */
     Map<String, Object> listProducts(Long userId, Long warehouseId, String keyword, Long categoryId,
-                                     Integer pageNum, Integer pageSize);
+                                     Long shelfId, Integer pageNum, Integer pageSize);
 
     /**
      * 相似商品推荐：录入商品时先看看是不是已经有了，避免重复建档。

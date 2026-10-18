@@ -79,16 +79,41 @@
         <view class="cat-chip manage" @tap="openCatManage">⚙ 管理</view>
       </scroll-view>
 
-      <view v-if="!products.length" class="empty">还没有商品，点「＋新增商品」添加</view>
-      <view v-for="p in products" :key="p.id" class="row" @tap="openProductDetail(p)">
+      <!-- 货架筛选 -->
+      <scroll-view scroll-x class="cat-bar">
+        <view class="cat-chip" :class="{ on: !shelfFilterId }" @tap="pickShelfFilter(null)">全部货架</view>
+        <view v-for="s in shelves" :key="s.id" class="cat-chip"
+              :class="{ on: String(shelfFilterId) === String(s.id) }"
+              @tap="pickShelfFilter(s)">{{ s.name }}</view>
+      </scroll-view>
+
+      <view v-if="!products.length" class="empty">{{ (keyword || categoryId || shelfFilterId) ? '没有匹配的商品' : '还没有商品，点「＋新增商品」添加' }}</view>
+      <view v-for="p in products" :key="p.id" class="prod-row" @tap="openProductDetail(p)">
+        <image v-if="p.coverUrl" :src="p.coverUrl" class="prod-img" mode="aspectFill" />
+        <view v-else class="prod-img prod-img-ph">{{ (p.name || '?')[0] }}</view>
         <view class="flex-1 min-w-0">
           <view class="row-name">{{ p.name }}</view>
-          <view class="row-sub">{{ p.categoryName || '未分类' }} · {{ p.unit || '个' }}</view>
+          <view class="row-sub">
+            {{ p.categoryName || '未分类' }} · {{ p.unit || '个' }}
+            <text v-if="p.tags"> · {{ p.tags }}</text>
+          </view>
+          <view class="row-sub2">
+            <text>成本 ¥{{ fmt(p.costPrice) }}</text>
+            <text v-if="p.sellPrice"> · 售价 ¥{{ fmt(p.sellPrice) }}</text>
+            <text v-if="p.expiryDate"> · 到期 {{ String(p.expiryDate).slice(0,10) }}</text>
+          </view>
         </view>
         <view class="row-right">
-          <view class="qty" :class="{ warn: (p.stockQuantity || 0) === 0 }">库存 {{ p.stockQuantity || 0 }}</view>
-          <view class="price" v-if="p.sellPrice">¥{{ fmt(p.sellPrice) }}</view>
+          <view class="qty" :class="{ warn: (p.stockQuantity || 0) === 0 }">{{ p.stockQuantity || 0 }} {{ p.unit || '个' }}</view>
+          <view class="price">¥{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }}</view>
         </view>
+      </view>
+
+      <!-- 分页 -->
+      <view class="pager" v-if="pageTotal > pageSize">
+        <text class="pager-btn" :class="{ dis: pageNum <= 1 }" @tap="turnPage(-1)">‹</text>
+        <text class="pager-info">{{ pageNum }} / {{ Math.ceil(pageTotal / pageSize) }} · 共 {{ pageTotal }}</text>
+        <text class="pager-btn" :class="{ dis: pageNum * pageSize >= pageTotal }" @tap="turnPage(1)">›</text>
       </view>
     </view>
 
@@ -603,9 +628,10 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     // ===== 查找 / 类目 / 相似商品 =====
-    doSearch() { this.loadProducts(); },
+    doSearch() { this.pageNum = 1; this.loadProducts(); },
     pickCategoryFilter(c) {
       this.categoryId = c ? c.id : null;
+      this.pageNum = 1;
       this.loadProducts();
     },
     async loadProductCategories() {
@@ -1017,6 +1043,7 @@ export default {
         const params = { pageNum: this.pageNum || 1, pageSize: this.pageSize || 20 };
         if ((this.keyword || '').trim()) params.keyword = this.keyword.trim();
         if (this.categoryId) params.categoryId = this.categoryId;
+        if (this.shelfFilterId) params.shelfId = this.shelfFilterId;
         const res = await listProducts(this.currentId, params) || {};
         this.products = res.records || [];
         this.pageTotal = res.total || 0;
@@ -1303,4 +1330,17 @@ export default {
 .exp-tag { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; background: rgba(232,163,61,.16); color: #E8A33D; }
 .exp-tag.bad { background: rgba(232,101,74,.14); color: #E8654A; }
 .f-sub { font-size: 21rpx; color: var(--text-sub); }
+/* ===== 商品列表行（带图 + 多属性 + 分页） ===== */
+.prod-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
+.prod-img { width: 88rpx; height: 88rpx; border-radius: 10rpx; flex: 0 0 auto; }
+.prod-img-ph {
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(95,167,122,.14); color: var(--primary);
+  font-size: 36rpx; font-weight: 700;
+}
+.row-sub2 { font-size: 21rpx; color: var(--text-sub); margin-top: 2rpx; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 24rpx; padding: 20rpx 0 8rpx; }
+.pager-btn { font-size: 34rpx; color: var(--primary); padding: 0 18rpx; }
+.pager-btn.dis { color: var(--border); }
+.pager-info { font-size: 23rpx; color: var(--text-sub); }
 </style>

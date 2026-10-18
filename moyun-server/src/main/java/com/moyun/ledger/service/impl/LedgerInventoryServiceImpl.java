@@ -109,7 +109,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
     @Override
     public Map<String, Object> listProducts(Long userId, Long warehouseId, String keyword, Long categoryId,
-                                            Integer pageNum, Integer pageSize) {
+                                            Long shelfId, Integer pageNum, Integer pageSize) {
         // 仓库归属校验：不存在的仓库/别人的仓库直接拒绝
         getOwnedWarehouse(userId, warehouseId);
 
@@ -120,6 +120,18 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
             String kw = keyword.trim();
             // 名称或条码模糊匹配，找货时两者都可能被拿来搜
             q.and(w -> w.like(LedgerProduct::getName, kw).or().like(LedgerProduct::getBarcode, kw));
+        }
+        if (shelfId != null) {
+            // 按货架筛选：只保留该货架上还有库存的商品
+            List<Long> onShelf = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
+                            .eq(LedgerStock::getShelfId, shelfId)
+                            .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
+                            .gt(LedgerStock::getQuantity, 0))
+                    .stream().map(LedgerStock::getProductId).distinct().collect(Collectors.toList());
+            if (onShelf.isEmpty()) {
+                onShelf.add(-1L);
+            }
+            q.in(LedgerProduct::getId, onShelf);
         }
         if (categoryId != null) {
             // 选一级类目时把其二级类目的商品也带出来

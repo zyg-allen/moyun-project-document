@@ -113,7 +113,7 @@ class LedgerInventoryShelfFlowDbTest {
         assertEquals(2, qtyOf(pid, shelfB), "B 架应为 2 件");
 
         // ---------- ⑤ 商品总库存 = 各货架之和 = 5 ----------
-        Map<String, Object> qtyMap = inventoryService.listProducts(UID, whId, null, null, 1, 10);
+        Map<String, Object> qtyMap = inventoryService.listProducts(UID, whId, null, null, null, 1, 10);
         @SuppressWarnings("unchecked")
         List<LedgerProduct> records = (List<LedgerProduct>) qtyMap.get("records");
         LedgerProduct listed = records.stream().filter(p -> pid.equals(p.getId())).findFirst().orElse(null);

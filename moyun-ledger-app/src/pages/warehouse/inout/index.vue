@@ -204,7 +204,7 @@
           <view class="sheet-title">{{ picker.title }}</view>
           <scroll-view scroll-y class="picker-list">
             <view v-if="!picker.items.length" class="empty" @tap="picker.mode === 'category' && goCategories()">{{ picker.empty }}</view>
-            <view v-for="it in picker.items" :key="it.id" class="picker-item"
+            <view v-for="it in picker.items" :key="it.id" class="picker-item" :class="{ sub: it.level === 2 }"
                   :class="{ active: String(picker.selected) === String(it.id) }" @tap="confirmPick(it)">
               <text>{{ it.name }}</text>
               <text v-if="it.sub" class="picker-sub">{{ it.sub }}</text>
@@ -339,11 +339,12 @@ export default {
       }
       return '';
     },
+    /** 分类选项（树形：一级 + 缩进的二级） */
     categoryPickerItems() {
       const out = [];
       for (const c of this.categories) {
-        out.push({ id: c.id, name: c.name });
-        for (const k of (c.children || [])) out.push({ id: k.id, name: c.name + ' / ' + k.name });
+        out.push({ id: c.id, name: c.name, level: 1 });
+        for (const k of (c.children || [])) out.push({ id: k.id, name: k.name, level: 2 });
       }
       return out;
     },
@@ -737,4 +738,5 @@ export default {
 .date-wrap { flex: 1; display: flex; flex-direction: column; align-items: flex-end; }
 .date-hint { font-size: 21rpx; color: var(--text-sub); }
 .date-hint.bad { color: #E8654A; }
+.picker-item.sub { padding-left: 46rpx; font-size: 25rpx; color: var(--text-sub); }
 </style>

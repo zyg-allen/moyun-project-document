@@ -71,13 +71,31 @@
                confirm-type="search" @confirm="doSearch" />
         <text class="search-btn" @tap="doSearch">搜索</text>
       </view>
-      <scroll-view scroll-x class="cat-bar">
-        <view class="cat-chip" :class="{ on: !categoryId }" @tap="pickCategoryFilter(null)">全部</view>
-        <view v-for="c in productCategories" :key="c.id" class="cat-chip"
-              :class="{ on: String(categoryId) === String(c.id) }"
-              @tap="pickCategoryFilter(c)">{{ c.name }}</view>
-        <view class="cat-chip manage" @tap="openCatManage">⚙ 管理</view>
-      </scroll-view>
+      <!-- 分类筛选：树形下拉（选择后收起，不占列表空间） -->
+      <view class="tree-select" @tap="catTreeOpen = !catTreeOpen">
+        <text class="tree-select-label">分类</text>
+        <text class="flex-1 tree-select-text" :class="{ ph: !categoryLabel }">{{ categoryLabel || '全部' }}</text>
+        <text class="tree-select-arrow" :class="{ open: catTreeOpen }">▾</text>
+      </view>
+      <view v-if="catTreeOpen" class="tree-panel">
+        <view class="tree-item lv1" :class="{ on: !categoryId }" @tap="pickCategoryFilter(null)">
+          <text class="flex-1">全部</text>
+          <text class="tree-num">{{ products.length }}</text>
+        </view>
+        <view v-for="c in productCategories" :key="c.id">
+          <view class="tree-item lv1" :class="{ on: String(categoryId) === String(c.id) }"
+                @tap="pickCategoryFilter(c)">
+            <text class="flex-1">{{ c.name }}</text>
+            <text v-if="c.children && c.children.length" class="tree-num">{{ c.children.length }}</text>
+          </view>
+          <view v-for="k in (c.children || [])" :key="k.id" class="tree-item lv2"
+                :class="{ on: String(categoryId) === String(k.id) }"
+                @tap.stop="pickCategoryFilter(k)">
+            <text class="flex-1">{{ k.name }}</text>
+          </view>
+        </view>
+        <view class="tree-manage" @tap.stop="openCatManage">⚙ 管理分类</view>
+      </view>
 
       <!-- 货架筛选 -->
       <scroll-view scroll-x class="cat-bar">
@@ -1338,4 +1356,26 @@ export default {
 .pager-btn { font-size: 34rpx; color: var(--primary); padding: 0 18rpx; }
 .pager-btn.dis { color: var(--border); }
 .pager-info { font-size: 23rpx; color: var(--text-sub); }
+/* ===== 树形下拉（分类筛选） ===== */
+.tree-select {
+  display: flex; align-items: center; gap: 10rpx;
+  padding: 14rpx 16rpx; margin: 10rpx 0;
+  border: 1rpx solid var(--border); border-radius: 10rpx; background: var(--bg);
+}
+.tree-select-label { font-size: 24rpx; color: var(--text-sub); }
+.tree-select-text { font-size: 26rpx; color: var(--text-main); text-align: right; }
+.tree-select-text.ph { color: var(--text-sub); }
+.tree-select-arrow { font-size: 22rpx; color: var(--text-sub); transition: transform .15s; }
+.tree-select-arrow.open { transform: rotate(180deg); }
+.tree-panel {
+  margin-bottom: 10rpx; padding: 6rpx 0;
+  border: 1rpx solid var(--border); border-radius: 10rpx;
+  background: var(--card); max-height: 46vh; overflow-y: auto;
+}
+.tree-item { display: flex; align-items: center; padding: 16rpx 18rpx; font-size: 26rpx; color: var(--text-main); }
+.tree-item.lv1 { font-weight: 600; }
+.tree-item.lv2 { padding-left: 46rpx; font-size: 24rpx; color: var(--text-sub); font-weight: 400; }
+.tree-item.on { color: var(--primary); background: rgba(95,167,122,.10); }
+.tree-num { font-size: 21rpx; color: var(--text-sub); }
+.tree-manage { padding: 16rpx 18rpx; font-size: 24rpx; color: var(--primary); border-top: 1rpx solid var(--border); }
 </style>

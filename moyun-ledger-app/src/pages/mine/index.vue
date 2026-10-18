@@ -162,8 +162,16 @@ export default {
         });
         const main = rows.filter(r => r.groupType === 'main').map(toMenu);
         const recommend = rows.filter(r => r.groupType === 'recommend').map(toMenu);
-        if (main.length) this.mainMenus = main;
-        if (recommend.length) this.recommendMenus = recommend;
+        // 后台配置掌管「顺序/名称/显隐」，但内置功能不能因为后台漏配就消失：
+        // 配置里有的按配置顺序在前，内置里未被覆盖的补在后面。
+        if (main.length) {
+          const configured = new Set(main.map(m => m.key));
+          this.mainMenus = main.concat(this.mainMenus.filter(m => !configured.has(m.key)));
+        }
+        if (recommend.length) {
+          const configured = new Set(recommend.map(m => m.key));
+          this.recommendMenus = recommend.concat(this.recommendMenus.filter(m => !configured.has(m.key)));
+        }
       } catch (e) { /* 未登录/网络异常：回退内置默认宫格 */ }
     },
     async loadCaptcha() {

@@ -2,24 +2,6 @@
   <view class="page" :style="themeVars">
     <NavBar title="仓库" />
 
-    <!-- 概览（对齐产品方案 4.9 仓库页结构） -->
-    <view class="ov-card" v-if="currentId && overview && overview.productCount !== undefined">
-      <view class="ov-row">
-        <view class="ov-cell"><view class="ov-num">¥{{ fmt(overview.stockValue) }}</view><view class="ov-label">库存总价值</view></view>
-        <view class="ov-cell"><view class="ov-num">{{ overview.totalQuantity || 0 }}</view><view class="ov-label">待售件数</view></view>
-        <view class="ov-cell"><view class="ov-num">{{ overview.productCount || 0 }}</view><view class="ov-label">商品数</view></view>
-      </view>
-      <view class="ov-row">
-        <view class="ov-cell"><view class="ov-num">{{ overview.shelfCount || 0 }}</view><view class="ov-label">货架</view></view>
-        <view class="ov-cell"><view class="ov-num">{{ overview.monthInQuantity || 0 }}</view><view class="ov-label">本月入库</view></view>
-        <view class="ov-cell"><view class="ov-num">{{ overview.monthOutQuantity || 0 }}</view><view class="ov-label">本月出库</view></view>
-      </view>
-      <view class="ov-tip" v-if="overview.zeroStockCount > 0">⚠ {{ overview.zeroStockCount }} 个商品零库存，可考虑补货</view>
-      <view class="ov-tip" v-if="overview.expiredCount > 0">⛔ {{ overview.expiredCount }} 个商品已过期，建议尽快处理</view>
-      <view class="ov-tip warn" v-if="overview.expiringCount > 0">⏳ {{ overview.expiringCount }} 个商品 30 天内到期</view>
-      <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
-    </view>
-
     <!-- 仓库切换（个人/家庭/合伙） -->
     <scroll-view scroll-x class="wh-bar" v-if="warehouses.length">
       <view v-for="w in warehouses" :key="w.id" class="wh-tag"
@@ -449,6 +431,24 @@
           <view class="btn" @tap="loadFlows">刷新</view>
         </view>
       </view>
+    </view>
+
+    <!-- 盘点简报（仓库维度概览，放底部：先看货、再看数） -->
+    <view class="ov-card" v-if="currentId && overview && overview.productCount !== undefined">
+      <view class="ov-row">
+        <view class="ov-cell"><view class="ov-num">¥{{ fmt(overview.stockValue) }}</view><view class="ov-label">库存总价值</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.totalQuantity || 0 }}</view><view class="ov-label">待售件数</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.productCount || 0 }}</view><view class="ov-label">商品数</view></view>
+      </view>
+      <view class="ov-row">
+        <view class="ov-cell"><view class="ov-num">{{ overview.shelfCount || 0 }}</view><view class="ov-label">货架</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.monthInQuantity || 0 }}</view><view class="ov-label">本月入库</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.monthOutQuantity || 0 }}</view><view class="ov-label">本月出库</view></view>
+      </view>
+      <view class="ov-tip" v-if="overview.zeroStockCount > 0">⚠ {{ overview.zeroStockCount }} 个商品零库存，可考虑补货</view>
+      <view class="ov-tip" v-if="overview.expiredCount > 0">⛔ {{ overview.expiredCount }} 个商品已过期，建议尽快处理</view>
+      <view class="ov-tip warn" v-if="overview.expiringCount > 0">⏳ {{ overview.expiringCount }} 个商品 30 天内到期</view>
+      <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
     </view>
 
   </view>

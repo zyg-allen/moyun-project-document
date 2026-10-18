@@ -265,7 +265,7 @@ export default {
 .risk-row { display: flex; align-items: center; gap: 12rpx; padding: 16rpx 0; border-top: 1rpx solid var(--border); }
 .risk-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #E8A33D; }
 .risk-dot.bad { background: #E8654A; }
-.risk-title { font-size: 27rpx; color: var(--text-main); }
+.risk-title { font-size: 26rpx; color: var(--text-main); }
 .risk-desc { font-size: 22rpx; color: var(--text-sub); margin-top: 2rpx; }
 .risk-num { font-size: 30rpx; font-weight: 700; color: var(--text-main); }
 
@@ -274,7 +274,7 @@ export default {
 .seg-item.on { background: var(--primary); color: #fff; }
 
 .p-row { display: flex; align-items: center; padding: 16rpx 0; border-top: 1rpx solid var(--border); }
-.p-name { font-size: 27rpx; color: var(--text-main); }
+.p-name { font-size: 26rpx; color: var(--text-main); }
 .p-sub { font-size: 22rpx; color: var(--text-sub); margin-top: 2rpx; }
 .p-right { text-align: right; }
 .p-val { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
@@ -283,7 +283,19 @@ export default {
 .tag-warn { color: #E8A33D; background: rgba(232,163,61,.14); }
 .tag-bad { color: #E8654A; background: rgba(232,101,74,.12); }
 
-.foot { text-align: center; font-size: 21rpx; color: var(--text-sub); padding: 30rpx 0 10rpx; }
+.foot { text-align: center; font-size: 22rpx; color: var(--text-sub); padding: 30rpx 0 10rpx; }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
+/* ===== 排版统一：标题 / 单位 / 关键数字 ===== */
+/* 卡片与弹层标题 */
+.card-title, .sheet-title { font-size: var(--fs-title); font-weight: 700; color: var(--text-main); }
+/* 条目标题 */
+.row-name { font-size: var(--fs-subtitle); font-weight: 600; color: var(--text-main); }
+/* 单位与标签：比正文小一档、颜色降级 */
+.unit, .amount-unit, .cfg-unit, .tree-num, .prod-row .row-sub, .row-sub2 { font-size: var(--fs-unit); color: var(--text-sub); }
+/* 关键数字：库存数量、概览数字 */
+.qty { font-size: var(--fs-h2); font-weight: 700; }
+.ov-num { font-size: var(--fs-title); font-weight: 700; }
+/* 次要说明 */
+.row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
 </style>

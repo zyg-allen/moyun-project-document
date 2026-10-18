@@ -150,4 +150,9 @@ export default {
 }
 .auto-tip-text { font-size: 22rpx; color: var(--text-sub); }
 .auto-tip-ok { font-size: 22rpx; color: var(--primary); font-weight: 600; }
+/* ===== 排版统一 ===== */
+.card-title { font-size: var(--fs-title); font-weight: 700; }
+.cfg-label { font-size: var(--fs-body); color: var(--text-main); }
+.cfg-unit, .cfg-value { font-size: var(--fs-unit); color: var(--text-sub); }
+.auto-tip-text, .hint { font-size: var(--fs-unit); color: var(--text-sub); }
 </style>

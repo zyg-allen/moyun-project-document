@@ -701,11 +701,11 @@ export default {
 .similar-box { margin: 12rpx 0; padding: 14rpx; border-radius: 12rpx; background: rgba(95,167,122,.08); border: 1rpx solid rgba(95,167,122,.3); }
 .similar-title { font-size: 23rpx; color: var(--primary); padding-bottom: 8rpx; }
 .similar-item { display: flex; align-items: center; padding: 12rpx 0; border-top: 1rpx solid var(--border); }
-.row-name { font-size: 27rpx; color: var(--text-main); }
+.row-name { font-size: 26rpx; color: var(--text-main); }
 .row-sub { font-size: 22rpx; color: var(--text-sub); margin-top: 2rpx; }
 .similar-pick { font-size: 24rpx; color: var(--primary); }
 .reuse-box { padding: 12rpx 0; }
-.reuse-head { display: flex; align-items: center; font-size: 27rpx; color: var(--text-main); padding: 10rpx 0; }
+.reuse-head { display: flex; align-items: center; font-size: 26rpx; color: var(--text-main); padding: 10rpx 0; }
 .reuse-tip { font-size: 22rpx; color: var(--text-sub); padding: 10rpx 0; }
 .hint-box { margin: 12rpx 0; padding: 16rpx; border-radius: 10rpx; background: var(--bg); font-size: 23rpx; color: var(--text-sub); line-height: 1.6; }
 
@@ -736,7 +736,19 @@ export default {
 .unit { font-size: 22rpx; color: var(--text-sub); margin-left: 6rpx; }
 .amount-unit { font-size: 24rpx; color: var(--text-sub); }
 .date-wrap { flex: 1; display: flex; flex-direction: column; align-items: flex-end; }
-.date-hint { font-size: 21rpx; color: var(--text-sub); }
+.date-hint { font-size: 22rpx; color: var(--text-sub); }
 .date-hint.bad { color: #E8654A; }
-.picker-item.sub { padding-left: 46rpx; font-size: 25rpx; color: var(--text-sub); }
+.picker-item.sub { padding-left: 46rpx; font-size: 24rpx; color: var(--text-sub); }
+/* ===== 排版统一：标题 / 单位 / 关键数字 ===== */
+/* 卡片与弹层标题 */
+.card-title, .sheet-title { font-size: var(--fs-title); font-weight: 700; color: var(--text-main); }
+/* 条目标题 */
+.row-name { font-size: var(--fs-subtitle); font-weight: 600; color: var(--text-main); }
+/* 单位与标签：比正文小一档、颜色降级 */
+.unit, .amount-unit, .cfg-unit, .tree-num, .prod-row .row-sub, .row-sub2 { font-size: var(--fs-unit); color: var(--text-sub); }
+/* 关键数字：库存数量、概览数字 */
+.qty { font-size: var(--fs-h2); font-weight: 700; }
+.ov-num { font-size: var(--fs-title); font-weight: 700; }
+/* 次要说明 */
+.row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
 </style>

@@ -1319,7 +1319,7 @@ export default {
   font-size: 34rpx; font-weight: 700; color: var(--primary); letter-spacing: 1rpx;
 }
 .shelf-name {
-  font-size: 27rpx; font-weight: 600; color: var(--text-main);
+  font-size: 26rpx; font-weight: 600; color: var(--text-main);
   padding: 10rpx 14rpx 2rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .shelf-pos {
@@ -1406,7 +1406,7 @@ export default {
 }
 .wh-tag.active { color: #fff; background: var(--primary); border-color: var(--primary); }
 .wh-badge {
-  font-size: 19rpx; line-height: 1; padding: 4rpx 7rpx; border-radius: 4rpx;
+  font-size: 20rpx; line-height: 1; padding: 4rpx 7rpx; border-radius: 4rpx;
   background: rgba(95,167,122,.16); color: var(--primary); font-weight: 700;
 }
 .wh-tag.active .wh-badge { background: rgba(255,255,255,.28); color: #fff; }
@@ -1414,7 +1414,7 @@ export default {
 .exp-wrap { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8rpx; }
 .exp-tag { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; background: rgba(232,163,61,.16); color: #E8A33D; }
 .exp-tag.bad { background: rgba(232,101,74,.14); color: #E8654A; }
-.f-sub { font-size: 21rpx; color: var(--text-sub); }
+.f-sub { font-size: 22rpx; color: var(--text-sub); }
 /* ===== 商品列表行（带图 + 多属性 + 分页） ===== */
 .prod-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
 .prod-img { width: 88rpx; height: 88rpx; border-radius: 10rpx; flex: 0 0 auto; }
@@ -1423,7 +1423,7 @@ export default {
   background: rgba(95,167,122,.14); color: var(--primary);
   font-size: 36rpx; font-weight: 700;
 }
-.row-sub2 { font-size: 21rpx; color: var(--text-sub); margin-top: 2rpx; }
+.row-sub2 { font-size: 22rpx; color: var(--text-sub); margin-top: 2rpx; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 24rpx; padding: 20rpx 0 8rpx; }
 .pager-btn { font-size: 34rpx; color: var(--primary); padding: 0 18rpx; }
 .pager-btn.dis { color: var(--border); }
@@ -1448,7 +1448,7 @@ export default {
 .tree-item.lv1 { font-weight: 600; }
 .tree-item.lv2 { padding-left: 46rpx; font-size: 24rpx; color: var(--text-sub); font-weight: 400; }
 .tree-item.on { color: var(--primary); background: rgba(95,167,122,.10); }
-.tree-num { font-size: 21rpx; color: var(--text-sub); }
+.tree-num { font-size: 22rpx; color: var(--text-sub); }
 .tree-manage { padding: 16rpx 18rpx; font-size: 24rpx; color: var(--primary); border-top: 1rpx solid var(--border); }
 /* 筛选行：分类 + 货架 并排 */
 .filter-row { display: flex; gap: 12rpx; }
@@ -1467,4 +1467,16 @@ export default {
   border-radius: 8rpx; background: var(--primary);
 }
 .search-btn-icon { font-size: 28rpx; line-height: 1; }
+/* ===== 排版统一：标题 / 单位 / 关键数字 ===== */
+/* 卡片与弹层标题 */
+.card-title, .sheet-title { font-size: var(--fs-title); font-weight: 700; color: var(--text-main); }
+/* 条目标题 */
+.row-name { font-size: var(--fs-subtitle); font-weight: 600; color: var(--text-main); }
+/* 单位与标签：比正文小一档、颜色降级 */
+.unit, .amount-unit, .cfg-unit, .tree-num, .prod-row .row-sub, .row-sub2 { font-size: var(--fs-unit); color: var(--text-sub); }
+/* 关键数字：库存数量、概览数字 */
+.qty { font-size: var(--fs-h2); font-weight: 700; }
+.ov-num { font-size: var(--fs-title); font-weight: 700; }
+/* 次要说明 */
+.row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
 </style>

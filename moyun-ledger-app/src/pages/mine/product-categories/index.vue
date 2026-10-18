@@ -233,8 +233,8 @@ export default {
 .cat-card { display: flex; align-items: center; gap: 16rpx; margin: 14rpx 24rpx 0; padding: 22rpx 20rpx; background: var(--card); border: 1rpx solid var(--border); border-radius: 16rpx; }
 .cat-icon { width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center; font-size: 36rpx; border-radius: 14rpx; flex: 0 0 auto; overflow: hidden; }
 .cat-img { width: 100%; height: 100%; }
-.cat-name { font-size: 29rpx; color: var(--text-main); font-weight: 600; }
-.cat-tag { font-size: 19rpx; color: var(--text-sub); border: 1rpx solid var(--border); border-radius: 6rpx; padding: 0 8rpx; margin-left: 8rpx; }
+.cat-name { font-size: 28rpx; color: var(--text-main); font-weight: 600; }
+.cat-tag { font-size: 20rpx; color: var(--text-sub); border: 1rpx solid var(--border); border-radius: 6rpx; padding: 0 8rpx; margin-left: 8rpx; }
 .cat-sub { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
 .cat-more { font-size: 23rpx; color: var(--primary); }
 .empty { text-align: center; padding: 100rpx 0; font-size: 26rpx; color: var(--text-sub); }
@@ -259,4 +259,9 @@ export default {
 .sub-del { position: absolute; top: -8rpx; right: 12rpx; width: 34rpx; height: 34rpx; line-height: 30rpx; text-align: center; border-radius: 50%; background: #E8654A; color: #fff; font-size: 24rpx; }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
+/* ===== 排版统一 ===== */
+.cat-name { font-size: var(--fs-subtitle); font-weight: 600; }
+.cat-sub, .cat-tag, .sub-name { font-size: var(--fs-unit); color: var(--text-sub); }
+.sheet-title, .sheet-hero-name, .sheet-sub-title { font-size: var(--fs-title); font-weight: 700; }
+.cat-more, .sheet-act { font-size: var(--fs-sub); }
 </style>

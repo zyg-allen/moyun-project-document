@@ -58,6 +58,17 @@ page {
   --primary-soft: #E9F5EE;
   --primary-shadow: rgba(127, 191, 148, 0.35);
 
+  /* ---- 字号标尺（记账 / 仓库 共用，避免两套体系） ---- */
+  --fs-hero: 56rpx;     /* 页面主数字：金额、库存价值 */
+  --fs-display: 44rpx;  /* 次级大数字 */
+  --fs-title: 32rpx;    /* 页面 / 卡片标题 */
+  --fs-h2: 30rpx;       /* 分区标题 */
+  --fs-subtitle: 28rpx; /* 条目标题 */
+  --fs-body: 26rpx;     /* 正文 */
+  --fs-sub: 23rpx;      /* 次要信息 */
+  --fs-unit: 22rpx;     /* 单位、标签 */
+  --fs-tiny: 20rpx;     /* 极小说明 */
+
   /* 最外层容器（H5 下即 uni-page-body）此前**没有任何 background / color 声明**，
      于是背景用浏览器默认白色、文字用默认黑色。
      主题变量只注入在各页根视图上，它拿不到 —— 切到暗色后：

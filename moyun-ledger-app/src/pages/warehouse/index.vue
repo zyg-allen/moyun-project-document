@@ -31,6 +31,8 @@
         <view class="ov-cell"><view class="ov-num">{{ overview.monthOutQuantity || 0 }}</view><view class="ov-label">本月出库</view></view>
       </view>
       <view class="ov-tip" v-if="overview.zeroStockCount > 0">⚠ {{ overview.zeroStockCount }} 个商品零库存，可考虑补货</view>
+      <view class="ov-tip" v-if="overview.expiredCount > 0">⛔ {{ overview.expiredCount }} 个商品已过期，建议尽快处理</view>
+      <view class="ov-tip warn" v-if="overview.expiringCount > 0">⏳ {{ overview.expiringCount }} 个商品 30 天内到期</view>
       <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
     </view>
 
@@ -1244,5 +1246,6 @@ export default {
 .fl-qty { font-size: 30rpx; font-weight: 700; color: #E8654A; }
 .fl-qty.inn { color: #0EA37A; }
 .fl-reason { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
+.ov-tip.warn { color: #E8A33D; }
 .ov-more { margin-top: 10rpx; padding-top: 10rpx; border-top: 1rpx solid var(--border); font-size: 23rpx; color: var(--primary); text-align: center; }
 </style>

@@ -155,7 +155,9 @@ export default {
       return [
         { key: 'zero', level: 'warn', title: '断货风险', desc: '库存已为 0，需要补货', count: zero },
         { key: 'heavy', level: 'warn', title: '压货风险', desc: '单商品库存 ≥ 50 件', count: heavy },
-        { key: 'slow', level: 'bad', title: '滞销风险', desc: '上架超过 ' + SLOW_DAYS + ' 天仍有库存', count: slow }
+        { key: 'slow', level: 'bad', title: '滞销风险', desc: '上架超过 ' + SLOW_DAYS + ' 天仍有库存', count: slow },
+        { key: 'expiring', level: 'warn', title: '临期风险', desc: '30 天内到期', count: this.ov.expiringCount || 0 },
+        { key: 'expired', level: 'bad', title: '已过期', desc: '过期未处理，需尽快清理', count: this.ov.expiredCount || 0 }
       ];
     },
     listTitle() {

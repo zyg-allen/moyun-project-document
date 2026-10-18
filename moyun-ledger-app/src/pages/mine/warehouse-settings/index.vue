@@ -96,7 +96,7 @@ import { useThemeStore } from '@/stores/theme';
 import { isWarehouseEnabled, setWarehouseEnabled, syncWarehouseSwitch, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { listProductCategories, createProductCategory, deleteProductCategory } from '@/api/ledger';
 
-import { getWarehouseCfg, saveWarehouseCfg } from '@/utils/warehouseConfig';
+import { getWarehouseCfg, saveWarehouseCfg, loadWarehouseCfg } from '@/utils/warehouseConfig';
 const REASONS = [['purchase', '采购'], ['sale', '销售'], ['gift', '赠送'], ['other', '其他']];
 
 export default {
@@ -130,7 +130,7 @@ export default {
     this.loadCategories();
   },
   methods: {
-    loadCfg() { this.cfg = getWarehouseCfg(); },
+    async loadCfg() { this.cfg = await loadWarehouseCfg(); },
     saveCfg() { this.cfg = saveWarehouseCfg(this.cfg); },
     /** 每页条数 */
     onPageSizeChange(e) {

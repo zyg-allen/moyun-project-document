@@ -499,3 +499,11 @@ export const createSaleChannel = (data) => post('/portal/ledger/sale-channels', 
 
 /** 删除渠道（仅本人自建） */
 export const deleteSaleChannel = (id) => del('/portal/ledger/sale-channels/' + id);
+
+// ---------------- 仓库常用配置（存后端 ledger_warehouse_config）----------------
+
+/** 读取仓库配置（返回 key-value 对象） */
+export const getWarehouseConfig = () => get('/portal/ledger/warehouse-config');
+
+/** 保存仓库配置（部分更新） */
+export const saveWarehouseConfig = (cfg) => put('/portal/ledger/warehouse-config', { cfg });

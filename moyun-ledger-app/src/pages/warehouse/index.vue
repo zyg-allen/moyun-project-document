@@ -360,7 +360,7 @@
             <view class="fl-badge" :class="{ inn: f.quantityChange > 0 }">{{ f.flowTypeLabel || f.flowType }}</view>
             <view class="flex-1 min-w-0">
               <view class="row-name">{{ f.productName }}<text v-if="f.reasonLabel" class="fl-reason"> · {{ f.reasonLabel }}</text></view>
-              <view class="row-sub">{{ f.shelfName }}<text v-if="f.toShelfName"> → {{ f.toShelfName }}</text> · {{ f.createTime }}</view>
+              <view class="row-sub">{{ f.shelfName }}<text v-if="f.channelName"> · {{ f.channelName }}</text><text v-if="f.toShelfName"> → {{ f.toShelfName }}</text> · {{ f.createTime }}</view>
             </view>
             <view class="fl-qty" :class="{ inn: f.quantityChange > 0 }">
               {{ f.quantityChange > 0 ? '+' : '' }}{{ f.quantityChange }}
@@ -912,6 +912,36 @@ export default {
         unit: p.unit || '', barcode: p.barcode || '', conditionGrade: p.conditionGrade || '', sourceChannel: p.sourceChannel || '', sellPrice: p.sellPrice == null ? '' : p.sellPrice
       };
       this.productSheet = true;
+    },
+    /** 盘点：直接把该商品库存改成实际数量（差异写盘盈/盘亏流水） */
+    stocktakeProduct() {
+      const p = this.productDetail.product;
+      if (!p || !p.id) return;
+      uni.showModal({
+        title: '盘点：实际数量',
+        editable: true,
+        placeholderText: '当前 ' + (p.stockQuantity || 0),
+        success: async (r) => {
+          if (!r.confirm) return;
+          const n = Number(String(r.content || '').trim());
+          if (isNaN(n) || n < 0) { uni.showToast({ title: '请输入有效数量', icon: 'none' }); return; }
+          const top = (this.productDetail.shelves || []).slice()
+            .sort((a, b) => (b.quantity || 0) - (a.quantity || 0))[0];
+          try {
+            await stocktake({
+              warehouseId: this.currentId,
+              shelfId: top ? top.shelfId : 0,
+              items: [{ productId: p.id, actualQuantity: n }],
+              remark: '盘点'
+            });
+            uni.showToast({ title: '已盘点', icon: 'success' });
+            this.productDetail.visible = false;
+            await this.loadProducts();
+            await this.loadShelves();
+            await this.loadOverview();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
     },
     stockFromProductDetail() {
       const p = this.productDetail.product;

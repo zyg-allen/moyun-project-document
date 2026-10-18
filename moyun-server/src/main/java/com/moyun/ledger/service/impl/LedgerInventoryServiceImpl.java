@@ -51,6 +51,9 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Autowired
     private LedgerProductCategoryMapper productCategoryMapper;
 
+    @Autowired
+    private com.moyun.ledger.mapper.LedgerSaleChannelMapper channelMapper;
+
     // ---------------- 仓库 ----------------
 
     @Override
@@ -817,6 +820,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                     : productMapper.selectBatchIds(pids).stream()
                             .collect(Collectors.toMap(LedgerProduct::getId, LedgerProduct::getName, (a, b) -> a));
             List<Long> sids = new ArrayList<>();
+            // 渠道名（批量查一次，避免 N+1）
             for (LedgerStockFlow f : page.getRecords()) {
                 if (f.getShelfId() != null && f.getShelfId() > 0) sids.add(f.getShelfId());
                 if (f.getToShelfId() != null && f.getToShelfId() > 0) sids.add(f.getToShelfId());
@@ -824,6 +828,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
             Map<Long, String> snames = sids.isEmpty() ? new HashMap<>()
                     : shelfMapper.selectBatchIds(sids.stream().distinct().collect(Collectors.toList())).stream()
                             .collect(Collectors.toMap(LedgerShelf::getId, LedgerShelf::getName, (a, b) -> a));
+            java.util.Map<Long, String> channelNameCache = new java.util.HashMap<>();
             for (LedgerStockFlow f : page.getRecords()) {
                 f.setProductName(pnames.getOrDefault(f.getProductId(), "（已删除商品）"));
                 f.setShelfName((f.getShelfId() == null || f.getShelfId() == 0) ? "未上架"
@@ -831,6 +836,13 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                 f.setToShelfName((f.getToShelfId() == null || f.getToShelfId() == 0) ? null
                         : snames.getOrDefault(f.getToShelfId(), "货架" + f.getToShelfId()));
                 f.setReasonLabel(reasonLabel(f.getReason()));
+                if (f.getChannelId() != null) {
+                    final Long cid = f.getChannelId();
+                    f.setChannelName(channelNameCache.computeIfAbsent(cid, k -> {
+                        com.moyun.ledger.domain.entity.LedgerSaleChannel ch = channelMapper.selectById(k);
+                        return ch == null ? null : ch.getName();
+                    }));
+                }
                 f.setFlowTypeLabel(flowTypeLabel(f.getFlowType()));
             }
         }

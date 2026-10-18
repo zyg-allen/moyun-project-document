@@ -17,7 +17,7 @@
     <view class="card">
       <view class="card-title">
         <text class="flex-1">商品类目</text>
-        <text class="link" @tap="openCatSheet()">＋新增</text>
+        <text class="link" @tap="goCategories()">管理 ›</text>
       </view>
       <view v-if="!categories.length" class="hint">还没有类目，点「＋新增」建一个</view>
       <view v-for="c in categories" :key="c.id" class="cat-row">

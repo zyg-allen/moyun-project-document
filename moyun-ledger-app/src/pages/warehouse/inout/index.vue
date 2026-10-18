@@ -196,7 +196,7 @@
         <view class="sheet" @tap.stop>
           <view class="sheet-title">{{ picker.title }}</view>
           <scroll-view scroll-y class="picker-list">
-            <view v-if="!picker.items.length" class="empty">{{ picker.empty }}</view>
+            <view v-if="!picker.items.length" class="empty" @tap="picker.mode === 'category' && goCategories()">{{ picker.empty }}</view>
             <view v-for="it in picker.items" :key="it.id" class="picker-item"
                   :class="{ active: String(picker.selected) === String(it.id) }" @tap="confirmPick(it)">
               <text>{{ it.name }}</text>
@@ -385,9 +385,10 @@ export default {
       this.reuseName = '';
       this.similarList = [];
     },
+    goCategories() { uni.navigateTo({ url: '/pages/mine/product-categories/index' }); },
     pickCategory() {
       this.openPicker('category', '选择商品分类', this.categoryPickerItems, this.f.categoryId,
-        '还没有类目，去「仓库设置」添加');
+        '还没有商品分类，点这里去添加 ›');
     },
     toggleChannel(id) {
       const i = this.f.channelIds.indexOf(id);

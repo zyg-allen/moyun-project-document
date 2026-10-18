@@ -34,9 +34,21 @@
       </view>
       <view class="kpi-row">
         <view class="kpi">
+          <view class="kpi-num">¥{{ fmt(ov.monthSaleAmount) }}</view>
+          <view class="kpi-label">销售额</view>
+        </view>
+        <view class="kpi">
           <view class="kpi-num">¥{{ fmt(ov.monthSaleCost) }}</view>
           <view class="kpi-label">销售成本</view>
         </view>
+        <view class="kpi">
+          <view class="kpi-num" :class="{ in: (ov.monthGrossProfit || 0) >= 0, out: (ov.monthGrossProfit || 0) < 0 }">
+            ¥{{ fmt(ov.monthGrossProfit) }}
+          </view>
+          <view class="kpi-label">毛利</view>
+        </view>
+      </view>
+      <view class="kpi-row">
         <view class="kpi">
           <view class="kpi-num">{{ ov.zeroStockCount || 0 }}</view>
           <view class="kpi-label">零库存商品</view>

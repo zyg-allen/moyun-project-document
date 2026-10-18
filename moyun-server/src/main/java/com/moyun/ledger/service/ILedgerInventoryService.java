@@ -61,7 +61,7 @@ public interface ILedgerInventoryService {
 
     /** 出库：数量 -（校验不超该货架现有库存），reason 记原因（sale/self_use/loss/transfer/gift/other） */
     Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
-                                 Integer quantity, String reason, String remark);
+                                 Integer quantity, String reason, java.math.BigDecimal salePrice, String remark);
 
     /**
      * 库存盘点：按实盘数量与账面比对，差异写一条 adjust 流水（正=盘盈，负=盘亏）。

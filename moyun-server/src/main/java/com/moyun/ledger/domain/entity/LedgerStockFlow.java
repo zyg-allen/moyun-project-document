@@ -46,6 +46,8 @@ public class LedgerStockFlow {
     private Integer quantityAfter;
     private BigDecimal costBefore;
     private BigDecimal costAfter;
+    /** 销售成交单价（仅出库原因为销售时填写，用于算销售额与毛利） */
+    private BigDecimal salePrice;
     private Long operatorId;
     private String relatedOrder;
     private String remark;

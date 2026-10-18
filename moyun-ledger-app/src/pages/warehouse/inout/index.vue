@@ -83,6 +83,10 @@
             <text class="f-label">{{ form.mode === 'adjust' ? '实际数量' : '数量' }}</text>
             <input class="f-input" type="number" v-model="form.quantity" placeholder="0" />
           </view>
+          <view class="f-row" v-if="isSaleOut">
+            <text class="f-label">成交单价</text>
+            <input class="f-input" type="digit" v-model="form.salePrice" placeholder="选填，填了可算毛利" />
+          </view>
           <view class="f-row" v-if="form.mode !== 'adjust'" @tap="pickReason">
             <text class="f-label">原因</text>
             <text class="f-value">{{ reasonLabel }} ▾</text>
@@ -155,7 +159,7 @@ export default {
       flows: [],
       loading: false,
       submitting: false,
-      form: { visible: false, mode: 'in', shelfId: 0, productId: null, quantity: '', reason: '', remark: '', photoUrl: '' },
+      form: { visible: false, mode: 'in', shelfId: 0, productId: null, quantity: '', reason: '', salePrice: '', remark: '', photoUrl: '' },
       picker: { visible: false, mode: '', title: '', items: [], selected: null, empty: '' }
     };
   },
@@ -173,6 +177,8 @@ export default {
       return Array.from(map.entries()).map(([date, items]) => ({ date, items }));
     },
     reasonList() { return this.form.mode === 'in' ? IN_REASONS : OUT_REASONS; },
+    /** 销售出库才需要成交单价（选了其它原因就不显示） */
+    isSaleOut() { return this.form.mode === 'out' && (!this.form.reason || this.form.reason === 'sale'); },
     reasonLabel() {
       const r = this.reasonList.find(x => x[0] === this.form.reason);
       if (r) return r[1];
@@ -243,7 +249,7 @@ export default {
       this.loading = false;
     },
     openForm(mode) {
-      this.form = { visible: true, mode, shelfId: 0, productId: null, quantity: '', reason: '', remark: '', photoUrl: '' };
+      this.form = { visible: true, mode, shelfId: 0, productId: null, quantity: '', reason: '', salePrice: '', remark: '', photoUrl: '' };
     },
     openPicker(mode, title, items, selected, empty) {
       this.picker = { visible: true, mode, title, items, selected, empty: empty || '暂无数据' };
@@ -304,7 +310,8 @@ export default {
           const fn = f.mode === 'in' ? stockIn : stockOut;
           await fn({
             warehouseId: this.warehouseId, productId: f.productId, shelfId: f.shelfId || 0,
-            reason: f.reason || undefined, quantity: qty, remark: f.remark || undefined
+            reason: f.reason || undefined, quantity: qty, remark: f.remark || undefined,
+            salePrice: (this.isSaleOut && f.salePrice !== '' && !isNaN(Number(f.salePrice))) ? Number(f.salePrice) : undefined
           });
         }
         if (f.photoUrl) {

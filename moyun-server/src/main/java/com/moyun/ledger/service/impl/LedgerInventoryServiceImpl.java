@@ -420,15 +420,15 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
                                        Integer quantity, String reason, String remark) {
         return applyStockChange(userId, warehouseId, productId, shelfId, quantity,
-                LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, remark);
+                LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, null, remark);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
-                                        Integer quantity, String reason, String remark) {
+                                        Integer quantity, String reason, java.math.BigDecimal salePrice, String remark) {
         return applyStockChange(userId, warehouseId, productId, shelfId, -Math.abs(quantity),
-                LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE), null, remark);
+                LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE), null, salePrice, remark);
     }
 
     @Override
@@ -500,7 +500,8 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     /** 出入库原子操作：数量 + 流水同写（按 商品×货架 定位库存行） */
     private Map<String, Object> applyStockChange(Long userId, Long warehouseId, Long productId,
                                                  Long shelfId, int change, String flowType,
-                                                 String reason, Long toShelfId, String remark) {
+                                                 String reason, Long toShelfId,
+                                                 java.math.BigDecimal salePrice, String remark) {
         getOwnedWarehouse(userId, warehouseId);
         LedgerProduct p = getOwnedProduct(userId, productId);
         touchProductMoved(productId);
@@ -705,6 +706,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                 .eq(LedgerStockFlow::getStatus, LedgerStockFlow.STATUS_NORMAL)
                 .ge(LedgerStockFlow::getCreateTime, monthStart));
         int monthIn = 0, monthOut = 0, monthSaleQty = 0;
+        BigDecimal monthSaleAmount = BigDecimal.ZERO;
         BigDecimal monthSaleCost = BigDecimal.ZERO;
         for (LedgerStockFlow f : monthFlows) {
             int c = f.getQuantityChange() == null ? 0 : f.getQuantityChange();
@@ -714,6 +716,10 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                 monthOut += -c;
                 if (LedgerStockFlow.REASON_SALE.equals(f.getReason())) {
                     monthSaleQty += -c;
+                    if (f.getSalePrice() != null) {
+                        monthSaleAmount = monthSaleAmount.add(
+                                f.getSalePrice().multiply(BigDecimal.valueOf(-c)));
+                    }
                     BigDecimal cb = f.getCostBefore() == null ? BigDecimal.ZERO : f.getCostBefore();
                     BigDecimal ca = f.getCostAfter() == null ? BigDecimal.ZERO : f.getCostAfter();
                     monthSaleCost = monthSaleCost.add(cb.subtract(ca));
@@ -731,6 +737,8 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         m.put("monthOutQuantity", monthOut);
         m.put("monthSaleQuantity", monthSaleQty);
         m.put("monthSaleCost", monthSaleCost);
+        m.put("monthSaleAmount", monthSaleAmount);
+        m.put("monthGrossProfit", monthSaleAmount.subtract(monthSaleCost));
         return m;
     }
 

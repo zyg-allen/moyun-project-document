@@ -115,7 +115,7 @@ public class PortalLedgerInventoryController {
         return AjaxResult.success(inventoryService.stockOut(
                 PortalSecurityUtils.getUserId(),
                 longVal(bo, "warehouseId"), longVal(bo, "productId"), longVal(bo, "shelfId"),
-                intVal(bo, "quantity"), strVal(bo, "reason"), strVal(bo, "remark")));
+                intVal(bo, "quantity"), strVal(bo, "reason"), decVal(bo, "salePrice"), strVal(bo, "remark")));
     }
 
     @Operation(summary = "库存盘点（实盘 vs 账面，差异写 adjust 流水）")
@@ -166,6 +166,22 @@ public class PortalLedgerInventoryController {
     private Integer intVal(Map<String, Object> m, String k) {
         Object v = m.get(k);
         return v == null ? null : Integer.valueOf(String.valueOf(v));
+    }
+
+    private java.math.BigDecimal decVal(Map<String, Object> m, String k) {
+        Object v = m.get(k);
+        if (v == null) {
+            return null;
+        }
+        String s = String.valueOf(v).trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private String strVal(Map<String, Object> m, String k) {

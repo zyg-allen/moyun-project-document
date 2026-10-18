@@ -1,6 +1,6 @@
 <template>
   <view class="stepper">
-    <view class="step-btn" :class="{ dis: num <= min }" @tap.stop="step(-1)">
+    <view class="step-btn" :class="{ dis: num <= min }" @tap.stop="changeStep(-1)">
       <text class="step-sign">−</text>
     </view>
     <input
@@ -13,7 +13,7 @@
       @confirm="onBlur"
     />
     <text v-if="unit" class="step-unit">{{ unit }}</text>
-    <view class="step-btn" :class="{ dis: max !== null && max !== undefined && num >= max }" @tap.stop="step(1)">
+    <view class="step-btn" :class="{ dis: max !== null && max !== undefined && num >= max }" @tap.stop="changeStep(1)">
       <text class="step-sign">＋</text>
     </view>
   </view>
@@ -58,7 +58,7 @@ export default {
       this.$emit('update:modelValue', v);
       this.$emit('change', v);
     },
-    step(dir) {
+    changeStep(dir) {
       const base = this.num || this.min;
       const next = this.clamp(base + dir * this.step);
       // 只在真的变化时才发，避免边界处空转

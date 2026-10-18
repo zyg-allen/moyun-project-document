@@ -439,12 +439,13 @@ export const attachShelfImage = (id, url) =>
 /** 商品详情：商品档案 + 各货架库存分布 + 图片 */
 export const getProductDetail = (id) => get('/portal/ledger/inventory/products/' + id);
 
-/** 商品图片列表 */
-export const listProductImages = (id) => get('/portal/ledger/inventory/products/' + id + '/images');
+/** 商品素材列表（kind: product=商品图 / promo=宣传图 / voucher=采购凭证） */
+export const listProductImages = (id, kind) =>
+  get('/portal/ledger/inventory/products/' + id + '/images', kind ? { kind } : {});
 
-/** 给商品挂一张已上传的图片 */
-export const attachProductImage = (id, url) =>
-  post('/portal/ledger/inventory/products/' + id + '/images', { url });
+/** 给商品挂一张已上传的素材（kind 区分商品图/宣传图/凭证） */
+export const attachProductImage = (id, url, kind) =>
+  post('/portal/ledger/inventory/products/' + id + '/images', { url, kind: kind || 'product' });
 
 /** 删除图片（同时删存储与 sys_file 记录） */
 export const deleteInventoryImage = (fileId) => del('/portal/ledger/inventory/images/' + fileId);

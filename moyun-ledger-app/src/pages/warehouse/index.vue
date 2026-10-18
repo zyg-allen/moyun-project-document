@@ -134,6 +134,18 @@
           <input class="f-input" type="digit" v-model="pForm.costPrice" placeholder="选填" /></view>
         <view class="f-row"><text class="f-label">售价</text>
           <input class="f-input" type="digit" v-model="pForm.sellPrice" placeholder="选填" /></view>
+        <view class="f-row"><text class="f-label">单位</text>
+          <input class="f-input" v-model="pForm.unit" placeholder="个 / 箱 / 件" /></view>
+        <view class="f-row"><text class="f-label">条码</text>
+          <input class="f-input" v-model="pForm.barcode" placeholder="选填，可扫码" /></view>
+        <view class="f-row"><text class="f-label">成色</text>
+          <picker :range="conditionNames" @change="onConditionChange">
+            <view class="f-value">{{ pForm.conditionGrade || '全新' }} ▾</view>
+          </picker></view>
+        <view class="f-row"><text class="f-label">来源</text>
+          <picker :range="channelNames" @change="onChannelChange">
+            <view class="f-value">{{ pForm.sourceChannel || '未设置' }} ▾</view>
+          </picker></view>
         <view class="sheet-actions">
           <view class="btn ghost" @tap="productSheet = false">取消</view>
           <view class="btn" @tap="saveProduct">保存</view>
@@ -288,9 +300,14 @@
       <view class="sheet" @tap.stop>
         <view class="sheet-title">{{ productDetail.product.name }}</view>
 
-        <!-- 图片（1:N，首张封面） -->
+        <!-- 素材分类：商品图 / 宣传图 / 采购凭证 -->
+        <view class="mat-tabs">
+          <view class="mat-tab" :class="{ on: materialKind === 'product' }" @tap="materialKind = 'product'">商品图</view>
+          <view class="mat-tab" :class="{ on: materialKind === 'promo' }" @tap="materialKind = 'promo'">宣传图</view>
+          <view class="mat-tab" :class="{ on: materialKind === 'voucher' }" @tap="materialKind = 'voucher'">凭证</view>
+        </view>
         <scroll-view scroll-x class="detail-imgs">
-          <view v-for="(img, i) in productDetail.images" :key="img.id" class="detail-img-wrap">
+          <view v-for="(img, i) in materialImages" :key="img.id" class="detail-img-wrap">
             <image :src="img.fileUrl" class="detail-img" mode="aspectFill" />
             <text v-if="i === 0" class="detail-img-cover">封面</text>
             <text class="detail-img-del" @tap.stop="removeProductImage(img)">×</text>
@@ -422,6 +439,8 @@ const WH_TYPES = [
 const IN_REASONS = [['purchase', '采购'], ['gift', '赠送'], ['other', '其他']];
 const OUT_REASONS = [['sale', '销售'], ['self_use', '自用'], ['loss', '损耗'], ['transfer', '转出'], ['gift', '赠送'], ['other', '其他']];
 
+const CONDITIONS = ['全新', '95新', '9成新', '8成新', '7成新及以下'];
+const CHANNELS = ['线下进货', '淘宝', '拼多多', '1688', '闲鱼', '抖音', '小红书', '其他'];
 const SHELF_TYPES = [
   ['normal', '普通货架'],
   ['refrigerated', '冷藏/冷冻'],
@@ -463,7 +482,8 @@ export default {
       },
       transferForm: { visible: false, productId: null, itemName: '', targetShelfId: null, targetName: '', quantity: '' },
       // 商品详情（图片 + 各货架库存分布）
-      productDetail: { visible: false, product: {}, shelves: [], images: [], totalQuantity: 0, totalCostValue: 0 },
+      materialKind: 'product',
+      productDetail: { visible: false, product: {}, shelves: [], images: [], promoImages: [], voucherImages: [], totalQuantity: 0, totalCostValue: 0 },
       // ===== 查找 / 类目 / 相似商品 =====
       keyword: '',
       categoryId: null,
@@ -493,7 +513,7 @@ export default {
       }, 0);
       return Number(sum).toFixed(2);
     },
-    shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); },
+    shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); }, conditionNames() { return CONDITIONS; }, channelNames() { return CHANNELS; }, materialImages() { return this.materialKind === 'promo' ? (this.productDetail.promoImages || []) : this.materialKind === 'voucher' ? (this.productDetail.voucherImages || []) : (this.productDetail.images || []); },
     /** 移库可选商品（本货架上还有货的） */
     transferItemNames() { return (this.shelfDetail.items || []).map(it => it.productName); },
     /** 移库可选目标货架（排除当前货架） */
@@ -563,7 +583,7 @@ export default {
       const x = SHELF_TYPES.find(i => i[0] === t);
       return x ? x[1] : '普通货架';
     },
-    onShelfTypeChange(e) {
+    onConditionChange(e) { this.pForm.conditionGrade = CONDITIONS[e.detail.value] || ''; }, onChannelChange(e) { this.pForm.sourceChannel = CHANNELS[e.detail.value] || ''; }, onShelfTypeChange(e) {
       const x = SHELF_TYPES[e.detail.value];
       if (x) this.shelfForm.shelfType = x[0];
     },
@@ -782,6 +802,8 @@ export default {
           shelf: d.shelf || {},
           items: d.items || [],
           images: d.images || [],
+          promoImages: d.promoImages || [],
+          voucherImages: d.voucherImages || [],
           totalQuantity: d.totalQuantity || 0,
           totalCostValue: d.totalCostValue || 0,
           overCapacity: !!d.overCapacity
@@ -896,6 +918,7 @@ export default {
     },
     // ===== 商品详情（图片轮播 + 各货架库存分布）=====
     async openProductDetail(p) {
+      this.materialKind = 'product';
       try {
         const d = (await getProductDetail(p.id)) || {};
         this.productDetail = {
@@ -903,6 +926,8 @@ export default {
           product: d.product || p,
           shelves: d.shelves || [],
           images: d.images || [],
+          promoImages: d.promoImages || [],
+          voucherImages: d.voucherImages || [],
           totalQuantity: d.totalQuantity || 0,
           totalCostValue: d.totalCostValue || 0
         };
@@ -919,9 +944,11 @@ export default {
           if (!path) return;
           uni.showLoading({ title: '上传中', mask: true });
           try {
-            const url = await uploadFile(path, 'ledger_product');
+            const kind = this.materialKind;
+            const bizType = kind === 'promo' ? 'ledger_product_promo' : kind === 'voucher' ? 'ledger_product_voucher' : 'ledger_product';
+            const url = await uploadFile(path, bizType);
             if (url) {
-              await attachProductImage(id, url);
+              await attachProductImage(id, url, kind);
               await this.openProductDetail({ id });
               await this.loadProducts();
             }
@@ -955,7 +982,7 @@ export default {
         name: p.name || '',
         category: p.category || '',
         costPrice: p.costPrice == null ? '' : p.costPrice,
-        sellPrice: p.sellPrice == null ? '' : p.sellPrice
+        unit: p.unit || '', barcode: p.barcode || '', conditionGrade: p.conditionGrade || '', sourceChannel: p.sourceChannel || '', sellPrice: p.sellPrice == null ? '' : p.sellPrice
       };
       this.productSheet = true;
     },
@@ -1075,7 +1102,7 @@ export default {
     },
     openProductSheet() {
       this.pForm = {
-        id: null, name: '', categoryId: null, categoryName: '',
+        id: null, name: '', categoryId: null, categoryName: '', unit: '', barcode: '', conditionGrade: '', sourceChannel: '',
         costPrice: '', sellPrice: ''
       };
       this.similarList = [];
@@ -1098,7 +1125,7 @@ export default {
         name: this.pForm.name.trim(),
         categoryId: this.pForm.categoryId || null,
         costPrice: this.pForm.costPrice ? Number(this.pForm.costPrice) : null,
-        sellPrice: this.pForm.sellPrice ? Number(this.pForm.sellPrice) : null
+        sellPrice: this.pForm.sellPrice ? Number(this.pForm.sellPrice) : null, unit: (this.pForm.unit || '').trim() || null, barcode: (this.pForm.barcode || '').trim() || null, conditionGrade: this.pForm.conditionGrade || null, sourceChannel: this.pForm.sourceChannel || null
       };
       try {
         if (this.pForm.id) {
@@ -1249,4 +1276,11 @@ export default {
   width: 140rpx; text-align: center; font-size: 26rpx;
   border: 1rpx solid var(--border); border-radius: 8rpx; padding: 6rpx 0;
 }
+/* ===== 素材分类 tab ===== */
+.mat-tabs { display: flex; gap: 10rpx; padding: 6rpx 0 10rpx; }
+.mat-tab {
+  padding: 8rpx 20rpx; font-size: 24rpx; border-radius: 999rpx;
+  color: var(--text-sub); border: 1rpx solid var(--border);
+}
+.mat-tab.on { color: #fff; background: var(--primary); border-color: var(--primary); }
 </style>

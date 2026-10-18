@@ -221,6 +221,22 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         if (bo.getCategory() != null) {
             db.setCategory(bo.getCategory());
         }
+        // 产品方案 4.3：单位 / 条码 / 成色 / 来源渠道 / 二手标记 都要可改
+        if (bo.getUnit() != null && !bo.getUnit().isBlank()) {
+            db.setUnit(bo.getUnit().trim());
+        }
+        if (bo.getBarcode() != null) {
+            db.setBarcode(bo.getBarcode().trim());
+        }
+        if (bo.getConditionGrade() != null) {
+            db.setConditionGrade(bo.getConditionGrade());
+        }
+        if (bo.getSourceChannel() != null) {
+            db.setSourceChannel(bo.getSourceChannel());
+        }
+        if (bo.getIsSecondhand() != null) {
+            db.setIsSecondhand(bo.getIsSecondhand());
+        }
         if (bo.getRemark() != null) {
             db.setRemark(bo.getRemark());
         }

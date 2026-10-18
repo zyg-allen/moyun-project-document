@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -113,14 +114,17 @@ public class PortalLedgerShelfController {
     public AjaxResult productDetail(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         Map<String, Object> data = inventoryService.productDetail(userId, id);
-        data.put("images", listImages(LedgerShelf.PRODUCT_FILE_BIZ_TYPE, id));
+        data.put("images", listImages(bizTypeOf("product"), id));
+        data.put("promoImages", listImages(bizTypeOf("promo"), id));
+        data.put("voucherImages", listImages(bizTypeOf("voucher"), id));
         return AjaxResult.success(data);
     }
 
-    @Operation(summary = "商品图片列表")
+    @Operation(summary = "商品图片列表（kind: product/promo/voucher）")
     @GetMapping("/products/{id}/images")
-    public AjaxResult productImages(@PathVariable("id") Long id) {
-        return AjaxResult.success(listImages(LedgerShelf.PRODUCT_FILE_BIZ_TYPE, id));
+    public AjaxResult productImages(@PathVariable("id") Long id,
+                                    @RequestParam(value = "kind", required = false) String kind) {
+        return AjaxResult.success(listImages(bizTypeOf(kind), id));
     }
 
     @Operation(summary = "给货架挂一张已上传的图片")
@@ -136,7 +140,7 @@ public class PortalLedgerShelfController {
     public AjaxResult attachProductImage(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
         getOwnedProduct(userId, id); // 归属校验
-        return AjaxResult.success(attachImage(userId, LedgerShelf.PRODUCT_FILE_BIZ_TYPE, id, body));
+        return AjaxResult.success(attachImage(userId, bizTypeOf(str(body, "kind")), id, body));
     }
 
     @Operation(summary = "删除图片（同时删存储与记录）")
@@ -153,7 +157,9 @@ public class PortalLedgerShelfController {
         }
         // 挂在本模块实体上的图片才允许在这里删，避免误删其它模块附件
         if (!LedgerShelf.FILE_BIZ_TYPE.equals(f.getBusinessType())
-                && !LedgerShelf.PRODUCT_FILE_BIZ_TYPE.equals(f.getBusinessType())) {
+                && !LedgerShelf.PRODUCT_FILE_BIZ_TYPE.equals(f.getBusinessType())
+                && !"ledger_product_promo".equals(f.getBusinessType())
+                && !"ledger_product_voucher".equals(f.getBusinessType())) {
             throw new ServiceException("该附件不属于仓库模块");
         }
         sysFileService.deleteFileById(fileId);
@@ -220,6 +226,19 @@ public class PortalLedgerShelfController {
         return p;
     }
 
+    /**
+     * 商品素材分类 → sys_file.business_type。
+     * product=商品图 / promo=宣传图 / voucher=采购凭证。
+     */
+    private String bizTypeOf(String kind) {
+        if ("promo".equals(kind)) {
+            return "ledger_product_promo";
+        }
+        if ("voucher".equals(kind)) {
+            return "ledger_product_voucher";
+        }
+        return LedgerShelf.PRODUCT_FILE_BIZ_TYPE;
+    }
     private String str(Map<String, Object> m, String k) {
         Object v = m.get(k);
         if (v == null) {

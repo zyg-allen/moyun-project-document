@@ -37,12 +37,26 @@
       <view class="card-title"><text class="flex-1">常用配置</text></view>
       <view class="cfg-row">
         <text class="cfg-label">低库存提醒阈值</text>
-        <input class="cfg-input" type="number" v-model="cfg.lowStock" placeholder="0" />
+        <input class="cfg-input" type="number" v-model="cfg.lowStock" placeholder="0" @blur="saveCfg" />
         <text class="cfg-unit">件</text>
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">在列表显示库存价值</text>
-        <switch :checked="cfg.showValue" color="#5FA77A" @change="e => cfg.showValue = e.detail.value" />
+        <switch :checked="cfg.showValue" color="#5FA77A" @change="e => { cfg.showValue = e.detail.value; saveCfg(); }" />
+      </view>
+      <view class="cfg-row">
+        <text class="flex-1 cfg-label">列表显示标签</text>
+        <switch :checked="cfg.showTags" color="#5FA77A" @change="e => { cfg.showTags = e.detail.value; saveCfg(); }" />
+      </view>
+      <view class="cfg-row">
+        <text class="flex-1 cfg-label">列表显示到期日期</text>
+        <switch :checked="cfg.showExpiry" color="#5FA77A" @change="e => { cfg.showExpiry = e.detail.value; saveCfg(); }" />
+      </view>
+      <view class="cfg-row">
+        <text class="flex-1 cfg-label">商品列表每页条数</text>
+        <picker :range="pageSizeOptions" @change="onPageSizeChange">
+          <text class="cfg-value">{{ cfg.pageSize }} 条 ▾</text>
+        </picker>
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">出入库默认原因</text>
@@ -82,7 +96,7 @@ import { useThemeStore } from '@/stores/theme';
 import { isWarehouseEnabled, setWarehouseEnabled, syncWarehouseSwitch, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { listProductCategories, createProductCategory, deleteProductCategory } from '@/api/ledger';
 
-const CFG_KEY = 'moyun_warehouse_cfg';
+import { getWarehouseCfg, saveWarehouseCfg } from '@/utils/warehouseConfig';
 const REASONS = [['purchase', '采购'], ['sale', '销售'], ['gift', '赠送'], ['other', '其他']];
 
 export default {
@@ -95,12 +109,13 @@ export default {
       newCatName: '',
       parentId: 0,
       parentName: '',
-      cfg: { lowStock: '5', showValue: true, defaultReason: 'purchase' }
+      cfg: getWarehouseCfg()
     };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     reasonOptions() { return REASONS.map(r => r[1]); },
+    pageSizeOptions() { return ['10 条', '20 条', '50 条']; },
     parentNames() { return ['无（一级类目）'].concat(this.categories.map(c => c.name)); },
     cfgDefaultReasonLabel() {
       const r = REASONS.find(x => x[0] === this.cfg.defaultReason);
@@ -115,14 +130,13 @@ export default {
     this.loadCategories();
   },
   methods: {
-    loadCfg() {
-      try {
-        const raw = uni.getStorageSync(CFG_KEY);
-        if (raw && typeof raw === 'object') this.cfg = Object.assign({}, this.cfg, raw);
-      } catch (e) { /* 忽略 */ }
-    },
-    saveCfg() {
-      try { uni.setStorageSync(CFG_KEY, this.cfg); } catch (e) { /* 忽略 */ }
+    loadCfg() { this.cfg = getWarehouseCfg(); },
+    saveCfg() { this.cfg = saveWarehouseCfg(this.cfg); },
+    /** 每页条数 */
+    onPageSizeChange(e) {
+      const arr = [10, 20, 50];
+      this.cfg.pageSize = arr[Number(e.detail.value)] || 20;
+      this.saveCfg();
     },
     onToggle(e) {
       this.enabled = !!e.detail.value;

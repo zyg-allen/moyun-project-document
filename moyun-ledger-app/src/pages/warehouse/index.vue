@@ -95,17 +95,17 @@
           <view class="row-name">{{ p.name }}</view>
           <view class="row-sub">
             {{ p.categoryName || '未分类' }} · {{ p.unit || '个' }}
-            <text v-if="p.tags"> · {{ p.tags }}</text>
+            <text v-if="cfg.showTags && p.tags"> · {{ p.tags }}</text>
           </view>
           <view class="row-sub2">
             <text>成本 ¥{{ fmt(p.costPrice) }}</text>
             <text v-if="p.sellPrice"> · 售价 ¥{{ fmt(p.sellPrice) }}</text>
-            <text v-if="p.expiryDate"> · 到期 {{ String(p.expiryDate).slice(0,10) }}</text>
+            <text v-if="cfg.showExpiry && p.expiryDate"> · 到期 {{ String(p.expiryDate).slice(0,10) }}</text>
           </view>
         </view>
         <view class="row-right">
-          <view class="qty" :class="{ warn: (p.stockQuantity || 0) === 0 }">{{ p.stockQuantity || 0 }} {{ p.unit || '个' }}</view>
-          <view class="price">¥{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }}</view>
+          <view class="qty" :class="{ warn: (p.stockQuantity || 0) <= (cfg.lowStock || 0) }">{{ p.stockQuantity || 0 }} {{ p.unit || '个' }}</view>
+          <view class="price" v-if="cfg.showValue">¥{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }}</view>
         </view>
       </view>
 
@@ -428,6 +428,7 @@
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
+import { getWarehouseCfg } from '@/utils/warehouseConfig';
 import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
   listShelves, createShelf, updateShelf, deleteShelf, getShelfDetail,
   attachShelfImage, deleteInventoryImage, uploadFile, transferStock, getProductDetail,
@@ -494,6 +495,7 @@ export default {
       productDetail: { visible: false, product: {}, shelves: [], images: [], totalQuantity: 0, totalCostValue: 0 },
       // ===== 查找 / 类目 / 相似商品 =====
       keyword: '',
+      cfg: getWarehouseCfg(),
       pageNum: 1,
       pageSize: 20,
       pageTotal: 0,
@@ -560,6 +562,7 @@ export default {
     }
   },
   onShow() {
+    this.cfg = getWarehouseCfg();
     useThemeStore().restore();
     this.loadWarehouses();
   },
@@ -1031,7 +1034,7 @@ export default {
     },
     async loadProducts() {
       try {
-        const params = { pageNum: this.pageNum || 1, pageSize: this.pageSize || 20 };
+        const params = { pageNum: this.pageNum || 1, pageSize: this.cfg.pageSize || 20 };
         if ((this.keyword || '').trim()) params.keyword = this.keyword.trim();
         if (this.categoryId) params.categoryId = this.categoryId;
         if (this.shelfFilterId) params.shelfId = this.shelfFilterId;

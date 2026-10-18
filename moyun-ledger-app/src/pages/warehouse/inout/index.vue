@@ -221,6 +221,7 @@
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { isWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
+import { getWarehouseCfg } from '@/utils/warehouseConfig';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
   createSaleChannel, createProduct, updateProduct, stockIn, stockOut,
@@ -267,6 +268,7 @@ export default {
     return {
       enabled: true,
       mode: 'in',
+      cfg: getWarehouseCfg(),
       warehouses: [], shelves: [], products: [], categories: [], channels: [],
       warehouseId: null,
       shelfId: 0,
@@ -356,6 +358,7 @@ export default {
     if (this.pendingOut) this.mode = 'out';
   },
   onShow() {
+    this.cfg = getWarehouseCfg();
     useThemeStore().restore();
     this.enabled = isWarehouseEnabled();
     applyWarehouseTabBar();

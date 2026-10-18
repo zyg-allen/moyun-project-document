@@ -543,6 +543,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         f.setQuantityAfter(after);
         f.setCostBefore(costPrice.multiply(BigDecimal.valueOf(before)));
         f.setCostAfter(costPrice.multiply(BigDecimal.valueOf(after)));
+        f.setSalePrice(salePrice);
         f.setOperatorId(userId);
         f.setRemark(remark);
         f.setStatus(LedgerStockFlow.STATUS_NORMAL);

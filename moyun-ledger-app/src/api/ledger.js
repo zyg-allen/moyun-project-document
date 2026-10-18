@@ -332,8 +332,14 @@ export const listAccountTypes = () => get('/portal/ledger/accountTypes');
 
 // ---------------- 注册 / 找回密码 ----------------
 
-/** 用户注册（后端 RegisterBody：username/password/code/uuid） */
-export const register = (data) => post('/register', data);
+/**
+ * 门户用户注册（写 portal_user 并直接返回 token，注册即登录）。
+ *
+ * 注意：不能打 /register —— 那是后台系统用户注册（写 sys_user、不返回 token），
+ * 而门户登录查的是 portal_user，注册后根本无法登录。
+ * 入参：username/password + (phone+smsCode 或 email+emailCode) + code/uuid（图形码）
+ */
+export const register = (data) => post('/portal/register', data);
 
 /** 发送短信验证码（scene: register / reset_password） */
 export const sendSmsCode = (data) => post('/portal/sms/code/send', data);

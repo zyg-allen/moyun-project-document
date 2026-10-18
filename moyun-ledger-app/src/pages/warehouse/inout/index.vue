@@ -204,8 +204,8 @@
           <view class="sheet-title">{{ picker.title }}</view>
           <scroll-view scroll-y class="picker-list">
             <view v-if="!picker.items.length" class="empty" @tap="picker.mode === 'category' && goCategories()">{{ picker.empty }}</view>
-            <view v-for="it in picker.items" :key="it.id" class="picker-item" :class="{ sub: it.level === 2 }"
-                  :class="{ active: String(picker.selected) === String(it.id) }" @tap="confirmPick(it)">
+            <view v-for="it in picker.items" :key="it.id" class="picker-item"
+                  :class="{ sub: it.level === 2, active: String(picker.selected) === String(it.id) }" @tap="confirmPick(it)">
               <text>{{ it.name }}</text>
               <text v-if="it.sub" class="picker-sub">{{ it.sub }}</text>
             </view>

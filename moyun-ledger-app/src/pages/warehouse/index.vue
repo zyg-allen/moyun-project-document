@@ -500,6 +500,7 @@ export default {
       pageSize: 20,
       pageTotal: 0,
       categoryId: null,
+      shelfFilterId: null,
       productCategories: [],
       catManageSheet: false,
       newCatName: '',

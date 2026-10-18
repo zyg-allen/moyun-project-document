@@ -1,5 +1,7 @@
 <template>
   <view class="page" :style="themeVars">
+    <NavBar title="商品类目" />
+
     <!-- 顶部：新增一级 -->
     <view class="add-bar">
       <view class="add-icon-btn" @tap="iconPickerOpen = !iconPickerOpen">

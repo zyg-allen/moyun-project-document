@@ -488,3 +488,14 @@ export const stocktake = (data) => post('/portal/ledger/inventory/stock/stocktak
 /** 仓库概览：库存总价值 / 待售件数 / 本月出入库 / 零库存商品数 */
 export const getWarehouseOverview = (warehouseId) =>
   get('/portal/ledger/inventory/warehouses/' + warehouseId + '/overview');
+
+// ---------------- 售卖渠道（系统预设 + 用户自建）----------------
+
+/** 渠道列表 */
+export const listSaleChannels = () => get('/portal/ledger/sale-channels');
+
+/** 新增渠道 */
+export const createSaleChannel = (data) => post('/portal/ledger/sale-channels', data);
+
+/** 删除渠道（仅本人自建） */
+export const deleteSaleChannel = (id) => del('/portal/ledger/sale-channels/' + id);

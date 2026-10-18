@@ -32,6 +32,18 @@ public class LedgerProduct {
     private String unit;
     private BigDecimal costPrice;
     private BigDecimal sellPrice;
+    /** 生产日期 */
+    private java.time.LocalDate productionDate;
+    /** 保质期天数 */
+    private Integer shelfLifeDays;
+    /** 到期日期（生产日期+保质期，可手改） */
+    private java.time.LocalDate expiryDate;
+    /** 包装类型：none无需 / standard标准 / fragile防摔 / custom特殊 */
+    private String packagingType;
+    /** 标签，逗号分隔 */
+    private String tags;
+    /** 商品描述 */
+    private String description;
     private String imageUrls;
     private Integer isSecondhand;
     private String conditionGrade;
@@ -59,6 +71,15 @@ public class LedgerProduct {
     /** 非持久化：距最后动销多少天（滞销判定用） */
     @TableField(exist = false)
     private Integer slowDays;
+
+    /** 非持久化：可售渠道ID列表（1:N） */
+    public static final String PACK_NONE = "none";
+    public static final String PACK_STANDARD = "standard";
+    public static final String PACK_FRAGILE = "fragile";
+    public static final String PACK_CUSTOM = "custom";
+
+    @TableField(exist = false)
+    private java.util.List<Long> channelIds;
 
     /** 非持久化：库存在几个货架上（相似推荐/列表展示用） */
     @TableField(exist = false)

@@ -186,6 +186,14 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         p.setName(bo.getName().trim());
         p.setBarcode(bo.getBarcode());
         p.setCategoryId(bo.getCategoryId());
+        p.setProductionDate(bo.getProductionDate());
+        p.setShelfLifeDays(bo.getShelfLifeDays());
+        p.setExpiryDate(bo.getExpiryDate());
+        p.setPackagingType(bo.getPackagingType() == null ? LedgerProduct.PACK_NONE : bo.getPackagingType());
+        p.setTags(bo.getTags());
+        p.setDescription(bo.getDescription());
+        p.setSellPrice(bo.getSellPrice());
+        p.setProviderUserId(bo.getProviderUserId() == null ? userId : bo.getProviderUserId());
         p.setCategory(bo.getCategory());
         p.setUnit(bo.getUnit() == null ? "个" : bo.getUnit());
         p.setCostPrice(bo.getCostPrice());

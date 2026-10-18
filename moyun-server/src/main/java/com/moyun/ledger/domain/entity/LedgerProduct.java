@@ -41,6 +41,9 @@ public class LedgerProduct {
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
+    /** 最后动销时间：任一库存变动（入库/出库/校准/移库）时刷新 */
+    private LocalDateTime lastMovedAt;
+
     /** 非持久化：列表展示时的当前库存数量（来自 ledger_stock，查询时回填） */
     @TableField(exist = false)
     private Integer stockQuantity;
@@ -52,6 +55,10 @@ public class LedgerProduct {
     /** 非持久化：提供者姓名 */
     @TableField(exist = false)
     private String providerName;
+
+    /** 非持久化：距最后动销多少天（滞销判定用） */
+    @TableField(exist = false)
+    private Integer slowDays;
 
     /** 非持久化：库存在几个货架上（相似推荐/列表展示用） */
     @TableField(exist = false)

@@ -85,7 +85,7 @@
       <view v-for="p in listRows" :key="p.id" class="p-row">
         <view class="flex-1 min-w-0">
           <view class="p-name">{{ p.name }}</view>
-          <view class="p-sub">{{ p.categoryName || '未分类' }} · 库存 {{ p.stockQuantity || 0 }} {{ p.unit || '个' }}</view>
+          <view class="p-sub">{{ p.categoryName || '未分类' }} · 库存 {{ p.stockQuantity || 0 }} {{ p.unit || '个' }}<text v-if="p.slowDays !== null && p.slowDays !== undefined"> · {{ p.slowDays }} 天未动销</text></view>
         </view>
         <view class="p-right">
           <view class="p-val">¥{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }}</view>
@@ -167,8 +167,11 @@ export default {
   },
   methods: {
     fmt(v) { return Number(v || 0).toFixed(2); },
+    /** 滞销：优先用后端返回的 slowDays（最后动销距今天数），老数据回落上架时间 */
     isSlow(p) {
-      if (!p || !p.createTime || (p.stockQuantity || 0) <= 0) return false;
+      if (!p || (p.stockQuantity || 0) <= 0) return false;
+      if (p.slowDays !== null && p.slowDays !== undefined) return p.slowDays > SLOW_DAYS;
+      if (!p.createTime) return false;
       const t = new Date(String(p.createTime).replace(/-/g, '/')).getTime();
       if (isNaN(t)) return false;
       return (Date.now() - t) / 86400000 > SLOW_DAYS;

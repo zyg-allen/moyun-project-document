@@ -153,6 +153,14 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                         .collect(Collectors.toMap(LedgerProductCategory::getId,
                                 LedgerProductCategory::getName, (a, b) -> a));
                 records.forEach(p -> p.setCategoryName(catNames.get(p.getCategoryId())));
+
+            // 距最后动销天数（滞销判定）
+            records.forEach(p -> {
+                if (p.getLastMovedAt() != null) {
+                    p.setSlowDays((int) java.time.temporal.ChronoUnit.DAYS.between(
+                            p.getLastMovedAt().toLocalDate(), java.time.LocalDate.now()));
+                }
+            });
             }
         }
 
@@ -437,6 +445,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         }
         getOwnedWarehouse(userId, warehouseId);
         LedgerProduct p = getOwnedProduct(userId, productId);
+        touchProductMoved(productId);
         assertShelfBelongs(warehouseId, from);
         assertShelfBelongs(warehouseId, to);
 
@@ -494,6 +503,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                                                  String reason, Long toShelfId, String remark) {
         getOwnedWarehouse(userId, warehouseId);
         LedgerProduct p = getOwnedProduct(userId, productId);
+        touchProductMoved(productId);
         if (change == 0) {
             throw new ServiceException("数量不能为0");
         }
@@ -570,6 +580,16 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         }
     }
 
+    /** 刷新商品最后动销时间（任一库存变动后调用，滞销判定依据） */
+    private void touchProductMoved(Long productId) {
+        if (productId == null) {
+            return;
+        }
+        LedgerProduct upd = new LedgerProduct();
+        upd.setId(productId);
+        upd.setLastMovedAt(java.time.LocalDateTime.now());
+        productMapper.updateById(upd);
+    }
     /** 原因缺省兜底 */
     private String defaultReason(String reason, String fallback) {
         return (reason == null || reason.isBlank()) ? fallback : reason.trim();
@@ -594,6 +614,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                 continue;
             }
             LedgerProduct p = getOwnedProduct(userId, productId);
+        touchProductMoved(productId);
             LedgerStock s = findStock(productId, sid);
             int before = s == null || s.getQuantity() == null ? 0 : s.getQuantity();
             int delta = actual - before;

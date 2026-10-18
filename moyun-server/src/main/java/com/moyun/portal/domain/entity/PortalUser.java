@@ -147,6 +147,9 @@ public class PortalUser extends BaseEntity {
      */
     private Boolean notifySchedule;
 
+    /** 是否开启仓库管理功能（关闭后底部「入库/出库」入口隐藏，退回纯记账） */
+    private Boolean warehouseEnabled;
+
     /** 是否允许被关注 */
     private Boolean privacyFollow;
 

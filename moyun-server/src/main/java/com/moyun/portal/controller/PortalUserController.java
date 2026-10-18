@@ -228,6 +228,9 @@ public class PortalUserController extends BaseController {
             user.setPrivacyPhone(Boolean.TRUE.equals(params.get("privacyPhone")));
         }
         // 是否公开主页（是否在名家录/作者列表展示）
+        if (params.containsKey("warehouseEnabled")) {
+            user.setWarehouseEnabled(Boolean.TRUE.equals(params.get("warehouseEnabled")));
+        }
         if (params.containsKey("privacyProfile")) {
             user.setPrivacyProfile(Boolean.TRUE.equals(params.get("privacyProfile")));
         }

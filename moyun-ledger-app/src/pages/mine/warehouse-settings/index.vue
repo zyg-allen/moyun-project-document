@@ -79,7 +79,7 @@
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { isWarehouseEnabled, setWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
+import { isWarehouseEnabled, setWarehouseEnabled, syncWarehouseSwitch, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { listProductCategories, createProductCategory, deleteProductCategory } from '@/api/ledger';
 
 const CFG_KEY = 'moyun_warehouse_cfg';
@@ -110,6 +110,7 @@ export default {
   onShow() {
     useThemeStore().restore();
     this.enabled = isWarehouseEnabled();
+    syncWarehouseSwitch().then(() => { this.enabled = isWarehouseEnabled(); });
     this.loadCfg();
     this.loadCategories();
   },

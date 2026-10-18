@@ -34,7 +34,7 @@
           <text class="cfg-value">{{ cfg.defaultReasonLabel }} ▾</text>
         </picker>
       </view>
-      <view class="hint">配置目前存本机，后续接入后端用户配置。</view>
+      <view class="hint">配置已存到账号（ledger_warehouse_config），换设备自动同步；离线时用本机缓存。</view>
     </view>
 
   </view>

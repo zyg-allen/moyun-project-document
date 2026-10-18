@@ -69,26 +69,32 @@
               <text class="f-value">{{ categoryLabel || '选择分类' }} ▾</text>
             </view>
             <view class="f-row">
+              <text class="f-label">单位</text>
+              <view class="tag-row wrap">
+                <view v-for="u in units" :key="u" class="tag" :class="{ on: f.unit === u }" @tap="f.unit = u">{{ u }}</view>
+              </view>
+            </view>
+            <view class="f-row">
               <text class="f-label">商品图片</text>
               <view class="img-wrap">
-                <image v-if="f.imageUrl" :src="f.imageUrl" class="thumb" mode="aspectFill" />
+                <image v-if="f.imageUrl" :src="f.imageUrl" class="thumb" mode="aspectFill" @tap="previewImage(f.imageUrl)" />
                 <text class="link" @tap="uploadImage">{{ f.imageUrl ? '重拍' : '拍照 / 相册' }}</text>
               </view>
             </view>
             <view class="amount-area">
               <text class="amount-label">数量</text>
               <input class="amount-input" type="number" v-model="f.quantity" placeholder="0" />
-              <text class="amount-unit">件</text>
+              <text class="amount-unit">{{ qtyUnit }}</text>
             </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
               <input class="f-input" type="digit" v-model="f.costPrice" placeholder="0.00" />
-              <text class="unit">元</text>
+              <text class="unit">元/{{ qtyUnit }}</text>
             </view>
             <view class="f-row">
               <text class="f-label">建议售价</text>
               <input class="f-input" type="digit" v-model="f.sellPrice" placeholder="0.00" />
-              <text class="unit">元</text>
+              <text class="unit">元/{{ qtyUnit }}</text>
             </view>
             <view class="f-row">
               <text class="f-label">生产日期</text>
@@ -157,7 +163,7 @@
           <view class="amount-area">
             <text class="amount-label">数量</text>
             <input class="amount-input" type="number" v-model="f.outQuantity" placeholder="0" />
-            <text class="amount-unit">件</text>
+            <text class="amount-unit">{{ qtyUnit }}</text>
           </view>
 
           <template v-if="f.outType === 'sale'">
@@ -226,6 +232,9 @@ const PACK_TYPES = [
   { key: 'fragile', label: '防摔' },
   { key: 'custom', label: '特殊' }
 ];
+// 商品单位：论件、论斤都可以，不做「一斤=一件」的强行换算
+const UNITS = ['件', '个', '斤', '公斤', '箱', '瓶', '包', '袋', '盒', '份', '条', '打'];
+
 // 保质期预设：统一折算成天数存库（30/365 天口径）
 const SHELF_LIFE_OPTIONS = [
   { key: 'none', label: '无保质期（长期有效）', days: 0 },
@@ -266,6 +275,15 @@ export default {
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
+    units() { return UNITS; },
+    /** 数量单位：入库用表单选的，出库用所选商品的单位 */
+    qtyUnit() {
+      if (this.mode === 'out') {
+        const p = this.products.find(x => String(x.id) === String(this.outProductId));
+        return (p && p.unit) || '件';
+      }
+      return this.f.unit || '件';
+    },
     shelfLifeOptions() { return SHELF_LIFE_OPTIONS; },
     shelfLifeNames() { return SHELF_LIFE_OPTIONS.map(o => o.label); },
     shelfLifeLabel() {
@@ -329,7 +347,7 @@ export default {
   methods: {
     blankForm() {
       return {
-        name: '', categoryId: null, imageUrl: '', quantity: '',
+        name: '', categoryId: null, imageUrl: '', unit: '件', quantity: '',
         costPrice: '', sellPrice: '',
         productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
         packagingType: 'none', tags: '', description: '', channelIds: [],
@@ -436,6 +454,9 @@ export default {
       const pad = (n) => String(n).padStart(2, '0');
       this.f.expiryDate = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate());
     },
+    previewImage(url) {
+      if (url) uni.previewImage({ urls: [url] });
+    },
     uploadImage() {
       uni.chooseImage({
         count: 1, sizeType: ['compressed'],
@@ -494,6 +515,7 @@ export default {
       const pid = await createProduct({
         warehouseId: this.warehouseId,
         name: this.f.name.trim(),
+        unit: this.f.unit || '件',
         categoryId: this.f.categoryId || null,
         costPrice: this.f.costPrice ? Number(this.f.costPrice) : null,
         sellPrice: this.f.sellPrice ? Number(this.f.sellPrice) : null,

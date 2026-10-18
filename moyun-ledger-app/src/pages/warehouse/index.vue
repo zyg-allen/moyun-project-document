@@ -235,7 +235,7 @@
         <!-- 图片（1:N，首张封面） -->
         <scroll-view scroll-x class="detail-imgs">
           <view v-for="(img, i) in shelfDetail.images" :key="img.id" class="detail-img-wrap">
-            <image :src="img.fileUrl" class="detail-img" mode="aspectFill" />
+            <image :src="img.fileUrl" class="detail-img" mode="aspectFill" @tap.stop="previewImg(img.fileUrl)" />
             <text v-if="i === 0" class="detail-img-cover">封面</text>
             <text class="detail-img-del" @tap.stop="removeShelfImage(img)">×</text>
           </view>
@@ -306,7 +306,7 @@
 
         <scroll-view scroll-x class="detail-imgs">
           <view v-for="(img, i) in productDetail.images" :key="img.id" class="detail-img-wrap">
-            <image :src="img.fileUrl" class="detail-img" mode="aspectFill" />
+            <image :src="img.fileUrl" class="detail-img" mode="aspectFill" @tap.stop="previewImg(img.fileUrl)" />
             <text v-if="i === 0" class="detail-img-cover">封面</text>
             <text class="detail-img-del" @tap.stop="removeProductImage(img)">×</text>
           </view>
@@ -515,6 +515,10 @@ export default {
     this.loadWarehouses();
   },
   methods: {
+    /** 点图片全屏预览 */
+    previewImg(url) {
+      if (url) uni.previewImage({ urls: [url] });
+    },
     fmt(v) { return Number(v || 0).toFixed(2); },
     // ===== 货架（存放位置）=====
     switchTab(t) {

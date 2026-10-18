@@ -1448,8 +1448,4 @@ export default {
 .tree-item.on { color: var(--primary); background: rgba(95,167,122,.10); }
 .tree-num { font-size: 21rpx; color: var(--text-sub); }
 .tree-manage { padding: 16rpx 18rpx; font-size: 24rpx; color: var(--primary); border-top: 1rpx solid var(--border); }
-/* 仓库下拉筛选 */
-.wh-select-wrap { padding: 12rpx 20rpx 0; }
-.wh-panel { margin-top: 8rpx; }
-.wh-cur { font-size: 20rpx; color: var(--primary); }
 </style>

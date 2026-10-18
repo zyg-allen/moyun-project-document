@@ -250,12 +250,12 @@ export default {
       return '从库存里扣减：卖出记价格与渠道，自用/损耗记 ¥0';
     },
     shelfOptions() {
-      return [{ id: 0, code: '—', name: '未上架' }].concat(
-        this.shelves.map(s => ({ id: s.id, code: s.code, name: s.name })));
+      // 只列真实货架：不再提供「未上架」这种模糊选项
+      return this.shelves.map(s => ({ id: s.id, code: s.code, name: s.name }));
     },
     shelfLabel() {
       const s = this.shelfOptions.find(x => String(x.id) === String(this.shelfId));
-      return s ? s.name : '未上架';
+      return s ? s.name : '请选择货架';
     },
     categoryLabel() {
       for (const p of this.categories) {
@@ -309,6 +309,10 @@ export default {
     async loadWhData() {
       if (!this.warehouseId) return;
       try { this.shelves = (await listShelves(this.warehouseId)) || []; } catch (e) { /* 忽略 */ }
+      // 自动落在第一个货架；一个都没有时不预设，提交会提示先建货架
+      if (this.shelves.length && !this.shelves.some(x => String(x.id) === String(this.shelfId))) {
+        this.shelfId = this.shelves[0].id;
+      }
       try {
         const r = (await listProducts(this.warehouseId, { pageSize: 100 })) || {};
         this.products = r.records || [];
@@ -403,6 +407,7 @@ export default {
     async submit() {
       if (this.submitting) return;
       if (!this.warehouseId) { uni.showToast({ title: '请选择仓库', icon: 'none' }); return; }
+      if (!this.shelfId) { uni.showToast({ title: '请先在「库存管理」建一个货架', icon: 'none' }); return; }
       this.submitting = true;
       try {
         if (this.mode === 'in') await this.doStockIn();

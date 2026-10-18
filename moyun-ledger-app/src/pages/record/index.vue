@@ -109,6 +109,11 @@
           <text v-if="form.liabilityId" class="pick-clear" @tap.stop="clearLiability">✕ 清除</text>
         </view>
       </view>
+      <!-- 预算：支出/收入可切换是否计入当月预算统计 -->
+      <view class="pick-row" v-if="form.type === 'expense' || form.type === 'income'">
+        <text class="pick-label">计入预算</text>
+        <switch :checked="form.isBudget === 1" @change="onBudgetChange" style="transform: scale(0.8)" />
+      </view>
       <!-- 日期 + 时间（合并同一行；日期支持历史补录，时间默认当前） -->
       <view class="pick-row pick-row-datetime">
         <text class="pick-label">日期时间</text>
@@ -273,7 +278,7 @@ export default {
       /** 用户是否手动改过备注（未改过时自动跟随类型/分类/日期刷新默认前缀） */
       descEdited: false,
       form: {
-        type: 'expense', accountId: null, targetAccountId: null, liabilityId: null, receivableId: null,
+        type: 'expense', accountId: null, targetAccountId: null, liabilityId: null, receivableId: null, isBudget: 1,
         categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
         // 借出：对方名称（自动生成应收款用）；收款：所选应收款ID（核销用）；
         // 借款：对方名称（生成应付款用）；还款：所选应付款ID（核销用）
@@ -529,6 +534,8 @@ export default {
       if (this.descEdited) return;
       this.form.description = this.buildRemarkPrefix();
     },
+    /** 预算开关：0=不计入当月预算统计 */
+    onBudgetChange(e) { this.form.isBudget = e.detail.value ? 1 : 0; },
     onDescInput() {
       this.descEdited = true;
     },
@@ -805,6 +812,7 @@ export default {
         targetAccountId: this.form.targetAccountId,
         description: this.form.description || null,
         merchant: this.form.merchant || null,
+        isBudget: this.form.isBudget,
         counterparty: this.form.counterparty || null,
         voucherUrl: this.form.voucherUrl || null,
         transactionDate: this.form.transactionDate,
@@ -826,6 +834,7 @@ export default {
         this.form.subCategoryId = null;
         this.form.liabilityId = null;
         this.form.receivableId = null;
+        this.form.isBudget = 1;
         // 分类已清空 → 展开宫格，下笔可直接点选（避免收起状态下还要先点一次「展开」）
         this.catCollapsed = false;
         // 保存后重置备注为新的默认前缀（日期已可能变化）

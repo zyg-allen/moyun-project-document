@@ -71,7 +71,8 @@
             <view class="f-row">
               <text class="f-label">单位</text>
               <view class="tag-row wrap">
-                <view v-for="u in units" :key="u" class="tag" :class="{ on: f.unit === u }" @tap="f.unit = u">{{ u }}</view>
+                <view v-for="u in commonUnits" :key="u" class="tag" :class="{ on: f.unit === u }" @tap="f.unit = u">{{ u }}</view>
+                <view class="tag add" :class="{ on: commonUnits.indexOf(f.unit) < 0 }" @tap="moreUnits">{{ commonUnits.indexOf(f.unit) < 0 ? f.unit : '更多' }}</view>
               </view>
             </view>
             <view class="f-row">
@@ -233,7 +234,14 @@ const PACK_TYPES = [
   { key: 'custom', label: '特殊' }
 ];
 // 商品单位：论件、论斤都可以，不做「一斤=一件」的强行换算
-const UNITS = ['件', '个', '斤', '公斤', '箱', '瓶', '包', '袋', '盒', '份', '条', '打'];
+// 商品单位：中文计量 + 英文/公制单位，不做任何换算（1斤≠1件）
+const UNITS = [
+  '件', '个', '只', '条', '张', '份', '支', '台', '套', '双',
+  '斤', '公斤', '克', '吨',
+  '毫升', '升',
+  '米', '厘米', '平方米', '立方米',
+  '箱', '瓶', '包', '袋', '盒', '桶', '打'
+];
 
 // 保质期预设：统一折算成天数存库（30/365 天口径）
 const SHELF_LIFE_OPTIONS = [
@@ -276,6 +284,8 @@ export default {
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     units() { return UNITS; },
+    /** 宫格只铺常用几个，其余走「更多」（27 个全铺太占位） */
+    commonUnits() { return ['件', '个', '条', '斤', '公斤', '克', '升', '箱', '瓶', '包']; },
     /** 数量单位：入库用表单选的，出库用所选商品的单位 */
     qtyUnit() {
       if (this.mode === 'out') {
@@ -453,6 +463,13 @@ export default {
       t.setDate(t.getDate() + d);
       const pad = (n) => String(n).padStart(2, '0');
       this.f.expiryDate = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate());
+    },
+    /** 完整单位列表（含英文/公制） */
+    moreUnits() {
+      uni.showActionSheet({
+        itemList: this.units,
+        success: (r) => { this.f.unit = this.units[r.tapIndex] || this.f.unit; }
+      });
     },
     previewImage(url) {
       if (url) uni.previewImage({ urls: [url] });

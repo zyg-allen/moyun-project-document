@@ -253,7 +253,7 @@
         <view class="sheet-sub">本货架 · {{ shelfDetail.totalQuantity }} 件 · ¥{{ fmt(shelfDetail.totalCostValue) }}</view>
         <scroll-view scroll-y class="detail-items">
           <view v-if="!shelfDetail.items.length" class="empty">该货架暂无库存</view>
-          <view v-for="it in shelfDetail.items" :key="it.productId" class="row">
+          <view v-for="it in shelfDetail.items" :key="it.productId" class="row" @tap="openProductDetail({ id: it.productId })">
             <view class="flex-1 min-w-0">
               <view class="row-name">{{ it.productName }}</view>
               <view class="row-sub">{{ it.unit || '个' }} · 成本 ¥{{ fmt(it.costPrice) }}</view>
@@ -330,7 +330,7 @@
         <view class="sheet-sub">库存分布（按货架）</view>
         <scroll-view scroll-y class="detail-items">
           <view v-if="!productDetail.shelves.length" class="empty">暂无库存，可「出入库」后查看分布</view>
-          <view v-for="(r, i) in productDetail.shelves" :key="i" class="row">
+          <view v-for="(r, i) in productDetail.shelves" :key="i" class="row" @tap="goShelf(r)">
             <view class="flex-1 min-w-0">
               <view class="row-name">{{ r.shelfName }}<text v-if="r.shelfCode" class="row-code"> · {{ r.shelfCode }}</text></view>
               <view class="row-sub">{{ r.locationText || '未设置位置' }}</view>
@@ -952,7 +952,12 @@ export default {
       } catch (e) { /* 拦截器已提示 */ }
     },
     openWhSheet() { this.whForm = { name: '', type: 'personal' }; this.whTypeIndex = 0; this.whSheet = true; },
-    openStock(p, shelfId) {
+    /** 商品详情的库存分布 → 跳到对应货架详情（shelfId=0 表示未上架，无处可跳） */
+    goShelf(r) {
+      if (!r || !r.shelfId) { uni.showToast({ title: '该部分库存在「未上架」', icon: 'none' }); return; }
+      this.productDetail.visible = false;
+      this.openShelfDetail({ id: r.shelfId });
+    },    openStock(p, shelfId) {
       this.stockTarget = p;
       this.stockShelfId = shelfId || 0;
       this.loadShelves();

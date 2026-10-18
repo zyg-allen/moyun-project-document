@@ -1124,7 +1124,8 @@ export default {
     },
     async loadProducts() {
       try {
-        const params = { pageNum: this.pageNum || 1, pageSize: this.cfg.pageSize || 20 };
+        this.pageSize = this.cfg.pageSize || 20;
+        const params = { pageNum: this.pageNum || 1, pageSize: this.pageSize };
         if ((this.keyword || '').trim()) params.keyword = this.keyword.trim();
         if (this.categoryId) params.categoryId = this.categoryId;
         if (this.shelfFilterId) params.shelfId = this.shelfFilterId;

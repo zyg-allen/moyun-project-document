@@ -78,14 +78,17 @@
             <view class="amount-area">
               <text class="amount-label">数量</text>
               <input class="amount-input" type="number" v-model="f.quantity" placeholder="0" />
+              <text class="amount-unit">件</text>
             </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
               <input class="f-input" type="digit" v-model="f.costPrice" placeholder="0.00" />
+              <text class="unit">元</text>
             </view>
             <view class="f-row">
               <text class="f-label">建议售价</text>
               <input class="f-input" type="digit" v-model="f.sellPrice" placeholder="0.00" />
+              <text class="unit">元</text>
             </view>
             <view class="f-row">
               <text class="f-label">生产日期</text>
@@ -93,15 +96,23 @@
                 <text class="f-value">{{ f.productionDate || '选择' }} ▾</text>
               </picker>
             </view>
-            <view class="f-row">
+            <view class="f-row" @tap="pickShelfLife">
               <text class="f-label">保质期</text>
-              <input class="f-input" type="number" v-model="f.shelfLifeDays" placeholder="天（选填）" @blur="calcExpiry" />
+              <text class="f-value">{{ shelfLifeLabel }} ▾</text>
             </view>
-            <view class="f-row">
+            <view class="f-row" v-if="f.shelfLifeKey === 'custom'">
+              <text class="f-label">天数</text>
+              <input class="f-input" type="number" v-model="f.shelfLifeDays" placeholder="0" @blur="calcExpiry" />
+              <text class="unit">天</text>
+            </view>
+            <view class="f-row" v-if="f.shelfLifeKey !== 'none'">
               <text class="f-label">到期日期</text>
-              <picker mode="date" :value="f.expiryDate" @change="onExpiry">
-                <text class="f-value">{{ f.expiryDate || '选择' }} ▾</text>
-              </picker>
+              <view class="date-wrap">
+                <picker mode="date" :value="f.expiryDate" @change="onExpiry">
+                  <text class="f-value">{{ f.expiryDate || '选择' }} ▾</text>
+                </picker>
+                <text v-if="expiryHint" class="date-hint" :class="{ bad: expiryHint.indexOf('已过期') === 0 }">{{ expiryHint }}</text>
+              </view>
             </view>
             <view class="f-row">
               <text class="f-label">包装类型</text>
@@ -146,6 +157,7 @@
           <view class="amount-area">
             <text class="amount-label">数量</text>
             <input class="amount-input" type="number" v-model="f.outQuantity" placeholder="0" />
+            <text class="amount-unit">件</text>
           </view>
 
           <template v-if="f.outType === 'sale'">
@@ -214,6 +226,19 @@ const PACK_TYPES = [
   { key: 'fragile', label: '防摔' },
   { key: 'custom', label: '特殊' }
 ];
+// 保质期预设：统一折算成天数存库（30/365 天口径）
+const SHELF_LIFE_OPTIONS = [
+  { key: 'none', label: '无保质期（长期有效）', days: 0 },
+  { key: '7d', label: '7 天', days: 7 },
+  { key: '30d', label: '1 个月', days: 30 },
+  { key: '90d', label: '3 个月', days: 90 },
+  { key: '180d', label: '6 个月', days: 180 },
+  { key: '365d', label: '12 个月（1 年）', days: 365 },
+  { key: '730d', label: '24 个月（2 年）', days: 730 },
+  { key: '1095d', label: '36 个月（3 年）', days: 1095 },
+  { key: 'custom', label: '自定义天数…', days: null }
+];
+
 const OUT_TYPES = [
   { key: 'sale', label: '卖出' },
   { key: 'self_use', label: '自己用' },
@@ -241,6 +266,22 @@ export default {
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
+    shelfLifeOptions() { return SHELF_LIFE_OPTIONS; },
+    shelfLifeNames() { return SHELF_LIFE_OPTIONS.map(o => o.label); },
+    shelfLifeLabel() {
+      const o = SHELF_LIFE_OPTIONS.find(x => x.key === this.f.shelfLifeKey);
+      return o ? o.label : '无保质期（长期有效）';
+    },
+    /** 到期提示：临期/已过期 */
+    expiryHint() {
+      if (!this.f.expiryDate) return '';
+      const d = new Date(String(this.f.expiryDate).replace(/-/g, '/')).getTime();
+      if (isNaN(d)) return '';
+      const days = Math.ceil((d - Date.now()) / 86400000);
+      if (days < 0) return '已过期 ' + Math.abs(days) + ' 天';
+      if (days <= 30) return '还有 ' + days + ' 天到期（临期）';
+      return '还有 ' + days + ' 天到期';
+    },
     /** 语义提示：入库=建档，出库=从库存扣减 */
     modeHint() {
       if (this.mode === 'in') {
@@ -290,7 +331,7 @@ export default {
       return {
         name: '', categoryId: null, imageUrl: '', quantity: '',
         costPrice: '', sellPrice: '',
-        productionDate: '', shelfLifeDays: '', expiryDate: '',
+        productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
         packagingType: 'none', tags: '', description: '', channelIds: [],
         outType: 'sale', outQuantity: '', salePrice: '', channelId: null, remark: ''
       };
@@ -364,6 +405,23 @@ export default {
             await createSaleChannel({ name });
             this.channels = (await listSaleChannels()) || [];
           } catch (e) { /* 忽略 */ }
+        }
+      });
+    },
+    /** 保质期预设：选完自动折成天数并算到期日 */
+    pickShelfLife() {
+      uni.showActionSheet({
+        itemList: this.shelfLifeNames,
+        success: (r) => {
+          const o = SHELF_LIFE_OPTIONS[r.tapIndex];
+          if (!o) return;
+          this.f.shelfLifeKey = o.key;
+          if (o.days !== null) {
+            this.f.shelfLifeDays = o.days > 0 ? o.days : '';
+            this.calcExpiry();
+          } else {
+            this.f.shelfLifeDays = '';
+          }
         }
       });
     },
@@ -559,4 +617,9 @@ export default {
 }
 .amount-label { font-size: 26rpx; color: var(--text-sub); }
 .amount-input { flex: 1; text-align: right; font-size: 56rpx; font-weight: 700; color: var(--text-main); }
+.unit { font-size: 24rpx; color: var(--text-sub); margin-left: 8rpx; }
+.amount-unit { font-size: 26rpx; color: var(--text-sub); }
+.date-wrap { flex: 1; display: flex; flex-direction: column; align-items: flex-end; }
+.date-hint { font-size: 21rpx; color: var(--text-sub); }
+.date-hint.bad { color: #E8654A; }
 </style>

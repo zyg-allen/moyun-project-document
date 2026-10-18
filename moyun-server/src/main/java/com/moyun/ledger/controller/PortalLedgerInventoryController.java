@@ -115,7 +115,7 @@ public class PortalLedgerInventoryController {
         return AjaxResult.success(inventoryService.stockOut(
                 PortalSecurityUtils.getUserId(),
                 longVal(bo, "warehouseId"), longVal(bo, "productId"), longVal(bo, "shelfId"),
-                intVal(bo, "quantity"), strVal(bo, "reason"), decVal(bo, "salePrice"), strVal(bo, "remark")));
+                intVal(bo, "quantity"), strVal(bo, "reason"), decVal(bo, "salePrice"), longVal(bo, "channelId"), strVal(bo, "remark")));
     }
 
     @Operation(summary = "库存盘点（实盘 vs 账面，差异写 adjust 流水）")

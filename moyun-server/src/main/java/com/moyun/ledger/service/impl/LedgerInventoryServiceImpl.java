@@ -428,15 +428,15 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
                                        Integer quantity, String reason, String remark) {
         return applyStockChange(userId, warehouseId, productId, shelfId, quantity,
-                LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, null, remark);
+                LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, null, null, remark);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
-                                        Integer quantity, String reason, java.math.BigDecimal salePrice, String remark) {
+                                        Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark) {
         return applyStockChange(userId, warehouseId, productId, shelfId, -Math.abs(quantity),
-                LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE), null, salePrice, remark);
+                LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE), null, salePrice, channelId, remark);
     }
 
     @Override
@@ -509,7 +509,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     private Map<String, Object> applyStockChange(Long userId, Long warehouseId, Long productId,
                                                  Long shelfId, int change, String flowType,
                                                  String reason, Long toShelfId,
-                                                 java.math.BigDecimal salePrice, String remark) {
+                                                 java.math.BigDecimal salePrice, Long channelId, String remark) {
         getOwnedWarehouse(userId, warehouseId);
         LedgerProduct p = getOwnedProduct(userId, productId);
         touchProductMoved(productId);
@@ -552,6 +552,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         f.setCostBefore(costPrice.multiply(BigDecimal.valueOf(before)));
         f.setCostAfter(costPrice.multiply(BigDecimal.valueOf(after)));
         f.setSalePrice(salePrice);
+        f.setChannelId(channelId);
         f.setOperatorId(userId);
         f.setRemark(remark);
         f.setStatus(LedgerStockFlow.STATUS_NORMAL);

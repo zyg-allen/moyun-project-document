@@ -48,6 +48,11 @@ public class LedgerStockFlow {
     private BigDecimal costAfter;
     /** 销售成交单价（仅出库原因为销售时填写，用于算销售额与毛利） */
     private BigDecimal salePrice;
+    /** 售卖渠道ID（卖出时填，自用/损耗为空） */
+    private Long channelId;
+    /** 非表字段：渠道名 */
+    @TableField(exist = false)
+    private String channelName;
     private Long operatorId;
     private String relatedOrder;
     private String remark;

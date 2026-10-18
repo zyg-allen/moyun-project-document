@@ -286,10 +286,6 @@ export default {
         transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
         transactionTime: `${pad(today.getHours())}:${pad(today.getMinutes())}`
       },
-      // 应收款列表（收款类型下拉选择「来源」用）
-      receivables: [],
-      // 应付款列表（还款类型下拉选择「还哪笔应付」用）
-      payables: [],
       picker: { visible: false, mode: '', title: '', items: [], selectedId: null },
       /** 账户/负债选项加载失败（与"确实没有账户"区分，避免误去重复建账户） */
       optionsError: false,

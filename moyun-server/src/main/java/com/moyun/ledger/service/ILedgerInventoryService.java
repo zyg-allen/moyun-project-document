@@ -59,6 +59,14 @@ public interface ILedgerInventoryService {
     Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
                                 Integer quantity, String reason, String remark);
 
+    /**
+     * 入库（带成本总额）：按移动加权平均重算商品成本价。
+     *
+     * @param costTotal 本次入库的成本总额（含其他成本）；为 null 则不重算成本
+     */
+    Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                Integer quantity, String reason, java.math.BigDecimal costTotal, String remark);
+
     /** 出库：数量 -（校验不超该货架现有库存），reason 记原因（sale/self_use/loss/transfer/gift/other） */
     Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
                                  Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark);

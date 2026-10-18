@@ -32,6 +32,21 @@ public class LedgerProduct {
     private String unit;
     private BigDecimal costPrice;
     private BigDecimal sellPrice;
+
+    /** 来源（固定枚举）：purchase 采购 / self_made 自产 / used_resale 自用转卖 / gift 赠品 */
+    private String sourceType;
+    /** 供应商 / 赠送方（自由文本） */
+    private String sourceParty;
+    /** 成本总额（权威值；单价 = cost_total ÷ 数量） */
+    private BigDecimal costTotal;
+    /** 其他成本（物流 / 包装 / 时间合并为一项） */
+    private BigDecimal extraCost;
+    /** 基础单位（库存与成本一律按它记） */
+    private String baseUnit;
+    /** 包装单位（如 箱），可为空 */
+    private String packUnit;
+    /** 换算系数：1 包装单位 = N 基础单位 */
+    private Integer packSize;
     /** 生产日期 */
     private java.time.LocalDate productionDate;
     /** 保质期天数 */
@@ -73,6 +88,12 @@ public class LedgerProduct {
     private Integer slowDays;
 
     /** 非持久化：可售渠道ID列表（1:N） */
+    /* 来源枚举 */
+    public static final String SRC_PURCHASE = "purchase";
+    public static final String SRC_SELF_MADE = "self_made";
+    public static final String SRC_USED_RESALE = "used_resale";
+    public static final String SRC_GIFT = "gift";
+
     public static final String PACK_NONE = "none";
     public static final String PACK_STANDARD = "standard";
     public static final String PACK_FRAGILE = "fragile";

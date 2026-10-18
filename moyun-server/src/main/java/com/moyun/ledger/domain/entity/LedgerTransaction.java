@@ -85,6 +85,9 @@ public class LedgerTransaction {
      */
     private BigDecimal amount;
 
+    /** 1 = 采购入库产生的支出，消费统计时排除（权责发生制） */
+    private Integer stockIn;
+
     /**
      * 分类ID（ledger_category）
      */

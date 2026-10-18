@@ -448,6 +448,34 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                       Integer quantity, String reason, java.math.BigDecimal costTotal, String remark) {
+        if (costTotal != null && costTotal.compareTo(java.math.BigDecimal.ZERO) > 0
+                && quantity != null && quantity > 0) {
+            // 移动加权平均：新均价 = (现有数量 × 现有均价 + 本次成本总额) ÷ (现有数量 + 本次数量)
+            // 以总额为准，避免 500÷3 这类除不尽导致的 1 分误差
+            LedgerProduct p = getOwnedProduct(userId, productId);
+            java.math.BigDecimal oldPrice = p.getCostPrice() == null
+                    ? java.math.BigDecimal.ZERO : p.getCostPrice();
+            int existing = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
+                            .eq(LedgerStock::getProductId, productId)
+                            .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL))
+                    .stream().mapToInt(x -> x.getQuantity() == null ? 0 : x.getQuantity()).sum();
+            int totalQty = existing + quantity;
+            java.math.BigDecimal newPrice = oldPrice.multiply(java.math.BigDecimal.valueOf(existing))
+                    .add(costTotal)
+                    .divide(java.math.BigDecimal.valueOf(totalQty), 2, java.math.RoundingMode.HALF_UP);
+            p.setCostPrice(newPrice);
+            p.setCostTotal(costTotal);
+            productMapper.updateById(p);
+        }
+        return applyStockChange(userId, warehouseId, productId, shelfId, quantity,
+                LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, null, null, remark);
+    }
+
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
                                         Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark) {
         return applyStockChange(userId, warehouseId, productId, shelfId, -Math.abs(quantity),

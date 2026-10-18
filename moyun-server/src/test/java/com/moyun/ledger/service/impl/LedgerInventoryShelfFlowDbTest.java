@@ -92,7 +92,7 @@ class LedgerInventoryShelfFlowDbTest {
 
         // ---------- ② 销售出库 3 件，单价 25 ----------
         inventoryService.stockOut(UID, whId, pid, shelfA, 3,
-                LedgerStockFlow.REASON_SALE, SALE_PRICE, "卖给客户");
+                LedgerStockFlow.REASON_SALE, SALE_PRICE, null, "卖给客户");
         assertEquals(7, qtyOf(pid, shelfA), "出库 3 件后 A 架应剩 7 件");
 
         // ---------- ③ 校准到 5 件（盘亏 2）----------
@@ -208,7 +208,7 @@ class LedgerInventoryShelfFlowDbTest {
 
         // 出清后可删
         inventoryService.stockOut(UID, whId, pid, shelfA, 2,
-                LedgerStockFlow.REASON_LOSS, null, "损耗清空");
+                LedgerStockFlow.REASON_LOSS, null, null, "损耗清空");
         shelfService.deleteShelf(UID, shelfA);
         List<LedgerShelf> left = shelfService.listShelves(UID, whId);
         assertTrue(left.stream().noneMatch(s -> shelfA.equals(s.getId())), "删除后不应出现在列表");

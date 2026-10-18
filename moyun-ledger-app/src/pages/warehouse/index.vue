@@ -113,7 +113,7 @@
       <view class="search-row">
         <input class="search-input" v-model="keyword" placeholder="搜商品名 / 条码"
                confirm-type="search" @confirm="doSearch" />
-        <text class="search-btn" @tap="doSearch">搜索</text>
+        <view class="search-btn" @tap="doSearch"><text class="search-btn-icon">🔍</text></view>
       </view>
 
       <view v-if="!products.length" class="empty">{{ (keyword || categoryId || shelfFilterId) ? '没有匹配的商品' : '还没有商品，点「＋新增商品」添加' }}</view>
@@ -1453,4 +1453,17 @@ export default {
 .filter-row { display: flex; gap: 12rpx; }
 .filter-row .tree-select { flex: 1; min-width: 0; }
 .filter-row .tree-select-label { flex: 0 0 auto; }
+/* 名称搜索行 */
+.search-row {
+  display: flex; align-items: center; gap: 10rpx;
+  margin-top: 10rpx; padding: 6rpx 6rpx 6rpx 20rpx;
+  border: 1rpx solid var(--border); border-radius: 10rpx; background: var(--bg);
+}
+.search-input { flex: 1; min-width: 0; font-size: 26rpx; color: var(--text-main); }
+.search-btn {
+  width: 60rpx; height: 60rpx; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8rpx; background: var(--primary);
+}
+.search-btn-icon { font-size: 28rpx; line-height: 1; }
 </style>

@@ -418,11 +418,11 @@ export default {
   display: flex; align-items: center; justify-content: center;
   gap: 8rpx; margin-top: 6rpx; width: 100%;
 }
-.sub-toggle { font-size: 18rpx; color: var(--text-muted); }
-.sub-arrow { font-size: 16rpx; color: var(--text-muted); }
+.sub-toggle { font-size: 20rpx; color: var(--text-muted); }
+.sub-arrow { font-size: 20rpx; color: var(--text-muted); }
 .sub-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6rpx; margin-top: 8rpx; }
 .sub-tag {
-  font-size: 18rpx; color: var(--text-muted); background: var(--surface);
+  font-size: 20rpx; color: var(--text-muted); background: var(--surface);
   padding: 2rpx 10rpx; border-radius: 12rpx; max-width: 120rpx;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }

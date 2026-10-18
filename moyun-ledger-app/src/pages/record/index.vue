@@ -1165,8 +1165,8 @@ export default {
   border-radius: 8rpx; padding: 12rpx 16rpx; margin-bottom: 8rpx; line-height: 1.6;
 }
 .qa-row { display: flex; align-items: center; padding: 12rpx 0; }
-.qa-label { width: 190rpx; font-size: 25rpx; color: var(--text-sub); }
-.qa-input { flex: 1; font-size: 27rpx; text-align: right; }
+.qa-label { width: 190rpx; font-size: 24rpx; color: var(--text-sub); }
+.qa-input { flex: 1; font-size: 26rpx; text-align: right; }
 .qa-actions { display: flex; gap: 16rpx; margin-top: 12rpx; }
 .qa-btn {
   flex: 1; text-align: center; border-radius: 10rpx; padding: 14rpx 0; font-size: 26rpx;

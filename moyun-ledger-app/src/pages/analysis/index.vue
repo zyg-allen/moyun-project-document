@@ -558,7 +558,7 @@ export default {
 .pv-sec { margin-bottom: 24rpx; }
 .pv-sec-title { font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx; color: var(--text-main); }
 .pv-kv { display: flex; justify-content: space-between; padding: 12rpx 0; font-size: 24rpx; color: var(--text-sub); border-bottom: 1rpx solid var(--border); }
-.pv-p { font-size: 25rpx; color: var(--text-main); line-height: 1.8; }
+.pv-p { font-size: 24rpx; color: var(--text-main); line-height: 1.8; }
 .pv-li { display: flex; gap: 12rpx; margin-bottom: 10rpx; font-size: 24rpx; color: var(--text-sub); line-height: 1.7; }
 .pv-impact { color: var(--income); }
 .dot { width: 14rpx; height: 14rpx; border-radius: 7rpx; margin-top: 12rpx; flex-shrink: 0; }

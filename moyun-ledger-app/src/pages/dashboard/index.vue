@@ -383,7 +383,7 @@ export default {
   font-size: 24rpx; font-weight: 600; display: flex; align-items: center; justify-content: center;
   margin-right: 20rpx; flex-shrink: 0;
 }
-.step-name { font-size: 27rpx; color: var(--text-main); }
+.step-name { font-size: 26rpx; color: var(--text-main); }
 .step-desc { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
 .guide-card .arrow { color: var(--text-muted); font-size: 32rpx; }
 .guide-close {

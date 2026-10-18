@@ -314,7 +314,7 @@ export default {
 .cell-label { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; }
 .cell-badge {
   position: absolute; top: 12rpx; right: 16rpx;
-  font-size: 18rpx; color: var(--on-expense); background: var(--expense);
+  font-size: 20rpx; color: var(--on-expense); background: var(--expense);
   border-radius: 16rpx; padding: 0 8rpx; line-height: 28rpx;
 }
 

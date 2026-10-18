@@ -604,7 +604,7 @@ export default {
 .txn-icon.borrow { background: var(--type-borrow); color: var(--on-type); }
 .txn-icon.adjust { background: var(--type-adjust); color: var(--on-type); }
 .txn-top { display: flex; justify-content: space-between; align-items: baseline; }
-.txn-name { font-size: 27rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txn-name { font-size: 26rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deleted-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .txn-amount { font-size: 28rpx; font-weight: 600; flex-shrink: 0; margin-left: 16rpx; }
 .txn-amount.income { color: var(--income); }
@@ -654,7 +654,7 @@ export default {
 .day-cell.selected .day-num { color: var(--primary-text); font-weight: 700; }
 .day-cell.today .day-num { color: var(--primary-text); }
 .day-cell.today.weekend .day-num { color: var(--primary-text); }
-.day-net { font-size: 18rpx; margin-top: 2rpx; transform: scale(0.9); }
+.day-net { font-size: 20rpx; margin-top: 2rpx; transform: scale(0.9); }
 .day-net.in { color: var(--income); }
 .day-net.out { color: var(--expense); }
 .day-dot { width: 8rpx; height: 8rpx; border-radius: 4rpx; background: var(--border-strong); margin-top: 4rpx; }

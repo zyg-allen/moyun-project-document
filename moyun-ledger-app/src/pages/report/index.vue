@@ -298,7 +298,7 @@ export default {
 /* 负债 */
 .liab-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .liab-row:last-child { border-bottom: none; }
-.liab-name { font-size: 27rpx; color: var(--text-main); }
+.liab-name { font-size: 26rpx; color: var(--text-main); }
 .liab-sub { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }
 .liab-right { text-align: right; }
 .liab-balance { font-size: 28rpx; font-weight: 600; color: var(--type-repayment); }

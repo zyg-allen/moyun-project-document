@@ -660,7 +660,7 @@ export default {
 <style scoped>
 .page { min-height: 100vh; padding-top: 24rpx; padding-bottom: 120rpx; }
 .locked { padding: 120rpx 40rpx; text-align: center; }
-.locked-icon { font-size: 90rpx; }
+.locked-icon { font-size: 80rpx; }
 .locked-title { font-size: 34rpx; font-weight: 700; color: var(--text-main); margin-top: 20rpx; }
 .locked-btn { display: inline-block; margin-top: 32rpx; padding: 20rpx 60rpx; background: var(--primary); color: #fff; border-radius: 999rpx; font-size: 28rpx; }
 

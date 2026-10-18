@@ -2,12 +2,18 @@
   <view class="page" :style="themeVars">
     <NavBar title="仓库配置" />
 
+    <!-- 自动保存提示（本页没有保存按钮，改动即时生效） -->
+    <view class="auto-tip">
+      <text class="auto-tip-text">改动自动保存，无需手动提交</text>
+      <text class="auto-tip-ok" v-if="savedTip">✓ 已保存</text>
+    </view>
+
     <!-- 常用配置（仓库相关，真正作用到商品列表与出入库表单） -->
     <view class="card">
       <view class="card-title"><text class="flex-1">常用配置</text></view>
       <view class="cfg-row">
         <text class="cfg-label">低库存提醒阈值</text>
-        <input class="cfg-input" type="number" v-model="cfg.lowStock" placeholder="0" @blur="saveCfg" />
+        <input class="cfg-input" type="number" v-model="cfg.lowStock" placeholder="0" @blur="saveCfg" @confirm="saveCfg" />
         <text class="cfg-unit">件</text>
       </view>
       <view class="cfg-row">
@@ -53,7 +59,8 @@ export default {
   data() {
     return {
       enabled: true,
-      cfg: getWarehouseCfg()
+      cfg: getWarehouseCfg(),
+      savedTip: false,
     };
   },
   computed: {
@@ -73,7 +80,13 @@ export default {
   },
   methods: {
     async loadCfg() { this.cfg = await loadWarehouseCfg(); },
-    saveCfg() { this.cfg = saveWarehouseCfg(this.cfg); },
+    /** 改动即存：本机立即生效 + 异步推后端，同时给出「已保存」反馈 */
+    saveCfg() {
+      this.cfg = saveWarehouseCfg(this.cfg);
+      this.savedTip = true;
+      clearTimeout(this._tipTimer);
+      this._tipTimer = setTimeout(() => { this.savedTip = false; }, 1500);
+    },
     /** 每页条数 */
     onPageSizeChange(e) {
       const arr = [10, 20, 50];
@@ -129,4 +142,12 @@ export default {
 .btn.ghost { background: var(--bg); color: var(--text-sub); border: 1rpx solid var(--border); }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
+/* 自动保存提示条 */
+.auto-tip {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 14rpx 24rpx 0; padding: 12rpx 18rpx;
+  border-radius: 10rpx; background: rgba(95,167,122,.10);
+}
+.auto-tip-text { font-size: 22rpx; color: var(--text-sub); }
+.auto-tip-ok { font-size: 22rpx; color: var(--primary); font-weight: 600; }
 </style>

@@ -58,7 +58,6 @@
       <view class="card-title">
         <text class="flex-1">商品</text>
         <text class="link" @tap="openFlows()">流水</text>
-        <text class="link" style="margin-left: 16rpx" @tap="openOrderSheet()">下单</text>
         <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
       </view>
 
@@ -164,6 +163,7 @@
           <view class="seg">
             <view class="seg-item" :class="{ on: stockMode === 'in' }" @tap="stockMode = 'in'">入库 +</view>
             <view class="seg-item" :class="{ on: stockMode === 'out' }" @tap="stockMode = 'out'">出库 −</view>
+            <view class="seg-item" :class="{ on: stockMode === 'adjust' }" @tap="stockMode = 'adjust'">校准</view>
           </view>
         </view>
         <view class="f-row">
@@ -301,14 +301,8 @@
       <view class="sheet" @tap.stop>
         <view class="sheet-title">{{ productDetail.product.name }}</view>
 
-        <!-- 素材分类：商品图 / 宣传图 / 采购凭证 -->
-        <view class="mat-tabs">
-          <view class="mat-tab" :class="{ on: materialKind === 'product' }" @tap="materialKind = 'product'">商品图</view>
-          <view class="mat-tab" :class="{ on: materialKind === 'promo' }" @tap="materialKind = 'promo'">宣传图</view>
-          <view class="mat-tab" :class="{ on: materialKind === 'voucher' }" @tap="materialKind = 'voucher'">凭证</view>
-        </view>
         <scroll-view scroll-x class="detail-imgs">
-          <view v-for="(img, i) in materialImages" :key="img.id" class="detail-img-wrap">
+          <view v-for="(img, i) in productDetail.images" :key="img.id" class="detail-img-wrap">
             <image :src="img.fileUrl" class="detail-img" mode="aspectFill" />
             <text v-if="i === 0" class="detail-img-cover">封面</text>
             <text class="detail-img-del" @tap.stop="removeProductImage(img)">×</text>
@@ -379,71 +373,6 @@
       </view>
     </view>
 
-    <view class="mask" v-if="stocktakeSheet" @tap="stocktakeSheet = false">
-      <view class="sheet" @tap.stop>
-        <view class="sheet-title">库存盘点</view>
-        <view class="f-row"><text class="f-label">货架</text>
-          <picker :range="stocktakeShelfNames" @change="onStocktakeShelfChange">
-            <view class="f-value">{{ stocktakeShelfLabel }} ▾</view>
-          </picker></view>
-        <view class="sheet-sub">填实盘数量，与账面不同的会生成盘盈/盘亏流水</view>
-        <scroll-view scroll-y class="detail-items">
-          <view v-if="!stocktakeRows.length" class="empty">该仓库还没有商品</view>
-          <view v-for="r in stocktakeRows" :key="r.productId" class="st-row">
-            <view class="flex-1 min-w-0">
-              <view class="row-name">{{ r.name }}</view>
-              <view class="row-sub">账面 {{ r.book }} {{ r.unit || '个' }}</view>
-            </view>
-            <input class="st-input" type="number" v-model="r.actual" placeholder="实盘" />
-          </view>
-        </scroll-view>
-        <view class="f-row"><text class="f-label">备注</text>
-          <input class="f-input" v-model="stocktakeRemark" placeholder="选填" /></view>
-        <view class="sheet-actions">
-          <view class="btn ghost" @tap="stocktakeSheet = false">取消</view>
-          <view class="btn" @tap="saveStocktake">提交盘点</view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 下单弹层（赊销自动建应收 / 赊购自动建应付 + 库存联动） -->
-    <view class="mask" v-if="orderSheet" @tap="orderSheet = false">
-      <view class="sheet" @tap.stop>
-        <view class="sheet-title">下单</view>
-        <view class="f-row">
-          <text class="f-label">类型</text>
-          <view class="seg">
-            <view class="seg-item" :class="{ on: orderForm.mode === 'sale' }" @tap="orderForm.mode = 'sale'">销售</view>
-            <view class="seg-item" :class="{ on: orderForm.mode === 'purchase' }" @tap="orderForm.mode = 'purchase'">采购</view>
-          </view>
-        </view>
-        <view class="f-row">
-          <text class="f-label">{{ orderForm.mode === 'sale' ? '客户' : '供应商' }}</text>
-          <input class="f-input" v-model="orderForm.party"
-            :placeholder="orderForm.mode === 'sale' ? '客户名称（建应收用）' : '供应商名称（建应付用）'" />
-        </view>
-
-        <!-- 商品明细 -->
-        <view v-for="(it, idx) in orderForm.items" :key="idx" class="order-line">
-          <picker :range="productNames" @change="onOrderItemProduct(idx, $event)">
-            <view class="f-value order-pick">{{ productName(it.productId) || '选商品' }} ▾</view>
-          </picker>
-          <input class="f-input order-qty" type="number" v-model="it.quantity" placeholder="数量" />
-          <input class="f-input order-price" type="digit" v-model="it.unitPrice" placeholder="单价" />
-          <text class="order-del" @tap="removeOrderItem(idx)">×</text>
-        </view>
-        <view class="f-row">
-          <text class="f-label">合计</text>
-          <text class="f-value">¥{{ orderTotalText }}</text>
-        </view>
-        <view class="sheet-sub">赊账下单：发货/收货后自动生成{{ orderForm.mode === 'sale' ? '应收款' : '应付款' }}，可到资产负债页查看</view>
-
-        <view class="sheet-actions">
-          <view class="btn ghost" @tap="addOrderItem">＋ 加明细</view>
-          <view class="btn" @tap="submitOrder">提交下单</view>
-        </view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -451,7 +380,6 @@
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
-  createSaleOrder, createPurchaseOrder,
   listShelves, createShelf, updateShelf, deleteShelf, getShelfDetail,
   attachShelfImage, deleteInventoryImage, uploadFile, transferStock, getProductDetail,
   attachProductImage, updateProduct,
@@ -495,8 +423,6 @@ export default {
       stockQty: '',
       stockRemark: '',
       // 下单（销售/采购）：赊账自动建应收/应付 + 库存联动
-      orderSheet: false,
-      orderForm: { mode: 'sale', party: '', items: [] },
       // ===== 货架（存放位置）=====
       tab: 'goods',
       shelves: [],
@@ -512,11 +438,11 @@ export default {
       },
       transferForm: { visible: false, productId: null, itemName: '', targetShelfId: null, targetName: '', quantity: '' },
       // 商品详情（图片 + 各货架库存分布）
-      materialKind: 'product',
+      // 商品图片（轻量：只保留一个图片列表）
       flowSheet: false,
       flows: [],
       flowTotal: 0,
-      productDetail: { visible: false, product: {}, shelves: [], images: [], promoImages: [], voucherImages: [], totalQuantity: 0, totalCostValue: 0 },
+      productDetail: { visible: false, product: {}, shelves: [], images: [], totalQuantity: 0, totalCostValue: 0 },
       // ===== 查找 / 类目 / 相似商品 =====
       keyword: '',
       categoryId: null,
@@ -528,10 +454,6 @@ export default {
       // ===== 概览 / 盘点 / 出入库原因 =====
       overview: {},
       stockReason: '',
-      stocktakeSheet: false,
-      stocktakeRows: [],
-      stocktakeRemark: '',
-      stocktakeShelfId: 0,
       // 出入库所选货架（0/null = 未上架）
       stockShelfId: 0
     };
@@ -540,14 +462,7 @@ export default {
     themeVars() { return useThemeStore().themeVars; },
     whTypeNames() { return WH_TYPES.map(t => t[1]); },
     productNames() { return this.products.map(p => p.name); },
-    orderTotalText() {
-      const sum = (this.orderForm.items || []).reduce((s, it) => {
-        return s + Number(it.quantity || 0) * Number(it.unitPrice || 0);
-      }, 0);
-      return Number(sum).toFixed(2);
-    },
-    shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); }, conditionNames() { return CONDITIONS; }, channelNames() { return CHANNELS; }, materialImages() { return this.materialKind === 'promo' ? (this.productDetail.promoImages || []) : this.materialKind === 'voucher' ? (this.productDetail.voucherImages || []) : (this.productDetail.images || []); },
-    /** 移库可选商品（本货架上还有货的） */
+    shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); }, conditionNames() { return CONDITIONS; }, channelNames() { return CHANNELS; }, /** 移库可选商品（本货架上还有货的） */
     transferItemNames() { return (this.shelfDetail.items || []).map(it => it.productName); },
     /** 移库可选目标货架（排除当前货架） */
     transferTargetList() {
@@ -587,14 +502,6 @@ export default {
       return this.stockMode === 'in' ? '采购' : '销售';
     },
     /** 盘点页货架选择（首项「未上架」） */
-    stocktakeShelfNames() {
-      return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
-    },
-    stocktakeShelfLabel() {
-      if (!this.stocktakeShelfId) return '未上架';
-      const s = this.shelves.find(x => String(x.id) === String(this.stocktakeShelfId));
-      return s ? s.name + (s.code ? ' · ' + s.code : '') : '未上架';
-    },
     /** 复用入库的货架选择（首项「未上架」） */
     reuseShelfNames() {
       return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
@@ -662,44 +569,7 @@ export default {
         this.overview = (await getWarehouseOverview(this.currentId)) || {};
       } catch (e) { /* 拦截器已提示 */ }
     },
-    async openStocktake() {
-      if (!this.currentId) { uni.showToast({ title: '请先选择仓库', icon: 'none' }); return; }
-      await this.loadShelves();
-      this.stocktakeShelfId = 0;
-      this.stocktakeRemark = '';
-      // 盘点按「货架」维度：先按未上架铺，切货架后重铺
-      this.stocktakeRows = this.products.map(p => ({
-        productId: p.id,
-        name: p.name,
-        unit: p.unit,
-        book: p.stockQuantity || 0,
-        actual: p.stockQuantity || 0
-      }));
-      this.stocktakeSheet = true;
-    },
-    onStocktakeShelfChange(e) {
-      const i = Number(e.detail.value);
-      this.stocktakeShelfId = i <= 0 ? 0 : this.shelves[i - 1].id;
-    },
-    async saveStocktake() {
-      const items = this.stocktakeRows
-        .filter(r => r.actual !== '' && Number(r.actual) !== Number(r.book))
-        .map(r => ({ productId: r.productId, actualQuantity: Number(r.actual) }));
-      if (!items.length) { uni.showToast({ title: '没有差异，无需调整', icon: 'none' }); return; }
-      try {
-        const res = (await stocktake({
-          warehouseId: this.currentId,
-          shelfId: this.stocktakeShelfId || 0,
-          items,
-          remark: this.stocktakeRemark || null
-        })) || {};
-        uni.showToast({ title: '盘点完成：盘盈 ' + (res.gain || 0) + ' / 盘亏 ' + (res.loss || 0), icon: 'none' });
-        this.stocktakeSheet = false;
-        await this.loadProducts();
-        await this.loadShelves();
-        await this.loadOverview();
-      } catch (e) { /* 拦截器已提示 */ }
-    },    // ===== 查找 / 类目 / 相似商品 =====
+    // ===== 查找 / 类目 / 相似商品 =====
     doSearch() { this.loadProducts(); },
     pickCategoryFilter(c) {
       this.categoryId = c ? c.id : null;
@@ -860,8 +730,6 @@ export default {
           shelf: d.shelf || {},
           items: d.items || [],
           images: d.images || [],
-          promoImages: d.promoImages || [],
-          voucherImages: d.voucherImages || [],
           totalQuantity: d.totalQuantity || 0,
           totalCostValue: d.totalCostValue || 0,
           overCapacity: !!d.overCapacity
@@ -976,7 +844,7 @@ export default {
     },
     // ===== 商品详情（图片轮播 + 各货架库存分布）=====
     async openProductDetail(p) {
-      this.materialKind = 'product';
+
       try {
         const d = (await getProductDetail(p.id)) || {};
         this.productDetail = {
@@ -984,8 +852,6 @@ export default {
           product: d.product || p,
           shelves: d.shelves || [],
           images: d.images || [],
-          promoImages: d.promoImages || [],
-          voucherImages: d.voucherImages || [],
           totalQuantity: d.totalQuantity || 0,
           totalCostValue: d.totalCostValue || 0
         };
@@ -1002,8 +868,8 @@ export default {
           if (!path) return;
           uni.showLoading({ title: '上传中', mask: true });
           try {
-            const kind = this.materialKind;
-            const bizType = kind === 'promo' ? 'ledger_product_promo' : kind === 'voucher' ? 'ledger_product_voucher' : 'ledger_product';
+            const kind = 'product';
+            const bizType = 'ledger_product';
             const url = await uploadFile(path, bizType);
             if (url) {
               await attachProductImage(id, url, kind);
@@ -1052,52 +918,7 @@ export default {
     },
     // ===== 下单 =====
     /** 打开下单弹层（默认带一行明细） */
-    openOrderSheet() {
-      if (!this.currentId) { uni.showToast({ title: '请先新建/选择仓库', icon: 'none' }); return; }
-      if (!this.products.length) { uni.showToast({ title: '请先添加商品', icon: 'none' }); return; }
-      this.orderForm = { mode: 'sale', party: '', items: [{ productId: null, quantity: '', unitPrice: '' }] };
-      this.orderSheet = true;
-    },
-    addOrderItem() {
-      this.orderForm.items.push({ productId: null, quantity: '', unitPrice: '' });
-    },
-    removeOrderItem(idx) {
-      this.orderForm.items.splice(idx, 1);
-    },
-    onOrderItemProduct(idx, e) {
-      const p = this.products[e.detail.value];
-      if (!p) return;
-      const it = this.orderForm.items[idx];
-      it.productId = p.id;
-      // 首次选商品时用商品售价/成本价兜底，仍可手改
-      if (!it.unitPrice) {
-        it.unitPrice = this.orderForm.mode === 'sale' ? (p.sellPrice || p.costPrice || '') : (p.costPrice || '');
-      }
-    },
-    productName(id) {
-      const p = this.products.find(x => String(x.id) === String(id));
-      return p ? p.name : '';
-    },
     /** 提交下单：销售→自动建应收；采购→自动建应付；同时联动库存 */
-    async submitOrder() {
-      const party = (this.orderForm.party || '').trim();
-      if (!party) { uni.showToast({ title: '请填' + (this.orderForm.mode === 'sale' ? '客户' : '供应商') + '名称', icon: 'none' }); return; }
-      const items = (this.orderForm.items || [])
-        .filter(it => it.productId && Number(it.quantity) > 0)
-        .map(it => ({ productId: it.productId, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice || 0) }));
-      if (!items.length) { uni.showToast({ title: '请至少填一行有效明细', icon: 'none' }); return; }
-      try {
-        if (this.orderForm.mode === 'sale') {
-          await createSaleOrder({ warehouseId: this.currentId, customerName: party, paymentType: 'credit', items });
-        } else {
-          await createPurchaseOrder({ warehouseId: this.currentId, supplierName: party, paymentType: 'credit', items });
-        }
-        uni.showToast({ title: '下单成功', icon: 'success' });
-        this.orderSheet = false;
-        // 库存已变 → 刷新商品；应收/应付账户由后端生成
-        this.loadProducts();
-      } catch (e) { /* 拦截器已提示 */ }
-    },
     whTypeText(t) { const x = WH_TYPES.find(i => i[0] === t); return x ? x[1] : ''; },
     async loadWarehouses() {
       try {
@@ -1138,10 +959,40 @@ export default {
       this.stockQty = '';
       this.stockRemark = '';
     },
+    /** 出入库三态：入库 + / 出库 − / 校准（直接设为实际数量，差异记盘点流水） */
     async saveStock() {
-      const qty = parseInt(this.stockQty, 10);
-      if (!qty || qty <= 0) { uni.showToast({ title: '请输入数量', icon: 'none' }); return; }
+      const raw = String(this.stockQty == null ? '' : this.stockQty).trim();
+      const qty = parseInt(raw, 10);
+      const isAdjust = this.stockMode === 'adjust';
+      if (isAdjust) {
+        if (raw === '' || isNaN(qty) || qty < 0) {
+          uni.showToast({ title: '请输入实际数量', icon: 'none' });
+          return;
+        }
+      } else if (!qty || qty <= 0) {
+        uni.showToast({ title: '请输入数量', icon: 'none' });
+        return;
+      }
       try {
+        if (isAdjust) {
+          // 校准 = 盘点：把该货架该商品直接设为 qty，差异由后端写 adjust 流水
+          const res = (await stocktake({
+            warehouseId: this.currentId,
+            shelfId: this.stockShelfId || 0,
+            items: [{ productId: this.stockTarget.id, actualQuantity: qty }],
+            remark: this.stockRemark || '校准'
+          })) || {};
+          const d = (res.details && res.details[0]) || null;
+          uni.showToast({
+            title: d ? ('已校准：' + d.before + ' → ' + d.actual) : '数量未变',
+            icon: 'none'
+          });
+          this.stockTarget = null;
+          this.loadProducts();
+          this.loadShelves();
+          this.loadOverview();
+          return;
+        }
         const fn = this.stockMode === 'in' ? stockIn : stockOut;
         await fn({
           warehouseId: this.currentId,
@@ -1334,13 +1185,6 @@ export default {
   width: 140rpx; text-align: center; font-size: 26rpx;
   border: 1rpx solid var(--border); border-radius: 8rpx; padding: 6rpx 0;
 }
-/* ===== 素材分类 tab ===== */
-.mat-tabs { display: flex; gap: 10rpx; padding: 6rpx 0 10rpx; }
-.mat-tab {
-  padding: 8rpx 20rpx; font-size: 24rpx; border-radius: 999rpx;
-  color: var(--text-sub); border: 1rpx solid var(--border);
-}
-.mat-tab.on { color: #fff; background: var(--primary); border-color: var(--primary); }
 /* ===== 扫码按钮 / 流水 ===== */
 .scan-btn {
   flex: 0 0 auto; padding: 8rpx 18rpx; margin-left: 8rpx;

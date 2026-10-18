@@ -1022,6 +1022,11 @@ export default {
       this.productDetail.visible = false;
       uni.navigateTo({ url: '/pages/warehouse/inout/index?out=' + p.id });
     },
+    /** 仓库性质徽标：个人=个 / 家庭=家 / 合伙=合 */
+    whTypeBadge(t) {
+      const m = { personal: '个', family: '家', partner: '合' };
+      return m[t] || '个';
+    },
     whTypeText(t) { const x = WH_TYPES.find(i => i[0] === t); return x ? x[1] : ''; },
     async loadWarehouses() {
       try {

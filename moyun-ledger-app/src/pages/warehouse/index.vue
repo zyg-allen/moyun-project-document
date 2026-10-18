@@ -2,24 +2,15 @@
   <view class="page" :style="themeVars">
     <NavBar title="仓库" />
 
-    <!-- 仓库筛选：下拉框 -->
-    <view class="wh-select-wrap" v-if="warehouses.length">
-      <view class="tree-select" @tap="whOpen = !whOpen">
-        <text class="tree-select-label">仓库</text>
-        <text class="flex-1 tree-select-text">{{ currentWhName }}</text>
-        <text class="tree-select-arrow" :class="{ open: whOpen }">▾</text>
+    <!-- 仓库切换（个人/家庭/合伙） -->
+    <scroll-view scroll-x class="wh-bar" v-if="warehouses.length">
+      <view v-for="w in warehouses" :key="w.id" class="wh-tag"
+            :class="{ active: String(w.id) === String(currentId) }" @tap="switchWh(w)">
+        <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
+        <text class="wh-name">{{ w.name }}</text>
       </view>
-      <view v-if="whOpen" class="tree-panel wh-panel">
-        <view v-for="w in warehouses" :key="w.id" class="tree-item lv1"
-              :class="{ on: String(currentId) === String(w.id) }"
-              @tap="switchWh(w); whOpen = false">
-          <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
-          <text class="flex-1 wh-name">{{ w.name }}</text>
-          <text v-if="String(currentId) === String(w.id)" class="wh-cur">当前</text>
-        </view>
-        <view class="tree-manage" @tap.stop="whOpen = false; openWhSheet()">＋ 新建仓库</view>
-      </view>
-    </view>
+      <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
+    </scroll-view>
     <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
 
     <!-- 概览（对齐产品方案 4.9 仓库页结构） -->
@@ -106,13 +97,23 @@
         <view class="tree-manage" @tap.stop="openCatManage">⚙ 管理分类</view>
       </view>
 
-      <!-- 货架筛选 -->
-      <scroll-view scroll-x class="cat-bar">
-        <view class="cat-chip" :class="{ on: !shelfFilterId }" @tap="pickShelfFilter(null)">全部货架</view>
-        <view v-for="s in shelves" :key="s.id" class="cat-chip"
+      <!-- 货架筛选：下拉框（选择后收起） -->
+      <view class="tree-select" @tap="shelfOpen = !shelfOpen">
+        <text class="tree-select-label">货架</text>
+        <text class="flex-1 tree-select-text" :class="{ ph: !shelfFilterLabel }">{{ shelfFilterLabel || '全部货架' }}</text>
+        <text class="tree-select-arrow" :class="{ open: shelfOpen }">▾</text>
+      </view>
+      <view v-if="shelfOpen" class="tree-panel">
+        <view class="tree-item lv1" :class="{ on: !shelfFilterId }" @tap="pickShelfFilter(null)">
+          <text class="flex-1">全部货架</text>
+        </view>
+        <view v-for="s in shelves" :key="s.id" class="tree-item lv1"
               :class="{ on: String(shelfFilterId) === String(s.id) }"
-              @tap="pickShelfFilter(s)">{{ s.name }}</view>
-      </scroll-view>
+              @tap="pickShelfFilter(s)">
+          <text class="flex-1">{{ s.name }}</text>
+          <text v-if="s.code" class="tree-num">{{ s.code }}</text>
+        </view>
+      </view>
 
       <view v-if="!products.length" class="empty">{{ (keyword || categoryId || shelfFilterId) ? '没有匹配的商品' : '还没有商品，点「＋新增商品」添加' }}</view>
       <view v-for="p in products" :key="p.id" class="prod-row" @tap="openProductDetail(p)">
@@ -529,7 +530,7 @@ export default {
       categoryId: null,
       shelfFilterId: null,
       catTreeOpen: false,
-      whOpen: false,
+      shelfOpen: false,
       productCategories: [],
       catManageSheet: false,
       newCatName: '',
@@ -543,10 +544,10 @@ export default {
     };
   },
   computed: {
-    /** 当前仓库的展示名（徽标 + 名称） */
-    currentWhName() {
-      const w = this.warehouses.find(x => String(x.id) === String(this.currentId));
-      return w ? (this.whTypeBadge(w.warehouseType) + ' ' + w.name) : '请选择仓库';
+    /** 货架筛选的展示名 */
+    shelfFilterLabel() {
+      const s = this.shelves.find(x => String(x.id) === String(this.shelfFilterId));
+      return s ? s.name : '';
     },
     /** 当前分类的展示名（一级 / 一级 / 二级） */
     categoryLabel() {
@@ -619,6 +620,7 @@ export default {
     pickShelfFilter(s) {
       this.shelfFilterId = s ? s.id : null;
       this.pageNum = 1;
+      this.shelfOpen = false;
       this.loadProducts();
     },
     /** 商品列表翻页 */

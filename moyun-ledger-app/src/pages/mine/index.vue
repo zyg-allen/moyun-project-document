@@ -105,9 +105,9 @@ export default {
       // 主功能宫格（内置兜底=仅已上线功能；运行时由后台配置覆盖）
       mainMenus: [
         { key: 'warehouse', icon: '📦', label: '库存管理', color: '' },
-        { key: 'warehouseSetting', icon: '🏷️', label: '仓库设置', color: '' },
+        { key: 'warehouseSetting', icon: '🏷️', label: '仓库配置', color: '' },
         { key: 'category', icon: '☰', label: '分类管理', color: '' },
-        { key: 'setting', icon: '⚙️', label: '记账设置', color: '' },
+        { key: 'setting', icon: '⚙️', label: '系统设置', color: '' },
         { key: 'savings', icon: '🏦', label: '存钱计划', color: '' },
         { key: 'schedule', icon: '⏰', label: '定时记账', color: '' },
         { key: 'feedback', icon: '💬', label: '意见反馈', color: '' },

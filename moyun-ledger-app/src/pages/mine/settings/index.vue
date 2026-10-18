@@ -1,6 +1,6 @@
 <template>
   <view class="page" :style="themeVars">
-    <NavBar title="设置" />
+    <NavBar title="系统设置" />
     <!-- 主题切换 -->
     <view class="card">
       <view class="setting-title">主题风格</view>
@@ -32,6 +32,24 @@
           </view>
           <text class="appearance-name" :class="{ selected: appearanceKey === a.key }">{{ a.name }}</text>
         </view>
+      </view>
+    </view>
+
+    <!-- 功能开关：仓库管理（关闭后底部不显示「入库/出库」） -->
+    <view class="card">
+      <view class="setting-row">
+        <view class="flex-1">
+          <view class="setting-name">仓库管理</view>
+          <view class="setting-sub">开启后底部出现「入库/出库」，可管理库存、货架、商品</view>
+        </view>
+        <switch :checked="warehouseOn" @change="onWarehouseChange" style="transform: scale(0.85)" />
+      </view>
+      <view class="setting-row" v-if="warehouseOn" @tap="goWarehouseCfg">
+        <view class="flex-1">
+          <view class="setting-name">仓库配置</view>
+          <view class="setting-sub">商品类目 · 低库存阈值 · 列表显示项</view>
+        </view>
+        <text class="row-arrow">›</text>
       </view>
     </view>
 
@@ -90,6 +108,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { APP_VERSION_TEXT, MAIL_HELP_URL } from '@/utils/appInfo';
 import { getUserInfo, updateProfile } from '@/api/ledger';
+import { isWarehouseEnabled, setWarehouseEnabled } from '@/utils/warehouseSwitch';
 
 export default {
   computed: {
@@ -104,6 +123,7 @@ export default {
   data() {
     return {
       privacy: false,
+      warehouseOn: true,
       // 邮件提醒（定时记账执行结果推送）
       email: '',
       mailNotify: false,
@@ -114,6 +134,7 @@ export default {
     };
   },
   onShow() {
+    this.warehouseOn = isWarehouseEnabled();
     // uni-app H5 每个页面各自新建 uni-page-body：必须每次进入都重新注入主题，
     // 否则从别的页跳进来时，本页最外层仍是 page{} 的日间默认（暗色下发白）。
     useThemeStore().applyToPageBody();
@@ -121,6 +142,11 @@ export default {
     this.loadMailSettings();
   },
   methods: {
+    onWarehouseChange(e) {
+      this.warehouseOn = e.detail.value;
+      setWarehouseEnabled(this.warehouseOn);
+    },
+    goWarehouseCfg() { uni.navigateTo({ url: '/pages/mine/warehouse-settings/index' }); },
     /**
      * 读取邮箱与邮件提醒开关。
      * 必须现调 /portal/user/me：stores/user 只持久化 token，userInfo 冷启动即丢失，
@@ -293,4 +319,5 @@ export default {
 .appearance-swatch.sw-dark .appearance-check { color: #5B8DEF; }
 .appearance-name { font-size: 24rpx; color: var(--text-sub); }
 .appearance-name.selected { color: var(--primary-text); font-weight: 600; }
+.row-arrow { font-size: 32rpx; color: var(--text-sub); }
 </style>

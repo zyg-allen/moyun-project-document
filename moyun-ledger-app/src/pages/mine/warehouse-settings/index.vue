@@ -1,19 +1,9 @@
 <template>
   <view class="page" :style="themeVars">
-    <NavBar title="仓库设置" />
+    <NavBar title="仓库配置" />
 
-    <!-- ① 总开关 -->
-    <view class="card">
-      <view class="card-title">
-        <text class="flex-1">使用仓库管理</text>
-        <switch :checked="enabled" color="#5FA77A" @change="onToggle" />
-      </view>
-      <view class="hint">
-        开启后底部导航出现「入库/出库」，可以管货架、商品和库存；关闭则退回纯记账。
-      </view>
-    </view>
 
-    <!-- ② 商品类目维护 -->
+    <!-- ① 商品类目 -->
     <view class="card">
       <view class="card-title">
         <text class="flex-1">商品类目</text>

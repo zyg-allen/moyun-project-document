@@ -17,6 +17,7 @@ const TAB_PAGES = [
   'pages/record/index',
   'pages/portfolio/index',
   'pages/warehouse/inout/index',
+  'pages/analysis/index',
   'pages/mine/index'
 ];
 

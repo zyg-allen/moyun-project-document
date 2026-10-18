@@ -50,7 +50,7 @@
       { "pagePath": "pages/record/index", "text": "记一笔" },
       { "pagePath": "pages/warehouse/inout/index", "text": "入库/出库" },
       { "pagePath": "pages/analysis/index", "text": "分析" },
-      { "pagePath": "pages/mine/index", "text": "我的" }
+      { "pagePath": "pages/mine/index", "text": "更多" }
     ]
   }
 }

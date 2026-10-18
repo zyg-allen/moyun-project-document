@@ -543,6 +543,33 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         return m;
     }
 
+    /** 原因 → 中文 */
+    private String reasonLabel(String reason) {
+        if (reason == null) return null;
+        switch (reason) {
+            case LedgerStockFlow.REASON_PURCHASE: return "采购";
+            case LedgerStockFlow.REASON_SALE: return "销售";
+            case LedgerStockFlow.REASON_SELF_USE: return "自用";
+            case LedgerStockFlow.REASON_LOSS: return "损耗";
+            case LedgerStockFlow.REASON_TRANSFER: return "移库";
+            case LedgerStockFlow.REASON_GIFT: return "赠送";
+            case LedgerStockFlow.REASON_STOCKTAKE: return "盘点";
+            default: return "其他";
+        }
+    }
+
+    /** 类型 → 中文 */
+    private String flowTypeLabel(String flowType) {
+        if (flowType == null) return null;
+        switch (flowType) {
+            case LedgerStockFlow.FLOW_IN: return "入库";
+            case LedgerStockFlow.FLOW_OUT: return "出库";
+            case LedgerStockFlow.FLOW_TRANSFER: return "移库";
+            case LedgerStockFlow.FLOW_ADJUST: return "盘点";
+            default: return flowType;
+        }
+    }
+
     /** 原因缺省兜底 */
     private String defaultReason(String reason, String fallback) {
         return (reason == null || reason.isBlank()) ? fallback : reason.trim();
@@ -743,6 +770,31 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         int pn = (pageNum == null || pageNum < 1) ? 1 : pageNum;
         int ps = (pageSize == null || pageSize < 1) ? 20 : Math.min(pageSize, 100);
         Page<LedgerStockFlow> page = stockFlowMapper.selectPage(new Page<>(pn, ps), q);
+        // 回填商品名/货架名/中文类型，前端直接可读（谁、何时、做了什么）
+        if (!page.getRecords().isEmpty()) {
+            List<Long> pids = page.getRecords().stream().map(LedgerStockFlow::getProductId)
+                    .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+            Map<Long, String> pnames = pids.isEmpty() ? new HashMap<>()
+                    : productMapper.selectBatchIds(pids).stream()
+                            .collect(Collectors.toMap(LedgerProduct::getId, LedgerProduct::getName, (a, b) -> a));
+            List<Long> sids = new ArrayList<>();
+            for (LedgerStockFlow f : page.getRecords()) {
+                if (f.getShelfId() != null && f.getShelfId() > 0) sids.add(f.getShelfId());
+                if (f.getToShelfId() != null && f.getToShelfId() > 0) sids.add(f.getToShelfId());
+            }
+            Map<Long, String> snames = sids.isEmpty() ? new HashMap<>()
+                    : shelfMapper.selectBatchIds(sids.stream().distinct().collect(Collectors.toList())).stream()
+                            .collect(Collectors.toMap(LedgerShelf::getId, LedgerShelf::getName, (a, b) -> a));
+            for (LedgerStockFlow f : page.getRecords()) {
+                f.setProductName(pnames.getOrDefault(f.getProductId(), "（已删除商品）"));
+                f.setShelfName((f.getShelfId() == null || f.getShelfId() == 0) ? "未上架"
+                        : snames.getOrDefault(f.getShelfId(), "货架" + f.getShelfId()));
+                f.setToShelfName((f.getToShelfId() == null || f.getToShelfId() == 0) ? null
+                        : snames.getOrDefault(f.getToShelfId(), "货架" + f.getToShelfId()));
+                f.setReasonLabel(reasonLabel(f.getReason()));
+                f.setFlowTypeLabel(flowTypeLabel(f.getFlowType()));
+            }
+        }
         Map<String, Object> m = new HashMap<>();
         m.put("records", page.getRecords());
         m.put("total", page.getTotal());

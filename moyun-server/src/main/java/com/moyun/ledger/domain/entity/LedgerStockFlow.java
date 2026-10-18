@@ -1,5 +1,6 @@
 package com.moyun.ledger.domain.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -50,4 +51,18 @@ public class LedgerStockFlow {
     private String remark;
     private Integer status;
     private LocalDateTime createTime;
+
+    // ---------------- 非表字段（流水列表展示用） ----------------
+    @TableField(exist = false)
+    private String productName;
+    @TableField(exist = false)
+    private String shelfName;
+    @TableField(exist = false)
+    private String toShelfName;
+    /** 原因中文：采购/销售/自用/损耗/转出/赠送/盘点/其他 */
+    @TableField(exist = false)
+    private String reasonLabel;
+    /** 类型中文：入库/出库/移库/盘点 */
+    @TableField(exist = false)
+    private String flowTypeLabel;
 }

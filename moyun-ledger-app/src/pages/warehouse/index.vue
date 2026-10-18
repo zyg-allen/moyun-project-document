@@ -57,7 +57,7 @@
     <view class="card" v-if="currentId && tab === 'goods'">
       <view class="card-title">
         <text class="flex-1">商品</text>
-        <text class="link" @tap="openStocktake()">盘点</text>
+        <text class="link" @tap="openFlows()">流水</text>
         <text class="link" style="margin-left: 16rpx" @tap="openOrderSheet()">下单</text>
         <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
       </view>
@@ -137,7 +137,8 @@
         <view class="f-row"><text class="f-label">单位</text>
           <input class="f-input" v-model="pForm.unit" placeholder="个 / 箱 / 件" /></view>
         <view class="f-row"><text class="f-label">条码</text>
-          <input class="f-input" v-model="pForm.barcode" placeholder="选填，可扫码" /></view>
+          <input class="f-input" v-model="pForm.barcode" placeholder="选填，可扫码" />
+          <text class="scan-btn" @tap="scanBarcode">扫码</text></view>
         <view class="f-row"><text class="f-label">成色</text>
           <picker :range="conditionNames" @change="onConditionChange">
             <view class="f-value">{{ pForm.conditionGrade || '全新' }} ▾</view>
@@ -319,6 +320,12 @@
           <text class="f-value">{{ productDetail.product.category || '未分类' }}</text></view>
         <view class="f-row"><text class="f-label">单位</text>
           <text class="f-value">{{ productDetail.product.unit || '个' }}</text></view>
+        <view class="f-row" v-if="productDetail.product.barcode"><text class="f-label">条码</text>
+          <text class="f-value">{{ productDetail.product.barcode }}</text></view>
+        <view class="f-row" v-if="productDetail.product.conditionGrade"><text class="f-label">成色</text>
+          <text class="f-value">{{ productDetail.product.conditionGrade }}</text></view>
+        <view class="f-row" v-if="productDetail.product.sourceChannel"><text class="f-label">来源</text>
+          <text class="f-value">{{ productDetail.product.sourceChannel }}</text></view>
         <view class="f-row"><text class="f-label">成本价</text>
           <text class="f-value">¥{{ fmt(productDetail.product.costPrice) }}</text></view>
         <view class="f-row"><text class="f-label">售价</text>
@@ -348,7 +355,30 @@
       </view>
     </view>
 
-    <!-- 盘点（实盘 vs 账面，差异自动生成盘盈/盘亏流水） -->
+    <!-- 库存流水（谁、何时、做了什么） -->
+    <view class="mask" v-if="flowSheet" @tap="flowSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">库存流水（{{ flowTotal }} 条）</view>
+        <scroll-view scroll-y class="detail-items">
+          <view v-if="!flows.length" class="empty">还没有流水，出入库后这里会出现记录</view>
+          <view v-for="f in flows" :key="f.id" class="fl-row">
+            <view class="fl-badge" :class="{ inn: f.quantityChange > 0 }">{{ f.flowTypeLabel || f.flowType }}</view>
+            <view class="flex-1 min-w-0">
+              <view class="row-name">{{ f.productName }}<text v-if="f.reasonLabel" class="fl-reason"> · {{ f.reasonLabel }}</text></view>
+              <view class="row-sub">{{ f.shelfName }}<text v-if="f.toShelfName"> → {{ f.toShelfName }}</text> · {{ f.createTime }}</view>
+            </view>
+            <view class="fl-qty" :class="{ inn: f.quantityChange > 0 }">
+              {{ f.quantityChange > 0 ? '+' : '' }}{{ f.quantityChange }}
+            </view>
+          </view>
+        </scroll-view>
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="flowSheet = false">关闭</view>
+          <view class="btn" @tap="loadFlows">刷新</view>
+        </view>
+      </view>
+    </view>
+
     <view class="mask" v-if="stocktakeSheet" @tap="stocktakeSheet = false">
       <view class="sheet" @tap.stop>
         <view class="sheet-title">库存盘点</view>
@@ -426,7 +456,7 @@ import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, 
   attachShelfImage, deleteInventoryImage, uploadFile, transferStock, getProductDetail,
   attachProductImage, updateProduct,
   listProductCategories, createProductCategory, deleteProductCategory,
-  findSimilarProducts, stocktake, getWarehouseOverview } from '@/api/ledger';
+  findSimilarProducts, stocktake, getWarehouseOverview, listStockFlows } from '@/api/ledger';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
@@ -483,6 +513,9 @@ export default {
       transferForm: { visible: false, productId: null, itemName: '', targetShelfId: null, targetName: '', quantity: '' },
       // 商品详情（图片 + 各货架库存分布）
       materialKind: 'product',
+      flowSheet: false,
+      flows: [],
+      flowTotal: 0,
       productDetail: { visible: false, product: {}, shelves: [], images: [], promoImages: [], voucherImages: [], totalQuantity: 0, totalCostValue: 0 },
       // ===== 查找 / 类目 / 相似商品 =====
       keyword: '',
@@ -597,7 +630,32 @@ export default {
       const x = this.reasonList[e.detail.value];
       this.stockReason = x ? x[0] : '';
     },
-    // ===== 概览 / 盘点 =====
+    // ===== 库存流水 =====
+    async openFlows() {
+      if (!this.currentId) { uni.showToast({ title: '请先选择仓库', icon: 'none' }); return; }
+      this.flowSheet = true;
+      await this.loadFlows();
+    },
+    async loadFlows() {
+      try {
+        const res = (await listStockFlows(this.currentId, { pageNum: 1, pageSize: 50 })) || {};
+        this.flows = res.records || [];
+        this.flowTotal = res.total || 0;
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 扫码填条码 */
+    scanBarcode() {
+      uni.scanCode({
+        success: (r) => {
+          const code = (r.result || '').trim();
+          if (code) {
+            this.pForm.barcode = code;
+            uni.showToast({ title: '已识别条码', icon: 'success' });
+            this.checkSimilar();
+          }
+        }
+      });
+    },
     async loadOverview() {
       if (!this.currentId) { this.overview = {}; return; }
       try {
@@ -1283,4 +1341,21 @@ export default {
   color: var(--text-sub); border: 1rpx solid var(--border);
 }
 .mat-tab.on { color: #fff; background: var(--primary); border-color: var(--primary); }
+/* ===== 扫码按钮 / 流水 ===== */
+.scan-btn {
+  flex: 0 0 auto; padding: 8rpx 18rpx; margin-left: 8rpx;
+  font-size: 24rpx; color: #fff; background: var(--primary); border-radius: 8rpx;
+}
+.fl-row {
+  display: flex; align-items: center; gap: 12rpx;
+  padding: 14rpx 0; border-bottom: 1rpx solid var(--border);
+}
+.fl-badge {
+  flex: 0 0 auto; padding: 4rpx 12rpx; border-radius: 6rpx;
+  font-size: 20rpx; color: #E8654A; background: rgba(232,101,74,.12);
+}
+.fl-badge.inn { color: #0EA37A; background: rgba(14,163,122,.12); }
+.fl-qty { font-size: 30rpx; font-weight: 700; color: #E8654A; }
+.fl-qty.inn { color: #0EA37A; }
+.fl-reason { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
 </style>

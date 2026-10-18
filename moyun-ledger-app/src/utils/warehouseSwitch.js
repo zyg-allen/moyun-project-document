@@ -10,21 +10,33 @@ const KEY = 'moyun_warehouse_enabled';
 
 /** 底部导航里「入库/出库」的下标（总览0 资产负债1 记一笔2 入库出库3 分析4 我的5） */
 const TAB_INDEX = 3;
+
+/** tabBar 页面路由：只有这些页面上才能调 setTabBarItem */
+const TAB_PAGES = [
+  'pages/dashboard/index',
+  'pages/record/index',
+  'pages/portfolio/index',
+  'pages/warehouse/inout/index',
+  'pages/mine/index'
+];
+
 const TAB_TEXT = '入库/出库';
 
-/** 本地缓存读取（同步，供首屏渲染） */
+/** 是否开启仓库管理（本地缓存，默认开启） */
 export function isWarehouseEnabled() {
-  const v = uni.getStorageSync(KEY);
-  if (v === '' || v === null || v === undefined) return true;
-  return !!v;
+  try {
+    const v = uni.getStorageSync(KEY);
+    return v === '' || v === null || v === undefined ? true : !!v;
+  } catch (e) {
+    return true;
+  }
 }
 
-/**
- * 从后端拉一次并覆盖本地缓存。换设备/重装后以服务端为准。
- */
+/** 从服务端同步开关并刷新 tabBar */
 export async function syncWarehouseSwitch() {
   try {
-    const { getUserInfo } = require('@/api/ledger');
+    // 动态 import：避免模块循环依赖，同时 Vite/ESM 下不能用 require
+    const { getUserInfo } = await import('@/api/ledger');
     const u = await getUserInfo();
     if (u && u.warehouseEnabled !== undefined && u.warehouseEnabled !== null) {
       uni.setStorageSync(KEY, !!u.warehouseEnabled);
@@ -35,30 +47,31 @@ export async function syncWarehouseSwitch() {
   }
 }
 
-/**
- * 设置开关：本地立即生效，同时写后端。
- * 后端失败不回滚本地（用户意图优先，下次同步会纠偏）。
- */
+/** 设置开关：本地立即生效，同时写后端（后端失败不回滚本地） */
 export function setWarehouseEnabled(on) {
   uni.setStorageSync(KEY, !!on);
   applyWarehouseTabBar();
-  try {
-    const { updateProfile } = require('@/api/ledger');
-    updateProfile({ warehouseEnabled: !!on }).catch(() => { /* 忽略 */ });
-  } catch (e) { /* 忽略 */ }
+  import('@/api/ledger')
+    .then(({ updateProfile }) => updateProfile({ warehouseEnabled: !!on }))
+    .catch(() => { /* 离线/未登录：忽略，本地已生效 */ });
 }
 
 /**
- * 把开关状态同步到底部导航。
+ * 刷新「入库/出库」tab 文案。
  *
- * uni-app 无法动态增删 tab，只能在关闭时把文字清空（隐藏入口）；
- * 未开启时用户仍可能点到那块空白，页面自身会再拦一次。
+ * 两个坑：
+ *   ① 非 tab 页调用会失败（setTabBarItem:fail not TabBar page）→ 先判断当前路由
+ *   ② uni.setTabBarItem 返回 Promise，try/catch 抓不到异步拒绝 → 必须挂 catch
  */
 export function applyWarehouseTabBar() {
   const on = isWarehouseEnabled();
   try {
-    uni.setTabBarItem({ index: TAB_INDEX, text: on ? TAB_TEXT : '' });
+    const stack = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+    const cur = stack.length ? (stack[stack.length - 1].route || '') : '';
+    if (!cur || TAB_PAGES.indexOf(cur) < 0) return;
+    const res = uni.setTabBarItem({ index: TAB_INDEX, text: on ? TAB_TEXT : '' });
+    if (res && typeof res.catch === 'function') res.catch(() => { /* 忽略 */ });
   } catch (e) {
-    /* 非 tab 页调用会失败，忽略即可 */
+    /* 忽略 */
   }
 }

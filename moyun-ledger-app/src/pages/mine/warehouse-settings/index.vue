@@ -2,27 +2,7 @@
   <view class="page" :style="themeVars">
     <NavBar title="仓库配置" />
 
-
-    <!-- ① 商品类目 -->
-    <view class="card">
-      <view class="card-title">
-        <text class="flex-1">商品类目</text>
-        <text class="link" @tap="goCategories()">管理 ›</text>
-      </view>
-      <view v-if="!categories.length" class="hint">还没有类目，点「＋新增」建一个</view>
-      <view v-for="c in categories" :key="c.id" class="cat-row">
-        <view class="flex-1 min-w-0">
-          <view class="cat-name">
-            {{ c.name }}
-            <text v-if="c.system" class="cat-tag">预设</text>
-          </view>
-          <view class="cat-sub">{{ c.usedCount || 0 }} 个商品<text v-if="c.children && c.children.length"> · {{ c.children.length }} 个子类</text></view>
-        </view>
-        <text v-if="!c.system" class="cat-del" @tap.stop="removeCategory(c)">删除</text>
-      </view>
-    </view>
-
-    <!-- ③ 配置项 -->
+    <!-- 常用配置（仓库相关，真正作用到商品列表与出入库表单） -->
     <view class="card">
       <view class="card-title"><text class="flex-1">常用配置</text></view>
       <view class="cfg-row">
@@ -57,26 +37,6 @@
       <view class="hint">配置目前存本机，后续接入后端用户配置。</view>
     </view>
 
-    <!-- 新增类目弹层 -->
-    <view class="mask" v-if="catSheet" @tap="catSheet = false">
-      <view class="sheet" @tap.stop>
-        <view class="sheet-title">新增商品类目</view>
-        <view class="f-row">
-          <text class="f-label">名称</text>
-          <input class="f-input" v-model="newCatName" placeholder="如 零食、工具" />
-        </view>
-        <view class="f-row">
-          <text class="f-label">父类目</text>
-          <picker :range="parentNames" @change="onParentChange">
-            <text class="f-value">{{ parentName || '无（一级类目）' }} ▾</text>
-          </picker>
-        </view>
-        <view class="sheet-actions">
-          <view class="btn ghost" @tap="catSheet = false">取消</view>
-          <view class="btn" @tap="addCategory">保存</view>
-        </view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -84,7 +44,6 @@
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { isWarehouseEnabled, setWarehouseEnabled, syncWarehouseSwitch, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
-import { listProductCategories, createProductCategory, deleteProductCategory } from '@/api/ledger';
 
 import { getWarehouseCfg, saveWarehouseCfg, loadWarehouseCfg } from '@/utils/warehouseConfig';
 const REASONS = [['purchase', '采购'], ['sale', '销售'], ['gift', '赠送'], ['other', '其他']];
@@ -94,11 +53,6 @@ export default {
   data() {
     return {
       enabled: true,
-      categories: [],
-      catSheet: false,
-      newCatName: '',
-      parentId: 0,
-      parentName: '',
       cfg: getWarehouseCfg()
     };
   },
@@ -106,7 +60,6 @@ export default {
     themeVars() { return useThemeStore().themeVars; },
     reasonOptions() { return REASONS.map(r => r[1]); },
     pageSizeOptions() { return ['10 条', '20 条', '50 条']; },
-    parentNames() { return ['无（一级类目）'].concat(this.categories.map(c => c.name)); },
     cfgDefaultReasonLabel() {
       const r = REASONS.find(x => x[0] === this.cfg.defaultReason);
       return r ? r[1] : '采购';
@@ -117,7 +70,6 @@ export default {
     this.enabled = isWarehouseEnabled();
     syncWarehouseSwitch().then(() => { this.enabled = isWarehouseEnabled(); });
     this.loadCfg();
-    this.loadCategories();
   },
   methods: {
     async loadCfg() { this.cfg = await loadWarehouseCfg(); },
@@ -132,54 +84,6 @@ export default {
       this.enabled = !!e.detail.value;
       setWarehouseEnabled(this.enabled);
       uni.showToast({ title: this.enabled ? '已开启仓库管理' : '已关闭，退回纯记账', icon: 'none' });
-    },
-    async loadCategories() {
-      try {
-        this.categories = (await listProductCategories()) || [];
-      } catch (e) { /* 拦截器已提示 */ }
-    },
-    /** 进独立的商品分类管理页（两级树 + 图标，与记账分类同体验） */
-    goCategories() { uni.navigateTo({ url: '/pages/mine/product-categories/index' }); },
-    openCatSheet() {
-      this.newCatName = '';
-      this.parentId = 0;
-      this.parentName = '';
-      this.catSheet = true;
-    },
-    onParentChange(e) {
-      const i = Number(e.detail.value);
-      if (i <= 0) {
-        this.parentId = 0;
-        this.parentName = '';
-      } else {
-        const c = this.categories[i - 1];
-        this.parentId = c.id;
-        this.parentName = c.name;
-      }
-    },
-    async addCategory() {
-      const name = (this.newCatName || '').trim();
-      if (!name) { uni.showToast({ title: '请输入类目名', icon: 'none' }); return; }
-      try {
-        await createProductCategory({ name, parentId: this.parentId || 0 });
-        this.catSheet = false;
-        await this.loadCategories();
-        uni.showToast({ title: '已添加', icon: 'success' });
-      } catch (e) { /* 拦截器已提示 */ }
-    },
-    removeCategory(c) {
-      uni.showModal({
-        title: '删除类目',
-        content: '删除「' + c.name + '」？有子类目或商品引用时会被拒绝',
-        success: async (r) => {
-          if (!r.confirm) return;
-          try {
-            await deleteProductCategory(c.id);
-            await this.loadCategories();
-            uni.showToast({ title: '已删除', icon: 'success' });
-          } catch (e) { /* 拦截器已提示 */ }
-        }
-      });
     },
     onDefaultReasonChange(e) {
       const r = REASONS[Number(e.detail.value)];

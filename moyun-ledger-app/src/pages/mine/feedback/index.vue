@@ -105,7 +105,8 @@ export default {
       }
       if (reset) { this.page = 1; this.records = []; }
       try {
-        const data = await listMyFeedback({ page: this.page, pageSize: this.pageSize }) || {};
+        // 后端分页走 RuoYi PageUtils（读 pageNum/pageSize），传 page 会被忽略导致永远第 1 页
+        const data = await listMyFeedback({ pageNum: this.page, pageSize: this.pageSize }) || {};
         const list = data.records || [];
         this.records = reset ? list : this.records.concat(list);
         this.total = Number(data.total || 0);

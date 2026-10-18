@@ -74,7 +74,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createTransaction(Long userId, TransactionCreateDTO dto) {
-        validate(dto);
+        validate(userId, dto);
         // 幂等防重（资金铁律）：clientUuid 重复=同一笔的重复提交（双击/网络重试），
         // 直接返回已入账的流水ID；并发极端场景由 DB 唯一索引 uk_user_client
         // (user_id, client_uuid) 兜底拒绝。
@@ -109,6 +109,10 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         }
         if (LedgerTransaction.TYPE_REPAYMENT.equals(txn.getType()) && txn.getPayableId() != null) {
             settlePayableForRepayment(txn);
+        }
+        // 收款(应收)→核销应收款：资金增加的同时冲减债权，净资产不变
+        if (LedgerTransaction.TYPE_COLLECT.equals(txn.getType()) && txn.getReceivableId() != null) {
+            settleReceivableForCollect(txn);
         }
         refreshNetWorthSnapshot(userId, txn.getTransactionDate());
         return txn.getId();
@@ -189,7 +193,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateTransaction(Long userId, Long id, TransactionCreateDTO dto) {
-        validate(dto);
+        validate(userId, dto);
         LedgerTransaction old = getOwnedTransaction(userId, id);
         if (old == null) {
             throw new IllegalArgumentException("流水不存在或无权操作");
@@ -222,6 +226,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         }
         if (LedgerTransaction.TYPE_REPAYMENT.equals(txn.getType()) && txn.getPayableId() != null) {
             settlePayableForRepayment(txn);
+        }
+        if (LedgerTransaction.TYPE_COLLECT.equals(txn.getType()) && txn.getReceivableId() != null) {
+            settleReceivableForCollect(txn);
         }
         // 4. 冲正旧日期 + 重放新日期的净资产快照
         if (!old.getTransactionDate().equals(txn.getTransactionDate())) {
@@ -360,7 +367,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999.99");
 
     /** 入参校验（金额守恒与业务边界规则） */
-    private void validate(TransactionCreateDTO dto) {
+    private void validate(Long userId, TransactionCreateDTO dto) {
         String type = dto.getType();
         boolean typeOk = LedgerTransaction.TYPE_INCOME.equals(type)
                 || LedgerTransaction.TYPE_EXPENSE.equals(type)
@@ -432,6 +439,20 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 || LedgerTransaction.TYPE_COLLECT.equals(type)) {
             if (dto.getAccountId() == null) {
                 throw new IllegalArgumentException("必须指定资产账户");
+            }
+        }
+        // 收款核销应收：指定了 receivableId 时校验账户归属/类型/未结余额
+        if (LedgerTransaction.TYPE_COLLECT.equals(type) && dto.getReceivableId() != null) {
+            LedgerAssetAccount ar = assetAccountMapper.selectById(dto.getReceivableId());
+            if (ar == null || (ar.getUserId() != null && !ar.getUserId().equals(userId))) {
+                throw new IllegalArgumentException("应收款账户不存在或无权操作");
+            }
+            if (!LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE.equals(ar.getAccountType())) {
+                throw new IllegalArgumentException("所选账户不是应收款账户");
+            }
+            java.math.BigDecimal outstanding = nz(ar.getTotalAmount()).subtract(nz(ar.getPaidAmount()));
+            if (dto.getAmount() != null && dto.getAmount().compareTo(outstanding) > 0) {
+                throw new IllegalArgumentException("收款金额不能超过未结余额 " + outstanding.stripTrailingZeros().toPlainString() + " 元");
             }
         }
     }
@@ -788,6 +809,28 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     }
 
     /**
+     * 收款→核销应收（account_type=receivable）：paid_amount += 金额，余额同步减。
+     *
+     * <p>与 {@link #settlePayableForRepayment} 镜像：借出时建应收，收款时冲减，
+     * 保证「资金增加 + 应收减少」净资产不变，应收不会被重复计入。</p>
+     */
+    private void settleReceivableForCollect(LedgerTransaction txn) {
+        Long receivableId = txn.getReceivableId();
+        if (receivableId == null) {
+            return;
+        }
+        LedgerAssetAccount acc = assetAccountMapper.selectById(receivableId);
+        if (acc == null) {
+            return;
+        }
+        java.math.BigDecimal paid = nz(acc.getPaidAmount()).add(txn.getAmount());
+        acc.setPaidAmount(paid);
+        acc.setBalance(nz(acc.getBalance()).subtract(txn.getAmount()));
+        acc.setSettleStatus(resolveSettleStatus(acc.getTotalAmount(), acc.getPaidAmount()));
+        assetAccountMapper.updateById(acc);
+    }
+
+    /**
      * 冲正借出/借款/还款自动联动的债权债务（编辑/删除时回滚）。
      */
     private void reverseAccountLinkage(LedgerTransaction old) {
@@ -813,6 +856,19 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             LedgerAssetAccount acc = assetAccountMapper.selectById(old.getReceivableId());
             if (acc != null && LedgerAssetAccount.ACCOUNT_TYPE_RECEIVABLE.equals(acc.getAccountType())) {
                 acc.setStatus(LedgerAssetAccount.STATUS_ARCHIVED);
+                assetAccountMapper.updateById(acc);
+            }
+        } else if (LedgerTransaction.TYPE_COLLECT.equals(old.getType()) && old.getReceivableId() != null) {
+            // 冲正收款：把已核销的金额退回应收
+            LedgerAssetAccount acc = assetAccountMapper.selectById(old.getReceivableId());
+            if (acc != null) {
+                java.math.BigDecimal paid = nz(acc.getPaidAmount()).subtract(old.getAmount());
+                if (paid.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                    paid = java.math.BigDecimal.ZERO;
+                }
+                acc.setPaidAmount(paid);
+                acc.setBalance(nz(acc.getBalance()).add(old.getAmount()));
+                acc.setSettleStatus(resolveSettleStatus(acc.getTotalAmount(), acc.getPaidAmount()));
                 assetAccountMapper.updateById(acc);
             }
         }

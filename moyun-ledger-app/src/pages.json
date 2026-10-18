@@ -5,7 +5,7 @@
     { "path": "pages/record/index", "style": { "navigationBarTitleText": "记一笔", "navigationStyle": "custom" } },
     { "path": "pages/analysis/index", "style": { "navigationBarTitleText": "财务分析", "enablePullDownRefresh": true } },
     { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的" } },
-    { "path": "pages/mine/categories/index", "style": { "navigationBarTitleText": "分类管理" } },
+    { "path": "pages/mine/categories/index", "style": { "navigationBarTitleText": "记账分类" } },
     { "path": "pages/mine/budget/index", "style": { "navigationBarTitleText": "预算设置" } },
     { "path": "pages/mine/settings/index", "style": { "navigationBarTitleText": "系统设置" } },
     { "path": "pages/record/list", "style": { "navigationBarTitleText": "流水明细", "enablePullDownRefresh": true } },

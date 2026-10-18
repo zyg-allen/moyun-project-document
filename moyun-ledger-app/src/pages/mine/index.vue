@@ -106,7 +106,8 @@ export default {
       mainMenus: [
         { key: 'warehouse', icon: '📦', label: '库存管理', color: '' },
         { key: 'warehouseSetting', icon: '🏷️', label: '仓库配置', color: '' },
-        { key: 'category', icon: '☰', label: '分类管理', color: '' },
+        { key: 'category', icon: '☰', label: '记账分类', color: '' },
+        { key: 'productCategory', icon: '🗂️', label: '商品类目', color: '' },
         { key: 'setting', icon: '⚙️', label: '系统设置', color: '' },
         { key: 'savings', icon: '🏦', label: '存钱计划', color: '' },
         { key: 'schedule', icon: '⏰', label: '定时记账', color: '' },
@@ -214,6 +215,7 @@ export default {
         warehouse: '/pages/warehouse/index',
         warehouseSetting: '/pages/mine/warehouse-settings/index',
         category: '/pages/mine/categories/index',
+      productCategory: '/pages/mine/product-categories/index',
         budget: '/pages/mine/budget/index',
         list: '/pages/record/list',
         report: '/pages/report/index',

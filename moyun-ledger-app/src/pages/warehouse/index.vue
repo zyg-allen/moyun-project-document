@@ -2,17 +2,6 @@
   <view class="page" :style="themeVars">
     <NavBar title="仓库" />
 
-    <!-- 仓库切换（个人/家庭/合伙） -->
-    <scroll-view scroll-x class="wh-bar" v-if="warehouses.length">
-      <view v-for="w in warehouses" :key="w.id" class="wh-tag"
-            :class="{ active: String(w.id) === String(currentId) }" @tap="switchWh(w)">
-        <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
-        <text class="wh-name">{{ w.name }}</text>
-      </view>
-      <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
-    </scroll-view>
-    <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
-
     <!-- 概览（对齐产品方案 4.9 仓库页结构） -->
     <view class="ov-card" v-if="currentId && overview && overview.productCount !== undefined">
       <view class="ov-row">
@@ -30,6 +19,17 @@
       <view class="ov-tip warn" v-if="overview.expiringCount > 0">⏳ {{ overview.expiringCount }} 个商品 30 天内到期</view>
       <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
     </view>
+
+    <!-- 仓库切换（个人/家庭/合伙） -->
+    <scroll-view scroll-x class="wh-bar" v-if="warehouses.length">
+      <view v-for="w in warehouses" :key="w.id" class="wh-tag"
+            :class="{ active: String(w.id) === String(currentId) }" @tap="switchWh(w)">
+        <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
+        <text class="wh-name">{{ w.name }}</text>
+      </view>
+      <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
+    </scroll-view>
+    <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
 
     <!-- 货架 / 商品 切换（放在报表下面） -->
     <view class="seg-tabs" v-if="currentId">
@@ -65,12 +65,7 @@
         <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
       </view>
 
-      <!-- 查找：关键字（名称/条码）+ 类目筛选 -->
-      <view class="search-row">
-        <input class="search-input" v-model="keyword" placeholder="搜商品名 / 条码"
-               confirm-type="search" @confirm="doSearch" />
-        <text class="search-btn" @tap="doSearch">搜索</text>
-      </view>
+      <!-- 筛选顺序：分类 → 名称 → 货架（仓库在上方，优先级最高） -->
       <!-- 分类筛选：树形下拉（选择后收起，不占列表空间） -->
       <view class="tree-select" @tap="catTreeOpen = !catTreeOpen">
         <text class="tree-select-label">分类</text>
@@ -95,6 +90,13 @@
           </view>
         </view>
         <view class="tree-manage" @tap.stop="openCatManage">⚙ 管理分类</view>
+      </view>
+
+      <!-- 名称筛选 -->
+      <view class="search-row">
+        <input class="search-input" v-model="keyword" placeholder="搜商品名 / 条码"
+               confirm-type="search" @confirm="doSearch" />
+        <text class="search-btn" @tap="doSearch">搜索</text>
       </view>
 
       <!-- 货架筛选：下拉框（选择后收起） -->

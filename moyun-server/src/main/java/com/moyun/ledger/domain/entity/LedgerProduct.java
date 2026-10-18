@@ -6,7 +6,12 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** 商品档案。 */
+/**
+ * 商品档案。
+ *
+ * <p>类目关联 {@code categoryId}（ledger_product_category.id，一级或二级）；
+ * 旧的 {@code category} 文本字段保留但不再写入，仅为历史兼容。</p>
+ */
 @Data
 @TableName("ledger_product")
 public class LedgerProduct {
@@ -16,9 +21,14 @@ public class LedgerProduct {
     private Long id;
     private Long warehouseId;
     private Long userId;
+    /** 提供者：谁把这批货放进仓库（NULL=仓库主） */
+    private Long providerUserId;
     private String name;
-    private String barcode;
+    /** 类目ID（ledger_product_category.id） */
+    private Long categoryId;
+    /** 历史自由文本类目，已由 categoryId 取代，不再写入 */
     private String category;
+    private String barcode;
     private String unit;
     private BigDecimal costPrice;
     private BigDecimal sellPrice;
@@ -34,4 +44,16 @@ public class LedgerProduct {
     /** 非持久化：列表展示时的当前库存数量（来自 ledger_stock，查询时回填） */
     @TableField(exist = false)
     private Integer stockQuantity;
+
+    /** 非持久化：类目名称（查询时回填） */
+    @TableField(exist = false)
+    private String categoryName;
+
+    /** 非持久化：提供者姓名 */
+    @TableField(exist = false)
+    private String providerName;
+
+    /** 非持久化：库存在几个货架上（相似推荐/列表展示用） */
+    @TableField(exist = false)
+    private Integer shelfCount;
 }

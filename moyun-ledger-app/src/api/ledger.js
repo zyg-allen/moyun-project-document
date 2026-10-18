@@ -436,6 +436,9 @@ export const listShelfImages = (id) => get('/portal/ledger/inventory/shelves/' +
 export const attachShelfImage = (id, url) =>
   post('/portal/ledger/inventory/shelves/' + id + '/images', { url });
 
+/** 商品详情：商品档案 + 各货架库存分布 + 图片 */
+export const getProductDetail = (id) => get('/portal/ledger/inventory/products/' + id);
+
 /** 商品图片列表 */
 export const listProductImages = (id) => get('/portal/ledger/inventory/products/' + id + '/images');
 
@@ -448,3 +451,39 @@ export const deleteInventoryImage = (fileId) => del('/portal/ledger/inventory/im
 
 /** 移库：货架之间搬运（写 transfer 流水，带源/目标货架） */
 export const transferStock = (data) => post('/portal/ledger/inventory/stock/transfer', data);
+
+// ---------------- 商品类目（两级树）----------------
+
+/** 类目树：系统预设 + 本人自建，一级带 children */
+export const listProductCategories = () => get('/portal/ledger/product-categories');
+
+/** 新增类目（parentId 传 0 或省略 = 一级） */
+export const createProductCategory = (data) => post('/portal/ledger/product-categories', data);
+
+/** 修改类目（仅本人自建） */
+export const updateProductCategory = (id, data) => put('/portal/ledger/product-categories/' + id, data);
+
+/** 删除类目（有子类目或被商品引用时后端拒绝） */
+export const deleteProductCategory = (id) => del('/portal/ledger/product-categories/' + id);
+
+/**
+ * 相似商品推荐：录入商品前先查重，避免同一件货建两条档案。
+ * 返回带库存分布的前 10 条，命中可直接「入库到该商品」。
+ */
+export const findSimilarProducts = (warehouseId, name, excludeId) => {
+  const params = { name: name };
+  if (excludeId != null) params.excludeId = excludeId;
+  return get('/portal/ledger/inventory/warehouses/' + warehouseId + '/products/similar', params);
+};
+
+// ---------------- 盘点 / 仓库概览 ----------------
+
+/**
+ * 库存盘点：items = [{ productId, actualQuantity }]
+ * 后端按「实盘 - 账面」生成 adjust 流水（正=盘盈，负=盘亏）。
+ */
+export const stocktake = (data) => post('/portal/ledger/inventory/stock/stocktake', data);
+
+/** 仓库概览：库存总价值 / 待售件数 / 本月出入库 / 零库存商品数 */
+export const getWarehouseOverview = (warehouseId) =>
+  get('/portal/ledger/inventory/warehouses/' + warehouseId + '/overview');

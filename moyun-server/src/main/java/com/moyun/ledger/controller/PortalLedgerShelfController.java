@@ -10,6 +10,7 @@ import com.moyun.ledger.domain.entity.LedgerProduct;
 import com.moyun.ledger.domain.entity.LedgerShelf;
 import com.moyun.ledger.mapper.LedgerProductMapper;
 import com.moyun.ledger.mapper.LedgerWarehouseMapper;
+import com.moyun.ledger.service.ILedgerInventoryService;
 import com.moyun.ledger.service.ILedgerShelfService;
 import com.moyun.ledger.domain.entity.LedgerWarehouse;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -46,6 +47,9 @@ public class PortalLedgerShelfController {
 
     @Autowired
     private ILedgerShelfService shelfService;
+
+    @Autowired
+    private ILedgerInventoryService inventoryService;
 
     @Autowired
     private SysFileMapper sysFileMapper;
@@ -102,6 +106,15 @@ public class PortalLedgerShelfController {
     @GetMapping("/shelves/{id}/images")
     public AjaxResult shelfImages(@PathVariable("id") Long id) {
         return AjaxResult.success(listImages(LedgerShelf.FILE_BIZ_TYPE, id));
+    }
+
+    @Operation(summary = "商品详情（图片 + 各货架库存分布）")
+    @GetMapping("/products/{id}")
+    public AjaxResult productDetail(@PathVariable("id") Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        Map<String, Object> data = inventoryService.productDetail(userId, id);
+        data.put("images", listImages(LedgerShelf.PRODUCT_FILE_BIZ_TYPE, id));
+        return AjaxResult.success(data);
     }
 
     @Operation(summary = "商品图片列表")

@@ -62,10 +62,20 @@ public class PortalLedgerInventoryController {
     @GetMapping("/warehouses/{warehouseId}/products")
     public AjaxResult listProducts(@PathVariable("warehouseId") Long warehouseId,
                                    @RequestParam(value = "keyword", required = false) String keyword,
+                                   @RequestParam(value = "categoryId", required = false) Long categoryId,
                                    @RequestParam(value = "pageNum", required = false) Integer pageNum,
                                    @RequestParam(value = "pageSize", required = false) Integer pageSize) {
         return AjaxResult.success(inventoryService.listProducts(
-                PortalSecurityUtils.getUserId(), warehouseId, keyword, pageNum, pageSize));
+                PortalSecurityUtils.getUserId(), warehouseId, keyword, categoryId, pageNum, pageSize));
+    }
+
+    @Operation(summary = "相似商品推荐（录入前查重，避免重复建档）")
+    @GetMapping("/warehouses/{warehouseId}/products/similar")
+    public AjaxResult similarProducts(@PathVariable("warehouseId") Long warehouseId,
+                                      @RequestParam(value = "name", required = false) String name,
+                                      @RequestParam(value = "excludeId", required = false) Long excludeId) {
+        return AjaxResult.success(inventoryService.findSimilarProducts(
+                PortalSecurityUtils.getUserId(), warehouseId, name, excludeId));
     }
 
     @Operation(summary = "新增商品")
@@ -96,7 +106,7 @@ public class PortalLedgerInventoryController {
         return AjaxResult.success(inventoryService.stockIn(
                 PortalSecurityUtils.getUserId(),
                 longVal(bo, "warehouseId"), longVal(bo, "productId"), longVal(bo, "shelfId"),
-                intVal(bo, "quantity"), strVal(bo, "remark")));
+                intVal(bo, "quantity"), strVal(bo, "reason"), strVal(bo, "remark")));
     }
 
     @Operation(summary = "出库（可选货架，缺省=未上架）")
@@ -105,7 +115,26 @@ public class PortalLedgerInventoryController {
         return AjaxResult.success(inventoryService.stockOut(
                 PortalSecurityUtils.getUserId(),
                 longVal(bo, "warehouseId"), longVal(bo, "productId"), longVal(bo, "shelfId"),
-                intVal(bo, "quantity"), strVal(bo, "remark")));
+                intVal(bo, "quantity"), strVal(bo, "reason"), strVal(bo, "remark")));
+    }
+
+    @Operation(summary = "库存盘点（实盘 vs 账面，差异写 adjust 流水）")
+    @PostMapping("/stock/stocktake")
+    @SuppressWarnings("unchecked")
+    public AjaxResult stocktake(@RequestBody Map<String, Object> bo) {
+        Object items = bo.get("items");
+        java.util.List<Map<String, Object>> list = items instanceof java.util.List
+                ? (java.util.List<Map<String, Object>>) items : new java.util.ArrayList<>();
+        return AjaxResult.success(inventoryService.stocktake(
+                PortalSecurityUtils.getUserId(),
+                longVal(bo, "warehouseId"), longVal(bo, "shelfId"), list, strVal(bo, "remark")));
+    }
+
+    @Operation(summary = "仓库概览（库存总价值/待售件数/本月出入库/零库存商品数）")
+    @GetMapping("/warehouses/{warehouseId}/overview")
+    public AjaxResult overview(@PathVariable("warehouseId") Long warehouseId) {
+        return AjaxResult.success(inventoryService.warehouseOverview(
+                PortalSecurityUtils.getUserId(), warehouseId));
     }
 
     @Operation(summary = "移库（货架之间搬运，写 transfer 流水）")

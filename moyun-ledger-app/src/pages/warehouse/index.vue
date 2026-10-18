@@ -18,6 +18,21 @@
       <view class="seg-tab" :class="{ on: tab === 'goods' }" @tap="switchTab('goods')">商品</view>
     </view>
 
+    <!-- 概览（对齐产品方案 4.9 仓库页结构） -->
+    <view class="ov-card" v-if="currentId && overview && overview.productCount !== undefined">
+      <view class="ov-row">
+        <view class="ov-cell"><view class="ov-num">¥{{ fmt(overview.stockValue) }}</view><view class="ov-label">库存总价值</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.totalQuantity || 0 }}</view><view class="ov-label">待售件数</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.productCount || 0 }}</view><view class="ov-label">商品数</view></view>
+      </view>
+      <view class="ov-row">
+        <view class="ov-cell"><view class="ov-num">{{ overview.shelfCount || 0 }}</view><view class="ov-label">货架</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.monthInQuantity || 0 }}</view><view class="ov-label">本月入库</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ overview.monthOutQuantity || 0 }}</view><view class="ov-label">本月出库</view></view>
+      </view>
+      <view class="ov-tip" v-if="overview.zeroStockCount > 0">⚠ {{ overview.zeroStockCount }} 个商品零库存，可考虑补货</view>
+    </view>
+
     <!-- 货架列表（存放位置：归属仓库 + 区域/排/层/位 + 图片） -->
     <view class="card" v-if="currentId && tab === 'shelf'">
       <view class="card-title">
@@ -42,14 +57,30 @@
     <view class="card" v-if="currentId && tab === 'goods'">
       <view class="card-title">
         <text class="flex-1">商品</text>
-        <text class="link" @tap="openOrderSheet()">下单</text>
+        <text class="link" @tap="openStocktake()">盘点</text>
+        <text class="link" style="margin-left: 16rpx" @tap="openOrderSheet()">下单</text>
         <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
       </view>
+
+      <!-- 查找：关键字（名称/条码）+ 类目筛选 -->
+      <view class="search-row">
+        <input class="search-input" v-model="keyword" placeholder="搜商品名 / 条码"
+               confirm-type="search" @confirm="doSearch" />
+        <text class="search-btn" @tap="doSearch">搜索</text>
+      </view>
+      <scroll-view scroll-x class="cat-bar">
+        <view class="cat-chip" :class="{ on: !categoryId }" @tap="pickCategoryFilter(null)">全部</view>
+        <view v-for="c in productCategories" :key="c.id" class="cat-chip"
+              :class="{ on: String(categoryId) === String(c.id) }"
+              @tap="pickCategoryFilter(c)">{{ c.name }}</view>
+        <view class="cat-chip manage" @tap="openCatManage">⚙ 管理</view>
+      </scroll-view>
+
       <view v-if="!products.length" class="empty">还没有商品，点「＋新增商品」添加</view>
-      <view v-for="p in products" :key="p.id" class="row" @tap="openStock(p)">
+      <view v-for="p in products" :key="p.id" class="row" @tap="openProductDetail(p)">
         <view class="flex-1 min-w-0">
           <view class="row-name">{{ p.name }}</view>
-          <view class="row-sub">{{ p.category || '未分类' }} · {{ p.unit || '个' }}</view>
+          <view class="row-sub">{{ p.categoryName || '未分类' }} · {{ p.unit || '个' }}</view>
         </view>
         <view class="row-right">
           <view class="qty" :class="{ warn: (p.stockQuantity || 0) === 0 }">库存 {{ p.stockQuantity || 0 }}</view>
@@ -78,11 +109,27 @@
     <!-- 新增商品弹层 -->
     <view class="mask" v-if="productSheet" @tap="productSheet = false">
       <view class="sheet" @tap.stop>
-        <view class="sheet-title">新增商品</view>
+        <view class="sheet-title">{{ pForm.id ? '编辑商品' : '新增商品' }}</view>
         <view class="f-row"><text class="f-label">名称</text>
-          <input class="f-input" v-model="pForm.name" placeholder="商品名" /></view>
-        <view class="f-row"><text class="f-label">分类</text>
-          <input class="f-input" v-model="pForm.category" placeholder="选填" /></view>
+          <input class="f-input" v-model="pForm.name" placeholder="商品名"
+                 @blur="checkSimilar" @confirm="checkSimilar" /></view>
+
+        <!-- 相似商品推荐：命中就直接入库到已有商品，不再重复建档 -->
+        <view v-if="similarList.length" class="similar-box">
+          <view class="similar-title">已有相似商品 · 直接入库可避免重复建档</view>
+          <view v-for="s in similarList" :key="s.productId" class="similar-item" @tap="reuseSimilar(s)">
+            <view class="flex-1 min-w-0">
+              <view class="row-name">{{ s.name }}</view>
+              <view class="row-sub">现有 {{ s.stockQuantity }} 件<text v-if="s.shelves && s.shelves.length"> · {{ s.shelves[0].shelfName }}</text></view>
+            </view>
+            <text class="similar-pick">入库 ›</text>
+          </view>
+        </view>
+
+        <view class="f-row"><text class="f-label">类目</text>
+          <picker :range="categoryPickerNames" @change="onProductCategoryChange">
+            <view class="f-value">{{ pForm.categoryName || '未分类' }} ▾</view>
+          </picker></view>
         <view class="f-row"><text class="f-label">成本价</text>
           <input class="f-input" type="digit" v-model="pForm.costPrice" placeholder="选填" /></view>
         <view class="f-row"><text class="f-label">售价</text>
@@ -110,6 +157,12 @@
           <text class="f-label">货架</text>
           <picker :range="stockShelfNames" @change="onStockShelfChange">
             <view class="f-value">{{ stockShelfLabel }} ▾</view>
+          </picker>
+        </view>
+        <view class="f-row">
+          <text class="f-label">原因</text>
+          <picker :range="reasonNames" @change="onStockReasonChange">
+            <view class="f-value">{{ reasonLabel }} ▾</view>
           </picker>
         </view>
         <view class="f-row">
@@ -230,6 +283,82 @@
       </view>
     </view>
 
+    <!-- 商品详情（图片轮播 + 各货架库存分布） -->
+    <view class="mask" v-if="productDetail.visible" @tap="productDetail.visible = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">{{ productDetail.product.name }}</view>
+
+        <!-- 图片（1:N，首张封面） -->
+        <scroll-view scroll-x class="detail-imgs">
+          <view v-for="(img, i) in productDetail.images" :key="img.id" class="detail-img-wrap">
+            <image :src="img.fileUrl" class="detail-img" mode="aspectFill" />
+            <text v-if="i === 0" class="detail-img-cover">封面</text>
+            <text class="detail-img-del" @tap.stop="removeProductImage(img)">×</text>
+          </view>
+          <view class="detail-img-add" @tap="uploadProductImage">＋</view>
+        </scroll-view>
+
+        <view class="f-row"><text class="f-label">分类</text>
+          <text class="f-value">{{ productDetail.product.category || '未分类' }}</text></view>
+        <view class="f-row"><text class="f-label">单位</text>
+          <text class="f-value">{{ productDetail.product.unit || '个' }}</text></view>
+        <view class="f-row"><text class="f-label">成本价</text>
+          <text class="f-value">¥{{ fmt(productDetail.product.costPrice) }}</text></view>
+        <view class="f-row"><text class="f-label">售价</text>
+          <text class="f-value">¥{{ fmt(productDetail.product.sellPrice) }}</text></view>
+        <view class="f-row"><text class="f-label">总库存</text>
+          <text class="f-value">{{ productDetail.totalQuantity }} 件 · ¥{{ fmt(productDetail.totalCostValue) }}</text></view>
+
+        <view class="sheet-sub">库存分布（按货架）</view>
+        <scroll-view scroll-y class="detail-items">
+          <view v-if="!productDetail.shelves.length" class="empty">暂无库存，可「出入库」后查看分布</view>
+          <view v-for="(r, i) in productDetail.shelves" :key="i" class="row">
+            <view class="flex-1 min-w-0">
+              <view class="row-name">{{ r.shelfName }}<text v-if="r.shelfCode" class="row-code"> · {{ r.shelfCode }}</text></view>
+              <view class="row-sub">{{ r.locationText || '未设置位置' }}</view>
+            </view>
+            <view class="row-right">
+              <view class="qty">{{ r.quantity }} 件</view>
+              <view class="price">¥{{ fmt(r.costValue) }}</view>
+            </view>
+          </view>
+        </scroll-view>
+
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="editProductFromDetail">编辑</view>
+          <view class="btn" @tap="stockFromProductDetail">出入库</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 盘点（实盘 vs 账面，差异自动生成盘盈/盘亏流水） -->
+    <view class="mask" v-if="stocktakeSheet" @tap="stocktakeSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">库存盘点</view>
+        <view class="f-row"><text class="f-label">货架</text>
+          <picker :range="stocktakeShelfNames" @change="onStocktakeShelfChange">
+            <view class="f-value">{{ stocktakeShelfLabel }} ▾</view>
+          </picker></view>
+        <view class="sheet-sub">填实盘数量，与账面不同的会生成盘盈/盘亏流水</view>
+        <scroll-view scroll-y class="detail-items">
+          <view v-if="!stocktakeRows.length" class="empty">该仓库还没有商品</view>
+          <view v-for="r in stocktakeRows" :key="r.productId" class="st-row">
+            <view class="flex-1 min-w-0">
+              <view class="row-name">{{ r.name }}</view>
+              <view class="row-sub">账面 {{ r.book }} {{ r.unit || '个' }}</view>
+            </view>
+            <input class="st-input" type="number" v-model="r.actual" placeholder="实盘" />
+          </view>
+        </scroll-view>
+        <view class="f-row"><text class="f-label">备注</text>
+          <input class="f-input" v-model="stocktakeRemark" placeholder="选填" /></view>
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="stocktakeSheet = false">取消</view>
+          <view class="btn" @tap="saveStocktake">提交盘点</view>
+        </view>
+      </view>
+    </view>
+
     <!-- 下单弹层（赊销自动建应收 / 赊购自动建应付 + 库存联动） -->
     <view class="mask" v-if="orderSheet" @tap="orderSheet = false">
       <view class="sheet" @tap.stop>
@@ -277,7 +406,10 @@ import { useThemeStore } from '@/stores/theme';
 import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
   createSaleOrder, createPurchaseOrder,
   listShelves, createShelf, updateShelf, deleteShelf, getShelfDetail,
-  attachShelfImage, deleteInventoryImage, uploadFile, transferStock } from '@/api/ledger';
+  attachShelfImage, deleteInventoryImage, uploadFile, transferStock, getProductDetail,
+  attachProductImage, updateProduct,
+  listProductCategories, createProductCategory, deleteProductCategory,
+  findSimilarProducts, stocktake, getWarehouseOverview } from '@/api/ledger';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
@@ -286,6 +418,10 @@ const WH_TYPES = [
 ];
 
 /** 货架类型（与后端 LedgerShelf.TYPE_* 对齐） */
+// 出入库原因（对应产品方案 4.3「状态管理：在库/已售/自用/损耗/转出」）
+const IN_REASONS = [['purchase', '采购'], ['gift', '赠送'], ['other', '其他']];
+const OUT_REASONS = [['sale', '销售'], ['self_use', '自用'], ['loss', '损耗'], ['transfer', '转出'], ['gift', '赠送'], ['other', '其他']];
+
 const SHELF_TYPES = [
   ['normal', '普通货架'],
   ['refrigerated', '冷藏/冷冻'],
@@ -326,6 +462,23 @@ export default {
         totalQuantity: 0, totalCostValue: 0, overCapacity: false
       },
       transferForm: { visible: false, productId: null, itemName: '', targetShelfId: null, targetName: '', quantity: '' },
+      // 商品详情（图片 + 各货架库存分布）
+      productDetail: { visible: false, product: {}, shelves: [], images: [], totalQuantity: 0, totalCostValue: 0 },
+      // ===== 查找 / 类目 / 相似商品 =====
+      keyword: '',
+      categoryId: null,
+      productCategories: [],
+      catManageSheet: false,
+      newCatName: '',
+      similarList: [],
+      reuseForm: { visible: false, productId: null, name: '', shelfId: 0, shelfName: '未上架', quantity: '' },
+      // ===== 概览 / 盘点 / 出入库原因 =====
+      overview: {},
+      stockReason: '',
+      stocktakeSheet: false,
+      stocktakeRows: [],
+      stocktakeRemark: '',
+      stocktakeShelfId: 0,
       // 出入库所选货架（0/null = 未上架）
       stockShelfId: 0
     };
@@ -359,6 +512,39 @@ export default {
       if (!this.stockShelfId) return '未上架';
       const s = this.shelves.find(x => String(x.id) === String(this.stockShelfId));
       return s ? s.name + (s.code ? ' · ' + s.code : '') : '未上架';
+    },
+    /** 类目选择器：一级 + 二级（二级显示「一级 / 二级」） */
+    categoryPickerList() {
+      const out = [];
+      for (const c of this.productCategories) {
+        out.push({ id: c.id, name: c.name });
+        for (const k of (c.children || [])) {
+          out.push({ id: k.id, name: c.name + ' / ' + k.name });
+        }
+      }
+      return out;
+    },
+    categoryPickerNames() { return this.categoryPickerList.map(x => x.name); },
+    /** 出入库原因候选 */
+    reasonList() { return this.stockMode === 'in' ? IN_REASONS : OUT_REASONS; },
+    reasonNames() { return this.reasonList.map(x => x[1]); },
+    reasonLabel() {
+      const x = this.reasonList.find(i => i[0] === this.stockReason);
+      if (x) return x[1];
+      return this.stockMode === 'in' ? '采购' : '销售';
+    },
+    /** 盘点页货架选择（首项「未上架」） */
+    stocktakeShelfNames() {
+      return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
+    },
+    stocktakeShelfLabel() {
+      if (!this.stocktakeShelfId) return '未上架';
+      const s = this.shelves.find(x => String(x.id) === String(this.stocktakeShelfId));
+      return s ? s.name + (s.code ? ' · ' + s.code : '') : '未上架';
+    },
+    /** 复用入库的货架选择（首项「未上架」） */
+    reuseShelfNames() {
+      return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
     }
   },
   onShow() {
@@ -385,6 +571,158 @@ export default {
     onStockShelfChange(e) {
       const i = Number(e.detail.value);
       this.stockShelfId = i <= 0 ? 0 : this.shelves[i - 1].id;
+    },
+    /** 出入库原因 */
+    onStockReasonChange(e) {
+      const x = this.reasonList[e.detail.value];
+      this.stockReason = x ? x[0] : '';
+    },
+    // ===== 概览 / 盘点 =====
+    async loadOverview() {
+      if (!this.currentId) { this.overview = {}; return; }
+      try {
+        this.overview = (await getWarehouseOverview(this.currentId)) || {};
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    async openStocktake() {
+      if (!this.currentId) { uni.showToast({ title: '请先选择仓库', icon: 'none' }); return; }
+      await this.loadShelves();
+      this.stocktakeShelfId = 0;
+      this.stocktakeRemark = '';
+      // 盘点按「货架」维度：先按未上架铺，切货架后重铺
+      this.stocktakeRows = this.products.map(p => ({
+        productId: p.id,
+        name: p.name,
+        unit: p.unit,
+        book: p.stockQuantity || 0,
+        actual: p.stockQuantity || 0
+      }));
+      this.stocktakeSheet = true;
+    },
+    onStocktakeShelfChange(e) {
+      const i = Number(e.detail.value);
+      this.stocktakeShelfId = i <= 0 ? 0 : this.shelves[i - 1].id;
+    },
+    async saveStocktake() {
+      const items = this.stocktakeRows
+        .filter(r => r.actual !== '' && Number(r.actual) !== Number(r.book))
+        .map(r => ({ productId: r.productId, actualQuantity: Number(r.actual) }));
+      if (!items.length) { uni.showToast({ title: '没有差异，无需调整', icon: 'none' }); return; }
+      try {
+        const res = (await stocktake({
+          warehouseId: this.currentId,
+          shelfId: this.stocktakeShelfId || 0,
+          items,
+          remark: this.stocktakeRemark || null
+        })) || {};
+        uni.showToast({ title: '盘点完成：盘盈 ' + (res.gain || 0) + ' / 盘亏 ' + (res.loss || 0), icon: 'none' });
+        this.stocktakeSheet = false;
+        await this.loadProducts();
+        await this.loadShelves();
+        await this.loadOverview();
+      } catch (e) { /* 拦截器已提示 */ }
+    },    // ===== 查找 / 类目 / 相似商品 =====
+    doSearch() { this.loadProducts(); },
+    pickCategoryFilter(c) {
+      this.categoryId = c ? c.id : null;
+      this.loadProducts();
+    },
+    async loadProductCategories() {
+      try {
+        this.productCategories = (await listProductCategories()) || [];
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /**
+     * 名称输入后查重：有相似商品就在弹层里提示「直接入库到已有商品」，
+     * 避免同一件货建两条档案、库存被拆散。
+     */
+    async checkSimilar() {
+      const name = (this.pForm.name || '').trim();
+      if (name.length < 2 || !this.currentId) { this.similarList = []; return; }
+      try {
+        this.similarList = (await findSimilarProducts(this.currentId, name, this.pForm.id)) || [];
+      } catch (e) { this.similarList = []; }
+    },
+    /** 选中已有商品 → 转为「入库到该商品」，不新建档案 */
+    reuseSimilar(s) {
+      this.productSheet = false;
+      this.similarList = [];
+      this.reuseForm = {
+        visible: true,
+        productId: s.productId,
+        name: s.name,
+        shelfId: 0,
+        shelfName: '未上架',
+        quantity: ''
+      };
+      this.loadShelves();
+    },
+    onReuseShelfChange(e) {
+      const i = Number(e.detail.value);
+      if (i <= 0) {
+        this.reuseForm.shelfId = 0;
+        this.reuseForm.shelfName = '未上架';
+      } else {
+        const s = this.shelves[i - 1];
+        if (!s) return;
+        this.reuseForm.shelfId = s.id;
+        this.reuseForm.shelfName = s.name + (s.code ? ' · ' + s.code : '');
+      }
+    },
+    async saveReuseStock() {
+      const f = this.reuseForm;
+      const qty = Number(f.quantity);
+      if (!qty || qty <= 0) { uni.showToast({ title: '请输入数量', icon: 'none' }); return; }
+      try {
+        await stockIn({
+          warehouseId: this.currentId,
+          productId: f.productId,
+          shelfId: f.shelfId || 0,
+          quantity: qty
+        });
+        uni.showToast({ title: '已入库', icon: 'success' });
+        f.visible = false;
+        await this.loadProducts();
+        await this.loadShelves();
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 新增商品时选择类目 */
+    onProductCategoryChange(e) {
+      const c = this.categoryPickerList[e.detail.value];
+      if (!c) return;
+      this.pForm.categoryId = c.id;
+      this.pForm.categoryName = c.name;
+    },
+    // ===== 类目管理 =====
+    openCatManage() {
+      this.newCatName = '';
+      this.catManageSheet = true;
+      this.loadProductCategories();
+    },
+    async addProductCategory() {
+      const name = (this.newCatName || '').trim();
+      if (!name) { uni.showToast({ title: '请输入类目名', icon: 'none' }); return; }
+      try {
+        await createProductCategory({ name, parentId: 0 });
+        this.newCatName = '';
+        await this.loadProductCategories();
+        uni.showToast({ title: '已添加', icon: 'success' });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    removeProductCategory(c) {
+      uni.showModal({
+        title: '删除类目',
+        content: '删除「' + c.name + '」？有子类目或商品引用时会被拒绝',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteProductCategory(c.id);
+            await this.loadProductCategories();
+            await this.loadProducts();
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
     },
     async loadShelves() {
       if (!this.currentId) { this.shelves = []; return; }
@@ -556,6 +894,77 @@ export default {
         await this.loadProducts();
       } catch (e) { /* 拦截器已提示 */ }
     },
+    // ===== 商品详情（图片轮播 + 各货架库存分布）=====
+    async openProductDetail(p) {
+      try {
+        const d = (await getProductDetail(p.id)) || {};
+        this.productDetail = {
+          visible: true,
+          product: d.product || p,
+          shelves: d.shelves || [],
+          images: d.images || [],
+          totalQuantity: d.totalQuantity || 0,
+          totalCostValue: d.totalCostValue || 0
+        };
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    uploadProductImage() {
+      const id = this.productDetail.product && this.productDetail.product.id;
+      if (!id) return;
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        success: async (res) => {
+          const path = res.tempFilePaths && res.tempFilePaths[0];
+          if (!path) return;
+          uni.showLoading({ title: '上传中', mask: true });
+          try {
+            const url = await uploadFile(path, 'ledger_product');
+            if (url) {
+              await attachProductImage(id, url);
+              await this.openProductDetail({ id });
+              await this.loadProducts();
+            }
+            uni.hideLoading();
+          } catch (e) { uni.hideLoading(); }
+        }
+      });
+    },
+    removeProductImage(img) {
+      const id = this.productDetail.product && this.productDetail.product.id;
+      if (!img || !img.id) return;
+      uni.showModal({
+        title: '删除图片',
+        content: '确定删除这张图片？',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteInventoryImage(img.id);
+            await this.openProductDetail({ id });
+            await this.loadProducts();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    editProductFromDetail() {
+      const p = this.productDetail.product;
+      if (!p || !p.id) return;
+      this.productDetail.visible = false;
+      this.pForm = {
+        id: p.id,
+        name: p.name || '',
+        category: p.category || '',
+        costPrice: p.costPrice == null ? '' : p.costPrice,
+        sellPrice: p.sellPrice == null ? '' : p.sellPrice
+      };
+      this.productSheet = true;
+    },
+    stockFromProductDetail() {
+      const p = this.productDetail.product;
+      if (!p || !p.id) return;
+      this.productDetail.visible = false;
+      this.openStock(p);
+    },
     // ===== 下单 =====
     /** 打开下单弹层（默认带一行明细） */
     openOrderSheet() {
@@ -613,6 +1022,8 @@ export default {
           this.currentId = this.warehouses[0].id;
           this.loadProducts();
           this.loadShelves();
+          this.loadProductCategories();
+          this.loadOverview();
         } else if (!this.warehouses.length) {
           this.currentId = null;
           this.products = [];
@@ -626,7 +1037,10 @@ export default {
     },
     async loadProducts() {
       try {
-        const res = await listProducts(this.currentId, { pageSize: 100 }) || {};
+        const params = { pageSize: 100 };
+        if ((this.keyword || '').trim()) params.keyword = this.keyword.trim();
+        if (this.categoryId) params.categoryId = this.categoryId;
+        const res = await listProducts(this.currentId, params) || {};
         this.products = res.records || [];
       } catch (e) { /* 拦截器已提示 */ }
     },
@@ -648,6 +1062,7 @@ export default {
           warehouseId: this.currentId,
           productId: this.stockTarget.id,
           shelfId: this.stockShelfId || 0,
+          reason: this.stockReason || undefined,
           quantity: qty,
           remark: this.stockRemark || undefined
         });
@@ -655,9 +1070,17 @@ export default {
         this.stockTarget = null;
         this.loadProducts();
         this.loadShelves();
+        this.loadOverview();
       } catch (e) { /* 拦截器已提示 */ }
     },
-    openProductSheet() { this.pForm = { name: '', category: '', costPrice: '', sellPrice: '' }; this.productSheet = true; },
+    openProductSheet() {
+      this.pForm = {
+        id: null, name: '', categoryId: null, categoryName: '',
+        costPrice: '', sellPrice: ''
+      };
+      this.similarList = [];
+      this.productSheet = true;
+    },
     onWhTypeChange(e) { this.whTypeIndex = e.detail.value; this.whForm.type = WH_TYPES[e.detail.value][0]; },
     async saveWh() {
       if (!this.whForm.name.trim()) { uni.showToast({ title: '请填名称', icon: 'none' }); return; }
@@ -670,15 +1093,21 @@ export default {
     },
     async saveProduct() {
       if (!this.pForm.name.trim()) { uni.showToast({ title: '请填商品名', icon: 'none' }); return; }
+      const payload = {
+        warehouseId: this.currentId,
+        name: this.pForm.name.trim(),
+        categoryId: this.pForm.categoryId || null,
+        costPrice: this.pForm.costPrice ? Number(this.pForm.costPrice) : null,
+        sellPrice: this.pForm.sellPrice ? Number(this.pForm.sellPrice) : null
+      };
       try {
-        await createProduct({
-          warehouseId: this.currentId,
-          name: this.pForm.name.trim(),
-          category: this.pForm.category || null,
-          costPrice: this.pForm.costPrice ? Number(this.pForm.costPrice) : null,
-          sellPrice: this.pForm.sellPrice ? Number(this.pForm.sellPrice) : null
-        });
-        uni.showToast({ title: '已添加', icon: 'success' });
+        if (this.pForm.id) {
+          await updateProduct(this.pForm.id, payload);
+          uni.showToast({ title: '已保存', icon: 'success' });
+        } else {
+          await createProduct(payload);
+          uni.showToast({ title: '已添加', icon: 'success' });
+        }
         this.productSheet = false;
         this.loadProducts();
       } catch (e) { /* 拦截器已提示 */ }
@@ -796,4 +1225,28 @@ export default {
 }
 .detail-items { max-height: 460rpx; }
 .over-tip { font-size: 22rpx; color: #E8654A; }
+.row-code { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
+/* ===== 仓库概览卡片 ===== */
+.ov-card {
+  margin: 16rpx 24rpx 0; padding: 20rpx 16rpx;
+  background: var(--card); border: 1rpx solid var(--border); border-radius: 16rpx;
+}
+.ov-row { display: flex; }
+.ov-cell { flex: 1; text-align: center; padding: 6rpx 0; }
+.ov-num { font-size: 30rpx; font-weight: 700; color: var(--text-main); }
+.ov-label { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
+.ov-tip {
+  margin-top: 10rpx; padding-top: 10rpx; border-top: 1rpx solid var(--border);
+  font-size: 22rpx; color: #E8654A;
+}
+
+/* ===== 盘点行 ===== */
+.st-row {
+  display: flex; align-items: center; gap: 12rpx;
+  padding: 12rpx 0; border-bottom: 1rpx solid var(--border);
+}
+.st-input {
+  width: 140rpx; text-align: center; font-size: 26rpx;
+  border: 1rpx solid var(--border); border-radius: 8rpx; padding: 6rpx 0;
+}
 </style>

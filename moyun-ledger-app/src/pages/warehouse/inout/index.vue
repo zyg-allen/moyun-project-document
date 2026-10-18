@@ -58,7 +58,7 @@
             </view>
             <view class="f-row">
               <text class="f-label">本次数量</text>
-              <input class="f-input" type="number" v-model="f.quantity" placeholder="0" />
+              <NumberStepper class="flex-1" v-model="f.quantity" :min="1" :unit="qtyUnit" />
             </view>
             <view class="reuse-tip">保存后在「{{ shelfLabel }}」上增加库存，不再新建商品档案</view>
           </view>
@@ -84,8 +84,7 @@
             </view>
             <view class="amount-area">
               <text class="amount-label">数量</text>
-              <input class="amount-input" type="number" v-model="f.quantity" placeholder="0" />
-              <text class="amount-unit">{{ qtyUnit }}</text>
+              <NumberStepper class="flex-1" v-model="f.quantity" :min="1" :unit="qtyUnit" />
             </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
@@ -163,8 +162,7 @@
           </view>
           <view class="amount-area">
             <text class="amount-label">数量</text>
-            <input class="amount-input" type="number" v-model="f.outQuantity" placeholder="0" />
-            <text class="amount-unit">{{ qtyUnit }}</text>
+            <NumberStepper class="flex-1" v-model="f.outQuantity" :min="1" :max="outStock" :unit="qtyUnit" />
           </view>
 
           <template v-if="f.outType === 'sale'">
@@ -222,6 +220,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { isWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { getWarehouseCfg } from '@/utils/warehouseConfig';
+import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
   createSaleChannel, createProduct, updateProduct, stockIn, stockOut,
@@ -264,6 +263,7 @@ const OUT_TYPES = [
 ];
 
 export default {
+  components: { NumberStepper },
   data() {
     return {
       enabled: true,
@@ -287,6 +287,11 @@ export default {
     };
   },
   computed: {
+    /** 出库上限：所选商品的当前库存 */
+    outStock() {
+      const p = this.products.find(x => String(x.id) === String(this.outProductId));
+      return p ? Number(p.stockQuantity || 0) : null;
+    },
     themeVars() { return useThemeStore().themeVars; },
     units() { return UNITS; },
     /** 宫格只铺常用几个，其余走「更多」（27 个全铺太占位） */

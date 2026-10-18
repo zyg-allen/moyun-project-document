@@ -19,6 +19,8 @@
         <view class="mode-chip out" :class="{ on: mode === 'out' }" @tap="mode = 'out'">出库</view>
       </view>
 
+      <view class="type-hint" v-if="warehouseId">{{ modeHint }}</view>
+
       <view class="shelf-box" v-if="warehouseId">
         <view class="shelf-title">放在哪个货架</view>
         <view class="shelf-grid">
@@ -73,9 +75,9 @@
                 <text class="link" @tap="uploadImage">{{ f.imageUrl ? '重拍' : '拍照 / 相册' }}</text>
               </view>
             </view>
-            <view class="f-row">
-              <text class="f-label">数量</text>
-              <input class="f-input" type="number" v-model="f.quantity" placeholder="0" />
+            <view class="amount-area">
+              <text class="amount-label">数量</text>
+              <input class="amount-input" type="number" v-model="f.quantity" placeholder="0" />
             </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
@@ -141,9 +143,9 @@
                     :class="{ on: f.outType === t.key }" @tap="f.outType = t.key">{{ t.label }}</view>
             </view>
           </view>
-          <view class="f-row">
-            <text class="f-label">数量</text>
-            <input class="f-input" type="number" v-model="f.outQuantity" placeholder="0" />
+          <view class="amount-area">
+            <text class="amount-label">数量</text>
+            <input class="amount-input" type="number" v-model="f.outQuantity" placeholder="0" />
           </view>
 
           <template v-if="f.outType === 'sale'">
@@ -239,6 +241,14 @@ export default {
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
+    /** 语义提示：入库=建档，出库=从库存扣减 */
+    modeHint() {
+      if (this.mode === 'in') {
+        return this.reuseId ? '复用已有商品，只在「' + this.shelfLabel + '」上增加库存'
+                            : '录入新商品：建档 + 记一条入库流水';
+      }
+      return '从库存里扣减：卖出记价格与渠道，自用/损耗记 ¥0';
+    },
     shelfOptions() {
       return [{ id: 0, code: '—', name: '未上架' }].concat(
         this.shelves.map(s => ({ id: s.id, code: s.code, name: s.name })));
@@ -536,4 +546,12 @@ export default {
 .link { font-size: 26rpx; color: var(--primary); }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
+.type-hint { font-size: 23rpx; color: var(--text-sub); padding: 12rpx 28rpx 0; }
+.amount-area {
+  display: flex; align-items: center; gap: 16rpx;
+  margin: 16rpx 24rpx 0; padding: 26rpx 28rpx;
+  background: var(--card); border: 1rpx solid var(--border); border-radius: 16rpx;
+}
+.amount-label { font-size: 26rpx; color: var(--text-sub); }
+.amount-input { flex: 1; text-align: right; font-size: 56rpx; font-weight: 700; color: var(--text-main); }
 </style>

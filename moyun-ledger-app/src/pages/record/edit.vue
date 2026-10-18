@@ -18,6 +18,14 @@
         </text>
       </view>
 
+      <!-- 二级分类：选填，不选即归入大类（统计为「大类（未细分）」） -->
+      <view class="info-row" v-if="txn.type !== 'adjust' && subCategories.length" @tap="pickSubCategory">
+        <text class="info-label">二级</text>
+        <text class="info-value pick" :class="{ placeholder: !selectedSubName }">
+          {{ selectedSubName || '不细分（归入大类）' }} ▾
+        </text>
+      </view>
+
       <!-- 金额 -->
       <view class="info-row">
         <text class="info-label">金额(元)</text>
@@ -144,6 +152,12 @@ export default {
       return (this.txn && map[this.txn.type]) || '账户';
     },
     selectedCategoryName() { return this.nameOf(this.categories, this.txn && this.txn.categoryId); },
+    /** 当前一级分类下的二级（编辑时选填，不选即归入大类） */
+    subCategories() {
+      if (!this.txn || !this.txn.categoryId) return [];
+      return this.categories.filter(c => String(c.parentId) === String(this.txn.categoryId));
+    },
+    selectedSubName() { return this.nameOf(this.categories, this.txn && this.txn.subCategoryId); },
     selectedAssetName() { return this.nameOf(this.assets, this.txn && this.txn.accountId); },
     selectedTargetName() { return this.nameOf(this.assets, this.txn && this.txn.targetAccountId); },
     selectedLiabilityName() { return this.nameOf(this.liabilities, this.txn && this.txn.liabilityId); },
@@ -267,6 +281,11 @@ export default {
         this.liabilities.map(l => ({ id: l.id, name: l.name, sub: '欠款 ¥' + formatAbsAmount(l.balance) })),
         this.txn.liabilityId);
     },
+    pickSubCategory() {
+      const items = [{ id: null, name: '不细分（归入大类）' }]
+        .concat(this.subCategories.map(c => ({ id: c.id, name: c.name })));
+      this.openPicker('subcategory', '选择二级分类', items, this.txn.subCategoryId);
+    },
     openPicker(mode, title, items, selectedId) {
       const empty = {
         asset: '暂无可用账户，可到「资产负债」页添加',
@@ -278,7 +297,12 @@ export default {
     },
     confirmPick(item) {
       const mode = this.picker.mode;
-      if (mode === 'category') this.txn.categoryId = item.id;
+      if (mode === 'category') {
+        // 换一级分类后，原二级可能不属于新大类 → 必须清空
+        if (String(this.txn.categoryId) !== String(item.id)) this.txn.subCategoryId = null;
+        this.txn.categoryId = item.id;
+      }
+      if (mode === 'subcategory') this.txn.subCategoryId = item.id || null;
       if (mode === 'asset') this.txn.accountId = item.id;
       if (mode === 'target') this.txn.targetAccountId = item.id;
       if (mode === 'liability') this.txn.liabilityId = item.id;
@@ -297,6 +321,7 @@ export default {
                   type: this.txn.type,
                   amount: amountNum,
                   categoryId: this.txn.categoryId,
+                  subCategoryId: this.txn.subCategoryId || null,
                   accountId: this.txn.accountId,
                   liabilityId: this.txn.liabilityId,
                   targetAccountId: this.txn.targetAccountId,

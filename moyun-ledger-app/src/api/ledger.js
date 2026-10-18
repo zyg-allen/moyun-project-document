@@ -329,3 +329,62 @@ export const listStockFlows = (warehouseId, params) => get('/portal/ledger/inven
 // ---------------- 账户类型（字典树） ----------------
 /** 账户类型：{ asset: [{value,label}...], liability: [{value,label}...] } */
 export const listAccountTypes = () => get('/portal/ledger/accountTypes');
+
+// ---------------- 注册 / 找回密码 ----------------
+
+/** 用户注册（后端 RegisterBody：username/password/code/uuid） */
+export const register = (data) => post('/register', data);
+
+/** 发送短信验证码（scene: register / reset_password） */
+export const sendSmsCode = (data) => post('/portal/sms/code/send', data);
+
+/** 校验短信验证码 */
+export const verifySmsCode = (data) => post('/portal/sms/code/verify', data);
+
+/** 短信重置密码（phone/code/newPassword/confirmPassword） */
+export const resetPassword = (data) => post('/portal/sms/reset-password', data);
+
+/** 发送邮箱验证码（email + type: register / reset_password） */
+export const sendEmailCode = (data) => post('/portal/email/code', data);
+
+/** 邮箱重置密码（email/code/newPassword） */
+export const resetPasswordByEmail = (data) => post('/portal/email/reset-password', data);
+
+
+// ---------------- 意见反馈 ----------------
+
+/** 提交意见反馈（feedbackType/subject/description/contact） */
+export const submitFeedback = (data) => post('/portal/feedback/submit', data);
+
+/** 我的反馈列表（page/pageSize） */
+export const listMyFeedback = (params) => get('/portal/feedback/my-list', params);
+
+
+// ---------------- 定时任务 ----------------
+
+/** 定时任务列表（keyword/pageNum/pageSize） */
+export const listScheduleTasks = (params) => get('/portal/ledger/schedules', params);
+
+/** 定时任务详情 */
+export const getScheduleTask = (id) => get('/portal/ledger/schedules/' + id);
+
+/** 新建定时任务 */
+export const createScheduleTask = (data) => post('/portal/ledger/schedules', data);
+
+/** 修改定时任务 */
+export const updateScheduleTask = (id, data) => put('/portal/ledger/schedules/' + id, data);
+
+/** 删除定时任务 */
+export const deleteScheduleTask = (id) => del('/portal/ledger/schedules/' + id);
+
+/** 启用/停用定时任务 */
+export const toggleScheduleTask = (id) => post('/portal/ledger/schedules/' + id + '/toggle');
+
+/** 立即执行一次 */
+export const runScheduleTask = (id) => post('/portal/ledger/schedules/' + id + '/run');
+
+/** 任务执行日志（按任务ID） */
+export const listScheduleLogs = (taskId) => get('/portal/ledger/schedules/logs', taskId ? { taskId } : {});
+
+/** 重试失败日志 */
+export const retryScheduleLog = (logId) => post('/portal/ledger/schedules/logs/' + logId + '/retry');

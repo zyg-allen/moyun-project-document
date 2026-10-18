@@ -5,18 +5,13 @@
     <!-- 仓库切换（个人/家庭/合伙） -->
     <scroll-view scroll-x class="wh-bar" v-if="warehouses.length">
       <view v-for="w in warehouses" :key="w.id" class="wh-tag"
-            :class="{ active: w.id === currentId }" @tap="switchWh(w)">
-        {{ w.name }} · {{ whTypeText(w.warehouseType) }}
+            :class="{ active: String(w.id) === String(currentId) }" @tap="switchWh(w)">
+        <text class="wh-badge">{{ whTypeBadge(w.warehouseType) }}</text>
+        <text class="wh-name">{{ w.name }}</text>
       </view>
-      <view class="wh-tag add" @tap="openWhSheet()">＋新建</view>
+      <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
     </scroll-view>
     <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
-
-    <!-- 货架 / 商品 切换 -->
-    <view class="seg-tabs" v-if="currentId">
-      <view class="seg-tab" :class="{ on: tab === 'shelf' }" @tap="switchTab('shelf')">货架</view>
-      <view class="seg-tab" :class="{ on: tab === 'goods' }" @tap="switchTab('goods')">商品</view>
-    </view>
 
     <!-- 概览（对齐产品方案 4.9 仓库页结构） -->
     <view class="ov-card" v-if="currentId && overview && overview.productCount !== undefined">
@@ -34,6 +29,12 @@
       <view class="ov-tip" v-if="overview.expiredCount > 0">⛔ {{ overview.expiredCount }} 个商品已过期，建议尽快处理</view>
       <view class="ov-tip warn" v-if="overview.expiringCount > 0">⏳ {{ overview.expiringCount }} 个商品 30 天内到期</view>
       <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
+    </view>
+
+    <!-- 货架 / 商品 切换（放在报表下面） -->
+    <view class="seg-tabs" v-if="currentId">
+      <view class="seg-tab" :class="{ on: tab === 'shelf' }" @tap="switchTab('shelf')">货架</view>
+      <view class="seg-tab" :class="{ on: tab === 'goods' }" @tap="switchTab('goods')">商品</view>
     </view>
 
     <!-- 货架列表（存放位置：归属仓库 + 区域/排/层/位 + 图片） -->
@@ -448,6 +449,9 @@ export default {
       productDetail: { visible: false, product: {}, shelves: [], images: [], totalQuantity: 0, totalCostValue: 0 },
       // ===== 查找 / 类目 / 相似商品 =====
       keyword: '',
+      pageNum: 1,
+      pageSize: 20,
+      pageTotal: 0,
       categoryId: null,
       productCategories: [],
       catManageSheet: false,
@@ -977,17 +981,25 @@ export default {
         }
       } catch (e) { /* 拦截器已提示 */ }
     },
-    switchWh(w) {
+    /** 切换仓库：概览/货架/商品全部重载，并清掉跨仓失效的筛选 */
+    async switchWh(w) {
+      if (String(w.id) === String(this.currentId)) return;
       this.currentId = w.id;
-      this.loadProducts();
+      this.keyword = '' ;
+      this.categoryId = null;
+      this.pageNum = 1;
+      this.products = [];
+      this.shelves = [];
+      await Promise.all([this.loadShelves(), this.loadProducts(), this.loadOverview()]);
     },
     async loadProducts() {
       try {
-        const params = { pageSize: 100 };
+        const params = { pageNum: this.pageNum || 1, pageSize: this.pageSize || 20 };
         if ((this.keyword || '').trim()) params.keyword = this.keyword.trim();
         if (this.categoryId) params.categoryId = this.categoryId;
         const res = await listProducts(this.currentId, params) || {};
         this.products = res.records || [];
+        this.pageTotal = res.total || 0;
       } catch (e) { /* 拦截器已提示 */ }
     },
     openWhSheet() { this.whForm = { name: '', type: 'personal' }; this.whTypeIndex = 0; this.whSheet = true; },
@@ -1252,4 +1264,19 @@ export default {
 .fl-reason { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
 .ov-tip.warn { color: #E8A33D; }
 .ov-more { margin-top: 10rpx; padding-top: 10rpx; border-top: 1rpx solid var(--border); font-size: 23rpx; color: var(--primary); text-align: center; }
+/* ===== 仓库切换条（与入库/出库页一致） ===== */
+.wh-bar { white-space: nowrap; padding: 12rpx 20rpx 0; text-align: center; }
+.wh-tag {
+  display: inline-flex; align-items: center; gap: 8rpx;
+  padding: 8rpx 18rpx; margin-right: 10rpx;
+  border-radius: 10rpx; font-size: 24rpx; color: var(--text-sub);
+  background: var(--card); border: 1rpx solid var(--border);
+}
+.wh-tag.active { color: #fff; background: var(--primary); border-color: var(--primary); }
+.wh-badge {
+  font-size: 19rpx; line-height: 1; padding: 4rpx 7rpx; border-radius: 4rpx;
+  background: rgba(95,167,122,.16); color: var(--primary); font-weight: 700;
+}
+.wh-tag.active .wh-badge { background: rgba(255,255,255,.28); color: #fff; }
+.wh-name { font-size: 24rpx; }
 </style>

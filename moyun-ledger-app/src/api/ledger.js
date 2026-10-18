@@ -410,3 +410,41 @@ export const createSaleOrder = (data) => post('/portal/ledger/orders/sale', data
  *          items:Array<{productId:number, quantity:number, unitPrice:number}>}} data
  */
 export const createPurchaseOrder = (data) => post('/portal/ledger/orders/purchase', data);
+
+// ---------------- 仓库货架（存放位置）+ 图片 1:N ----------------
+
+/** 货架列表（含商品数/件数/成本价值聚合） */
+export const listShelves = (warehouseId) =>
+  get('/portal/ledger/inventory/warehouses/' + warehouseId + '/shelves');
+
+/** 新增货架（code 同仓内唯一，locationText 后端拼装） */
+export const createShelf = (data) => post('/portal/ledger/inventory/shelves', data);
+
+/** 修改货架 */
+export const updateShelf = (id, data) => put('/portal/ledger/inventory/shelves/' + id, data);
+
+/** 删除货架（仍有库存时后端拒绝） */
+export const deleteShelf = (id) => del('/portal/ledger/inventory/shelves/' + id);
+
+/** 货架详情（含商品明细 + 图片） */
+export const getShelfDetail = (id) => get('/portal/ledger/inventory/shelves/' + id);
+
+/** 货架图片列表（按 id 升序，首张即封面） */
+export const listShelfImages = (id) => get('/portal/ledger/inventory/shelves/' + id + '/images');
+
+/** 给货架挂一张已上传的图片 */
+export const attachShelfImage = (id, url) =>
+  post('/portal/ledger/inventory/shelves/' + id + '/images', { url });
+
+/** 商品图片列表 */
+export const listProductImages = (id) => get('/portal/ledger/inventory/products/' + id + '/images');
+
+/** 给商品挂一张已上传的图片 */
+export const attachProductImage = (id, url) =>
+  post('/portal/ledger/inventory/products/' + id + '/images', { url });
+
+/** 删除图片（同时删存储与 sys_file 记录） */
+export const deleteInventoryImage = (fileId) => del('/portal/ledger/inventory/images/' + fileId);
+
+/** 移库：货架之间搬运（写 transfer 流水，带源/目标货架） */
+export const transferStock = (data) => post('/portal/ledger/inventory/stock/transfer', data);

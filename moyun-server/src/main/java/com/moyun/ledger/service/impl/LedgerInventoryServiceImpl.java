@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.entity.LedgerProduct;
+import com.moyun.ledger.domain.entity.LedgerShelf;
 import com.moyun.ledger.domain.entity.LedgerStock;
 import com.moyun.ledger.domain.entity.LedgerStockFlow;
 import com.moyun.ledger.domain.entity.LedgerWarehouse;
 import com.moyun.ledger.mapper.LedgerProductMapper;
+import com.moyun.ledger.mapper.LedgerShelfMapper;
 import com.moyun.ledger.mapper.LedgerStockFlowMapper;
 import com.moyun.ledger.mapper.LedgerStockMapper;
 import com.moyun.ledger.mapper.LedgerWarehouseMapper;
@@ -38,6 +40,9 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     private LedgerStockMapper stockMapper;
     @Autowired
     private LedgerStockFlowMapper stockFlowMapper;
+
+    @Autowired
+    private LedgerShelfMapper shelfMapper;
 
     // ---------------- 仓库 ----------------
 
@@ -114,10 +119,12 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         // 回填库存数量：一次 IN 查询，避免 N+1
         if (!records.isEmpty()) {
             List<Long> ids = records.stream().map(LedgerProduct::getId).collect(Collectors.toList());
+            // 跨货架求和：同一商品可能分布在多个货架（唯一键 product_id+shelf_id）
             Map<Long, Integer> qty = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
                             .eq(LedgerStock::getWarehouseId, warehouseId)
+                            .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
                             .in(LedgerStock::getProductId, ids))
-                    .stream().collect(Collectors.toMap(LedgerStock::getProductId, LedgerStock::getQuantity, (a, b) -> a));
+                    .stream().collect(Collectors.toMap(LedgerStock::getProductId, LedgerStock::getQuantity, Integer::sum));
             records.forEach(p -> p.setStockQuantity(qty.getOrDefault(p.getId(), 0)));
         }
 
@@ -154,10 +161,11 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         p.setStatus(LedgerProduct.STATUS_NORMAL);
         productMapper.insert(p);
 
-        // 同步建库存行（数量 0），后续出入库在此行上增减
+        // 同步建库存行（数量 0、未上架），后续入库按货架再建/累加
         LedgerStock s = new LedgerStock();
         s.setWarehouseId(bo.getWarehouseId());
         s.setProductId(p.getId());
+        s.setShelfId(LedgerStock.NO_SHELF);
         s.setQuantity(0);
         s.setCostValue(BigDecimal.ZERO);
         s.setStatus(LedgerStock.STATUS_NORMAL);
@@ -199,29 +207,104 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Integer quantity, String remark) {
-        return applyStockChange(userId, warehouseId, productId, quantity, LedgerStockFlow.FLOW_IN, remark);
+    public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                       Integer quantity, String remark) {
+        return applyStockChange(userId, warehouseId, productId, shelfId, quantity,
+                LedgerStockFlow.FLOW_IN, null, remark);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Integer quantity, String remark) {
-        return applyStockChange(userId, warehouseId, productId, -Math.abs(quantity), LedgerStockFlow.FLOW_OUT, remark);
+    public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                        Integer quantity, String remark) {
+        return applyStockChange(userId, warehouseId, productId, shelfId, -Math.abs(quantity),
+                LedgerStockFlow.FLOW_OUT, null, remark);
     }
 
-    /** 出入库原子操作：数量 + 流水同写 */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> transferStock(Long userId, Long warehouseId, Long productId,
+                                              Long fromShelfId, Long toShelfId, Integer quantity, String remark) {
+        long from = fromShelfId == null ? LedgerStock.NO_SHELF : fromShelfId;
+        long to = toShelfId == null ? LedgerStock.NO_SHELF : toShelfId;
+        if (from == to) {
+            throw new ServiceException("源货架与目标货架不能相同");
+        }
+        if (quantity == null || quantity <= 0) {
+            throw new ServiceException("移库数量必须大于 0");
+        }
+        getOwnedWarehouse(userId, warehouseId);
+        LedgerProduct p = getOwnedProduct(userId, productId);
+        assertShelfBelongs(warehouseId, from);
+        assertShelfBelongs(warehouseId, to);
+
+        LedgerStock src = findStock(productId, from);
+        int before = src == null || src.getQuantity() == null ? 0 : src.getQuantity();
+        if (before < quantity) {
+            throw new ServiceException("源货架库存不足：当前 " + before + "，本次移动 " + quantity);
+        }
+        BigDecimal costPrice = p.getCostPrice() == null ? BigDecimal.ZERO : p.getCostPrice();
+
+        // 源减
+        src.setQuantity(before - quantity);
+        src.setCostValue(costPrice.multiply(BigDecimal.valueOf(src.getQuantity())));
+        stockMapper.updateById(src);
+
+        // 目标加（该货架还没这个商品时自动建行）
+        LedgerStock dst = findStock(productId, to);
+        if (dst == null) {
+            dst = newStockRow(warehouseId, productId, to);
+            stockMapper.insert(dst);
+        }
+        int dstBefore = dst.getQuantity() == null ? 0 : dst.getQuantity();
+        dst.setQuantity(dstBefore + quantity);
+        dst.setCostValue(costPrice.multiply(BigDecimal.valueOf(dst.getQuantity())));
+        stockMapper.updateById(dst);
+
+        // 一条 transfer 流水，同时带源货架与目标货架，便于回溯
+        LedgerStockFlow f = new LedgerStockFlow();
+        f.setWarehouseId(warehouseId);
+        f.setProductId(productId);
+        f.setShelfId(from);
+        f.setToShelfId(to);
+        f.setFlowType(LedgerStockFlow.FLOW_TRANSFER);
+        f.setQuantityBefore(before);
+        f.setQuantityChange(quantity);
+        f.setQuantityAfter(before - quantity);
+        f.setCostBefore(costPrice.multiply(BigDecimal.valueOf(before)));
+        f.setCostAfter(costPrice.multiply(BigDecimal.valueOf(before - quantity)));
+        f.setOperatorId(userId);
+        f.setRemark(remark);
+        f.setStatus(LedgerStockFlow.STATUS_NORMAL);
+        stockFlowMapper.insert(f);
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("fromQuantity", before - quantity);
+        m.put("toQuantity", dstBefore + quantity);
+        m.put("flowId", f.getId());
+        return m;
+    }
+
+    /** 出入库原子操作：数量 + 流水同写（按 商品×货架 定位库存行） */
     private Map<String, Object> applyStockChange(Long userId, Long warehouseId, Long productId,
-                                                 int change, String flowType, String remark) {
+                                                 Long shelfId, int change, String flowType,
+                                                 Long toShelfId, String remark) {
         getOwnedWarehouse(userId, warehouseId);
         LedgerProduct p = getOwnedProduct(userId, productId);
         if (change == 0) {
             throw new ServiceException("数量不能为0");
         }
-        LedgerStock s = stockMapper.selectOne(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getWarehouseId, warehouseId)
-                .eq(LedgerStock::getProductId, productId));
+        long sid = shelfId == null ? LedgerStock.NO_SHELF : shelfId;
+        assertShelfBelongs(warehouseId, sid);
+
+        LedgerStock s = findStock(productId, sid);
         if (s == null) {
-            throw new ServiceException("库存记录不存在");
+            if (change < 0) {
+                throw new ServiceException("该货架暂无此商品库存，无法出库");
+            }
+            // 首次入到某货架：自动建行，避免"库存记录不存在"
+            s = newStockRow(warehouseId, productId, sid);
+            stockMapper.insert(s);
         }
         int before = s.getQuantity() == null ? 0 : s.getQuantity();
         int after = before + change;
@@ -237,6 +320,8 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         LedgerStockFlow f = new LedgerStockFlow();
         f.setWarehouseId(warehouseId);
         f.setProductId(productId);
+        f.setShelfId(sid);
+        f.setToShelfId(toShelfId == null ? 0L : toShelfId);
         f.setFlowType(flowType);
         f.setQuantityBefore(before);
         f.setQuantityChange(change);
@@ -252,6 +337,41 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         m.put("quantityAfter", after);
         m.put("flowId", f.getId());
         return m;
+    }
+
+    /** 建一条空库存行 */
+    private LedgerStock newStockRow(Long warehouseId, Long productId, long shelfId) {
+        LedgerStock s = new LedgerStock();
+        s.setWarehouseId(warehouseId);
+        s.setProductId(productId);
+        s.setShelfId(shelfId);
+        s.setQuantity(0);
+        s.setCostValue(BigDecimal.ZERO);
+        s.setStatus(LedgerStock.STATUS_NORMAL);
+        return s;
+    }
+
+    /** 定位某商品在某货架上的库存行 */
+    private LedgerStock findStock(Long productId, long shelfId) {
+        return stockMapper.selectOne(new LambdaQueryWrapper<LedgerStock>()
+                .eq(LedgerStock::getProductId, productId)
+                .eq(LedgerStock::getShelfId, shelfId)
+                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
+                .last("LIMIT 1"));
+    }
+
+    /** 货架必须存在、启用且属于当前仓库（0=未上架直接放行，兼容旧调用） */
+    private void assertShelfBelongs(Long warehouseId, long shelfId) {
+        if (shelfId == LedgerStock.NO_SHELF) {
+            return;
+        }
+        LedgerShelf shelf = shelfMapper.selectById(shelfId);
+        if (shelf == null || shelf.getStatus() == null || shelf.getStatus() != LedgerShelf.STATUS_ENABLED) {
+            throw new ServiceException("货架不存在或已停用");
+        }
+        if (!warehouseId.equals(shelf.getWarehouseId())) {
+            throw new ServiceException("货架不属于该仓库");
+        }
     }
 
     // ---------------- 流水 ----------------

@@ -41,11 +41,20 @@ public interface ILedgerInventoryService {
 
     // ---------------- 出入库 ----------------
 
-    /** 入库：数量 +，写 in 流水 */
-    Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Integer quantity, String remark);
+    /** 入库：数量 +，写 in 流水（shelfId 为空/0 表示未上架，兼容旧调用） */
+    Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                Integer quantity, String remark);
 
-    /** 出库：数量 -（校验不超现有库存），写 out 流水 */
-    Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Integer quantity, String remark);
+    /** 出库：数量 -（校验不超该货架现有库存），写 out 流水 */
+    Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                 Integer quantity, String remark);
+
+    /**
+     * 移库：从 fromShelfId 搬到 toShelfId，同一事务内一减一加，写一条 transfer 流水。
+     * 源货架库存不足时拒绝。
+     */
+    Map<String, Object> transferStock(Long userId, Long warehouseId, Long productId,
+                                      Long fromShelfId, Long toShelfId, Integer quantity, String remark);
 
     // ---------------- 流水 ----------------
 

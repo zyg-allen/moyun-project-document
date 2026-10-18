@@ -4247,6 +4247,36 @@ CREATE TABLE `ledger_warehouse_member` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-仓库成员';
 
 -- -----------------------------------------------------------
+-- 2.5 货架（存放位置；图片走 sys_file 的 business_type/business_id，1:N）
+-- -----------------------------------------------------------
+drop table if exists `ledger_shelf`;
+CREATE TABLE `ledger_shelf` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `warehouse_id` bigint NOT NULL COMMENT '归属：所属仓库',
+    `user_id` bigint NOT NULL COMMENT '归属：归属人',
+    `code` varchar(50) NOT NULL COMMENT '货架编号（仓库内唯一，如 A-01）',
+    `name` varchar(100) NOT NULL COMMENT '货架名称',
+    `zone` varchar(50) DEFAULT NULL COMMENT '区域/分区（如 A区、冷藏区）',
+    `row_no` int DEFAULT NULL COMMENT '排',
+    `layer_no` int DEFAULT NULL COMMENT '层',
+    `position_no` int DEFAULT NULL COMMENT '位',
+    `location_text` varchar(200) DEFAULT NULL COMMENT '位置描述（后端按区/排/层/位自动拼装）',
+    `shelf_type` varchar(20) NOT NULL DEFAULT 'normal' COMMENT '类型：normal/refrigerated/locked/temp',
+    `capacity` int DEFAULT NULL COMMENT '容量（件，超容量仅提示不阻断）',
+    `sort_order` int NOT NULL DEFAULT 0 COMMENT '排序',
+    `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+    `version` int NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=启用 0=停用',
+    `create_by` varchar(64) DEFAULT NULL COMMENT '创建者',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_warehouse_code` (`warehouse_id`,`code`),
+    KEY `idx_warehouse` (`warehouse_id`),
+    KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='仓库货架（存放位置）';
+
+-- -----------------------------------------------------------
 -- 3. 商品（基础档案）
 -- -----------------------------------------------------------
 drop table if exists `ledger_product`;
@@ -4281,12 +4311,13 @@ CREATE TABLE `ledger_stock` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '库存ID',
     `warehouse_id` bigint NOT NULL COMMENT '仓库ID',
     `product_id` bigint NOT NULL COMMENT '商品ID',
+    `shelf_id` bigint NOT NULL DEFAULT 0 COMMENT '货架ID，0=未上架',
     `quantity` int NOT NULL DEFAULT 0 COMMENT '当前数量',
     `cost_value` decimal(18,2) NOT NULL DEFAULT 0.00 COMMENT '库存成本价值（成本价×数量）',
     `last_updated` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `status` tinyint NOT NULL DEFAULT 1 COMMENT '行状态：1=正常 0=已删除',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_warehouse_product` (`warehouse_id`,`product_id`),
+    UNIQUE KEY `uk_product_shelf` (`product_id`,`shelf_id`),
     KEY `idx_warehouse` (`warehouse_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-库存';
 
@@ -4298,7 +4329,9 @@ CREATE TABLE `ledger_stock_flow` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '流水ID',
     `warehouse_id` bigint NOT NULL COMMENT '仓库ID',
     `product_id` bigint NOT NULL COMMENT '商品ID',
-    `flow_type` varchar(30) NOT NULL COMMENT '变动类型：in=入库 out=出库 adjust=盘点调整',
+    `shelf_id` bigint NOT NULL DEFAULT 0 COMMENT '本次操作货架（移库时为源货架），0=未上架',
+    `to_shelf_id` bigint NOT NULL DEFAULT 0 COMMENT '移库目标货架（非移库为0）',
+    `flow_type` varchar(30) NOT NULL COMMENT '变动类型：in=入库 out=出库 transfer=移库 adjust=盘点调整',
     `quantity_before` int DEFAULT NULL COMMENT '变动前数量',
     `quantity_change` int NOT NULL COMMENT '变动量（正入负出）',
     `quantity_after` int NOT NULL COMMENT '变动后数量',

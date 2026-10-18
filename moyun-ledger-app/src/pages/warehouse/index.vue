@@ -12,8 +12,34 @@
     </scroll-view>
     <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
 
+    <!-- 货架 / 商品 切换 -->
+    <view class="seg-tabs" v-if="currentId">
+      <view class="seg-tab" :class="{ on: tab === 'shelf' }" @tap="switchTab('shelf')">货架</view>
+      <view class="seg-tab" :class="{ on: tab === 'goods' }" @tap="switchTab('goods')">商品</view>
+    </view>
+
+    <!-- 货架列表（存放位置：归属仓库 + 区域/排/层/位 + 图片） -->
+    <view class="card" v-if="currentId && tab === 'shelf'">
+      <view class="card-title">
+        <text class="flex-1">货架 · 存放位置</text>
+        <text class="link" @tap="openShelfSheet()">＋新增货架</text>
+      </view>
+      <view v-if="!shelves.length" class="empty">还没有货架，点「＋新增货架」添加存放位置</view>
+      <view class="shelf-grid">
+        <view v-for="s in shelves" :key="s.id" class="shelf-cell" @tap="openShelfDetail(s)">
+          <view class="shelf-cover">
+            <image v-if="s.coverUrl" :src="s.coverUrl" class="shelf-img" mode="aspectFill" />
+            <text v-else class="shelf-code">{{ s.code }}</text>
+          </view>
+          <view class="shelf-name">{{ s.name }}</view>
+          <view class="shelf-pos">{{ s.locationText || '未设置位置' }}</view>
+          <view class="shelf-meta">{{ s.productCount || 0 }} 种 · {{ s.stockQuantity || 0 }} 件</view>
+        </view>
+      </view>
+    </view>
+
     <!-- 商品列表（带库存） -->
-    <view class="card" v-if="currentId">
+    <view class="card" v-if="currentId && tab === 'goods'">
       <view class="card-title">
         <text class="flex-1">商品</text>
         <text class="link" @tap="openOrderSheet()">下单</text>
@@ -81,6 +107,12 @@
           </view>
         </view>
         <view class="f-row">
+          <text class="f-label">货架</text>
+          <picker :range="stockShelfNames" @change="onStockShelfChange">
+            <view class="f-value">{{ stockShelfLabel }} ▾</view>
+          </picker>
+        </view>
+        <view class="f-row">
           <text class="f-label">数量</text>
           <input class="f-input" type="number" v-model="stockQty" placeholder="0" />
         </view>
@@ -91,6 +123,109 @@
         <view class="sheet-actions">
           <view class="btn ghost" @tap="stockTarget = null">取消</view>
           <view class="btn" @tap="saveStock">确认</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 货架新增/编辑 -->
+    <view class="mask" v-if="shelfSheet" @tap="shelfSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">{{ shelfForm.id ? '编辑货架' : '新增货架' }}</view>
+        <view class="f-row"><text class="f-label">编号</text>
+          <input class="f-input" v-model="shelfForm.code" placeholder="如 A-01（同仓唯一）" /></view>
+        <view class="f-row"><text class="f-label">名称</text>
+          <input class="f-input" v-model="shelfForm.name" placeholder="如 A区第1排" /></view>
+        <view class="f-row"><text class="f-label">区域</text>
+          <input class="f-input" v-model="shelfForm.zone" placeholder="如 A区 / 冷藏区" /></view>
+        <view class="f-row">
+          <text class="f-label">排层位</text>
+          <input class="f-input" type="number" v-model="shelfForm.rowNo" placeholder="排" />
+          <input class="f-input" type="number" v-model="shelfForm.layerNo" placeholder="层" />
+          <input class="f-input" type="number" v-model="shelfForm.positionNo" placeholder="位" />
+        </view>
+        <view class="f-row"><text class="f-label">类型</text>
+          <picker :range="shelfTypeNames" @change="onShelfTypeChange">
+            <view class="f-value">{{ shelfTypeNameOf(shelfForm.shelfType) }} ▾</view>
+          </picker></view>
+        <view class="f-row"><text class="f-label">容量</text>
+          <input class="f-input" type="number" v-model="shelfForm.capacity" placeholder="选填，件" /></view>
+        <view class="f-row"><text class="f-label">备注</text>
+          <input class="f-input" v-model="shelfForm.remark" placeholder="选填" /></view>
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="shelfSheet = false">取消</view>
+          <view class="btn" @tap="saveShelf">保存</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 货架详情（图片 / 位置 / 归属 / 商品明细） -->
+    <view class="mask" v-if="shelfDetail.visible" @tap="shelfDetail.visible = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">{{ shelfDetail.shelf.name }} · {{ shelfDetail.shelf.code }}</view>
+
+        <!-- 图片（1:N，首张封面） -->
+        <scroll-view scroll-x class="detail-imgs">
+          <view v-for="(img, i) in shelfDetail.images" :key="img.id" class="detail-img-wrap">
+            <image :src="img.fileUrl" class="detail-img" mode="aspectFill" />
+            <text v-if="i === 0" class="detail-img-cover">封面</text>
+            <text class="detail-img-del" @tap.stop="removeShelfImage(img)">×</text>
+          </view>
+          <view class="detail-img-add" @tap="uploadShelfImage">＋</view>
+        </scroll-view>
+
+        <view class="f-row"><text class="f-label">位置</text>
+          <text class="f-value">{{ shelfDetail.shelf.locationText || '未设置' }}</text></view>
+        <view class="f-row"><text class="f-label">归属</text>
+          <text class="f-value">{{ shelfDetail.shelf.warehouseName }} · {{ shelfTypeNameOf(shelfDetail.shelf.shelfType) }}</text></view>
+        <view class="f-row"><text class="f-label">容量</text>
+          <text class="f-value">{{ shelfDetail.shelf.capacity ? shelfDetail.shelf.capacity + ' 件' : '不限' }}</text></view>
+        <view class="f-row" v-if="shelfDetail.overCapacity">
+          <text class="f-label"></text>
+          <text class="over-tip">已超容量（仅提示，不影响使用）</text>
+        </view>
+
+        <view class="sheet-sub">本货架 · {{ shelfDetail.totalQuantity }} 件 · ¥{{ fmt(shelfDetail.totalCostValue) }}</view>
+        <scroll-view scroll-y class="detail-items">
+          <view v-if="!shelfDetail.items.length" class="empty">该货架暂无库存</view>
+          <view v-for="it in shelfDetail.items" :key="it.productId" class="row">
+            <view class="flex-1 min-w-0">
+              <view class="row-name">{{ it.productName }}</view>
+              <view class="row-sub">{{ it.unit || '个' }} · 成本 ¥{{ fmt(it.costPrice) }}</view>
+            </view>
+            <view class="row-right">
+              <view class="qty">{{ it.quantity }} 件</view>
+              <view class="price">¥{{ fmt(it.costValue) }}</view>
+            </view>
+          </view>
+        </scroll-view>
+
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="editShelfFromDetail">编辑</view>
+          <view class="btn ghost" @tap="openTransfer">移库</view>
+          <view class="btn" @tap="deleteShelfFromDetail">删除货架</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 移库（货架之间搬运） -->
+    <view class="mask" v-if="transferForm.visible" @tap="transferForm.visible = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">移库</view>
+        <view class="f-row"><text class="f-label">商品</text>
+          <picker :range="transferItemNames" @change="onTransferProduct">
+            <view class="f-value">{{ transferForm.itemName || '选择本货架商品' }} ▾</view>
+          </picker></view>
+        <view class="f-row"><text class="f-label">从</text>
+          <text class="f-value">{{ shelfDetail.shelf.name }}</text></view>
+        <view class="f-row"><text class="f-label">到</text>
+          <picker :range="transferTargetNames" @change="onTransferTarget">
+            <view class="f-value">{{ transferForm.targetName || '选择目标货架' }} ▾</view>
+          </picker></view>
+        <view class="f-row"><text class="f-label">数量</text>
+          <input class="f-input" type="number" v-model="transferForm.quantity" placeholder="0" /></view>
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="transferForm.visible = false">取消</view>
+          <view class="btn" @tap="saveTransfer">确认移库</view>
         </view>
       </view>
     </view>
@@ -140,12 +275,22 @@
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
-  createSaleOrder, createPurchaseOrder } from '@/api/ledger';
+  createSaleOrder, createPurchaseOrder,
+  listShelves, createShelf, updateShelf, deleteShelf, getShelfDetail,
+  attachShelfImage, deleteInventoryImage, uploadFile, transferStock } from '@/api/ledger';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
   ['family', '家庭仓'],
   ['partner', '合伙仓']
+];
+
+/** 货架类型（与后端 LedgerShelf.TYPE_* 对齐） */
+const SHELF_TYPES = [
+  ['normal', '普通货架'],
+  ['refrigerated', '冷藏/冷冻'],
+  ['locked', '保险柜/上锁'],
+  ['temp', '临时暂存']
 ];
 
 export default {
@@ -166,7 +311,23 @@ export default {
       stockRemark: '',
       // 下单（销售/采购）：赊账自动建应收/应付 + 库存联动
       orderSheet: false,
-      orderForm: { mode: 'sale', party: '', items: [] }
+      orderForm: { mode: 'sale', party: '', items: [] },
+      // ===== 货架（存放位置）=====
+      tab: 'goods',
+      shelves: [],
+      shelfSheet: false,
+      shelfForm: {
+        id: null, code: '', name: '', zone: '',
+        rowNo: '', layerNo: '', positionNo: '',
+        shelfType: 'normal', capacity: '', remark: ''
+      },
+      shelfDetail: {
+        visible: false, shelf: {}, items: [], images: [],
+        totalQuantity: 0, totalCostValue: 0, overCapacity: false
+      },
+      transferForm: { visible: false, productId: null, itemName: '', targetShelfId: null, targetName: '', quantity: '' },
+      // 出入库所选货架（0/null = 未上架）
+      stockShelfId: 0
     };
   },
   computed: {
@@ -178,6 +339,26 @@ export default {
         return s + Number(it.quantity || 0) * Number(it.unitPrice || 0);
       }, 0);
       return Number(sum).toFixed(2);
+    },
+    shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); },
+    /** 移库可选商品（本货架上还有货的） */
+    transferItemNames() { return (this.shelfDetail.items || []).map(it => it.productName); },
+    /** 移库可选目标货架（排除当前货架） */
+    transferTargetList() {
+      const cur = this.shelfDetail.shelf && this.shelfDetail.shelf.id;
+      return this.shelves.filter(s => String(s.id) !== String(cur));
+    },
+    transferTargetNames() {
+      return this.transferTargetList.map(s => s.name + (s.code ? ' · ' + s.code : ''));
+    },
+    /** 出入库货架选择器（首项=未上架） */
+    stockShelfNames() {
+      return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
+    },
+    stockShelfLabel() {
+      if (!this.stockShelfId) return '未上架';
+      const s = this.shelves.find(x => String(x.id) === String(this.stockShelfId));
+      return s ? s.name + (s.code ? ' · ' + s.code : '') : '未上架';
     }
   },
   onShow() {
@@ -186,6 +367,195 @@ export default {
   },
   methods: {
     fmt(v) { return Number(v || 0).toFixed(2); },
+    // ===== 货架（存放位置）=====
+    switchTab(t) {
+      this.tab = t;
+      if (t === 'shelf') this.loadShelves();
+      else this.loadProducts();
+    },
+    shelfTypeNameOf(t) {
+      const x = SHELF_TYPES.find(i => i[0] === t);
+      return x ? x[1] : '普通货架';
+    },
+    onShelfTypeChange(e) {
+      const x = SHELF_TYPES[e.detail.value];
+      if (x) this.shelfForm.shelfType = x[0];
+    },
+    /** 出入库所选货架（首项=未上架） */
+    onStockShelfChange(e) {
+      const i = Number(e.detail.value);
+      this.stockShelfId = i <= 0 ? 0 : this.shelves[i - 1].id;
+    },
+    async loadShelves() {
+      if (!this.currentId) { this.shelves = []; return; }
+      try {
+        this.shelves = (await listShelves(this.currentId)) || [];
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 打开新增/编辑货架（传 s 即编辑） */
+    openShelfSheet(s) {
+      if (!this.currentId) { uni.showToast({ title: '请先新建/选择仓库', icon: 'none' }); return; }
+      this.shelfForm = s ? {
+        id: s.id, code: s.code || '', name: s.name || '', zone: s.zone || '',
+        rowNo: s.rowNo == null ? '' : s.rowNo,
+        layerNo: s.layerNo == null ? '' : s.layerNo,
+        positionNo: s.positionNo == null ? '' : s.positionNo,
+        shelfType: s.shelfType || 'normal',
+        capacity: s.capacity == null ? '' : s.capacity,
+        remark: s.remark || ''
+      } : {
+        id: null, code: '', name: '', zone: '',
+        rowNo: '', layerNo: '', positionNo: '',
+        shelfType: 'normal', capacity: '', remark: ''
+      };
+      this.shelfSheet = true;
+    },
+    async saveShelf() {
+      const f = this.shelfForm;
+      if (!(f.code || '').trim()) { uni.showToast({ title: '请填货架编号', icon: 'none' }); return; }
+      if (!(f.name || '').trim()) { uni.showToast({ title: '请填货架名称', icon: 'none' }); return; }
+      const payload = {
+        warehouseId: this.currentId,
+        code: f.code.trim(),
+        name: f.name.trim(),
+        zone: (f.zone || '').trim() || null,
+        rowNo: f.rowNo === '' ? null : Number(f.rowNo),
+        layerNo: f.layerNo === '' ? null : Number(f.layerNo),
+        positionNo: f.positionNo === '' ? null : Number(f.positionNo),
+        shelfType: f.shelfType,
+        capacity: f.capacity === '' ? null : Number(f.capacity),
+        remark: (f.remark || '').trim() || null
+      };
+      try {
+        if (f.id) await updateShelf(f.id, payload);
+        else await createShelf(payload);
+        uni.showToast({ title: f.id ? '已保存' : '已创建', icon: 'success' });
+        this.shelfSheet = false;
+        await this.loadShelves();
+        if (this.shelfDetail.visible && f.id) await this.openShelfDetail({ id: f.id });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 货架详情（含图片 + 商品明细） */
+    async openShelfDetail(s) {
+      try {
+        const d = (await getShelfDetail(s.id)) || {};
+        this.shelfDetail = {
+          visible: true,
+          shelf: d.shelf || {},
+          items: d.items || [],
+          images: d.images || [],
+          totalQuantity: d.totalQuantity || 0,
+          totalCostValue: d.totalCostValue || 0,
+          overCapacity: !!d.overCapacity
+        };
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    editShelfFromDetail() {
+      const s = this.shelfDetail.shelf;
+      if (!s || !s.id) return;
+      this.shelfDetail.visible = false;
+      this.openShelfSheet(s);
+    },
+    deleteShelfFromDetail() {
+      const s = this.shelfDetail.shelf;
+      if (!s || !s.id) return;
+      uni.showModal({
+        title: '删除货架',
+        content: '删除「' + s.name + '」？仍有库存时会被拒绝，请先移库',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteShelf(s.id);
+            this.shelfDetail.visible = false;
+            await this.loadShelves();
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 上传货架图片（先传文件拿 URL，再挂到货架上，1:N） */
+    uploadShelfImage() {
+      const id = this.shelfDetail.shelf && this.shelfDetail.shelf.id;
+      if (!id) return;
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        success: async (res) => {
+          const path = res.tempFilePaths && res.tempFilePaths[0];
+          if (!path) return;
+          uni.showLoading({ title: '上传中', mask: true });
+          try {
+            const url = await uploadFile(path, 'ledger_shelf');
+            if (url) {
+              await attachShelfImage(id, url);
+              await this.openShelfDetail({ id });
+              await this.loadShelves();
+            }
+            uni.hideLoading();
+          } catch (e) {
+            uni.hideLoading();
+          }
+        }
+      });
+    },
+    removeShelfImage(img) {
+      const id = this.shelfDetail.shelf && this.shelfDetail.shelf.id;
+      if (!img || !img.id) return;
+      uni.showModal({
+        title: '删除图片',
+        content: '确定删除这张图片？',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteInventoryImage(img.id);
+            await this.openShelfDetail({ id });
+            await this.loadShelves();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    openTransfer() {
+      if (!this.shelfDetail.items.length) {
+        uni.showToast({ title: '该货架暂无库存，无法移库', icon: 'none' }); return;
+      }
+      if (!this.transferTargetList.length) {
+        uni.showToast({ title: '请先再建一个货架作为目标', icon: 'none' }); return;
+      }
+      this.transferForm = { visible: true, productId: null, itemName: '', targetShelfId: null, targetName: '', quantity: '' };
+    },
+    onTransferProduct(e) {
+      const it = this.shelfDetail.items[e.detail.value];
+      if (!it) return;
+      this.transferForm.productId = it.productId;
+      this.transferForm.itemName = it.productName;
+    },
+    onTransferTarget(e) {
+      const s = this.transferTargetList[e.detail.value];
+      if (!s) return;
+      this.transferForm.targetShelfId = s.id;
+      this.transferForm.targetName = s.name + (s.code ? ' · ' + s.code : '');
+    },
+    async saveTransfer() {
+      const f = this.transferForm;
+      if (!f.productId) { uni.showToast({ title: '请选择商品', icon: 'none' }); return; }
+      if (!f.targetShelfId) { uni.showToast({ title: '请选择目标货架', icon: 'none' }); return; }
+      const qty = Number(f.quantity);
+      if (!qty || qty <= 0) { uni.showToast({ title: '请输入数量', icon: 'none' }); return; }
+      try {
+        await transferStock({
+          warehouseId: this.currentId,
+          productId: f.productId,
+          fromShelfId: this.shelfDetail.shelf.id,
+          toShelfId: f.targetShelfId,
+          quantity: qty
+        });
+        uni.showToast({ title: '已移库', icon: 'success' });
+        f.visible = false;
+        await this.openShelfDetail({ id: this.shelfDetail.shelf.id });
+        await this.loadShelves();
+        await this.loadProducts();
+      } catch (e) { /* 拦截器已提示 */ }
+    },
     // ===== 下单 =====
     /** 打开下单弹层（默认带一行明细） */
     openOrderSheet() {
@@ -242,9 +612,11 @@ export default {
         if (this.warehouses.length && (!this.currentId || !this.warehouses.find(w => w.id === this.currentId))) {
           this.currentId = this.warehouses[0].id;
           this.loadProducts();
+          this.loadShelves();
         } else if (!this.warehouses.length) {
           this.currentId = null;
           this.products = [];
+          this.shelves = [];
         }
       } catch (e) { /* 拦截器已提示 */ }
     },
@@ -261,6 +633,8 @@ export default {
     openWhSheet() { this.whForm = { name: '', type: 'personal' }; this.whTypeIndex = 0; this.whSheet = true; },
     openStock(p) {
       this.stockTarget = p;
+      this.stockShelfId = 0;
+      this.loadShelves();
       this.stockMode = 'in';
       this.stockQty = '';
       this.stockRemark = '';
@@ -273,12 +647,14 @@ export default {
         await fn({
           warehouseId: this.currentId,
           productId: this.stockTarget.id,
+          shelfId: this.stockShelfId || 0,
           quantity: qty,
           remark: this.stockRemark || undefined
         });
         uni.showToast({ title: this.stockMode === 'in' ? '已入库' : '已出库', icon: 'success' });
         this.stockTarget = null;
         this.loadProducts();
+        this.loadShelves();
       } catch (e) { /* 拦截器已提示 */ }
     },
     openProductSheet() { this.pForm = { name: '', category: '', costPrice: '', sellPrice: '' }; this.productSheet = true; },
@@ -355,4 +731,69 @@ export default {
 .order-del {
   font-size: 32rpx; color: #E85D5D; padding: 0 8rpx; line-height: 1;
 }
+/* ===== 货架 / 商品 切换 ===== */
+.seg-tabs {
+  display: flex; gap: 12rpx; padding: 16rpx 24rpx 0;
+}
+.seg-tab {
+  flex: 1; text-align: center; padding: 16rpx 0; border-radius: 12rpx;
+  font-size: 28rpx; color: var(--text-sub); background: var(--card);
+  border: 1rpx solid var(--border);
+}
+.seg-tab.on {
+  color: #fff; background: var(--primary); border-color: var(--primary); font-weight: 600;
+}
+
+/* ===== 货架网格 ===== */
+.shelf-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16rpx;
+  padding: 8rpx 0;
+}
+.shelf-cell {
+  border: 1rpx solid var(--border); border-radius: 14rpx; overflow: hidden;
+  background: var(--card);
+}
+.shelf-cover {
+  height: 150rpx; display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+.shelf-img { width: 100%; height: 100%; }
+.shelf-code {
+  font-size: 34rpx; font-weight: 700; color: var(--primary); letter-spacing: 1rpx;
+}
+.shelf-name {
+  font-size: 27rpx; font-weight: 600; color: var(--text-main);
+  padding: 10rpx 14rpx 2rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.shelf-pos {
+  font-size: 22rpx; color: var(--text-sub); padding: 0 14rpx;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.shelf-meta {
+  font-size: 22rpx; color: var(--text-sub); padding: 4rpx 14rpx 12rpx;
+}
+
+/* ===== 货架详情 ===== */
+.detail-imgs { white-space: nowrap; padding: 10rpx 0 16rpx; }
+.detail-img-wrap { display: inline-block; position: relative; margin-right: 14rpx; }
+.detail-img {
+  width: 160rpx; height: 160rpx; border-radius: 12rpx; display: block;
+}
+.detail-img-cover {
+  position: absolute; left: 0; bottom: 0; padding: 2rpx 10rpx;
+  font-size: 20rpx; color: #fff; background: rgba(0,0,0,.55);
+  border-bottom-left-radius: 12rpx; border-top-right-radius: 10rpx;
+}
+.detail-img-del {
+  position: absolute; top: -6rpx; right: -6rpx;
+  width: 34rpx; height: 34rpx; line-height: 30rpx; text-align: center;
+  border-radius: 50%; background: #E85D5D; color: #fff; font-size: 24rpx;
+}
+.detail-img-add {
+  display: inline-block; width: 160rpx; height: 160rpx; line-height: 160rpx;
+  text-align: center; font-size: 44rpx; color: var(--text-sub);
+  border: 1rpx dashed var(--border); border-radius: 12rpx; vertical-align: top;
+}
+.detail-items { max-height: 460rpx; }
+.over-tip { font-size: 22rpx; color: #E8654A; }
 </style>

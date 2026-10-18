@@ -90,21 +90,31 @@ public class PortalLedgerInventoryController {
 
     // ---------------- 出入库 ----------------
 
-    @Operation(summary = "入库")
+    @Operation(summary = "入库（可选货架，缺省=未上架）")
     @PostMapping("/stock/in")
     public AjaxResult stockIn(@RequestBody Map<String, Object> bo) {
         return AjaxResult.success(inventoryService.stockIn(
                 PortalSecurityUtils.getUserId(),
-                longVal(bo, "warehouseId"), longVal(bo, "productId"),
+                longVal(bo, "warehouseId"), longVal(bo, "productId"), longVal(bo, "shelfId"),
                 intVal(bo, "quantity"), strVal(bo, "remark")));
     }
 
-    @Operation(summary = "出库")
+    @Operation(summary = "出库（可选货架，缺省=未上架）")
     @PostMapping("/stock/out")
     public AjaxResult stockOut(@RequestBody Map<String, Object> bo) {
         return AjaxResult.success(inventoryService.stockOut(
                 PortalSecurityUtils.getUserId(),
+                longVal(bo, "warehouseId"), longVal(bo, "productId"), longVal(bo, "shelfId"),
+                intVal(bo, "quantity"), strVal(bo, "remark")));
+    }
+
+    @Operation(summary = "移库（货架之间搬运，写 transfer 流水）")
+    @PostMapping("/stock/transfer")
+    public AjaxResult transferStock(@RequestBody Map<String, Object> bo) {
+        return AjaxResult.success(inventoryService.transferStock(
+                PortalSecurityUtils.getUserId(),
                 longVal(bo, "warehouseId"), longVal(bo, "productId"),
+                longVal(bo, "fromShelfId"), longVal(bo, "toShelfId"),
                 intVal(bo, "quantity"), strVal(bo, "remark")));
     }
 

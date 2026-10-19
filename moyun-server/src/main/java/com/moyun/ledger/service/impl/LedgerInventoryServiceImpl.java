@@ -73,8 +73,19 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
     @Override
     public List<LedgerWarehouse> listWarehouses(Long userId) {
+        // 自己创建的 + 被邀请加入的（协作仓库必须在列表里可见）
+        List<Long> joined = memberMapper.selectList(new LambdaQueryWrapper<LedgerWarehouseMember>()
+                        .eq(LedgerWarehouseMember::getUserId, userId)
+                        .eq(LedgerWarehouseMember::getIsActive, 1)
+                        .eq(LedgerWarehouseMember::getStatus, LedgerWarehouseMember.STATUS_NORMAL))
+                .stream().map(LedgerWarehouseMember::getWarehouseId)
+                .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+        if (joined.isEmpty()) {
+            joined.add(-1L); // 占位，避免 IN () 语法错误
+        }
         return warehouseMapper.selectList(new LambdaQueryWrapper<LedgerWarehouse>()
-                .eq(LedgerWarehouse::getUserId, userId)
+                .and(w -> w.eq(LedgerWarehouse::getUserId, userId)
+                        .or().in(LedgerWarehouse::getId, joined))
                 .eq(LedgerWarehouse::getStatus, LedgerWarehouse.STATUS_NORMAL)
                 .orderByAsc(LedgerWarehouse::getId));
     }

@@ -55,6 +55,24 @@ class LedgerWarehouseCollabDbTest {
     private LedgerWarehouseMemberMapper memberMapper;
 
     @Test
+    @DisplayName("成员加入后，共享仓库出现在他的仓库列表里")
+    void sharedWarehouseAppearsInMemberList() {
+        // 这个 bug 很容易漏：成员能访问仓库，但列表里没这个仓库，UI 上用不了
+        Long owned = createWarehouse(OWNER, "A 自己的仓");
+        Long shared = createWarehouse(OWNER, "A 共享给 B 的仓");
+        addMember(shared, MEMBER);
+
+        List<LedgerWarehouse> memberList = inventoryService.listWarehouses(MEMBER);
+        assertTrue(memberList.stream().anyMatch(w -> shared.equals(w.getId())),
+                "共享仓库必须出现在成员的仓库列表里");
+        assertTrue(memberList.stream().noneMatch(w -> owned.equals(w.getId())),
+                "没共享给 B 的仓库不应出现");
+
+        List<LedgerWarehouse> ownerList = inventoryService.listWarehouses(OWNER);
+        assertTrue(ownerList.stream().anyMatch(w -> shared.equals(w.getId())), "owner 自己也要能看到");
+    }
+
+    @Test
     @DisplayName("成员能看货架/商品、能出入库；陌生人被拒；成员不能删仓库")
     void memberAccessAndBoundaries() {
         Long whId = createWarehouse(OWNER, "协作测试仓");

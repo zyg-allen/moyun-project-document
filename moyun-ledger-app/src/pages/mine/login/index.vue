@@ -100,7 +100,22 @@ export default {
         useUserStore().setUserInfo(data.user || { username: payload.username });
         uni.showToast({ title: '登录成功', icon: 'success' });
         // 登录成功后回「更多」页（tab 页用 switchTab）
-        setTimeout(() => uni.switchTab({ url: '/pages/mine/index' }), 600);
+    // 从邀请落地页带着邀请码来登录 → 登录成功后自动加入该仓库
+    const pending = uni.getStorageSync('moyun_pending_invite') || '';
+    if (pending) {
+      uni.removeStorageSync('moyun_pending_invite');
+      import('@/api/ledger').then(async ({ acceptInvite }) => {
+        try {
+          await acceptInvite(pending);
+          uni.showToast({ title: '已加入仓库', icon: 'success' });
+          setTimeout(() => uni.switchTab({ url: '/pages/warehouse/inout/index' }), 700);
+        } catch (e) {
+          setTimeout(() => uni.switchTab({ url: '/pages/mine/index' }), 600);
+        }
+      });
+      return;
+    }
+    setTimeout(() => uni.switchTab({ url: '/pages/mine/index' }), 600);
       } catch (e) {
         // 拦截器已提示；验证码已消费，刷新图形码
         this.loadCaptcha();

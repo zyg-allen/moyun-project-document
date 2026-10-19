@@ -76,7 +76,11 @@ export default {
           content: '登录后即可加入这个仓库',
           confirmText: '去登录',
           success: (r) => {
-            if (r.confirm) uni.navigateTo({ url: '/pages/mine/login/index' });
+              if (r.confirm) {
+                // 记住邀请码，登录成功后自动加入
+                uni.setStorageSync('moyun_pending_invite', this.code);
+                uni.navigateTo({ url: '/pages/mine/login/index' });
+              }
           }
         });
         return;

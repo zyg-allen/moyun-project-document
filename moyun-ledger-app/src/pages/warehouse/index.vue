@@ -675,14 +675,18 @@ export default {
         const r = await createInvite(this.currentId);
         const code = (r && r.code) || '';
         if (!code) { uni.showToast({ title: '生成失败', icon: 'none' }); return; }
+        // 分享链接：H5 直接用当前域名 + hash 路由
+        let origin = '';
+        try { origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : ''; } catch (e) { origin = ''; }
+        const shareLink = origin ? (origin + '/#/pages/invite/index?code=' + code) : code;
         uni.showModal({
           title: '邀请码 ' + code,
-          content: '7 天内有效，最多 ' + ((r && r.maxUse) || 10) + ' 人。让对方在「成员 → 输入邀请码」里填这个码。',
+          content: '7 天内有效 · ' + ((r && r.maxUse) || 10) + ' 人 · 点「复制」把链接发给对方',
           confirmText: '复制',
           cancelText: '知道了',
           success: (m) => {
             if (m.confirm) {
-              uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '已复制', icon: 'success' }) });
+              uni.setClipboardData({ data: shareLink, success: () => uni.showToast({ title: '链接已复制', icon: 'success' }) });
             }
           }
         });

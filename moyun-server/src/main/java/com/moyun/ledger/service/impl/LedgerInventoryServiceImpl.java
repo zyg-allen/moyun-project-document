@@ -646,8 +646,16 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         // 库存按成本价计（文档 2.1）：cost_value = 成本价 × 数量，供总资产公式用
         BigDecimal costPrice = p.getCostPrice() == null ? BigDecimal.ZERO : p.getCostPrice();
         s.setQuantity(after);
-        s.setCostValue(costPrice.multiply(BigDecimal.valueOf(after)));
-        stockMapper.updateById(s);
+        // 并发安全：条件更新（CAS）—— 只有账面数量仍等于 before 时才写入。
+        // 两人同时卖最后一件时，后一个的 WHERE 命中 0 行，直接报冲突，不会丢更新/卖成负数。
+        int rows = stockMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<LedgerStock>()
+                .eq(LedgerStock::getId, s.getId())
+                .eq(LedgerStock::getQuantity, before)
+                .set(LedgerStock::getQuantity, after)
+                .set(LedgerStock::getCostValue, costPrice.multiply(BigDecimal.valueOf(after))));
+        if (rows == 0) {
+            throw new ServiceException("这件货刚被别人动过（当前库存已变），请刷新后重试");
+        }
 
         LedgerStockFlow f = new LedgerStockFlow();
         f.setWarehouseId(warehouseId);

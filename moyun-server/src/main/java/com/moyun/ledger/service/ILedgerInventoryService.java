@@ -67,6 +67,17 @@ public interface ILedgerInventoryService {
     Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
                                 Integer quantity, String reason, java.math.BigDecimal costTotal, String remark);
 
+    /**
+     * 入库 + 可同时生成一笔支出流水（采购闭环）。
+     *
+     * @param createTxn      是否同时生成支出流水
+     * @param txnCategoryId  支出分类（createTxn=true 时必填）
+     * @param txnAccountId   资金账户（createTxn=true 时必填）
+     */
+    Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                Integer quantity, String reason, java.math.BigDecimal costTotal,
+                                boolean createTxn, Long txnCategoryId, Long txnAccountId, String remark);
+
     /** 出库：数量 -（校验不超该货架现有库存），reason 记原因（sale/self_use/loss/transfer/gift/other） */
     Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
                                  Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark);

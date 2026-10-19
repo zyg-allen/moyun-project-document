@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.entity.LedgerProduct;
+import com.moyun.ledger.service.ILedgerTransactionService;
+import com.moyun.ledger.domain.dto.TransactionCreateDTO;
 import com.moyun.ledger.domain.entity.LedgerProductCategory;
 import com.moyun.ledger.domain.entity.LedgerShelf;
 import com.moyun.ledger.domain.entity.LedgerStock;
@@ -53,6 +55,12 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
     @Autowired
     private com.moyun.ledger.mapper.LedgerSaleChannelMapper channelMapper;
+
+    @Autowired
+    private ILedgerTransactionService transactionService;
+
+    @Autowired
+    private com.moyun.ledger.mapper.LedgerTransactionMapper transactionMapper;
 
     // ---------------- 仓库 ----------------
 
@@ -472,19 +480,26 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
                                        Integer quantity, String reason, String remark) {
-        return applyStockChange(userId, warehouseId, productId, shelfId, quantity,
-                LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, null, null, remark);
+        return stockIn(userId, warehouseId, productId, shelfId, quantity, reason, null, false, null, null, remark);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
                                        Integer quantity, String reason, java.math.BigDecimal costTotal, String remark) {
+        return stockIn(userId, warehouseId, productId, shelfId, quantity, reason, costTotal, false, null, null, remark);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> stockIn(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                       Integer quantity, String reason, java.math.BigDecimal costTotal,
+                                       boolean createTxn, Long txnCategoryId, Long txnAccountId, String remark) {
+        LedgerProduct p = null;
         if (costTotal != null && costTotal.compareTo(java.math.BigDecimal.ZERO) > 0
                 && quantity != null && quantity > 0) {
             // 移动加权平均：新均价 = (现有数量 × 现有均价 + 本次成本总额) ÷ (现有数量 + 本次数量)
-            // 以总额为准，避免 500÷3 这类除不尽导致的 1 分误差
-            LedgerProduct p = getOwnedProduct(userId, productId);
+            p = getOwnedProduct(userId, productId);
             java.math.BigDecimal oldPrice = p.getCostPrice() == null
                     ? java.math.BigDecimal.ZERO : p.getCostPrice();
             int existing = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
@@ -499,9 +514,27 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
             p.setCostTotal(costTotal);
             productMapper.updateById(p);
         }
+        // 采购闭环：同时生成一笔支出流水，并打 stock_in 标记（消费统计时排除）
+        if (createTxn && costTotal != null && costTotal.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            TransactionCreateDTO dto = new TransactionCreateDTO();
+            dto.setType("expense");
+            dto.setAmount(costTotal);
+            dto.setCategoryId(txnCategoryId);
+            dto.setAccountId(txnAccountId);
+            dto.setDescription("采购入库：" + (p == null ? "商品" : p.getName()));
+            dto.setTransactionDate(java.time.LocalDate.now());
+            Long txnId = transactionService.createTransaction(userId, dto);
+            if (txnId != null) {
+                com.moyun.ledger.domain.entity.LedgerTransaction tx = new com.moyun.ledger.domain.entity.LedgerTransaction();
+                tx.setId(txnId);
+                tx.setStockIn(1);
+                transactionMapper.updateById(tx);
+            }
+        }
         return applyStockChange(userId, warehouseId, productId, shelfId, quantity,
                 LedgerStockFlow.FLOW_IN, defaultReason(reason, LedgerStockFlow.REASON_PURCHASE), null, null, null, remark);
     }
+
 
 
     @Override

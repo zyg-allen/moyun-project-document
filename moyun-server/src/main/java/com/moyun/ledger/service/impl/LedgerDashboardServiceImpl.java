@@ -148,6 +148,8 @@ public class LedgerDashboardServiceImpl implements ILedgerDashboardService {
                 .eq(LedgerTransaction::getType, type)
                 .eq(LedgerTransaction::getStatus, LedgerTransaction.STATUS_NORMAL)
                 .eq(LedgerTransaction::getIsBudget, 1)
+                // 采购入库产生的支出不计入消费统计（避免与库存价值重复计钱）
+                .eq(LedgerTransaction::getStockIn, 0)
                 .ge(LedgerTransaction::getTransactionDate, start)
                 .le(LedgerTransaction::getTransactionDate, end);
         BigDecimal sum = BigDecimal.ZERO;

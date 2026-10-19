@@ -217,6 +217,14 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         p.setIsSecondhand(bo.getIsSecondhand() == null ? 0 : bo.getIsSecondhand());
         p.setConditionGrade(bo.getConditionGrade());
         p.setSourceChannel(bo.getSourceChannel());
+        // P0：来源 / 成本总额 / 其他成本 / 单位换算
+        p.setSourceType(bo.getSourceType() == null ? LedgerProduct.SRC_PURCHASE : bo.getSourceType());
+        p.setSourceParty(bo.getSourceParty());
+        p.setCostTotal(bo.getCostTotal());
+        p.setExtraCost(bo.getExtraCost() == null ? java.math.BigDecimal.ZERO : bo.getExtraCost());
+        p.setBaseUnit(bo.getBaseUnit() == null ? (bo.getUnit() == null ? "个" : bo.getUnit()) : bo.getBaseUnit());
+        p.setPackUnit(bo.getPackUnit());
+        p.setPackSize(bo.getPackSize());
         p.setRemark(bo.getRemark());
         p.setStatus(LedgerProduct.STATUS_NORMAL);
         productMapper.insert(p);
@@ -258,6 +266,28 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         }
         if (bo.getBarcode() != null) {
             db.setBarcode(bo.getBarcode().trim());
+        // P0：来源 / 成本总额 / 单位换算（允许清空，用显式赋值）
+        if (bo.getSourceType() != null && !bo.getSourceType().isBlank()) {
+            db.setSourceType(bo.getSourceType());
+        }
+        if (bo.getSourceParty() != null) {
+            db.setSourceParty(bo.getSourceParty());
+        }
+        if (bo.getCostTotal() != null) {
+            db.setCostTotal(bo.getCostTotal());
+        }
+        if (bo.getExtraCost() != null) {
+            db.setExtraCost(bo.getExtraCost());
+        }
+        if (bo.getBaseUnit() != null && !bo.getBaseUnit().isBlank()) {
+            db.setBaseUnit(bo.getBaseUnit());
+        }
+        if (bo.getPackUnit() != null) {
+            db.setPackUnit(bo.getPackUnit());
+        }
+        if (bo.getPackSize() != null) {
+            db.setPackSize(bo.getPackSize());
+        }
         }
         if (bo.getConditionGrade() != null) {
             db.setConditionGrade(bo.getConditionGrade());

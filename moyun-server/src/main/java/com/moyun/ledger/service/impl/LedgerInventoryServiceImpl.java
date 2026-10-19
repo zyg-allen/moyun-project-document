@@ -11,6 +11,7 @@ import com.moyun.ledger.domain.entity.LedgerShelf;
 import com.moyun.ledger.domain.entity.LedgerStock;
 import com.moyun.ledger.domain.entity.LedgerStockFlow;
 import com.moyun.ledger.domain.entity.LedgerWarehouse;
+import com.moyun.ledger.domain.entity.LedgerWarehouseMember;
 import com.moyun.ledger.mapper.LedgerProductCategoryMapper;
 import com.moyun.ledger.mapper.LedgerProductMapper;
 import com.moyun.ledger.mapper.LedgerShelfMapper;
@@ -62,6 +63,9 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Autowired
     private com.moyun.ledger.mapper.LedgerTransactionMapper transactionMapper;
 
+    @Autowired
+    private com.moyun.ledger.mapper.LedgerWarehouseMemberMapper memberMapper;
+
     // ---------------- 仓库 ----------------
 
     @Override
@@ -92,7 +96,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateWarehouse(Long userId, Long id, LedgerWarehouse bo) {
-        LedgerWarehouse db = getOwnedWarehouse(userId, id);
+        LedgerWarehouse db = getOwnerOnlyWarehouse(userId, id);
         if (bo.getName() != null && !bo.getName().isBlank()) {
             db.setName(bo.getName().trim());
         }
@@ -108,7 +112,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteWarehouse(Long userId, Long id) {
-        LedgerWarehouse db = getOwnedWarehouse(userId, id);
+        LedgerWarehouse db = getOwnerOnlyWarehouse(userId, id);
         db.setStatus(LedgerWarehouse.STATUS_DELETED);
         warehouseMapper.updateById(db);
     }
@@ -976,7 +980,32 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
     // ---------------- 内部 ----------------
 
+    /**
+     * 校验仓库访问权：**owner 或活跃成员**都能访问（协作库存的基础）。
+     * 只做「能否访问」，不做角色细分；角色限制（viewer 只读）留到后续阶段。
+     */
     private LedgerWarehouse getOwnedWarehouse(Long userId, Long id) {
+        LedgerWarehouse w = warehouseMapper.selectById(id);
+        if (w == null || LedgerWarehouse.STATUS_DELETED == w.getStatus()) {
+            throw new ServiceException("仓库不存在");
+        }
+        if (userId.equals(w.getUserId())) {
+            return w;
+        }
+        // 非 owner：查成员表
+        Long cnt = memberMapper.selectCount(new LambdaQueryWrapper<LedgerWarehouseMember>()
+                .eq(LedgerWarehouseMember::getWarehouseId, id)
+                .eq(LedgerWarehouseMember::getUserId, userId)
+                .eq(LedgerWarehouseMember::getIsActive, 1)
+                .eq(LedgerWarehouseMember::getStatus, LedgerWarehouseMember.STATUS_NORMAL));
+        if (cnt == null || cnt == 0) {
+            throw new ServiceException("无权访问该仓库");
+        }
+        return w;
+    }
+
+    /** 仅 owner 才能做（改仓库设置 / 删仓库 / 管成员） */
+    private LedgerWarehouse getOwnerOnlyWarehouse(Long userId, Long id) {
         LedgerWarehouse w = warehouseMapper.selectById(id);
         if (w == null || !userId.equals(w.getUserId())
                 || LedgerWarehouse.STATUS_DELETED == w.getStatus()) {

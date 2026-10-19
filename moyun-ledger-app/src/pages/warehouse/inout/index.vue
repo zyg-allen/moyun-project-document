@@ -118,6 +118,18 @@
               <input class="f-input" type="digit" v-model="f.costTotal" placeholder="本次一共花了多少" />
               <text class="unit">元</text>
             </view>
+            <view class="f-row" v-if="f.sourceType === 'purchase'">
+              <text class="f-label">记一笔支出</text>
+              <switch :checked="f.createTxn" color="#5FA77A" @change="e => f.createTxn = e.detail.value" />
+            </view>
+            <view class="f-row" v-if="f.createTxn" @tap="pickTxnCategory">
+              <text class="f-label">支出分类</text>
+              <text class="f-value">{{ txnCategoryLabel || '选择分类' }} ▾</text>
+            </view>
+            <view class="f-row" v-if="f.createTxn" @tap="pickTxnAccount">
+              <text class="f-label">资金账户</text>
+              <text class="f-value">{{ txnAccountLabel || '选择账户' }} ▾</text>
+            </view>
             <view class="f-row">
               <text class="f-label">包装单位</text>
               <input class="f-input" v-model="f.packUnit" placeholder="如 箱（选填）" />
@@ -259,6 +271,7 @@ import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
   createSaleChannel, createProduct, updateProduct, stockIn, stockOut,
+  listCategories, listAssets,
   uploadFile, attachProductImage, findSimilarProducts
 } from '@/api/ledger';
 
@@ -324,6 +337,7 @@ export default {
       pendingOut: null,
       submitting: false,
       sources: SOURCES,
+      txnCategories: [], txnAccounts: [],
       packTypes: PACK_TYPES,
       outTypes: OUT_TYPES,
       f: this.blankForm(),
@@ -331,6 +345,16 @@ export default {
     };
   },
   computed: {
+    /** 已选支出分类名 */
+    txnCategoryLabel() {
+      const c = this.txnCategories.find(x => String(x.id) === String(this.f.txnCategoryId));
+      return c ? c.name : '';
+    },
+    /** 已选账户名 */
+    txnAccountLabel() {
+      const a = this.txnAccounts.find(x => String(x.id) === String(this.f.txnAccountId));
+      return a ? a.name : '';
+    },
     /** 提交用的基础单位数量：选了包装单位就 × 换算系数 */
     qtyBase() {
       const q = Number(this.f.quantity) || 0;
@@ -435,6 +459,7 @@ export default {
         costPrice: '', sellPrice: '',
         sourceType: 'purchase', sourceParty: '', costTotal: '', extraCost: '',
         packUnit: '', packSize: '', usePack: false,
+        createTxn: false, txnCategoryId: null, txnAccountId: null,
         productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
         packagingType: 'none', tags: '', description: '', channelIds: [],
         outType: 'sale', outQuantity: '', salePrice: '', channelId: null, remark: ''
@@ -484,6 +509,28 @@ export default {
         description: p.description || ''
       });
     },
+    /** 懒加载记账分类与资金账户（只在勾选「记一笔支出」时用） */
+    async loadTxnOptions() {
+      if (this.txnCategories.length && this.txnAccounts.length) return;
+      try { this.txnCategories = (await listCategories('expense')) || []; } catch (e) { /* 忽略 */ }
+      try {
+        const list = (await listAssets()) || [];
+        this.txnAccounts = (Array.isArray(list) ? list : (list.rows || []));
+      } catch (e) { /* 忽略 */ }
+    },
+    pickTxnCategory() {
+      this.loadTxnOptions();
+      this.openPicker('txnCategory', '选择支出分类',
+        this.txnCategories.map(c => ({ id: c.id, name: c.name })), this.f.txnCategoryId,
+        '还没有记账分类，先去「记账分类」建一个');
+    },
+    pickTxnAccount() {
+      this.loadTxnOptions();
+      this.openPicker('txnAccount', '选择资金账户',
+        this.txnAccounts.map(a => ({ id: a.id, name: a.name, sub: a.balance === undefined ? '' : '余额 ' + a.balance })),
+        this.f.txnAccountId, '还没有资金账户');
+    },
+
     async loadWhData() {
       if (!this.warehouseId) return;
       try { this.shelves = (await listShelves(this.warehouseId)) || []; } catch (e) { /* 忽略 */ }
@@ -615,6 +662,8 @@ export default {
       const m = this.picker.mode;
       this.picker.visible = false;
       if (m === 'category') this.f.categoryId = it.id;
+      else if (m === 'txnCategory') this.f.txnCategoryId = it.id;
+      else if (m === 'txnAccount') this.f.txnAccountId = it.id;
       else if (m === 'outProduct') this.outProductId = it.id;
     },
     async submit() {
@@ -689,7 +738,11 @@ export default {
       }
       await stockIn({
         warehouseId: this.warehouseId, productId: pid,
-        shelfId: this.shelfId || 0, reason: 'purchase', quantity: this.qtyBase,              costTotal: this.f.costTotal !== '' ? Number(this.f.costTotal) : (this.f.costPrice ? Number(this.f.costPrice) * this.qtyBase : null)
+        shelfId: this.shelfId || 0, reason: 'purchase', quantity: this.qtyBase,
+        costTotal: this.f.costTotal !== '' ? Number(this.f.costTotal) : (this.f.costPrice ? Number(this.f.costPrice) * this.qtyBase : null),
+        createTxn: this.f.createTxn === true,
+        txnCategoryId: this.f.txnCategoryId || undefined,
+        txnAccountId: this.f.txnAccountId || undefined
       });
       uni.showToast({ title: '已入库建档', icon: 'success' });
       this.f = this.blankForm();

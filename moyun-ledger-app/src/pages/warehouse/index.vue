@@ -12,6 +12,9 @@
       <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
     </scroll-view>
     <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
+    <view class="mem-bar" v-if="currentId">
+      <text class="mem-link" @tap="openMembers">👥 成员</text>
+    </view>
 
     <!-- 货架 / 商品 切换（放在报表下面） -->
     <view class="seg-tabs" v-if="currentId">
@@ -451,6 +454,28 @@
       <view class="ov-more" @tap="goReport">查看仓库报表（销售 / 库龄 / 风险）›</view>
     </view>
 
+    <!-- 成员（多人协作共享库存） -->
+    <view class="mask" v-if="memSheet" @tap="memSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">仓库成员</view>
+        <view class="mem-hint">成员可以看到这个仓库的货架、商品、库存，并能出入库</view>
+        <scroll-view scroll-y class="mem-list">
+          <view v-for="m in members" :key="m.userId" class="mem-row">
+            <view class="flex-1 min-w-0">
+              <view class="mem-name">{{ m.name }}<text v-if="m.isOwner" class="mem-tag">创建者</text></view>
+              <view class="mem-sub" v-if="m.phone">{{ m.phone }}</view>
+            </view>
+            <text v-if="!m.isOwner" class="mem-del" @tap="removeMember(m)">移除</text>
+          </view>
+          <view v-if="!members.length" class="empty">还没有成员</view>
+        </scroll-view>
+        <view class="sheet-actions">
+          <view class="btn ghost" @tap="memSheet = false">关闭</view>
+          <view class="btn" @tap="inviteMember">＋ 添加成员</view>
+        </view>
+      </view>
+    </view>
+
   </view>
 </template>
 
@@ -532,6 +557,8 @@ export default {
       shelfFilterId: null,
       catTreeOpen: false,
       shelfOpen: false,
+      memSheet: false,
+      members: [],
       productCategories: [],
       catManageSheet: false,
       newCatName: '',
@@ -613,6 +640,47 @@ export default {
     this.loadWarehouses();
   },
   methods: {
+    /** 打开成员管理 */
+    async openMembers() {
+      this.memSheet = true;
+      await this.loadMembers();
+    },
+    async loadMembers() {
+      try { this.members = (await listWarehouseMembers(this.currentId)) || []; } catch (e) { this.members = []; }
+    },
+    /** 按手机号或用户名添加成员 */
+    inviteMember() {
+      uni.showModal({
+        title: '添加成员',
+        editable: true,
+        placeholderText: '对方的手机号或用户名',
+        success: async (r) => {
+          if (!r.confirm) return;
+          const account = (r.content || '').trim();
+          if (!account) return;
+          try {
+            await addWarehouseMember(this.currentId, account);
+            uni.showToast({ title: '已添加', icon: 'success' });
+            await this.loadMembers();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    removeMember(m) {
+      uni.showModal({
+        title: '移除成员',
+        content: '移除「' + m.name + '」？他/她将看不到这个仓库',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await removeWarehouseMember(this.currentId, m.userId);
+            uni.showToast({ title: '已移除', icon: 'success' });
+            await this.loadMembers();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+
     /** 点图片全屏预览 */
     previewImg(url) {
       if (url) uni.previewImage({ urls: [url] });
@@ -1479,4 +1547,14 @@ export default {
 .ov-num { font-size: var(--fs-title); font-weight: 700; }
 /* 次要说明 */
 .row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
+/* 成员入口与弹层 */
+.mem-bar { padding: 0 20rpx; text-align: right; }
+.mem-link { font-size: 23rpx; color: var(--primary); }
+.mem-hint { font-size: 21rpx; color: var(--text-sub); padding: 0 0 12rpx; }
+.mem-list { max-height: 50vh; }
+.mem-row { display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
+.mem-name { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
+.mem-tag { font-size: 18rpx; color: var(--primary); border: 1rpx solid var(--primary); border-radius: 4rpx; padding: 0 6rpx; margin-left: 8rpx; }
+.mem-sub { font-size: 21rpx; color: var(--text-sub); margin-top: 2rpx; }
+.mem-del { font-size: 23rpx; color: #E8654A; }
 </style>

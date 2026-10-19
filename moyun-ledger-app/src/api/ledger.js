@@ -507,3 +507,16 @@ export const getWarehouseConfig = () => get('/portal/ledger/warehouse-config');
 
 /** 保存仓库配置（部分更新） */
 export const saveWarehouseConfig = (cfg) => put('/portal/ledger/warehouse-config', { cfg });
+
+// ---------------- 仓库成员（多人协作共享库存）----------------
+
+const MEMBERS = (whId) => '/portal/ledger/inventory/warehouses/' + whId + '/members';
+
+/** 成员列表（含创建者） */
+export const listWarehouseMembers = (warehouseId) => get(MEMBERS(warehouseId));
+
+/** 添加成员（按手机号或用户名） */
+export const addWarehouseMember = (warehouseId, account) => post(MEMBERS(warehouseId), { account });
+
+/** 移除成员 */
+export const removeWarehouseMember = (warehouseId, memberUserId) => del(MEMBERS(warehouseId) + '/' + memberUserId);

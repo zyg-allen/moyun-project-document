@@ -484,7 +484,7 @@
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { getWarehouseCfg } from '@/utils/warehouseConfig';
+import { getWarehouseCfg, loadWarehouseCfg } from '@/utils/warehouseConfig';
 import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
   listShelves, createShelf, updateShelf, deleteShelf, getShelfDetail,
   attachShelfImage, deleteInventoryImage, uploadFile, transferStock, getProductDetail,
@@ -638,9 +638,10 @@ export default {
       return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
     }
   },
-  onShow() {
+  async onShow() {
     this.startPoll();
-    this.cfg = getWarehouseCfg();
+    // 从服务端拉配置（换设备也能拿到最新），失败回退本机缓存
+    this.cfg = await loadWarehouseCfg();
     useThemeStore().restore();
     this.loadWarehouses();
   },

@@ -694,6 +694,11 @@ export default {
       }
 
       if (!(this.f.name || '').trim()) { uni.showToast({ title: '请填商品名称', icon: 'none' }); return; }
+      // 勾选「记一笔支出」时必须选分类和账户，否则后端会生成一条无分类流水
+      if (this.f.createTxn) {
+        if (!this.f.txnCategoryId) { uni.showToast({ title: '请选择支出分类', icon: 'none' }); return; }
+        if (!this.f.txnAccountId) { uni.showToast({ title: '请选择资金账户', icon: 'none' }); return; }
+      }
       // 编辑模式：只改商品属性，不产生入库流水
       if (this.editingId) {
         await updateProduct(this.editingId, {

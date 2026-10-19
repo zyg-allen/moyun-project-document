@@ -689,7 +689,7 @@ export default {
       }
       await stockIn({
         warehouseId: this.warehouseId, productId: pid,
-        shelfId: this.shelfId || 0, reason: 'purchase', quantity: this.qtyBase
+        shelfId: this.shelfId || 0, reason: 'purchase', quantity: this.qtyBase,              costTotal: this.f.costTotal !== '' ? Number(this.f.costTotal) : (this.f.costPrice ? Number(this.f.costPrice) * this.qtyBase : null)
       });
       uni.showToast({ title: '已入库建档', icon: 'success' });
       this.f = this.blankForm();

@@ -648,6 +648,7 @@ export default {
   onHide() { this.stopPoll(); },
   onUnload() { this.stopPoll(); },
   /** 协作场景：定时刷新，让成员能看到别人刚卖出的变化 */
+  methods: {
   startPoll() {
     this.stopPoll();
     this._timer = setInterval(() => {
@@ -660,7 +661,6 @@ export default {
   stopPoll() {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
   },
-  methods: {
     /** 打开成员管理 */
     async openMembers() {
       this.memSheet = true;

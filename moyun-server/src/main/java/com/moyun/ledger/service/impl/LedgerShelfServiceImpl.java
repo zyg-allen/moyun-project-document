@@ -50,6 +50,9 @@ public class LedgerShelfServiceImpl implements ILedgerShelfService {
 
     @Autowired
     private SysFileMapper sysFileMapper;
+    @Autowired
+    private com.moyun.ledger.mapper.LedgerWarehouseMemberMapper memberMapper;
+
 
     // ---------------- 查询 ----------------
 
@@ -261,13 +264,28 @@ public class LedgerShelfServiceImpl implements ILedgerShelfService {
         }
     }
 
+    /**
+     * 校验仓库访问权：**owner 或活跃成员**。
+     * 与 LedgerInventoryServiceImpl 保持一致 —— 协作仓库里成员必须能看货架。
+     */
     private LedgerWarehouse getOwnedWarehouse(Long userId, Long warehouseId) {
         if (warehouseId == null) {
             throw new ServiceException("请指定仓库");
         }
         LedgerWarehouse w = warehouseMapper.selectById(warehouseId);
-        if (w == null || !userId.equals(w.getUserId())
-                || w.getStatus() == null || w.getStatus() != LedgerWarehouse.STATUS_NORMAL) {
+        if (w == null || w.getStatus() == null || w.getStatus() != LedgerWarehouse.STATUS_NORMAL) {
+            throw new ServiceException("仓库不存在或无权操作");
+        }
+        if (userId.equals(w.getUserId())) {
+            return w;
+        }
+        Long cnt = memberMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.ledger.domain.entity.LedgerWarehouseMember>()
+                .eq(com.moyun.ledger.domain.entity.LedgerWarehouseMember::getWarehouseId, warehouseId)
+                .eq(com.moyun.ledger.domain.entity.LedgerWarehouseMember::getUserId, userId)
+                .eq(com.moyun.ledger.domain.entity.LedgerWarehouseMember::getIsActive, 1)
+                .eq(com.moyun.ledger.domain.entity.LedgerWarehouseMember::getStatus,
+                        com.moyun.ledger.domain.entity.LedgerWarehouseMember.STATUS_NORMAL));
+        if (cnt == null || cnt == 0) {
             throw new ServiceException("仓库不存在或无权操作");
         }
         return w;

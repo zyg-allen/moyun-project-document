@@ -886,6 +886,47 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         m.put("expiringCount", expiring);
         m.put("monthSaleAmount", monthSaleAmount);
         m.put("monthGrossProfit", monthSaleAmount.subtract(monthSaleCost));
+
+        // 按成员统计销售业绩（协作仓库：谁卖了多少、卖了多少钱）
+        java.time.LocalDate mStart = today.withDayOfMonth(1);
+        List<LedgerStockFlow> saleFlows = stockFlowMapper.selectList(new LambdaQueryWrapper<LedgerStockFlow>()
+                .eq(LedgerStockFlow::getWarehouseId, warehouseId)
+                .eq(LedgerStockFlow::getFlowType, LedgerStockFlow.FLOW_OUT)
+                .eq(LedgerStockFlow::getReason, LedgerStockFlow.REASON_SALE)
+                .eq(LedgerStockFlow::getStatus, LedgerStockFlow.STATUS_NORMAL)
+                .ge(LedgerStockFlow::getCreateTime, mStart.atStartOfDay()));
+        Map<Long, Map<String, Object>> statMap = new java.util.LinkedHashMap<>();
+        for (LedgerStockFlow sf : saleFlows) {
+            Long op = sf.getOperatorId() == null ? 0L : sf.getOperatorId();
+            Map<String, Object> row = statMap.computeIfAbsent(op, k -> {
+                Map<String, Object> x = new HashMap<>();
+                x.put("userId", k);
+                x.put("quantity", 0);
+                x.put("amount", java.math.BigDecimal.ZERO);
+                return x;
+            });
+            row.put("quantity", ((Integer) row.get("quantity")) + Math.abs(sf.getQuantityChange() == null ? 0 : sf.getQuantityChange()));
+            java.math.BigDecimal amt = sf.getSalePrice() == null ? java.math.BigDecimal.ZERO
+                    : sf.getSalePrice().multiply(java.math.BigDecimal.valueOf(
+                            Math.abs(sf.getQuantityChange() == null ? 0 : sf.getQuantityChange())));
+            row.put("amount", ((java.math.BigDecimal) row.get("amount")).add(amt));
+        }
+        List<Map<String, Object>> memberSales = new ArrayList<>();
+        for (Map.Entry<Long, Map<String, Object>> e : statMap.entrySet()) {
+            Map<String, Object> row = e.getValue();
+            String name = null;
+            if (e.getKey() != null && e.getKey() > 0) {
+                com.moyun.portal.domain.entity.PortalUser u = portalUserMapper.selectById(e.getKey());
+                if (u != null) {
+                    name = u.getNickname() != null && !u.getNickname().isEmpty() ? u.getNickname() : u.getUsername();
+                }
+            }
+            row.put("name", name == null ? "（未知）" : name);
+            memberSales.add(row);
+        }
+        memberSales.sort((a, b) -> ((java.math.BigDecimal) b.get("amount"))
+                .compareTo((java.math.BigDecimal) a.get("amount")));
+        m.put("memberSales", memberSales);
         return m;
     }
 

@@ -56,6 +56,16 @@
       </view>
     </view>
 
+    <!-- ②.5 成员业绩（协作仓库：谁卖了多少） -->
+    <view class="card" v-if="memberSales.length">
+      <view class="sec-title">成员业绩（本月）</view>
+      <view v-for="m in memberSales" :key="m.userId" class="mem-row">
+        <text class="flex-1 mem-name">{{ m.name }}</text>
+        <text class="mem-qty">{{ m.quantity }} 件</text>
+        <text class="mem-amt">¥{{ fmt(m.amount) }}</text>
+      </view>
+    </view>
+
     <!-- ③ 类目分布 -->
     <view class="card">
       <view class="card-title"><text class="flex-1">类目分布</text></view>
@@ -130,6 +140,10 @@ export default {
     };
   },
   computed: {
+    /** 按成员统计的销售业绩（后端概览返回） */
+    memberSales() {
+      return (this.ov && this.ov.memberSales) || [];
+    },
     themeVars() { return useThemeStore().themeVars; },
     /** 类目分布：商品数 + 库存价值 + 占比 */
     catRows() {
@@ -298,4 +312,9 @@ export default {
 .ov-num { font-size: var(--fs-title); font-weight: 700; }
 /* 次要说明 */
 .row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
+/* 成员业绩 */
+.mem-row { display: flex; align-items: center; padding: 14rpx 0; border-bottom: 1rpx solid var(--border); }
+.mem-name { font-size: 26rpx; color: var(--text-main); font-weight: 600; }
+.mem-qty { font-size: 22rpx; color: var(--text-sub); margin-right: 16rpx; }
+.mem-amt { font-size: 26rpx; color: var(--text-main); font-weight: 700; }
 </style>

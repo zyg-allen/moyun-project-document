@@ -1022,10 +1022,18 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         return w;
     }
 
+    /**
+     * 校验商品可访问：**按商品所属仓库**判断，而不是 product.user_id。
+     * 否则协作仓库里成员能看到 owner 建的商品，却改不了 —— 协作不完整。
+     */
     private LedgerProduct getOwnedProduct(Long userId, Long id) {
         LedgerProduct p = productMapper.selectById(id);
-        if (p == null || !userId.equals(p.getUserId())
-                || LedgerProduct.STATUS_DELETED == p.getStatus()) {
+        if (p == null || LedgerProduct.STATUS_DELETED == p.getStatus()) {
+            throw new ServiceException("商品不存在");
+        }
+        if (p.getWarehouseId() != null) {
+            getOwnedWarehouse(userId, p.getWarehouseId());
+        } else if (!userId.equals(p.getUserId())) {
             throw new ServiceException("商品不存在");
         }
         return p;

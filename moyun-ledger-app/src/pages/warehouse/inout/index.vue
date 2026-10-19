@@ -60,6 +60,16 @@
               <text class="f-label">本次数量</text>
               <NumberStepper class="flex-1" v-model="f.quantity" :min="1" :unit="qtyUnit" />
             </view>
+            <view class="f-row" v-if="f.packUnit && f.packSize">
+              <text class="f-label">录入单位</text>
+              <view class="tag-row">
+                <view class="tag" :class="{ on: !f.usePack }" @tap="f.usePack = false">{{ qtyUnit }}</view>
+                <view class="tag" :class="{ on: f.usePack }" @tap="f.usePack = true">{{ f.packUnit }}</view>
+              </view>
+            </view>
+            <view v-if="f.usePack && f.packSize" class="hint-box">
+              ＝ {{ qtyBase }} {{ qtyUnit }}<text v-if="unitPriceHint"> · 单价 {{ unitPriceHint }} 元/{{ qtyUnit }}</text>
+            </view>
             <view class="reuse-tip">保存后在「{{ shelfLabel }}」上增加库存，不再新建商品档案</view>
           </view>
 
@@ -321,6 +331,19 @@ export default {
     };
   },
   computed: {
+    /** 提交用的基础单位数量：选了包装单位就 × 换算系数 */
+    qtyBase() {
+      const q = Number(this.f.quantity) || 0;
+      const size = Number(this.f.packSize) || 0;
+      return this.f.usePack && size > 0 ? q * size : q;
+    },
+    /** 换算后的单价（元/基础单位） */
+    unitPriceHint() {
+      const base = this.qtyBase;
+      const total = Number(this.f.costTotal) || 0;
+      if (!base || !total) return '';
+      return (total / base).toFixed(2);
+    },
     /** 出库上限：所选商品的当前库存 */
     outStock() {
       const p = this.products.find(x => String(x.id) === String(this.outProductId));
@@ -411,7 +434,7 @@ export default {
         name: '', categoryId: null, imageUrl: '', unit: '件', quantity: '',
         costPrice: '', sellPrice: '',
         sourceType: 'purchase', sourceParty: '', costTotal: '', extraCost: '',
-        packUnit: '', packSize: '',
+        packUnit: '', packSize: '', usePack: false,
         productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
         packagingType: 'none', tags: '', description: '', channelIds: [],
         outType: 'sale', outQuantity: '', salePrice: '', channelId: null, remark: ''
@@ -612,7 +635,7 @@ export default {
       if (this.reuseId) {
         await stockIn({
           warehouseId: this.warehouseId, productId: this.reuseId,
-          shelfId: this.shelfId || 0, reason: 'purchase', quantity: qty
+          shelfId: this.shelfId || 0, reason: 'purchase', quantity: this.qtyBase
         });
         uni.showToast({ title: '已加库存', icon: 'success' });
         this.clearReuse();
@@ -666,7 +689,7 @@ export default {
       }
       await stockIn({
         warehouseId: this.warehouseId, productId: pid,
-        shelfId: this.shelfId || 0, reason: 'purchase', quantity: qty
+        shelfId: this.shelfId || 0, reason: 'purchase', quantity: this.qtyBase
       });
       uni.showToast({ title: '已入库建档', icon: 'success' });
       this.f = this.blankForm();

@@ -20,6 +20,7 @@
     { "path": "pages/warehouse/report/index", "style": { "navigationBarTitleText": "仓库报表", "navigationStyle": "custom" } },
     { "path": "pages/mine/warehouse-settings/index", "style": { "navigationBarTitleText": "仓库配置", "navigationStyle": "custom" } },
     { "path": "pages/mine/product-categories/index", "style": { "navigationBarTitleText": "商品分类", "navigationStyle": "custom" } },
+    { "path": "pages/invite/index", "style": { "navigationBarTitleText": "仓库邀请", "navigationStyle": "custom" } },
     { "path": "pages/mine/schedule/index", "style": { "navigationBarTitleText": "定时记账" } },
     { "path": "pages/mine/schedule/add", "style": { "navigationBarTitleText": "添加计划" } },
     { "path": "pages/mine/memo/index", "style": { "navigationBarTitleText": "备忘录" } },

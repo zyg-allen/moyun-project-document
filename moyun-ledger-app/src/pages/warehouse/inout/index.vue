@@ -65,6 +65,17 @@
 
           <template v-else>
             <view class="f-row" @tap="pickCategory">
+            <view class="f-row col">
+              <text class="f-label">来源</text>
+              <view class="tag-row wrap">
+                <view v-for="s in sources" :key="s.key" class="tag"
+                      :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
+              </view>
+            </view>
+            <view class="f-row" v-if="f.sourceType === 'purchase' || f.sourceType === 'self_made'">
+              <text class="f-label">供应商</text>
+              <input class="f-input" v-model="f.sourceParty" placeholder="从哪买的/谁给的（选填）" />
+            </view>
               <text class="f-label">商品分类</text>
               <text class="f-value">{{ categoryLabel || '选择分类' }} ▾</text>
             </view>
@@ -92,6 +103,20 @@
               <text class="unit">元/{{ qtyUnit }}</text>
             </view>
             <view class="f-row">
+            <view class="f-row">
+              <text class="f-label">成本总额</text>
+              <input class="f-input" type="digit" v-model="f.costTotal" placeholder="本次一共花了多少" />
+              <text class="unit">元</text>
+            </view>
+            <view class="f-row">
+              <text class="f-label">包装单位</text>
+              <input class="f-input" v-model="f.packUnit" placeholder="如 箱（选填）" />
+            </view>
+            <view class="f-row" v-if="f.packUnit">
+              <text class="f-label">换算</text>
+              <input class="f-input" type="number" v-model="f.packSize" placeholder="1" />
+              <text class="unit">个/箱</text>
+            </view>
               <text class="f-label">建议售价</text>
               <input class="f-input" type="digit" v-model="f.sellPrice" placeholder="0.00" />
               <text class="unit">元/{{ qtyUnit }}</text>
@@ -256,6 +281,14 @@ const SHELF_LIFE_OPTIONS = [
   { key: 'custom', label: '自定义天数…', days: null }
 ];
 
+// 商品来源：固定枚举，决定成本怎么算（用户不可自定义）
+const SOURCES = [
+  { key: 'purchase', label: '采购' },
+  { key: 'self_made', label: '自产' },
+  { key: 'used_resale', label: '自用转卖' },
+  { key: 'gift', label: '赠品' }
+];
+
 const OUT_TYPES = [
   { key: 'sale', label: '卖出' },
   { key: 'self_use', label: '自己用' },
@@ -280,6 +313,7 @@ export default {
       pendingEdit: null,
       pendingOut: null,
       submitting: false,
+      sources: SOURCES,
       packTypes: PACK_TYPES,
       outTypes: OUT_TYPES,
       f: this.blankForm(),
@@ -376,6 +410,8 @@ export default {
       return {
         name: '', categoryId: null, imageUrl: '', unit: '件', quantity: '',
         costPrice: '', sellPrice: '',
+        sourceType: 'purchase', sourceParty: '', costTotal: '', extraCost: '',
+        packUnit: '', packSize: '',
         productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
         packagingType: 'none', tags: '', description: '', channelIds: [],
         outType: 'sale', outQuantity: '', salePrice: '', channelId: null, remark: ''

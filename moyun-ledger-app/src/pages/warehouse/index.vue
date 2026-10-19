@@ -635,9 +635,26 @@ export default {
     }
   },
   onShow() {
+    this.startPoll();
     this.cfg = getWarehouseCfg();
     useThemeStore().restore();
     this.loadWarehouses();
+  },
+  /** 页面隐藏时停掉轮询，避免后台空跑 */
+  onHide() { this.stopPoll(); },
+  onUnload() { this.stopPoll(); },
+  /** 协作场景：定时刷新，让成员能看到别人刚卖出的变化 */
+  startPoll() {
+    this.stopPoll();
+    this._timer = setInterval(() => {
+      if (!this.currentId) return;
+      this.loadProducts();
+      this.loadShelves();
+      this.loadOverview();
+    }, 30000);
+  },
+  stopPoll() {
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
   },
   methods: {
     /** 打开成员管理 */

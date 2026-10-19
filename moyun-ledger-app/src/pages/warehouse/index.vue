@@ -459,6 +459,7 @@
       <view class="sheet" @tap.stop>
         <view class="sheet-title">仓库成员</view>
         <view class="mem-hint">成员可以看到这个仓库的货架、商品、库存，并能出入库</view>
+        <view class="mem-join" @tap="joinInvite">有邀请码？点这里加入别人的仓库 ›</view>
         <scroll-view scroll-y class="mem-list">
           <view v-for="m in members" :key="m.userId" class="mem-row">
             <view class="flex-1 min-w-0">
@@ -471,6 +472,7 @@
         </scroll-view>
         <view class="sheet-actions">
           <view class="btn ghost" @tap="memSheet = false">关闭</view>
+          <view class="btn ghost" @tap="genInvite">生成邀请码</view>
           <view class="btn" @tap="inviteMember">＋ 添加成员</view>
         </view>
       </view>
@@ -488,7 +490,9 @@ import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, 
   attachShelfImage, deleteInventoryImage, uploadFile, transferStock, getProductDetail,
   attachProductImage, updateProduct,
   listProductCategories, createProductCategory, deleteProductCategory,
-  findSimilarProducts, stocktake, getWarehouseOverview, listStockFlows } from '@/api/ledger';
+  findSimilarProducts, stocktake, getWarehouseOverview, listStockFlows,
+  listWarehouseMembers, addWarehouseMember, removeWarehouseMember, createInvite, acceptInvite
+ } from '@/api/ledger';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
@@ -665,6 +669,45 @@ export default {
     async loadMembers() {
       try { this.members = (await listWarehouseMembers(this.currentId)) || []; } catch (e) { this.members = []; }
     },
+    /** 生成邀请码：显示后可复制，让对方在「输入邀请码」里加入 */
+    async genInvite() {
+      try {
+        const r = await createInvite(this.currentId);
+        const code = (r && r.code) || '';
+        if (!code) { uni.showToast({ title: '生成失败', icon: 'none' }); return; }
+        uni.showModal({
+          title: '邀请码 ' + code,
+          content: '7 天内有效，最多 ' + ((r && r.maxUse) || 10) + ' 人。让对方在「成员 → 输入邀请码」里填这个码。',
+          confirmText: '复制',
+          cancelText: '知道了',
+          success: (m) => {
+            if (m.confirm) {
+              uni.setClipboardData({ data: code, success: () => uni.showToast({ title: '已复制', icon: 'success' }) });
+            }
+          }
+        });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    /** 输入邀请码加入别人的仓库 */
+    joinInvite() {
+      uni.showModal({
+        title: '输入邀请码',
+        editable: true,
+        placeholderText: '6 位邀请码',
+        success: async (r) => {
+          if (!r.confirm) return;
+          const code = (r.content || '').trim().toUpperCase();
+          if (!code) return;
+          try {
+            const wid = await acceptInvite(code);
+            uni.showToast({ title: '已加入', icon: 'success' });
+            await this.loadWarehouses();
+            if (wid) { this.currentId = wid; await this.loadShelves(); await this.loadProducts(); await this.loadOverview(); }
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+
     /** 按手机号或用户名添加成员 */
     inviteMember() {
       uni.showModal({
@@ -1574,4 +1617,5 @@ export default {
 .mem-tag { font-size: 18rpx; color: var(--primary); border: 1rpx solid var(--primary); border-radius: 4rpx; padding: 0 6rpx; margin-left: 8rpx; }
 .mem-sub { font-size: 21rpx; color: var(--text-sub); margin-top: 2rpx; }
 .mem-del { font-size: 23rpx; color: #E8654A; }
+.mem-join { font-size: 22rpx; color: var(--primary); padding: 0 0 12rpx; }
 </style>

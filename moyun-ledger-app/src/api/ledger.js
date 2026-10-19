@@ -520,3 +520,14 @@ export const addWarehouseMember = (warehouseId, account) => post(MEMBERS(warehou
 
 /** 移除成员 */
 export const removeWarehouseMember = (warehouseId, memberUserId) => del(MEMBERS(warehouseId) + '/' + memberUserId);
+
+// ---------------- 邀请码（分享仓库给别人）----------------
+
+/** 生成邀请码（仅仓库创建者） */
+export const createInvite = (warehouseId) => post('/portal/ledger/invites', { warehouseId });
+
+/** 校验邀请码（免登录：返回仓库名与邀请人） */
+export const previewInvite = (code) => get('/portal/invite/' + code);
+
+/** 接受邀请（需登录），返回 warehouseId */
+export const acceptInvite = (code) => post('/portal/invite/' + code + '/accept');

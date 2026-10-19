@@ -54,6 +54,10 @@ public class LedgerStockFlow {
     @TableField(exist = false)
     private String channelName;
     private Long operatorId;
+
+    /** 非表字段：操作人昵称（协作时显示「谁卖的」） */
+    @TableField(exist = false)
+    private String operatorName;
     private String relatedOrder;
     private String remark;
     private Integer status;

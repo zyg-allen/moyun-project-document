@@ -66,6 +66,9 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Autowired
     private com.moyun.ledger.mapper.LedgerWarehouseMemberMapper memberMapper;
 
+    @Autowired
+    private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+
     // ---------------- 仓库 ----------------
 
     @Override
@@ -967,6 +970,14 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
                 f.setToShelfName((f.getToShelfId() == null || f.getToShelfId() == 0) ? null
                         : snames.getOrDefault(f.getToShelfId(), "货架" + f.getToShelfId()));
                 f.setReasonLabel(reasonLabel(f.getReason()));
+                // 协作：显示「谁卖的」
+                if (f.getOperatorId() != null) {
+                    com.moyun.portal.domain.entity.PortalUser op = portalUserMapper.selectById(f.getOperatorId());
+                    if (op != null) {
+                        f.setOperatorName(op.getNickname() != null && !op.getNickname().isEmpty()
+                                ? op.getNickname() : op.getUsername());
+                    }
+                }
                 if (f.getChannelId() != null) {
                     final Long cid = f.getChannelId();
                     f.setChannelName(channelNameCache.computeIfAbsent(cid, k -> {

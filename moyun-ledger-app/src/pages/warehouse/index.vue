@@ -422,7 +422,7 @@
             <view class="fl-badge" :class="{ inn: f.quantityChange > 0 }">{{ f.flowTypeLabel || f.flowType }}</view>
             <view class="flex-1 min-w-0">
               <view class="row-name">{{ f.productName }}<text v-if="f.reasonLabel" class="fl-reason"> · {{ f.reasonLabel }}</text></view>
-              <view class="row-sub">{{ f.shelfName }}<text v-if="f.channelName"> · {{ f.channelName }}</text><text v-if="f.toShelfName"> → {{ f.toShelfName }}</text> · {{ f.createTime }}</view>
+              <view class="row-sub">{{ f.shelfName }}<text v-if="f.channelName"> · {{ f.channelName }}</text><text v-if="f.toShelfName"> → {{ f.toShelfName }}</text><text v-if="f.operatorName"> · {{ f.operatorName }} 操作</text> · {{ f.createTime }}</view>
             </view>
             <view class="fl-qty" :class="{ inn: f.quantityChange > 0 }">
               {{ f.quantityChange > 0 ? '+' : '' }}{{ f.quantityChange }}

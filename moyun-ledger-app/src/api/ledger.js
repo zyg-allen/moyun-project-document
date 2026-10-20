@@ -531,3 +531,9 @@ export const previewInvite = (code) => get('/portal/invite/' + code);
 
 /** 接受邀请（需登录），返回 warehouseId */
 export const acceptInvite = (code) => post('/portal/invite/' + code + '/accept');
+
+/** 该仓库的有效邀请码列表 */
+export const listInvites = (warehouseId) => get('/portal/ledger/invites', { warehouseId });
+
+/** 撤销邀请码 */
+export const revokeInvite = (id) => del('/portal/ledger/invites/' + id);

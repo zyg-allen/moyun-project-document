@@ -470,6 +470,15 @@
           </view>
           <view v-if="!members.length" class="empty">还没有成员</view>
         </scroll-view>
+        <!-- 有效邀请码：可撤销 -->
+        <view v-if="invites.length" class="inv-box">
+          <view class="inv-title">有效邀请码</view>
+          <view v-for="inv in invites" :key="inv.id" class="inv-row">
+            <text class="inv-code">{{ inv.code }}</text>
+            <text class="inv-use">{{ inv.usedCount || 0 }}/{{ inv.maxUse }} 人</text>
+            <text class="inv-del" @tap="revokeInviteById(inv)">撤销</text>
+          </view>
+        </view>
         <view class="sheet-actions">
           <view class="btn ghost" @tap="memSheet = false">关闭</view>
           <view class="btn ghost" @tap="genInvite">生成邀请码</view>
@@ -491,7 +500,7 @@ import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, 
   attachProductImage, updateProduct,
   listProductCategories, createProductCategory, deleteProductCategory,
   findSimilarProducts, stocktake, getWarehouseOverview, listStockFlows,
-  listWarehouseMembers, addWarehouseMember, removeWarehouseMember, createInvite, acceptInvite
+  listWarehouseMembers, addWarehouseMember, removeWarehouseMember, createInvite, acceptInvite, listInvites, revokeInvite
  } from '@/api/ledger';
 
 const WH_TYPES = [
@@ -563,6 +572,7 @@ export default {
       shelfOpen: false,
       memSheet: false,
       members: [],
+      invites: [],
       productCategories: [],
       catManageSheet: false,
       newCatName: '',
@@ -666,9 +676,28 @@ export default {
     async openMembers() {
       this.memSheet = true;
       await this.loadMembers();
+      this.loadInvites();
     },
     async loadMembers() {
       try { this.members = (await listWarehouseMembers(this.currentId)) || []; } catch (e) { this.members = []; }
+    },
+    async loadInvites() {
+      try { this.invites = (await listInvites(this.currentId)) || []; } catch (e) { this.invites = []; }
+    },
+    /** 撤销邀请码：撤销后对方再用这个码就进不来了 */
+    revokeInviteById(inv) {
+      uni.showModal({
+        title: '撤销邀请码',
+        content: '撤销后「' + inv.code + '」立刻失效，已加入的成员不受影响',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await revokeInvite(inv.id);
+            uni.showToast({ title: '已撤销', icon: 'success' });
+            await this.loadInvites();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
     },
     /** 生成邀请码：显示后可复制，让对方在「输入邀请码」里加入 */
     async genInvite() {
@@ -1623,4 +1652,11 @@ export default {
 .mem-sub { font-size: 21rpx; color: var(--text-sub); margin-top: 2rpx; }
 .mem-del { font-size: 23rpx; color: #E8654A; }
 .mem-join { font-size: 22rpx; color: var(--primary); padding: 0 0 12rpx; }
+/* 有效邀请码 */
+.inv-box { margin-top: 16rpx; padding-top: 12rpx; border-top: 1rpx solid var(--border); }
+.inv-title { font-size: 22rpx; color: var(--text-sub); padding-bottom: 8rpx; }
+.inv-row { display: flex; align-items: center; padding: 12rpx 0; }
+.inv-code { flex: 1; font-size: 28rpx; font-weight: 700; color: var(--primary); letter-spacing: 4rpx; }
+.inv-use { font-size: 21rpx; color: var(--text-sub); margin-right: 16rpx; }
+.inv-del { font-size: 23rpx; color: #E8654A; }
 </style>

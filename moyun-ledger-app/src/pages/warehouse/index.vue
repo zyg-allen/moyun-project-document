@@ -48,7 +48,7 @@
       <view class="card-title">
         <text class="flex-1">商品</text>
         <text class="link" @tap="openFlows()">流水</text>
-        <text class="link" style="margin-left: 16rpx" @tap="openProductSheet()">＋新增商品</text>
+        <text class="link" style="margin-left: 16rpx" @tap="goInout({ create: true, warehouseId: currentId })">＋新增商品</text>
       </view>
 
       <!-- 筛选：分类 + 货架 并排，名称单独一行 -->

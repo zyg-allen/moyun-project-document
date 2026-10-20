@@ -272,7 +272,7 @@ import { getWarehouseCfg } from '@/utils/warehouseConfig';
 import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
-  createSaleChannel, deleteSaleChannel, createProduct, updateProduct, stockIn, stockOut,
+  createSaleChannel, deleteSaleChannel, createProduct, updateProduct, stockIn, stockOut, getProductDetail,
   listCategories, listAssets,
   uploadFile, attachProductImage, findSimilarProducts
 } from '@/api/ledger';
@@ -449,10 +449,12 @@ export default {
   onShow() {
     // 从仓库页 switchTab 过来：读一次性交接参数（tab 页不能带 query）
     const handoff = uni.getStorageSync('moyun_inout_handoff');
-    if (handoff && (handoff.edit || handoff.out)) {
+    if (handoff && (handoff.edit || handoff.out || handoff.create)) {
       uni.removeStorageSync('moyun_inout_handoff');
+      if (handoff.warehouseId) { this.warehouseId = handoff.warehouseId; }
       if (handoff.out) { this.mode = 'out'; this.pendingOut = handoff.out; }
       if (handoff.edit) { this.pendingEdit = handoff.edit; }
+      if (handoff.create) { this.mode = 'in'; }
     }
     this.cfg = getWarehouseCfg();
     useThemeStore().restore();
@@ -682,6 +684,19 @@ export default {
         }
       });
     },
+    /**
+     * 选了出库商品后，自动把货架切到「该商品库存最多」的那个。
+     * 否则用户选了 A 货架、商品却在 B 货架 → 后端报「该货架暂无此商品库存」。
+     */
+    async autoPickShelf(productId) {
+      try {
+        const d = await getProductDetail(productId);
+        const list = (d && d.shelves) || [];
+        if (!list.length) return;
+        const top = list.slice().sort((a, b) => (b.quantity || 0) - (a.quantity || 0))[0];
+        if (top && top.shelfId) this.shelfId = top.shelfId;
+      } catch (e) { /* 忽略：保留当前货架 */ }
+    },
     pickOutProduct() {
       const list = this.products.filter(p => (p.stockQuantity || 0) > 0);
       this.openPicker('outProduct', '从库存里选商品',
@@ -697,7 +712,7 @@ export default {
       if (m === 'category') this.f.categoryId = it.id;
       else if (m === 'txnCategory') this.f.txnCategoryId = it.id;
       else if (m === 'txnAccount') this.f.txnAccountId = it.id;
-      else if (m === 'outProduct') this.outProductId = it.id;
+      else if (m === 'outProduct') { this.outProductId = it.id; this.autoPickShelf(it.id); }
     },
     async submit() {
       if (this.submitting) return;

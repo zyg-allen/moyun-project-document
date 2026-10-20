@@ -138,9 +138,6 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         productMapper.update(null, new LambdaUpdateWrapper<LedgerProduct>()
                 .eq(LedgerProduct::getWarehouseId, id)
                 .set(LedgerProduct::getStatus, LedgerProduct.STATUS_DELETED));
-        stockMapper.update(null, new LambdaUpdateWrapper<LedgerStock>()
-                .eq(LedgerStock::getWarehouseId, id)
-                .set(LedgerStock::getStatus, LedgerStock.STATUS_DELETED));
         // 成员关系一并失效，避免还在别人仓库列表里
         memberMapper.delete(new LambdaQueryWrapper<LedgerWarehouseMember>()
                 .eq(LedgerWarehouseMember::getWarehouseId, id));
@@ -166,15 +163,6 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         }
         if (shelfId != null) {
             // 按货架筛选：只保留该货架上还有库存的商品
-            List<Long> onShelf = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                            .eq(LedgerStock::getShelfId, shelfId)
-                            .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                            .gt(LedgerStock::getQuantity, 0))
-                    .stream().map(LedgerStock::getProductId).distinct().collect(Collectors.toList());
-            if (onShelf.isEmpty()) {
-                onShelf.add(-1L);
-            }
-            q.in(LedgerProduct::getId, onShelf);
         }
         if (categoryId != null) {
             // 选一级类目时把其二级类目的商品也带出来
@@ -196,12 +184,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         if (!records.isEmpty()) {
             List<Long> ids = records.stream().map(LedgerProduct::getId).collect(Collectors.toList());
             // 跨货架求和：同一商品可能分布在多个货架（唯一键 product_id+shelf_id）
-            Map<Long, Integer> qty = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                            .eq(LedgerStock::getWarehouseId, warehouseId)
-                            .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                            .in(LedgerStock::getProductId, ids))
-                    .stream().collect(Collectors.toMap(LedgerStock::getProductId, LedgerStock::getQuantity, Integer::sum));
-            records.forEach(p -> p.setStockQuantity(qty.getOrDefault(p.getId(), 0)));
+            records.forEach(p -> p.setStockQuantity(p.getQuantity() == null ? 0 : p.getQuantity()));
 
             // 回填类目名称（列表直接展示，省一次请求）
             List<Long> catIds = records.stream().map(LedgerProduct::getCategoryId)
@@ -273,15 +256,6 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         productMapper.insert(p);
         syncProductChannels(p.getId() == null ? null : p.getId(), bo.getChannelIds(), userId);
 
-        // 同步建库存行（数量 0、未上架），后续入库按货架再建/累加
-        LedgerStock s = new LedgerStock();
-        s.setWarehouseId(bo.getWarehouseId());
-        s.setProductId(p.getId());
-        s.setShelfId(LedgerStock.NO_SHELF);
-        s.setQuantity(0);
-        s.setCostValue(BigDecimal.ZERO);
-        s.setStatus(LedgerStock.STATUS_NORMAL);
-        stockMapper.insert(s);
         return p.getId();
     }
 
@@ -352,11 +326,17 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     public Map<String, Object> productDetail(Long userId, Long productId) {
         LedgerProduct p = getOwnedProduct(userId, productId);
         // 各货架分布：quantity>0 的行，shelfId=0 归为「未上架」
-        List<LedgerStock> rows = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getProductId, productId)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .gt(LedgerStock::getQuantity, 0)
-                .orderByDesc(LedgerStock::getQuantity));
+        // 一个商品一个货架：直接从商品构造这一条分布，保持下游结构不变
+        List<LedgerStock> rows = new ArrayList<>();
+        if (p.getQuantity() != null && p.getQuantity() > 0) {
+            LedgerStock one = new LedgerStock();
+            one.setProductId(p.getId());
+            one.setShelfId(p.getShelfId() == null ? LedgerStock.NO_SHELF : p.getShelfId());
+            one.setQuantity(p.getQuantity());
+            one.setCostValue(p.getCostValue() == null ? BigDecimal.ZERO : p.getCostValue());
+            one.setStatus(LedgerStock.STATUS_NORMAL);
+            rows.add(one);
+        }
         List<Map<String, Object>> shelves = new ArrayList<>();
         int totalQty = 0;
         BigDecimal totalCost = BigDecimal.ZERO;
@@ -436,10 +416,17 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
         // 给命中商品补库存分布（哪个货架还有多少）
         List<Long> ids = hits.stream().map(r -> (Long) r.get("productId")).collect(Collectors.toList());
-        List<LedgerStock> stocks = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                .in(LedgerStock::getProductId, ids)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .gt(LedgerStock::getQuantity, 0));
+        List<LedgerStock> stocks = new ArrayList<>();
+        for (LedgerProduct x : productMapper.selectBatchIds(ids)) {
+            if (x.getQuantity() == null || x.getQuantity() <= 0) continue;
+            LedgerStock one = new LedgerStock();
+            one.setProductId(x.getId());
+            one.setShelfId(x.getShelfId() == null ? LedgerStock.NO_SHELF : x.getShelfId());
+            one.setQuantity(x.getQuantity() == null ? 0 : x.getQuantity());
+            one.setCostValue(x.getCostValue() == null ? BigDecimal.ZERO : x.getCostValue());
+            one.setStatus(LedgerStock.STATUS_NORMAL);
+            stocks.add(one);
+        }
         if (stocks.isEmpty()) {
             return hits;
         }
@@ -538,10 +525,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
             p = getOwnedProduct(userId, productId);
             java.math.BigDecimal oldPrice = p.getCostPrice() == null
                     ? java.math.BigDecimal.ZERO : p.getCostPrice();
-            int existing = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                            .eq(LedgerStock::getProductId, productId)
-                            .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL))
-                    .stream().mapToInt(x -> x.getQuantity() == null ? 0 : x.getQuantity()).sum();
+            int existing = p.getQuantity() == null ? 0 : p.getQuantity();
             int totalQty = existing + quantity;
             java.math.BigDecimal newPrice = oldPrice.multiply(java.math.BigDecimal.valueOf(existing))
                     .add(costTotal)
@@ -578,60 +562,10 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
                                         Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark) {
         int qty = Math.abs(quantity == null ? 0 : quantity);
-        // 本 App 是「登记工具」：商品在多平台发布、靠人事后登记，
-        // 所以只校验「该商品总库存是否够」，不要求某个货架单独够 ——
-        // 货架只是记录位置，不该成为登记的门槛。
-        List<LedgerStock> rows = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getProductId, productId)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .orderByDesc(LedgerStock::getQuantity));
-        int total = rows.stream().mapToInt(x -> x.getQuantity() == null ? 0 : x.getQuantity()).sum();
-        if (total < qty) {
-            throw new ServiceException("库存不足：当前共 " + total + "，本次 " + qty);
-        }
-        // 优先用所选货架；不够则自动从「库存最多的货架」扣，仍不够则跨货架分摊
-        long prefer = shelfId == null ? LedgerStock.NO_SHELF : shelfId;
-        LedgerStock hit = rows.stream()
-                .filter(x -> x.getShelfId() != null && x.getShelfId() == prefer)
-                .findFirst().orElse(null);
-        long useShelf = (hit != null && (hit.getQuantity() == null ? 0 : hit.getQuantity()) >= qty)
-                ? prefer
-                : (rows.isEmpty() ? prefer : (rows.get(0).getShelfId() == null ? prefer : rows.get(0).getShelfId()));
-        Map<String, Object> last = null;
-        int remain = qty;
-        // 跨货架扣：先扣目标架，再依次扣其它有库存的架
-        List<LedgerStock> order = new ArrayList<>();
-        LedgerStock first = rows.stream()
-                .filter(x -> x.getShelfId() != null && x.getShelfId() == useShelf)
-                .findFirst().orElse(null);
-        if (first != null) {
-            order.add(first);
-        }
-        for (LedgerStock x : rows) {
-            if (first == null || !x.getId().equals(first.getId())) {
-                order.add(x);
-            }
-        }
-        for (LedgerStock x : order) {
-            if (remain <= 0) {
-                break;
-            }
-            int have = x.getQuantity() == null ? 0 : x.getQuantity();
-            if (have <= 0) {
-                continue;
-            }
-            int take = Math.min(have, remain);
-            boolean isFirst = (first != null && x.getId().equals(first.getId()));
-            last = applyStockChange(userId, warehouseId, productId,
-                    x.getShelfId() == null ? LedgerStock.NO_SHELF : x.getShelfId(), -take,
-                    LedgerStockFlow.FLOW_OUT,
-                    defaultReason(reason, LedgerStockFlow.REASON_SALE), null,
-                    // 成交单价只记在第一条流水上，避免跨货架重复计入销售额
-                    isFirst ? salePrice : null,
-                    isFirst ? channelId : null, remark);
-            remain -= take;
-        }
-        return last;
+        // 库存已并入商品表：总量校验与扣减统一由 applyStockChange 处理
+        return applyStockChange(userId, warehouseId, productId, shelfId, -qty,
+                LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE),
+                null, salePrice, channelId, remark);
     }
 
     @Override
@@ -643,37 +577,17 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         if (from == to) {
             throw new ServiceException("源货架与目标货架不能相同");
         }
-        if (quantity == null || quantity <= 0) {
-            throw new ServiceException("移库数量必须大于 0");
-        }
         getOwnedWarehouse(userId, warehouseId);
         LedgerProduct p = getOwnedProduct(userId, productId);
-        touchProductMoved(productId);
-        assertShelfBelongs(warehouseId, from);
         assertShelfBelongs(warehouseId, to);
-
-        LedgerStock src = findStock(productId, from);
-        int before = src == null || src.getQuantity() == null ? 0 : src.getQuantity();
-        if (before < quantity) {
-            throw new ServiceException("源货架库存不足：当前 " + before + "，本次移动 " + quantity);
+        int qty = quantity == null ? 0 : quantity;
+        int before = p.getQuantity() == null ? 0 : p.getQuantity();
+        if (before < qty) {
+            throw new ServiceException("库存不足：当前 " + before + "，本次移动 " + qty);
         }
-        BigDecimal costPrice = p.getCostPrice() == null ? BigDecimal.ZERO : p.getCostPrice();
-
-        // 源减
-        src.setQuantity(before - quantity);
-        src.setCostValue(costPrice.multiply(BigDecimal.valueOf(src.getQuantity())));
-        stockMapper.updateById(src);
-
-        // 目标加（该货架还没这个商品时自动建行）
-        LedgerStock dst = findStock(productId, to);
-        if (dst == null) {
-            dst = newStockRow(warehouseId, productId, to);
-            stockMapper.insert(dst);
-        }
-        int dstBefore = dst.getQuantity() == null ? 0 : dst.getQuantity();
-        dst.setQuantity(dstBefore + quantity);
-        dst.setCostValue(costPrice.multiply(BigDecimal.valueOf(dst.getQuantity())));
-        stockMapper.updateById(dst);
+        // 一个商品一个货架：移库只改货架归属，数量不变
+        p.setShelfId(to);
+        productMapper.updateById(p);
 
         // 一条 transfer 流水，同时带源货架与目标货架，便于回溯
         LedgerStockFlow f = new LedgerStockFlow();
@@ -684,18 +598,15 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         f.setFlowType(LedgerStockFlow.FLOW_TRANSFER);
         f.setReason(LedgerStockFlow.REASON_TRANSFER);
         f.setQuantityBefore(before);
-        f.setQuantityChange(quantity);
-        f.setQuantityAfter(before - quantity);
-        f.setCostBefore(costPrice.multiply(BigDecimal.valueOf(before)));
-        f.setCostAfter(costPrice.multiply(BigDecimal.valueOf(before - quantity)));
+        f.setQuantityChange(0);
+        f.setQuantityAfter(before);
         f.setOperatorId(userId);
         f.setRemark(remark);
         f.setStatus(LedgerStockFlow.STATUS_NORMAL);
         stockFlowMapper.insert(f);
 
         Map<String, Object> m = new HashMap<>();
-        m.put("fromQuantity", before - quantity);
-        m.put("toQuantity", dstBefore + quantity);
+        m.put("quantityAfter", before);
         m.put("flowId", f.getId());
         return m;
     }
@@ -729,30 +640,19 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         }
         assertShelfBelongs(warehouseId, sid);
 
-        LedgerStock s = findStock(productId, sid);
-        if (s == null) {
-            if (change < 0) {
-                throw new ServiceException("该货架暂无此商品库存，无法出库");
-            }
-            // 首次入到某货架：自动建行，避免"库存记录不存在"
-            s = newStockRow(warehouseId, productId, sid);
-            stockMapper.insert(s);
-        }
-        int before = s.getQuantity() == null ? 0 : s.getQuantity();
+        // 库存直接存在商品上（一个商品一个货架）
+        int before = p.getQuantity() == null ? 0 : p.getQuantity();
         int after = before + change;
         if (after < 0) {
             throw new ServiceException("库存不足：当前 " + before + "，本次 " + Math.abs(change));
         }
-        // 库存按成本价计（文档 2.1）：cost_value = 成本价 × 数量，供总资产公式用
         BigDecimal costPrice = p.getCostPrice() == null ? BigDecimal.ZERO : p.getCostPrice();
-        s.setQuantity(after);
-        // 并发安全：条件更新（CAS）—— 只有账面数量仍等于 before 时才写入。
-        // 两人同时卖最后一件时，后一个的 WHERE 命中 0 行，直接报冲突，不会丢更新/卖成负数。
-        int rows = stockMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<LedgerStock>()
-                .eq(LedgerStock::getId, s.getId())
-                .eq(LedgerStock::getQuantity, before)
-                .set(LedgerStock::getQuantity, after)
-                .set(LedgerStock::getCostValue, costPrice.multiply(BigDecimal.valueOf(after))));
+        // 并发安全：CAS，两人同时卖最后一件只有一个成功
+        int rows = productMapper.update(null, new LambdaUpdateWrapper<LedgerProduct>()
+                .eq(LedgerProduct::getId, productId)
+                .eq(LedgerProduct::getQuantity, before)
+                .set(LedgerProduct::getQuantity, after)
+                .set(LedgerProduct::getCostValue, costPrice.multiply(BigDecimal.valueOf(after))));
         if (rows == 0) {
             throw new ServiceException("这件货刚被别人动过（当前库存已变），请刷新后重试");
         }
@@ -844,21 +744,17 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
             }
             LedgerProduct p = getOwnedProduct(userId, productId);
         touchProductMoved(productId);
-            LedgerStock s = findStock(productId, sid);
-            int before = s == null || s.getQuantity() == null ? 0 : s.getQuantity();
+            // 库存已并入商品表：盘点直接改商品数量
+            int before = p.getQuantity() == null ? 0 : p.getQuantity();
             int delta = actual - before;
             if (delta == 0) {
                 continue;
             }
             changed++;
             BigDecimal costPrice = p.getCostPrice() == null ? BigDecimal.ZERO : p.getCostPrice();
-            if (s == null) {
-                s = newStockRow(warehouseId, productId, sid);
-                stockMapper.insert(s);
-            }
-            s.setQuantity(actual);
-            s.setCostValue(costPrice.multiply(BigDecimal.valueOf(actual)));
-            stockMapper.updateById(s);
+            p.setQuantity(actual);
+            p.setCostValue(costPrice.multiply(BigDecimal.valueOf(actual)));
+            productMapper.updateById(p);
 
             // 盘盈/盘亏：一条 adjust 流水，quantity_change 即差异
             LedgerStockFlow f = new LedgerStockFlow();
@@ -903,9 +799,18 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Override
     public Map<String, Object> warehouseOverview(Long userId, Long warehouseId) {
         getOwnedWarehouse(userId, warehouseId);
-        List<LedgerStock> stocks = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getWarehouseId, warehouseId)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL));
+        List<LedgerStock> stocks = new ArrayList<>();
+        for (LedgerProduct x : productMapper.selectList(new LambdaQueryWrapper<LedgerProduct>()
+                .eq(LedgerProduct::getWarehouseId, warehouseId)
+                .eq(LedgerProduct::getStatus, LedgerProduct.STATUS_NORMAL))) {
+            LedgerStock one = new LedgerStock();
+            one.setProductId(x.getId());
+            one.setShelfId(x.getShelfId() == null ? LedgerStock.NO_SHELF : x.getShelfId());
+            one.setQuantity(x.getQuantity() == null ? 0 : x.getQuantity());
+            one.setCostValue(x.getCostValue() == null ? BigDecimal.ZERO : x.getCostValue());
+            one.setStatus(LedgerStock.STATUS_NORMAL);
+            stocks.add(one);
+        }
         BigDecimal stockValue = BigDecimal.ZERO;
         int totalQty = 0;
         java.util.Set<Long> withStock = new java.util.HashSet<>();

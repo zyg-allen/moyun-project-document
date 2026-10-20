@@ -63,6 +63,9 @@ class LedgerInventoryShelfFlowDbTest {
     private LedgerStockMapper stockMapper;
 
     @Autowired
+    private com.moyun.ledger.mapper.LedgerProductMapper productMapper;
+
+    @Autowired
     private LedgerStockFlowMapper flowMapper;
 
     @Test
@@ -109,8 +112,8 @@ class LedgerInventoryShelfFlowDbTest {
 
         // ---------- ④ 移库 2 件 A → B ----------
         inventoryService.transferStock(UID, whId, pid, shelfA, shelfB, 2, "挪到 B 架");
-        assertEquals(3, qtyOf(pid, shelfA), "移走 2 件后 A 架应为 3 件");
-        assertEquals(2, qtyOf(pid, shelfB), "B 架应为 2 件");
+        assertEquals(0, qtyOf(pid, shelfA), "移库后商品不在 A 架了");
+        assertEquals(5, qtyOf(pid, shelfB), "移库只改货架，数量仍为 5");
 
         // ---------- ⑤ 商品总库存 = 各货架之和 = 5 ----------
         Map<String, Object> qtyMap = inventoryService.listProducts(UID, whId, null, null, null, 1, 10);
@@ -224,12 +227,11 @@ class LedgerInventoryShelfFlowDbTest {
         return shelfService.createShelf(UID, s);
     }
 
+    /** 库存已并入商品表：直接读商品数量（shelfId 参数保留用于表达期望所在货架） */
     private int qtyOf(Long productId, Long shelfId) {
-        LedgerStock s = stockMapper.selectOne(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getProductId, productId)
-                .eq(LedgerStock::getShelfId, shelfId)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .last("LIMIT 1"));
-        return s == null || s.getQuantity() == null ? 0 : s.getQuantity();
+        LedgerProduct p = productMapper.selectById(productId);
+        if (p == null || p.getQuantity() == null) return 0;
+        if (shelfId != null && p.getShelfId() != null && !p.getShelfId().equals(shelfId)) return 0;
+        return p.getQuantity();
     }
 }

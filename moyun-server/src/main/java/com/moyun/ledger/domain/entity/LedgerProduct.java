@@ -22,6 +22,10 @@ public class LedgerProduct {
     private Long warehouseId;
     /** 所在货架（0=未上架）。一个商品只属于一个货架，要分开放就分别登记。 */
     private Long shelfId;
+    /** 当前库存数量（原 ledger_stock.quantity） */
+    private Integer quantity;
+    /** 库存成本价值 = 成本价 × 数量 */
+    private java.math.BigDecimal costValue;
     private Long userId;
     /** 提供者：谁把这批货放进仓库（NULL=仓库主） */
     private Long providerUserId;

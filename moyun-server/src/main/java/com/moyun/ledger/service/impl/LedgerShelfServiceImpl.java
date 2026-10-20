@@ -69,9 +69,18 @@ public class LedgerShelfServiceImpl implements ILedgerShelfService {
         }
         // 一次 IN 查询聚合每个货架的商品种类/件数/成本价值，避免 N+1
         List<Long> shelfIds = list.stream().map(LedgerShelf::getId).collect(Collectors.toList());
-        List<LedgerStock> stocks = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                .in(LedgerStock::getShelfId, shelfIds)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL));
+        List<LedgerStock> stocks = new ArrayList<>();
+        for (LedgerProduct x : productMapper.selectList(new LambdaQueryWrapper<LedgerProduct>()
+                .in(LedgerProduct::getShelfId, shelfIds)
+                .eq(LedgerProduct::getStatus, LedgerProduct.STATUS_NORMAL))) {
+            LedgerStock one = new LedgerStock();
+            one.setProductId(x.getId());
+            one.setShelfId(x.getShelfId() == null ? LedgerStock.NO_SHELF : x.getShelfId());
+            one.setQuantity(x.getQuantity() == null ? 0 : x.getQuantity());
+            one.setCostValue(x.getCostValue() == null ? BigDecimal.ZERO : x.getCostValue());
+            one.setStatus(LedgerStock.STATUS_NORMAL);
+            stocks.add(one);
+        }
         Map<Long, List<LedgerStock>> byShelf = stocks.stream()
                 .collect(Collectors.groupingBy(LedgerStock::getShelfId));
         // 封面图：batch 查 sys_file，每货架取 id 最小的一张
@@ -104,11 +113,20 @@ public class LedgerShelfServiceImpl implements ILedgerShelfService {
         shelf.setWarehouseName(w == null ? null : w.getName());
 
         // 该货架上的库存行 + 商品档案
-        List<LedgerStock> stocks = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getShelfId, id)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .gt(LedgerStock::getQuantity, 0)
-                .orderByDesc(LedgerStock::getQuantity));
+        List<LedgerStock> stocks = new ArrayList<>();
+        for (LedgerProduct x : productMapper.selectList(new LambdaQueryWrapper<LedgerProduct>()
+                .eq(LedgerProduct::getShelfId, id)
+                .eq(LedgerProduct::getStatus, LedgerProduct.STATUS_NORMAL)
+                .gt(LedgerProduct::getQuantity, 0)
+                .orderByDesc(LedgerProduct::getQuantity))) {
+            LedgerStock one = new LedgerStock();
+            one.setProductId(x.getId());
+            one.setShelfId(x.getShelfId() == null ? LedgerStock.NO_SHELF : x.getShelfId());
+            one.setQuantity(x.getQuantity() == null ? 0 : x.getQuantity());
+            one.setCostValue(x.getCostValue() == null ? BigDecimal.ZERO : x.getCostValue());
+            one.setStatus(LedgerStock.STATUS_NORMAL);
+            stocks.add(one);
+        }
         List<Map<String, Object>> items = new ArrayList<>();
         int totalQty = 0;
         BigDecimal totalCost = BigDecimal.ZERO;
@@ -203,10 +221,10 @@ public class LedgerShelfServiceImpl implements ILedgerShelfService {
     public void deleteShelf(Long userId, Long id) {
         LedgerShelf s = getOwnedShelf(userId, id);
         // 货架上有货时禁止删除，否则库存行会指向一个不存在的货架
-        Long occupied = stockMapper.selectCount(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getShelfId, id)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .gt(LedgerStock::getQuantity, 0));
+        Long occupied = productMapper.selectCount(new LambdaQueryWrapper<LedgerProduct>()
+                .eq(LedgerProduct::getShelfId, id)
+                .eq(LedgerProduct::getStatus, LedgerProduct.STATUS_NORMAL)
+                .gt(LedgerProduct::getQuantity, 0));
         if (occupied != null && occupied > 0) {
             throw new ServiceException("该货架还有库存，请先移库后再删除");
         }

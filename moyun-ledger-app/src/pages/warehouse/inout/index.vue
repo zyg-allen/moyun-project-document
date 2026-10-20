@@ -108,6 +108,10 @@
                       :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
               </view>
             </view>
+            <view class="f-row" v-if="f.sourceType === 'purchase'">
+              <text class="f-label">记一笔支出</text>
+              <switch :checked="f.createTxn" color="#5FA77A" @change="e => f.createTxn = e.detail.value" />
+            </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
               <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costPrice" :disabled="costFree" :placeholder="costFree ? '默认 0' : '0.00'" />
@@ -115,12 +119,8 @@
             </view>
             <view class="f-row">
               <text class="f-label">成本总额</text>
-              <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costTotal" :disabled="costFree" :placeholder="costFree ? '无需填写（成本为 0）' : '本次一共花了多少'" />
+              <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costTotal" :disabled="costFree" :placeholder="costFree ? '无需填写（成本为 0）' : (f.costPrice ? '≈ ' + (Number(f.costPrice) * qtyBase).toFixed(2) + '（单价 × 数量）' : '本次一共花了多少，留空则按单价×数量')" />
               <text class="unit">元</text>
-            </view>
-            <view class="f-row" v-if="f.sourceType === 'purchase'">
-              <text class="f-label">记一笔支出</text>
-              <switch :checked="f.createTxn" color="#5FA77A" @change="e => f.createTxn = e.detail.value" />
             </view>
             <view class="f-row" v-if="f.createTxn" @tap="pickTxnCategory">
               <text class="f-label">支出分类</text>
@@ -542,14 +542,14 @@ export default {
         this.txnAccounts = (Array.isArray(list) ? list : (list.rows || []));
       } catch (e) { /* 忽略 */ }
     },
-    pickTxnCategory() {
-      this.loadTxnOptions();
+    async pickTxnCategory() {
+      await this.loadTxnOptions();
       this.openPicker('txnCategory', '选择支出分类',
         this.txnCategories.map(c => ({ id: c.id, name: c.name })), this.f.txnCategoryId,
         '还没有记账分类，先去「记账分类」建一个');
     },
-    pickTxnAccount() {
-      this.loadTxnOptions();
+    async pickTxnAccount() {
+      await this.loadTxnOptions();
       this.openPicker('txnAccount', '选择资金账户',
         this.txnAccounts.map(a => ({ id: a.id, name: a.name, sub: a.balance === undefined ? '' : '余额 ' + a.balance })),
         this.f.txnAccountId, '还没有资金账户');

@@ -11,7 +11,7 @@
 
     <scroll-view v-show="!collapsed" scroll-y class="cat-grid-wrap">
       <view class="cat-grid">
-        <view v-for="c in list" :key="c.id" class="cat-cell" @tap="pickTop(c)">
+        <view v-for="c in topList" :key="c.id" class="cat-cell" @tap="pickTop(c)">
           <view class="cat-icon" :class="{ selected: String(innerTopId) === String(c.id) }"
                 :style="String(innerTopId) === String(c.id) ? '' : 'background:' + softColor(c.color)">
             <image v-if="isImg(c.icon)" :src="c.icon" class="grid-icon-img" mode="aspectFill" />
@@ -19,33 +19,42 @@
           </view>
           <text class="cat-name" :class="{ selected: String(innerTopId) === String(c.id) }">{{ c.name }}</text>
         </view>
-        <view v-if="!list.length" class="cat-empty">还没有分类，去「记账分类」添加</view>
-      </view>
-
-      <!-- 二级：点了带子类的一级后，在这一级下面展开 -->
-      <view v-if="showSub && subList.length" class="sub-wrap">
-        <view class="sub-head">
-          <text class="sub-title">{{ currentTop ? currentTop.name : '' }} · 二级</text>
-          <text class="sub-close" @tap="showSub = false">收起 ▴</text>
-        </view>
-        <view class="cat-grid">
-          <view class="cat-cell" @tap="pickSub(null)">
-            <view class="cat-icon" :class="{ selected: !subId }" style="background: var(--surface)">
-              <text>—</text>
-            </view>
-            <text class="cat-name" :class="{ selected: !subId }">不细分</text>
-          </view>
-          <view v-for="k in subList" :key="k.id" class="cat-cell" @tap="pickSub(k)">
-            <view class="cat-icon" :class="{ selected: String(subId) === String(k.id) }"
-                  :style="String(subId) === String(k.id) ? '' : 'background:' + softColor(k.color)">
-              <image v-if="isImg(k.icon)" :src="k.icon" class="grid-icon-img" mode="aspectFill" />
-              <text v-else>{{ iconOf(k.icon) }}</text>
-            </view>
-            <text class="cat-name" :class="{ selected: String(subId) === String(k.id) }">{{ k.name }}</text>
-          </view>
-        </view>
+        <view v-if="!topList.length" class="cat-empty">还没有分类，去「记账分类」添加</view>
       </view>
     </scroll-view>
+
+    <!-- 二级：选中大类后常驻一行，点开底部弹层选择，选完自动收起 -->
+    <view v-if="innerTopId" class="pick-row" @tap="subSheet = true">
+      <text class="pick-label">二级</text>
+      <text class="pick-value">{{ subLabel }} ▾</text>
+    </view>
+
+    <!-- 二级底部弹层（与记账页同款） -->
+    <view v-if="subSheet" class="cp-mask" @tap="subSheet = false">
+      <view class="cp-sheet" @tap.stop>
+        <view class="cp-sheet-title">{{ currentTop ? currentTop.name : '' }}</view>
+        <scroll-view scroll-y class="cp-sheet-body">
+          <view class="subsheet-grid">
+            <view class="subsheet-cell" :class="{ on: !subId }" @tap="pickSub(null)">
+              <view class="subsheet-icon" :class="{ on: !subId }"><text>∅</text></view>
+              <text class="subsheet-name" :class="{ on: !subId }">不细分</text>
+            </view>
+            <view v-for="s in subList" :key="s.id" class="subsheet-cell" @tap="pickSub(s)">
+              <view class="subsheet-icon" :class="{ on: String(subId) === String(s.id) }"
+                    :style="String(subId) === String(s.id) ? '' : 'background:' + softColor(s.color)">
+                <image v-if="isImg(s.icon)" :src="s.icon" class="grid-icon-img" mode="aspectFill" />
+                <text v-else>{{ iconOf(s.icon) }}</text>
+              </view>
+              <text class="subsheet-name" :class="{ on: String(subId) === String(s.id) }">{{ s.name }}</text>
+            </view>
+            <view v-if="!subList.length" class="cat-empty">这个大类还没有二级分类</view>
+          </view>
+        </scroll-view>
+        <view class="cp-sheet-actions">
+          <view class="cp-btn ghost" @tap="subSheet = false">关闭</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -54,14 +63,14 @@ import { listCategories } from '@/api/ledger';
 import { categoryIcon, softColor as toSoftColor, isImageIcon } from '@/utils/categoryIcon';
 
 /**
- * 记账分类选择器 —— 与 pages/record/index 的分类区一致。
+ * 记账分类选择器 —— 与 pages/record/index 的交互一致。
+ *
+ * 数据形态：**扁平列表**，子分类靠 parentId 关联（不是嵌套 children）。
  *
  * 交互：
  *   默认收起，只显示「选择分类 + 已选名称 + 展开」。
- *   展开 → 一级图标宫格（4 列）。
- *   点一级：
- *     带子类 → 在该一级下方**内联展开**二级宫格（含「不细分」）
- *     无子类 → 直接选中
+ *   展开 → 一级宫格（4 列，parentId 为空/0）。
+ *   点一级：有二级 → 选中一级并**底部弹出二级层**；无二级 → 直接选中收起。
  *   点二级 / 不细分 → 选中并收起。
  *
  * v-model 传出最终分类 id（选了二级就是二级的 id）。
@@ -74,27 +83,37 @@ export default {
   },
   data() {
     return {
+      /** 接口返回的扁平分类列表 */
       list: [],
       innerTopId: null,
       subId: null,
-      /** 二级宫格是否展开（点带子类的一级才展开） */
-      showSub: false,
-      /** 一级宫格默认收起 */
+      subSheet: false,
       collapsed: true
     };
   },
   computed: {
+    /** 一级：没有 parentId 或 parentId 为 0 */
+    topList() {
+      return this.list.filter(c => !c.parentId || String(c.parentId) === '0');
+    },
     currentTop() {
       return this.list.find(c => String(c.id) === String(this.innerTopId)) || null;
     },
+    /** 二级：parentId 等于当前一级 id */
     subList() {
-      return (this.currentTop && this.currentTop.children) || [];
+      if (!this.innerTopId) return [];
+      return this.list.filter(c => String(c.parentId) === String(this.innerTopId));
+    },
+    subLabel() {
+      if (!this.subId) return '不细分（大类本身）';
+      const k = this.list.find(x => String(x.id) === String(this.subId));
+      return k ? k.name : '不细分（大类本身）';
     },
     selectedName() {
       const top = this.currentTop;
       if (!top) return '';
       if (this.subId) {
-        const k = this.subList.find(x => String(x.id) === String(this.subId));
+        const k = this.list.find(x => String(x.id) === String(this.subId));
         return top.name + (k ? ' / ' + k.name : '');
       }
       return top.name;
@@ -107,10 +126,9 @@ export default {
         if (!v) {
           this.innerTopId = null;
           this.subId = null;
-          this.showSub = false;
-        } else {
-          this.locate(v);
+          return;
         }
+        this.locate(v);
       }
     }
   },
@@ -130,40 +148,35 @@ export default {
         this.list = [];
       }
     },
+    /** 根据 id 反推它是一级还是某个一级下的二级 */
     locate(id) {
-      for (const c of this.list) {
-        if (String(c.id) === String(id)) {
-          this.innerTopId = c.id;
-          this.subId = null;
-          return;
-        }
-        const k = (c.children || []).find(x => String(x.id) === String(id));
-        if (k) {
-          this.innerTopId = c.id;
-          this.subId = k.id;
-          return;
-        }
+      const hit = this.list.find(c => String(c.id) === String(id));
+      if (!hit) return;
+      if (!hit.parentId || String(hit.parentId) === '0') {
+        this.innerTopId = hit.id;
+        this.subId = null;
+      } else {
+        this.innerTopId = hit.parentId;
+        this.subId = hit.id;
       }
     },
-    /** 点一级：有子类就展开二级，没有就直接选中并收起 */
     pickTop(c) {
       this.innerTopId = c.id;
       this.subId = null;
-      const hasKids = (c.children || []).length > 0;
+      const hasKids = this.list.some(x => String(x.parentId) === String(c.id));
       this.emit(c.id, c.id);
       if (hasKids) {
-        this.showSub = true;
+        // 有二级：底部弹出让人选细分
+        this.subSheet = true;
       } else {
-        this.showSub = false;
         this.collapsed = true;
       }
     },
-    /** 点二级（或「不细分」）：选中并收起 */
-    pickSub(k) {
-      this.subId = k ? k.id : null;
-      this.showSub = false;
+    pickSub(s) {
+      this.subId = s ? s.id : null;
+      this.subSheet = false;
       this.collapsed = true;
-      this.emit(k ? k.id : this.innerTopId, this.innerTopId);
+      this.emit(s ? s.id : this.innerTopId, this.innerTopId);
     },
     /** 对外抛出选中结果 */
     emit(value, topId) {
@@ -175,7 +188,6 @@ export default {
 </script>
 
 <style scoped>
-/* ==== 与 record 页对齐 ==== */
 .cat-section { background: var(--card); margin: 0; border-radius: 12rpx; padding: 16rpx 8rpx 8rpx; }
 .cat-section-title {
   display: flex; justify-content: space-between; align-items: center;
@@ -204,11 +216,28 @@ export default {
 .cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }
 .cat-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
 .cat-name.selected { color: var(--primary); font-weight: 600; }
-.cat-empty { width: 100%; text-align: center; color: var(--text-muted); font-size: 26rpx; padding: 40rpx 0; }
+.cat-empty { width: 100%; text-align: center; color: var(--text-muted); font-size: 26rpx; padding: 30rpx 0; }
 
-/* 二级内联展开 */
-.sub-wrap { margin-top: 8rpx; padding-top: 8rpx; border-top: 1rpx dashed var(--border); }
-.sub-head { display: flex; justify-content: space-between; align-items: center; padding: 8rpx 16rpx; }
-.sub-title { font-size: 22rpx; color: var(--text-sub); }
-.sub-close { font-size: 21rpx; color: var(--primary); }
+.pick-row { display: flex; align-items: center; padding: 20rpx 16rpx; border-top: 1rpx solid var(--border); }
+.pick-label { width: 120rpx; color: var(--text-sub); font-size: 26rpx; }
+.pick-value { flex: 1; text-align: right; color: var(--text-main); font-size: 26rpx; }
+
+/* 二级底部弹层 */
+.cp-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 999; display: flex; align-items: flex-end; }
+.cp-sheet { width: 100%; max-height: 70vh; background: var(--card); border-radius: 24rpx 24rpx 0 0; padding: 24rpx 16rpx 40rpx; }
+.cp-sheet-title { font-size: 30rpx; font-weight: 700; text-align: center; color: var(--text-main); padding-bottom: 16rpx; }
+.cp-sheet-body { max-height: 48vh; }
+.subsheet-grid { display: flex; flex-wrap: wrap; padding: 8rpx 0; }
+.subsheet-cell { width: 25%; display: flex; flex-direction: column; align-items: center; padding: 12rpx 0; }
+.subsheet-icon {
+  width: 72rpx; height: 72rpx; border-radius: 18rpx;
+  display: flex; align-items: center; justify-content: center; font-size: 34rpx;
+  background: var(--surface); overflow: hidden;
+}
+.subsheet-icon.on { background: var(--primary) !important; }
+.subsheet-name { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
+.subsheet-name.on { color: var(--primary); font-weight: 600; }
+.cp-sheet-actions { display: flex; gap: 16rpx; padding: 16rpx 12rpx 0; }
+.cp-btn { flex: 1; text-align: center; padding: 20rpx 0; border-radius: 12rpx; background: var(--primary); color: #fff; font-size: 26rpx; }
+.cp-btn.ghost { background: transparent; color: var(--text-sub); border: 1rpx solid var(--border); }
 </style>

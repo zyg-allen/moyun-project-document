@@ -388,7 +388,7 @@
         <view class="f-row" v-if="productDetail.product.lastMovedAt"><text class="f-label">最后动销</text>
           <text class="f-value">{{ (productDetail.product.lastMovedAt || '').slice(0, 10) }}<text v-if="productDetail.product.slowDays !== null && productDetail.product.slowDays !== undefined" class="f-sub">（{{ productDetail.product.slowDays }} 天前）</text></text></view>
 
-        <view class="sheet-sub">�� 盘点：实盘数量 vs 账面</view>
+        <!-- 盘点入口在下方按钮区，这里只展示库存分布 -->
 
         <view class="sheet-sub">库存分布（按货架）</view>
         <scroll-view scroll-y class="detail-items">
@@ -407,6 +407,7 @@
 
         <view class="sheet-actions">
           <view class="btn ghost" @tap="editProductFromDetail">编辑</view>
+          <view class="btn ghost" @tap="stocktakeProduct">盘点</view>
           <view class="btn" @tap="stockFromProductDetail">出入库</view>
         </view>
       </view>

@@ -868,7 +868,7 @@ export default {
 .f-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .f-row:last-child { border-bottom: none; }
 .f-row.col { flex-direction: column; align-items: flex-start; gap: 10rpx; }
-.f-label { font-size: 26rpx; color: var(--text-sub); width: 120rpx; flex: 0 0 auto; }
+.f-label { font-size: 26rpx; color: var(--text-sub); min-width: 130rpx; flex: 0 0 auto; white-space: nowrap; padding-right: 8rpx; }
 .f-input { flex: 1; text-align: right; font-size: 26rpx; color: var(--text-main); }
 .f-value { flex: 1; text-align: right; font-size: 26rpx; color: var(--text-main); }
 .img-wrap { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 12rpx; }

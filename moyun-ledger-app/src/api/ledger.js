@@ -402,14 +402,12 @@ export const retryScheduleLog = (logId) => post('/portal/ledger/schedules/logs/'
  * @param {{warehouseId:number, customerName:string, paymentType:'credit', remark?:string,
  *          items:Array<{productId:number, quantity:number, unitPrice:number}>}} data
  */
-export const createSaleOrder = (data) => post('/portal/ledger/orders/sale', data);
 
 /**
  * 采购下单（赊购：加库存 + 自动建应付账户）
  * @param {{warehouseId:number, supplierName:string, paymentType:'credit', remark?:string,
  *          items:Array<{productId:number, quantity:number, unitPrice:number}>}} data
  */
-export const createPurchaseOrder = (data) => post('/portal/ledger/orders/purchase', data);
 
 // ---------------- 仓库货架（存放位置）+ 图片 1:N ----------------
 

@@ -14,6 +14,7 @@
     <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
     <view class="mem-bar" v-if="currentId">
       <text class="mem-link" @tap="openMembers">👥 成员</text>
+      <text class="mem-link" @tap="manageWarehouse"> ⚙️ 管理</text>
     </view>
 
     <!-- 货架 / 商品 切换（放在报表下面） -->
@@ -408,6 +409,7 @@
         <view class="sheet-actions">
           <view class="btn ghost" @tap="editProductFromDetail">编辑</view>
           <view class="btn ghost" @tap="stocktakeProduct">盘点</view>
+          <view class="btn ghost danger" @tap="deleteProductConfirm">删除</view>
           <view class="btn" @tap="stockFromProductDetail">出入库</view>
         </view>
       </view>
@@ -501,7 +503,8 @@ import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, 
   attachProductImage, updateProduct,
   listProductCategories, createProductCategory, deleteProductCategory,
   findSimilarProducts, stocktake, getWarehouseOverview, listStockFlows,
-  listWarehouseMembers, addWarehouseMember, removeWarehouseMember, createInvite, acceptInvite, listInvites, revokeInvite
+  listWarehouseMembers, addWarehouseMember, removeWarehouseMember, createInvite, acceptInvite,
+  updateWarehouse, deleteWarehouse, deleteProduct, listInvites, revokeInvite
  } from '@/api/ledger';
 
 const WH_TYPES = [
@@ -603,7 +606,6 @@ export default {
     },
     themeVars() { return useThemeStore().themeVars; },
     whTypeNames() { return WH_TYPES.map(t => t[1]); },
-    productNames() { return this.products.map(p => p.name); },
     shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); }, conditionNames() { return CONDITIONS; }, channelNames() { return CHANNELS; }, /** 移库可选商品（本货架上还有货的） */
     transferItemNames() { return (this.shelfDetail.items || []).map(it => it.productName); },
     /** 移库可选目标货架（排除当前货架） */
@@ -643,11 +645,6 @@ export default {
       if (x) return x[1];
       return this.stockMode === 'in' ? '采购' : '销售';
     },
-    /** 盘点页货架选择（首项「未上架」） */
-    /** 复用入库的货架选择（首项「未上架」） */
-    reuseShelfNames() {
-      return ['未上架'].concat(this.shelves.map(s => s.name + (s.code ? ' · ' + s.code : '')));
-    }
   },
   async onShow() {
     this.startPoll();
@@ -661,6 +658,73 @@ export default {
   onUnload() { this.stopPoll(); },
   /** 协作场景：定时刷新，让成员能看到别人刚卖出的变化 */
   methods: {
+    /** 仓库管理：重命名 / 删除（仅 owner，后端会再校验一次） */
+    manageWarehouse() {
+      const cur = this.warehouses.find(w => String(w.id) === String(this.currentId));
+      if (!cur) return;
+      uni.showActionSheet({
+        itemList: ['重命名仓库', '删除仓库'],
+        success: (r) => {
+          if (r.tapIndex === 0) this.renameWarehouse(cur);
+          else if (r.tapIndex === 1) this.deleteWarehouseConfirm(cur);
+        }
+      });
+    },
+    renameWarehouse(w) {
+      uni.showModal({
+        title: '重命名仓库',
+        editable: true,
+        content: w.name,
+        success: async (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) return;
+          try {
+            await updateWarehouse(w.id, { name });
+            uni.showToast({ title: '已重命名', icon: 'success' });
+            await this.loadWarehouses();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    deleteWarehouseConfirm(w) {
+      uni.showModal({
+        title: '删除仓库',
+        content: '删除「' + w.name + '」？仓库下的货架、商品、库存都会一起删掉，不可恢复',
+        confirmColor: '#E8654A',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteWarehouse(w.id);
+            uni.showToast({ title: '已删除', icon: 'success' });
+            this.currentId = null;
+            await this.loadWarehouses();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 删除商品（软删，有库存时会保留流水可追溯） */
+    deleteProductConfirm() {
+      const p = this.productDetail.product;
+      if (!p || !p.id) return;
+      uni.showModal({
+        title: '删除商品',
+        content: '删除「' + p.name + '」？删除后不再出现在列表，历史流水仍可追溯',
+        confirmColor: '#E8654A',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteProduct(p.id);
+            uni.showToast({ title: '已删除', icon: 'success' });
+            this.productDetail.visible = false;
+            await this.loadProducts();
+            await this.loadShelves();
+            await this.loadOverview();
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+
   startPoll() {
     this.stopPoll();
     this._timer = setInterval(() => {
@@ -915,35 +979,6 @@ export default {
       };
       this.loadShelves();
     },
-    onReuseShelfChange(e) {
-      const i = Number(e.detail.value);
-      if (i <= 0) {
-        this.reuseForm.shelfId = 0;
-        this.reuseForm.shelfName = '未上架';
-      } else {
-        const s = this.shelves[i - 1];
-        if (!s) return;
-        this.reuseForm.shelfId = s.id;
-        this.reuseForm.shelfName = s.name + (s.code ? ' · ' + s.code : '');
-      }
-    },
-    async saveReuseStock() {
-      const f = this.reuseForm;
-      const qty = Number(f.quantity);
-      if (!qty || qty <= 0) { uni.showToast({ title: '请输入数量', icon: 'none' }); return; }
-      try {
-        await stockIn({
-          warehouseId: this.currentId,
-          productId: f.productId,
-          shelfId: f.shelfId || 0,
-          quantity: qty
-        });
-        uni.showToast({ title: '已入库', icon: 'success' });
-        f.visible = false;
-        await this.loadProducts();
-        await this.loadShelves();
-      } catch (e) { /* 拦截器已提示 */ }
-    },
     /** 新增商品时选择类目 */
     onProductCategoryChange(e) {
       const c = this.categoryPickerList[e.detail.value];
@@ -956,31 +991,6 @@ export default {
       this.newCatName = '';
       this.catManageSheet = true;
       this.loadProductCategories();
-    },
-    async addProductCategory() {
-      const name = (this.newCatName || '').trim();
-      if (!name) { uni.showToast({ title: '请输入类目名', icon: 'none' }); return; }
-      try {
-        await createProductCategory({ name, parentId: 0 });
-        this.newCatName = '';
-        await this.loadProductCategories();
-        uni.showToast({ title: '已添加', icon: 'success' });
-      } catch (e) { /* 拦截器已提示 */ }
-    },
-    removeProductCategory(c) {
-      uni.showModal({
-        title: '删除类目',
-        content: '删除「' + c.name + '」？有子类目或商品引用时会被拒绝',
-        success: async (r) => {
-          if (!r.confirm) return;
-          try {
-            await deleteProductCategory(c.id);
-            await this.loadProductCategories();
-            await this.loadProducts();
-            uni.showToast({ title: '已删除', icon: 'success' });
-          } catch (e) { /* 拦截器已提示 */ }
-        }
-      });
     },
     async loadShelves() {
       if (!this.currentId) { this.shelves = []; return; }
@@ -1256,7 +1266,6 @@ export default {
       const m = { personal: '个', family: '家', partner: '合' };
       return m[t] || '个';
     },
-    whTypeText(t) { const x = WH_TYPES.find(i => i[0] === t); return x ? x[1] : ''; },
     async loadWarehouses() {
       try {
         const res = await listWarehouses() || [];
@@ -1660,4 +1669,5 @@ export default {
 .inv-code { flex: 1; font-size: 28rpx; font-weight: 700; color: var(--primary); letter-spacing: 4rpx; }
 .inv-use { font-size: 21rpx; color: var(--text-sub); margin-right: 16rpx; }
 .inv-del { font-size: 23rpx; color: #E8654A; }
+.btn.danger { color: #E8654A; }
 </style>

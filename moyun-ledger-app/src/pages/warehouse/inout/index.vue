@@ -111,6 +111,16 @@
               <text class="f-label">成色</text>
               <text class="f-value">{{ f.conditionGrade || '全新' }} ▾</text>
             </view>
+            <view class="f-row col">
+              <view class="src-head"><text class="f-label">进货渠道</text></view>
+              <view class="tag-row wrap">
+                <view v-for="c in sourceChannels" :key="c.id" class="tag"
+                      :class="{ on: f.sourceChannel === c.name }"
+                      @tap="f.sourceChannel = (f.sourceChannel === c.name ? '' : c.name)"
+                      @longpress="removeSourceChannel(c)">{{ c.name }}</view>
+                <view class="tag add" @tap="addSourceChannel">＋</view>
+              </view>
+            </view>
             </view>
             <view class="f-row" v-if="f.sourceType === 'purchase'">
               <text class="f-label">记一笔支出</text>
@@ -302,7 +312,7 @@ import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
 import CategoryPicker from '@/components/CategoryPicker/CategoryPicker.vue';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
-  createSaleChannel, deleteSaleChannel, createProduct, updateProduct, stockIn, stockOut, getProductDetail,
+  createSaleChannel, deleteSaleChannel, listSourceChannels, createSourceChannel, deleteSourceChannel, createProduct, updateProduct, stockIn, stockOut, getProductDetail,
   listCategories, listAssets,
   uploadFile, attachProductImage, findSimilarProducts
 } from '@/api/ledger';
@@ -369,6 +379,7 @@ export default {
       pendingOut: null,
       submitting: false,
       sources: SOURCES,
+      sourceChannels: [],
       txnCategories: [], txnAccounts: [],
       txnCatSheet: false,
       packTypes: PACK_TYPES,
@@ -502,9 +513,55 @@ export default {
     this.enabled = isWarehouseEnabled();
     applyWarehouseTabBar();
     if (!this.enabled || !useUserStore().isLoggedIn) return;
+    this.loadSourceChannels();
     this.loadAll();
   },
   methods: {
+    /** 进货渠道：加载 */
+    async loadSourceChannels() {
+      try { this.sourceChannels = (await listSourceChannels()) || []; } catch (e) { this.sourceChannels = []; }
+    },
+    /** 新增进货渠道 */
+    addSourceChannel() {
+      uni.showModal({
+        title: '新增进货渠道',
+        editable: true,
+        placeholderText: '如 拼多多 / 批发市场',
+        success: async (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) return;
+          try {
+            await createSourceChannel(name);
+            await this.loadSourceChannels();
+            this.f.sourceChannel = name;
+            uni.showToast({ title: '已添加', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 长按删除自建渠道 */
+    removeSourceChannel(c) {
+      if (!c) return;
+      if (c.isSystem === 1 || c.isSystem === true) {
+        uni.showToast({ title: '系统预设渠道不可删除', icon: 'none' });
+        return;
+      }
+      uni.showModal({
+        title: '删除渠道',
+        content: '删除「' + c.name + '」？历史商品记录不受影响',
+        confirmColor: '#E8654A',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteSourceChannel(c.id);
+            if (this.f.sourceChannel === c.name) this.f.sourceChannel = '';
+            await this.loadSourceChannels();
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
     /** 二手成色（来源=自用转卖时选） */
     pickCondition() {
       const opts = ['全新未拆', '9成新', '8成新', '7成新', '有瑕疵'];
@@ -517,7 +574,7 @@ export default {
       return {
         name: '', categoryId: null, imageUrl: '', unit: '件', quantity: '',
         costPrice: '', sellPrice: '',
-        sourceType: 'purchase', sourceParty: '', costTotal: '', extraCost: '',
+        sourceType: 'purchase', sourceParty: '', sourceChannel: '', costTotal: '', extraCost: '',
         packUnit: '', packSize: '', usePack: false,
         createTxn: false, txnCategoryId: null, txnAccountId: null,
         productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
@@ -836,6 +893,7 @@ export default {
           remark: this.f.remark || null,
           channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
           conditionGrade: this.f.conditionGrade || null,
+          sourceChannel: this.f.sourceChannel || null,
         });
         if (this.f.imageUrl) {
           try { await attachProductImage(this.editingId, this.f.imageUrl, 'product'); } catch (e) { /* 忽略 */ }
@@ -864,6 +922,7 @@ export default {
         remark: this.f.remark || null,
         channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
         conditionGrade: this.f.conditionGrade || null,
+        sourceChannel: this.f.sourceChannel || null,
       });
       if (!pid) { uni.showToast({ title: '建档失败', icon: 'none' }); return; }
       if (this.f.imageUrl) {

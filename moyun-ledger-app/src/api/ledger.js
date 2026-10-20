@@ -535,3 +535,12 @@ export const listInvites = (warehouseId) => get('/portal/ledger/invites', { ware
 
 /** 撤销邀请码 */
 export const revokeInvite = (id) => del('/portal/ledger/invites/' + id);
+
+/** 进货渠道列表（系统预设 + 本人自建） */
+export const listSourceChannels = () => get('/portal/ledger/source-channels');
+
+/** 新增进货渠道 */
+export const createSourceChannel = (name) => post('/portal/ledger/source-channels', { name });
+
+/** 删除进货渠道 */
+export const deleteSourceChannel = (id) => del('/portal/ledger/source-channels/' + id);

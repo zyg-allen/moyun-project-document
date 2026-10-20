@@ -20,7 +20,6 @@
         <view class="mode-chip out" :class="{ on: mode === 'out' }" @tap="mode = 'out'">出库</view>
       </view>
 
-      <view class="type-hint" v-if="warehouseId">{{ modeHint }}</view>
 
       <view class="shelf-box" v-if="warehouseId">
         <view class="shelf-title">放在哪个货架</view>
@@ -418,14 +417,6 @@ export default {
       if (days < 0) return '已过期 ' + Math.abs(days) + ' 天';
       if (days <= 30) return '还有 ' + days + ' 天到期（临期）';
       return '还有 ' + days + ' 天到期';
-    },
-    /** 语义提示：入库=建档，出库=从库存扣减 */
-    modeHint() {
-      if (this.mode === 'in') {
-        return this.reuseId ? '复用已有商品，只在「' + this.shelfLabel + '」上增加库存'
-                            : '录入新商品：建档 + 记一条入库流水';
-      }
-      return '从库存里扣减：卖出记价格与渠道，自用/损耗记 ¥0';
     },
     shelfOptions() {
       // 只列真实货架：不再提供「未上架」这种模糊选项
@@ -916,7 +907,6 @@ export default {
 .link { font-size: 26rpx; color: var(--primary); }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
-.type-hint { font-size: 23rpx; color: var(--text-sub); padding: 12rpx 28rpx 0; }
 .amount-area {
   display: flex; align-items: center; gap: 16rpx;
   margin: 16rpx 24rpx 0; padding: 26rpx 28rpx;

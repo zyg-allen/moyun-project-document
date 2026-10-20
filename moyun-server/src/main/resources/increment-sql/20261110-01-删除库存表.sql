@@ -1,0 +1,15 @@
+-- ============================================================
+-- 删除库存表（库存已并入 ledger_product）
+--
+-- 执行前确认：
+--   1. 后端已切到 product.quantity / product.cost_value
+--   2. 业务回归通过（入库/出库/盘点/移库/报表/协作）
+--   3. ledger_stock_bak_20261110 备份表保留一段时间
+--
+-- 已于 2026-11-10 执行改名：
+--   RENAME TABLE ledger_stock TO ledger_stock_bak_20261110;
+--
+-- 观察一段时间无问题后，手动执行下面这句彻底删除：
+-- DROP TABLE IF EXISTS ledger_stock_bak_20261110;
+-- ============================================================
+SELECT 'ledger_stock 已并入 ledger_product，备份表：ledger_stock_bak_20261110' AS msg;

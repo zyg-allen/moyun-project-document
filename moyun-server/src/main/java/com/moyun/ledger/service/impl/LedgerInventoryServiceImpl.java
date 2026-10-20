@@ -942,26 +942,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         try { return Integer.valueOf(String.valueOf(v)); } catch (Exception e) { return null; }
     }
 
-    /** 建一条空库存行 */
-    private LedgerStock newStockRow(Long warehouseId, Long productId, long shelfId) {
-        LedgerStock s = new LedgerStock();
-        s.setWarehouseId(warehouseId);
-        s.setProductId(productId);
-        s.setShelfId(shelfId);
-        s.setQuantity(0);
-        s.setCostValue(BigDecimal.ZERO);
-        s.setStatus(LedgerStock.STATUS_NORMAL);
-        return s;
-    }
 
-    /** 定位某商品在某货架上的库存行 */
-    private LedgerStock findStock(Long productId, long shelfId) {
-        return stockMapper.selectOne(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getProductId, productId)
-                .eq(LedgerStock::getShelfId, shelfId)
-                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
-                .last("LIMIT 1"));
-    }
 
     /** 货架必须存在、启用且属于当前仓库（0=未上架直接放行，兼容旧调用） */
     private void assertShelfBelongs(Long warehouseId, long shelfId) {

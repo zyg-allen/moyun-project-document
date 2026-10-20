@@ -197,21 +197,16 @@ public class LedgerOrderServiceImpl implements ILedgerOrderService {
     /** 库存变动 + 流水同写（与库存服务同一套口径：成本价×数量） */
     private void changeStock(Long userId, Long warehouseId, Long productId, int change, String flowType, String remark) {
         LedgerProduct p = getOwnedProduct(userId, productId);
-        LedgerStock s = stockMapper.selectOne(new LambdaQueryWrapper<LedgerStock>()
-                .eq(LedgerStock::getWarehouseId, warehouseId)
-                .eq(LedgerStock::getProductId, productId));
-        if (s == null) {
-            throw new ServiceException("商品「" + p.getName() + "」库存记录不存在");
-        }
-        int before = s.getQuantity() == null ? 0 : s.getQuantity();
+        // 库存已并入商品表
+        int before = p.getQuantity() == null ? 0 : p.getQuantity();
         int after = before + change;
         if (after < 0) {
             throw new ServiceException("商品「" + p.getName() + "」库存不足：当前 " + before + "，本次 " + Math.abs(change));
         }
         BigDecimal costPrice = nz(p.getCostPrice());
-        s.setQuantity(after);
-        s.setCostValue(costPrice.multiply(BigDecimal.valueOf(after)));
-        stockMapper.updateById(s);
+        p.setQuantity(after);
+        p.setCostValue(costPrice.multiply(BigDecimal.valueOf(after)));
+        productMapper.updateById(p);
 
         LedgerStockFlow f = new LedgerStockFlow();
         f.setWarehouseId(warehouseId);

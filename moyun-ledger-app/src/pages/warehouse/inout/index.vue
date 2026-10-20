@@ -27,8 +27,8 @@
         <view class="shelf-grid">
           <view v-for="s in shelfOptions" :key="s.id" class="shelf-cell"
                 :class="{ on: String(shelfId) === String(s.id) }" @tap="shelfId = s.id">
-            <view class="shelf-code">{{ s.code || '—' }}</view>
-            <view class="shelf-name">{{ s.name }}</view>
+            <text class="shelf-code">{{ s.code || '—' }}</text>
+            <text class="shelf-name">{{ s.name }}</text>
           </view>
         </view>
       </view>
@@ -866,14 +866,13 @@ export default {
 .mode-chip.on.in { color: #fff; background: #0EA37A; border-color: #0EA37A; font-weight: 600; }
 .mode-chip.on.out { color: #fff; background: #E8654A; border-color: #E8654A; font-weight: 600; }
 
-.shelf-box { margin: 12rpx 20rpx 0; padding: 12rpx 16rpx; background: var(--card); border: 1rpx solid var(--border); border-radius: 12rpx; }
-.shelf-title { font-size: 24rpx; color: var(--text-sub); padding-bottom: 10rpx; }
-.shelf-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.shelf-cell { width: 128rpx; padding: 10rpx 6rpx; text-align: center; border-radius: 10rpx; border: 1rpx solid var(--border); background: var(--bg); }
+.shelf-box { margin: 10rpx 20rpx 0; padding: 8rpx 14rpx; background: var(--card); border: 1rpx solid var(--border); border-radius: 10rpx; }
+.shelf-title { font-size: 22rpx; color: var(--text-sub); padding-bottom: 6rpx; }
+.shelf-grid { display: flex; flex-wrap: wrap; gap: 8rpx; }
+.shelf-cell { display: inline-flex; align-items: center; gap: 6rpx; padding: 6rpx 14rpx; border-radius: 8rpx; border: 1rpx solid var(--border); background: var(--bg); }
 .shelf-cell.on { border-color: var(--primary); background: rgba(95,167,122,.12); }
-.shelf-code { font-size: 24rpx; font-weight: 700; color: var(--primary); }
-.shelf-name { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
+.shelf-code { font-size: 22rpx; font-weight: 700; color: var(--primary); }
+.shelf-name { font-size: 22rpx; color: var(--text-sub); }
 .card { margin: 12rpx 20rpx 0; padding: 4rpx 18rpx; background: var(--card); border: 1rpx solid var(--border); border-radius: 12rpx; }
 .f-row { display: flex; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .f-row:last-child { border-bottom: none; }

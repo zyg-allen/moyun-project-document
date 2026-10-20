@@ -822,7 +822,12 @@ export default {
           expiryDate: this.f.expiryDate || null,
           packagingType: this.f.packagingType || 'none',
           tags: this.f.tags || null,
-          description: this.f.description || null
+          description: this.f.description || null,
+          sourceType: this.f.sourceType || 'purchase',
+          baseUnit: this.f.unit || '件',
+          packUnit: this.f.packUnit || null,
+          packSize: this.f.packSize ? Number(this.f.packSize) : null,
+          remark: this.f.remark || null
         });
         if (this.f.imageUrl) {
           try { await attachProductImage(this.editingId, this.f.imageUrl, 'product'); } catch (e) { /* 忽略 */ }
@@ -845,7 +850,12 @@ export default {
         expiryDate: this.f.expiryDate || null,
         packagingType: this.f.packagingType || 'none',
         tags: this.f.tags || null,
-        description: this.f.description || null
+        description: this.f.description || null,
+        sourceType: this.f.sourceType || 'purchase',
+        baseUnit: this.f.unit || '件',
+        packUnit: this.f.packUnit || null,
+        packSize: this.f.packSize ? Number(this.f.packSize) : null,
+        remark: this.f.remark || null
       });
       if (!pid) { uni.showToast({ title: '建档失败', icon: 'none' }); return; }
       if (this.f.imageUrl) {

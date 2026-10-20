@@ -35,7 +35,7 @@
       <template v-if="mode === 'in'">
         <view class="card">
           <view class="f-row">
-            <text class="f-label">商品名称</text>
+            <text class="f-label req">商品名称</text>
             <input class="f-input" v-model="f.name" placeholder="输入名称，自动查重"
                    @blur="checkSimilar" @confirm="checkSimilar" />
           </view>
@@ -75,7 +75,7 @@
 
           <template v-else>
             <view class="f-row" @tap="pickCategory">
-              <text class="f-label">商品分类</text>
+              <text class="f-label req">商品分类</text>
               <text class="f-value">{{ categoryLabel || '选择分类' }}</text>
               <text class="unit">▾</text>
             </view>
@@ -94,7 +94,7 @@
               </view>
             </view>
             <view class="amount-area">
-              <text class="amount-label">数量</text>
+              <text class="amount-label req">数量</text>
               <NumberStepper class="flex-1" v-model="f.quantity" :min="1" :unit="qtyUnit" />
             </view>
             <!-- 来源：影响成本怎么算，所以放在成本上方 -->
@@ -123,11 +123,11 @@
               <text class="unit">元</text>
             </view>
             <view class="f-row" v-if="f.createTxn">
-              <text class="f-label">支出分类</text>
+              <text class="f-label req">支出分类</text>
               <CategoryPicker v-model="f.txnCategoryId" type="expense" />
             </view>
             <view class="f-row" v-if="f.createTxn" @tap="pickTxnAccount">
-              <text class="f-label">资金账户</text>
+              <text class="f-label req">资金账户</text>
               <text class="f-value">{{ txnAccountLabel || '选择账户' }} ▾</text>
             </view>
             <view class="f-row">
@@ -199,7 +199,7 @@
       <template v-else>
         <view class="card">
           <view class="f-row" @tap="pickOutProduct">
-            <text class="f-label">出库商品</text>
+            <text class="f-label req">出库商品</text>
             <text class="f-value">{{ outProductLabel || '从库存里选' }} ▾</text>
           </view>
           <view class="f-row">
@@ -210,7 +210,7 @@
             </view>
           </view>
           <view class="amount-area">
-            <text class="amount-label">数量</text>
+            <text class="amount-label req">数量</text>
             <NumberStepper class="flex-1" v-model="f.outQuantity" :min="1" :max="outStock" :unit="qtyUnit" />
           </view>
 
@@ -800,6 +800,8 @@ export default {
       }
 
       if (!(this.f.name || '').trim()) { uni.showToast({ title: '请填商品名称', icon: 'none' }); return; }
+      if (!this.f.categoryId) { uni.showToast({ title: '请选择商品分类', icon: 'none' }); return; }
+      if (!Number(this.f.quantity) || Number(this.f.quantity) <= 0) { uni.showToast({ title: '请填数量', icon: 'none' }); return; }
       // 勾选「记一笔支出」时必须选分类和账户，否则后端会生成一条无分类流水
       if (this.f.createTxn) {
         if (!this.f.txnCategoryId) { uni.showToast({ title: '请选择支出分类', icon: 'none' }); return; }
@@ -993,4 +995,8 @@ export default {
 .ct-icon { width: 44rpx; text-align: center; font-size: 30rpx; flex: 0 0 auto; }
 .ct-icon-img { width: 44rpx; height: 44rpx; border-radius: 8rpx; flex: 0 0 auto; }
 .ct-name { font-size: 26rpx; color: var(--text-main); }
+/* 必填星号 */
+.req-star { color: #E8654A; font-size: 24rpx; margin-left: 4rpx; }
+.f-row .f-label.req::after { content: ' *'; color: #E8654A; }
+.amount-label.req::after { content: ' *'; color: #E8654A; }
 </style>

@@ -364,8 +364,12 @@ export default {
     },
     /** 已选支出分类名 */
     txnCategoryLabel() {
-      const c = this.txnCategories.find(x => String(x.id) === String(this.f.txnCategoryId));
-      return c ? c.name : '';
+      for (const c of this.txnCategories) {
+        if (String(c.id) === String(this.f.txnCategoryId)) return c.name;
+        const k = (c.children || []).find(x => String(x.id) === String(this.f.txnCategoryId));
+        if (k) return c.name + ' / ' + k.name;
+      }
+      return '';
     },
     /** 已选账户名 */
     txnAccountLabel() {
@@ -536,7 +540,11 @@ export default {
     /** 懒加载记账分类与资金账户（只在勾选「记一笔支出」时用） */
     async loadTxnOptions() {
       if (this.txnCategories.length && this.txnAccounts.length) return;
-      try { this.txnCategories = (await listCategories('expense')) || []; } catch (e) { /* 忽略 */ }
+      try {
+        // 该接口返回 { records: [...] }，不是裸数组
+        const res = await listCategories('expense');
+        this.txnCategories = (res && res.records) || [];
+      } catch (e) { this.txnCategories = []; }
       try {
         const list = (await listAssets()) || [];
         this.txnAccounts = (Array.isArray(list) ? list : (list.rows || []));
@@ -544,8 +552,19 @@ export default {
     },
     async pickTxnCategory() {
       await this.loadTxnOptions();
-      this.openPicker('txnCategory', '选择支出分类',
-        this.txnCategories.map(c => ({ id: c.id, name: c.name })), this.f.txnCategoryId,
+      // 有二级就展平二级，没有就列一级
+      const items = [];
+      for (const c of this.txnCategories) {
+        const kids = c.children || [];
+        if (kids.length) {
+          for (const k of kids) {
+            items.push({ id: k.id, name: c.name + ' / ' + k.name, level: 2 });
+          }
+        } else {
+          items.push({ id: c.id, name: c.name, level: 1 });
+        }
+      }
+      this.openPicker('txnCategory', '选择支出分类', items, this.f.txnCategoryId,
         '还没有记账分类，先去「记账分类」建一个');
     },
     async pickTxnAccount() {

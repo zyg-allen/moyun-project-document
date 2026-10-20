@@ -559,8 +559,61 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
                                         Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark) {
-        return applyStockChange(userId, warehouseId, productId, shelfId, -Math.abs(quantity),
-                LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE), null, salePrice, channelId, remark);
+        int qty = Math.abs(quantity == null ? 0 : quantity);
+        // 本 App 是「登记工具」：商品在多平台发布、靠人事后登记，
+        // 所以只校验「该商品总库存是否够」，不要求某个货架单独够 ——
+        // 货架只是记录位置，不该成为登记的门槛。
+        List<LedgerStock> rows = stockMapper.selectList(new LambdaQueryWrapper<LedgerStock>()
+                .eq(LedgerStock::getProductId, productId)
+                .eq(LedgerStock::getStatus, LedgerStock.STATUS_NORMAL)
+                .orderByDesc(LedgerStock::getQuantity));
+        int total = rows.stream().mapToInt(x -> x.getQuantity() == null ? 0 : x.getQuantity()).sum();
+        if (total < qty) {
+            throw new ServiceException("库存不足：当前共 " + total + "，本次 " + qty);
+        }
+        // 优先用所选货架；不够则自动从「库存最多的货架」扣，仍不够则跨货架分摊
+        long prefer = shelfId == null ? LedgerStock.NO_SHELF : shelfId;
+        LedgerStock hit = rows.stream()
+                .filter(x -> x.getShelfId() != null && x.getShelfId() == prefer)
+                .findFirst().orElse(null);
+        long useShelf = (hit != null && (hit.getQuantity() == null ? 0 : hit.getQuantity()) >= qty)
+                ? prefer
+                : (rows.isEmpty() ? prefer : (rows.get(0).getShelfId() == null ? prefer : rows.get(0).getShelfId()));
+        Map<String, Object> last = null;
+        int remain = qty;
+        // 跨货架扣：先扣目标架，再依次扣其它有库存的架
+        List<LedgerStock> order = new ArrayList<>();
+        LedgerStock first = rows.stream()
+                .filter(x -> x.getShelfId() != null && x.getShelfId() == useShelf)
+                .findFirst().orElse(null);
+        if (first != null) {
+            order.add(first);
+        }
+        for (LedgerStock x : rows) {
+            if (first == null || !x.getId().equals(first.getId())) {
+                order.add(x);
+            }
+        }
+        for (LedgerStock x : order) {
+            if (remain <= 0) {
+                break;
+            }
+            int have = x.getQuantity() == null ? 0 : x.getQuantity();
+            if (have <= 0) {
+                continue;
+            }
+            int take = Math.min(have, remain);
+            boolean isFirst = (first != null && x.getId().equals(first.getId()));
+            last = applyStockChange(userId, warehouseId, productId,
+                    x.getShelfId() == null ? LedgerStock.NO_SHELF : x.getShelfId(), -take,
+                    LedgerStockFlow.FLOW_OUT,
+                    defaultReason(reason, LedgerStockFlow.REASON_SALE), null,
+                    // 成交单价只记在第一条流水上，避免跨货架重复计入销售额
+                    isFirst ? salePrice : null,
+                    isFirst ? channelId : null, remark);
+            remain -= take;
+        }
+        return last;
     }
 
     @Override

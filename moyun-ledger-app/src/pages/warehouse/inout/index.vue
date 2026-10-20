@@ -577,7 +577,7 @@ export default {
       } catch (e) { this.txnCategories = []; }
       try {
         const list = (await listAssets()) || [];
-        this.txnAccounts = (Array.isArray(list) ? list : (list.rows || []));
+        this.txnAccounts = Array.isArray(list) ? list : (list.records || []);
       } catch (e) { /* 忽略 */ }
     },
     async pickTxnCategory() {

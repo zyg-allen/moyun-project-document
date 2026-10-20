@@ -46,9 +46,9 @@ public class LedgerProduct {
     /** 基础单位（库存与成本一律按它记） */
     private String baseUnit;
     /** 包装单位（如 箱），可为空 */
-    private String packUnit;
+    private String packUnit; // 暂不使用（整箱进货预留）
     /** 换算系数：1 包装单位 = N 基础单位 */
-    private Integer packSize;
+    private Integer packSize; // 暂不使用（整箱进货预留）
     /** 生产日期 */
     private java.time.LocalDate productionDate;
     /** 保质期天数 */

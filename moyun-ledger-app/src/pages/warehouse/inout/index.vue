@@ -131,15 +131,6 @@
               <text class="f-value">{{ txnAccountLabel || '选择账户' }} ▾</text>
             </view>
             <view class="f-row">
-              <text class="f-label">包装单位</text>
-              <input class="f-input" v-model="f.packUnit" placeholder="如 箱（选填）" />
-            </view>
-            <view class="f-row" v-if="f.packUnit">
-              <text class="f-label">换算</text>
-              <input class="f-input" type="number" v-model="f.packSize" placeholder="1" />
-              <text class="unit">个/箱</text>
-            </view>
-            <view class="f-row">
               <text class="f-label">建议售价</text>
               <input class="f-input" type="digit" v-model="f.sellPrice" placeholder="0.00" />
               <text class="unit">元/{{ qtyUnit }}</text>
@@ -825,8 +816,6 @@ export default {
           description: this.f.description || null,
           sourceType: this.f.sourceType || 'purchase',
           baseUnit: this.f.unit || '件',
-          packUnit: this.f.packUnit || null,
-          packSize: this.f.packSize ? Number(this.f.packSize) : null,
           remark: this.f.remark || null
         });
         if (this.f.imageUrl) {
@@ -853,8 +842,6 @@ export default {
         description: this.f.description || null,
         sourceType: this.f.sourceType || 'purchase',
         baseUnit: this.f.unit || '件',
-        packUnit: this.f.packUnit || null,
-        packSize: this.f.packSize ? Number(this.f.packSize) : null,
         remark: this.f.remark || null
       });
       if (!pid) { uni.showToast({ title: '建档失败', icon: 'none' }); return; }

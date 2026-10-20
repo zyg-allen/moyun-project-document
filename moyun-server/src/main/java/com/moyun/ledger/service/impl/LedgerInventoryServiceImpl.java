@@ -56,6 +56,9 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     private LedgerProductCategoryMapper productCategoryMapper;
 
     @Autowired
+    private com.moyun.ledger.mapper.LedgerProductChannelMapper productChannelMapper;
+
+    @Autowired
     private com.moyun.ledger.mapper.LedgerSaleChannelMapper channelMapper;
 
     @Autowired
@@ -268,6 +271,7 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         p.setRemark(bo.getRemark());
         p.setStatus(LedgerProduct.STATUS_NORMAL);
         productMapper.insert(p);
+        syncProductChannels(p.getId() == null ? null : p.getId(), bo.getChannelIds(), userId);
 
         // 同步建库存行（数量 0、未上架），后续入库按货架再建/累加
         LedgerStock s = new LedgerStock();
@@ -1171,6 +1175,29 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
      * 校验商品可访问：**按商品所属仓库**判断，而不是 product.user_id。
      * 否则协作仓库里成员能看到 owner 建的商品，却改不了 —— 协作不完整。
      */
+    /**
+     * 同步「商品在哪些平台挂卖」的关联（ledger_product_channel）。
+     * 用于追溯：让用户看到这件货当前挂在哪些渠道上，卖出时再从里面选。
+     * 策略：先全删再按传入列表重建，传 null 表示不改动。
+     */
+    private void syncProductChannels(Long productId, java.util.List<Long> channelIds, Long userId) {
+        if (productId == null || channelIds == null) {
+            return;
+        }
+        productChannelMapper.delete(new LambdaQueryWrapper<com.moyun.ledger.domain.entity.LedgerProductChannel>()
+                .eq(com.moyun.ledger.domain.entity.LedgerProductChannel::getProductId, productId));
+        for (Long cid : channelIds) {
+            if (cid == null) {
+                continue;
+            }
+            com.moyun.ledger.domain.entity.LedgerProductChannel pc =
+                    new com.moyun.ledger.domain.entity.LedgerProductChannel();
+            pc.setProductId(productId);
+            pc.setChannelId(cid);
+            productChannelMapper.insert(pc);
+        }
+    }
+
     private LedgerProduct getOwnedProduct(Long userId, Long id) {
         LedgerProduct p = productMapper.selectById(id);
         if (p == null || LedgerProduct.STATUS_DELETED == p.getStatus()) {

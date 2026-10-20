@@ -646,12 +646,34 @@ export default {
       return this.stockMode === 'in' ? '采购' : '销售';
     },
   },
+  /** 从入库/出库页跳来：默认选中指定的仓库与货架 */
+  onLoad(options) {
+    this._initWh = options && options.warehouseId ? options.warehouseId : null;
+    this._initShelf = options && options.shelfId ? Number(options.shelfId) : null;
+  },
   async onShow() {
     this.startPoll();
     // 从服务端拉配置（换设备也能拿到最新），失败回退本机缓存
     this.cfg = await loadWarehouseCfg();
     useThemeStore().restore();
-    this.loadWarehouses();
+    this.loadWarehouses().then(() => {
+      // 首次从入库/出库页跳来：默认选中指定仓库与货架
+      if (this._initWh) {
+        const hit = this.warehouses.find(w => String(w.id) === String(this._initWh));
+        if (hit && String(this.currentId) !== String(hit.id)) {
+          this.currentId = hit.id;
+          this.loadShelves().then(() => {
+            if (this._initShelf) this.shelfFilterId = this._initShelf;
+          });
+          this.loadProducts();
+          this.loadOverview();
+        } else if (this._initShelf) {
+          this.shelfFilterId = this._initShelf;
+        }
+        this._initWh = null;
+        this._initShelf = null;
+      }
+    });
   },
   /** 页面隐藏时停掉轮询，避免后台空跑 */
   onHide() { this.stopPoll(); },
@@ -1233,24 +1255,46 @@ export default {
       this.productDetail.visible = false;
       this.goInout({ edit: p.id });
     },
-    /** 盘点：直接把该商品库存改成实际数量（差异写盘盈/盘亏流水） */
+    /**
+     * 盘点：**按货架**盘。
+     * 库存是按货架存的（入库时放哪个架就加到哪个架），所以盘点必须先选货架，
+     * 不能自动挑「库存最多的架」—— 那样会把别的架的库存算进来。
+     */
     stocktakeProduct() {
       const p = this.productDetail.product;
       if (!p || !p.id) return;
+      const dist = (this.productDetail.shelves || []).filter(r => r.shelfId);
+      if (!dist.length) {
+        uni.showToast({ title: '该商品还没有库存，无法盘点', icon: 'none' });
+        return;
+      }
+      if (dist.length === 1) {
+        this.askStocktakeQty(p, dist[0]);
+        return;
+      }
+      // 多货架：先选货架
+      uni.showActionSheet({
+        itemList: dist.map(r => (r.shelfName || '货架') + '（当前 ' + (r.quantity || 0) + ' 件）'),
+        success: (r) => {
+          const row = dist[r.tapIndex];
+          if (row) this.askStocktakeQty(p, row);
+        }
+      });
+    },
+    /** 选完货架后，输入该货架的实盘数量 */
+    askStocktakeQty(p, row) {
       uni.showModal({
-        title: '盘点：实际数量',
+        title: '盘点「' + (row.shelfName || '货架') + '」',
         editable: true,
-        placeholderText: '当前 ' + (p.stockQuantity || 0),
+        placeholderText: '当前 ' + (row.quantity || 0) + ' 件',
         success: async (r) => {
           if (!r.confirm) return;
           const n = Number(String(r.content || '').trim());
           if (isNaN(n) || n < 0) { uni.showToast({ title: '请输入有效数量', icon: 'none' }); return; }
-          const top = (this.productDetail.shelves || []).slice()
-            .sort((a, b) => (b.quantity || 0) - (a.quantity || 0))[0];
           try {
             await stocktake({
               warehouseId: this.currentId,
-              shelfId: top ? top.shelfId : 0,
+              shelfId: row.shelfId,
               items: [{ productId: p.id, actualQuantity: n }],
               remark: '盘点'
             });
@@ -1397,7 +1441,24 @@ export default {
         await createWarehouse({ name: this.whForm.name.trim(), warehouseType: this.whForm.type });
         uni.showToast({ title: '已创建', icon: 'success' });
         this.whSheet = false;
-        this.loadWarehouses();
+        this.loadWarehouses().then(() => {
+      // 首次从入库/出库页跳来：默认选中指定仓库与货架
+      if (this._initWh) {
+        const hit = this.warehouses.find(w => String(w.id) === String(this._initWh));
+        if (hit && String(this.currentId) !== String(hit.id)) {
+          this.currentId = hit.id;
+          this.loadShelves().then(() => {
+            if (this._initShelf) this.shelfFilterId = this._initShelf;
+          });
+          this.loadProducts();
+          this.loadOverview();
+        } else if (this._initShelf) {
+          this.shelfFilterId = this._initShelf;
+        }
+        this._initWh = null;
+        this._initShelf = null;
+      }
+    });
       } catch (e) { /* 拦截器已提示 */ }
     },
     async saveProduct() {

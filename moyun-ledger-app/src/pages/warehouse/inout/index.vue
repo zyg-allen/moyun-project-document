@@ -13,6 +13,7 @@
               :class="{ active: String(w.id) === String(warehouseId) }" @tap="switchWh(w)">{{ w.name }}</view>
       </scroll-view>
       <view v-else class="empty-top" @tap="goManage">还没有仓库，去「库存管理」新建一个 ›</view>
+      <view class="wh-manage" v-if="warehouseId" @tap="goManage">管理库存 / 货架 ›</view>
 
       <view class="mode-bar" v-if="warehouseId">
         <view class="mode-chip in" :class="{ on: mode === 'in' }" @tap="mode = 'in'">入库（录入商品）</view>
@@ -477,7 +478,13 @@ export default {
       };
     },
     goSettings() { uni.navigateTo({ url: '/pages/mine/warehouse-settings/index' }); },
-    goManage() { uni.navigateTo({ url: '/pages/warehouse/index' }); },
+    goManage() {
+      // 带上当前仓库和货架，过去后默认选中
+      const q = [];
+      if (this.warehouseId) q.push('warehouseId=' + this.warehouseId);
+      if (this.shelfId) q.push('shelfId=' + this.shelfId);
+      uni.navigateTo({ url: '/pages/warehouse/index' + (q.length ? '?' + q.join('&') : '') });
+    },
     async loadAll() {
       try {
         this.warehouses = (await listWarehouses()) || [];
@@ -921,4 +928,5 @@ export default {
 .ov-num { font-size: var(--fs-title); font-weight: 700; }
 /* 次要说明 */
 .row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
+.wh-manage { font-size: 22rpx; color: var(--primary); padding: 6rpx 20rpx 0; text-align: right; }
 </style>

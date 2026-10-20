@@ -75,16 +75,6 @@
           </view>
 
           <template v-else>
-            <view class="f-row col">
-              <view class="src-head">
-                <text class="f-label">来源</text>
-                <text class="src-hint">{{ sourceHint }}</text>
-              </view>
-              <view class="tag-row wrap">
-                <view v-for="s in sources" :key="s.key" class="tag"
-                      :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
-              </view>
-            </view>
             <view class="f-row" @tap="pickCategory">
               <text class="f-label">商品分类</text>
               <text class="f-value">{{ categoryLabel || '选择分类' }}</text>
@@ -108,15 +98,26 @@
               <text class="amount-label">数量</text>
               <NumberStepper class="flex-1" v-model="f.quantity" :min="1" :unit="qtyUnit" />
             </view>
+            <!-- 来源：影响成本怎么算，所以放在成本上方 -->
+            <view class="f-row col">
+              <view class="src-head">
+                <text class="f-label">来源</text>
+                <text class="src-hint">{{ sourceHint }}</text>
+              </view>
+              <view class="tag-row wrap">
+                <view v-for="s in sources" :key="s.key" class="tag"
+                      :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
+              </view>
+            </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
-              <input class="f-input" type="digit" v-model="f.costPrice" placeholder="0.00" />
+              <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costPrice" :disabled="costFree" :placeholder="costFree ? '默认 0' : '0.00'" />
               <text class="unit">元/{{ qtyUnit }}</text>
             </view>
             <view class="f-row">
             <view class="f-row">
               <text class="f-label">成本总额</text>
-              <input class="f-input" type="digit" v-model="f.costTotal" placeholder="本次一共花了多少" />
+              <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costTotal" :disabled="costFree" :placeholder="costFree ? '无需填写（成本为 0）' : '本次一共花了多少'" />
               <text class="unit">元</text>
             </view>
             <view class="f-row" v-if="f.sourceType === 'purchase'">
@@ -348,6 +349,10 @@ export default {
     };
   },
   computed: {
+    /** 非采购来源：成本默认 0（钱已在别处记过），成本字段置灰 */
+    costFree() {
+      return this.f.sourceType !== 'purchase';
+    },
     /** 当前来源的成本计算说明（右侧提示，随选择变化） */
     sourceHint() {
       const m = {
@@ -942,4 +947,6 @@ export default {
 /* 来源行：左侧标签 + 右侧计算方式提示 */
 .src-head { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .src-hint { font-size: 21rpx; color: var(--primary); }
+/* 非采购来源时成本字段置灰 */
+.f-input.dis { color: var(--text-muted); opacity: .6; }
 </style>

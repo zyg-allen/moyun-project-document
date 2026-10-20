@@ -115,7 +115,6 @@
               <text class="unit">元/{{ qtyUnit }}</text>
             </view>
             <view class="f-row">
-            <view class="f-row">
               <text class="f-label">成本总额</text>
               <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costTotal" :disabled="costFree" :placeholder="costFree ? '无需填写（成本为 0）' : '本次一共花了多少'" />
               <text class="unit">元</text>
@@ -141,6 +140,7 @@
               <input class="f-input" type="number" v-model="f.packSize" placeholder="1" />
               <text class="unit">个/箱</text>
             </view>
+            <view class="f-row">
               <text class="f-label">建议售价</text>
               <input class="f-input" type="digit" v-model="f.sellPrice" placeholder="0.00" />
               <text class="unit">元/{{ qtyUnit }}</text>

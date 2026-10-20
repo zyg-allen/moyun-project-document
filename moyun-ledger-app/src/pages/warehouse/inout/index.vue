@@ -75,7 +75,6 @@
           </view>
 
           <template v-else>
-            <view class="f-row" @tap="pickCategory">
             <view class="f-row col">
               <text class="f-label">来源</text>
               <view class="tag-row wrap">
@@ -83,12 +82,10 @@
                       :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
               </view>
             </view>
-            <view class="f-row" v-if="f.sourceType === 'purchase' || f.sourceType === 'self_made'">
-              <text class="f-label">供应商</text>
-              <input class="f-input" v-model="f.sourceParty" placeholder="从哪买的/谁给的（选填）" />
-            </view>
+            <view class="f-row" @tap="pickCategory">
               <text class="f-label">商品分类</text>
-              <text class="f-value">{{ categoryLabel || '选择分类' }} ▾</text>
+              <text class="f-value">{{ categoryLabel || '选择分类' }}</text>
+              <text class="unit">▾</text>
             </view>
             <view class="f-row">
               <text class="f-label">单位</text>

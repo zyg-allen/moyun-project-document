@@ -447,6 +447,13 @@ export default {
     if (this.pendingOut) this.mode = 'out';
   },
   onShow() {
+    // 从仓库页 switchTab 过来：读一次性交接参数（tab 页不能带 query）
+    const handoff = uni.getStorageSync('moyun_inout_handoff');
+    if (handoff && (handoff.edit || handoff.out)) {
+      uni.removeStorageSync('moyun_inout_handoff');
+      if (handoff.out) { this.mode = 'out'; this.pendingOut = handoff.out; }
+      if (handoff.edit) { this.pendingEdit = handoff.edit; }
+    }
     this.cfg = getWarehouseCfg();
     useThemeStore().restore();
     this.enabled = isWarehouseEnabled();

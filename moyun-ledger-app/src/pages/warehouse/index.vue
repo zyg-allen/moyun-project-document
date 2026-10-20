@@ -658,6 +658,15 @@ export default {
   onUnload() { this.stopPoll(); },
   /** 协作场景：定时刷新，让成员能看到别人刚卖出的变化 */
   methods: {
+    /**
+     * 跳到「入库/出库」页（tabBar 页）。
+     * ⚠️ tab 页不能用 navigateTo（会静默失败），只能 switchTab；
+     *    switchTab 又不能带参数，所以用 storage 做一次性交接。
+     */
+    goInout(query) {
+      uni.setStorageSync('moyun_inout_handoff', query || {});
+      uni.switchTab({ url: '/pages/warehouse/inout/index' });
+    },
     /** 仓库管理：重命名 / 删除（仅 owner，后端会再校验一次） */
     manageWarehouse() {
       const cur = this.warehouses.find(w => String(w.id) === String(this.currentId));
@@ -1222,7 +1231,7 @@ export default {
       const p = this.productDetail.product;
       if (!p || !p.id) return;
       this.productDetail.visible = false;
-      uni.navigateTo({ url: '/pages/warehouse/inout/index?edit=' + p.id });
+      this.goInout({ edit: p.id });
     },
     /** 盘点：直接把该商品库存改成实际数量（差异写盘盈/盘亏流水） */
     stocktakeProduct() {
@@ -1259,7 +1268,7 @@ export default {
       const p = this.productDetail.product;
       if (!p || !p.id) return;
       this.productDetail.visible = false;
-      uni.navigateTo({ url: '/pages/warehouse/inout/index?out=' + p.id });
+      this.goInout({ out: p.id });
     },
     /** 仓库性质徽标：个人=个 / 家庭=家 / 合伙=合 */
     whTypeBadge(t) {

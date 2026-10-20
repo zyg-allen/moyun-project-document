@@ -76,7 +76,10 @@
 
           <template v-else>
             <view class="f-row col">
-              <text class="f-label">来源</text>
+              <view class="src-head">
+                <text class="f-label">来源</text>
+                <text class="src-hint">{{ sourceHint }}</text>
+              </view>
               <view class="tag-row wrap">
                 <view v-for="s in sources" :key="s.key" class="tag"
                       :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
@@ -345,6 +348,16 @@ export default {
     };
   },
   computed: {
+    /** 当前来源的成本计算说明（右侧提示，随选择变化） */
+    sourceHint() {
+      const m = {
+        purchase: '实付总额 ÷ 数量',
+        self_made: '原料已记账 · 成本默认 0',
+        used_resale: '当年已记账 · 成本默认 0',
+        gift: '未花钱 · 成本默认 0'
+      };
+      return m[this.f.sourceType] || '';
+    },
     /** 已选支出分类名 */
     txnCategoryLabel() {
       const c = this.txnCategories.find(x => String(x.id) === String(this.f.txnCategoryId));
@@ -926,4 +939,7 @@ export default {
 /* 次要说明 */
 .row-sub, .hint, .ov-label { font-size: var(--fs-sub); color: var(--text-sub); }
 .wh-manage { font-size: 22rpx; color: var(--primary); padding: 6rpx 20rpx 0; text-align: right; }
+/* 来源行：左侧标签 + 右侧计算方式提示 */
+.src-head { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.src-hint { font-size: 21rpx; color: var(--primary); }
 </style>

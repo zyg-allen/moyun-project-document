@@ -673,6 +673,13 @@ export default {
         this._initWh = null;
         this._initShelf = null;
       }
+      // 关键：从入库/出库页建完商品切回来时，必须重新拉一次。
+      // 原来只在「没有当前仓库」时才刷新，已有仓库时什么都不做 —— 列表会是旧的。
+      if (this.currentId) {
+        this.loadShelves();
+        this.loadProducts();
+        this.loadOverview();
+      }
     });
   },
   /** 页面隐藏时停掉轮询，避免后台空跑 */

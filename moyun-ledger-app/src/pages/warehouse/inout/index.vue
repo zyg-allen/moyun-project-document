@@ -817,6 +817,7 @@ export default {
           sourceType: this.f.sourceType || 'purchase',
           baseUnit: this.f.unit || '件',
           remark: this.f.remark || null
+          channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
         });
         if (this.f.imageUrl) {
           try { await attachProductImage(this.editingId, this.f.imageUrl, 'product'); } catch (e) { /* 忽略 */ }
@@ -843,6 +844,7 @@ export default {
         sourceType: this.f.sourceType || 'purchase',
         baseUnit: this.f.unit || '件',
         remark: this.f.remark || null
+        channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
       });
       if (!pid) { uni.showToast({ title: '建档失败', icon: 'none' }); return; }
       if (this.f.imageUrl) {

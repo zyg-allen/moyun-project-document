@@ -6,7 +6,7 @@
         <view class="cp-icon" :class="{ selected: String(innerTopId) === String(c.id) }"
               :style="String(innerTopId) === String(c.id) ? '' : 'background:' + softColor(c.color)">
           <image v-if="isImg(c.icon)" :src="c.icon" class="cp-img" mode="aspectFill" />
-          <text v-else>{{ c.icon || '📁' }}</text>
+          <text v-else>{{ iconOf(c.icon) }}</text>
         </view>
         <text class="cp-name" :class="{ selected: String(innerTopId) === String(c.id) }">{{ c.name }}</text>
       </view>
@@ -34,7 +34,7 @@
               <view class="cp-sub-icon" :class="{ selected: String(subId) === String(k.id) }"
                     :style="String(subId) === String(k.id) ? '' : 'background:' + softColor(k.color)">
                 <image v-if="isImg(k.icon)" :src="k.icon" class="cp-img" mode="aspectFill" />
-                <text v-else>{{ k.icon || '·' }}</text>
+                <text v-else>{{ iconOf(k.icon) }}</text>
               </view>
               <text class="cp-sub-name" :class="{ selected: String(subId) === String(k.id) }">{{ k.name }}</text>
             </view>
@@ -50,6 +50,7 @@
 
 <script>
 import { listCategories } from '@/api/ledger';
+import { categoryIcon, softColor as toSoftColor, isImageIcon } from '@/utils/categoryIcon';
 
 /**
  * 记账分类选择器（与 pages/record/index 同款交互）。
@@ -105,12 +106,9 @@ export default {
     this.load();
   },
   methods: {
-    isImg(icon) {
-      return !!icon && (icon.indexOf('http') === 0 || icon.indexOf('/') === 0 || icon.indexOf('data:') === 0);
-    },
-    softColor(c) {
-      return c || 'rgba(95,167,122,.12)';
-    },
+    isImg(icon) { return isImageIcon(icon); },
+    iconOf(icon) { return categoryIcon(icon); },
+    softColor(c) { return toSoftColor(c); },
     async load() {
       try {
         const res = await listCategories(this.type);
@@ -162,9 +160,9 @@ export default {
 
 <style scoped>
 .cp-grid { display: flex; flex-wrap: wrap; gap: 14rpx; }
-.cp-cell { width: 108rpx; display: flex; flex-direction: column; align-items: center; }
+.cp-cell { width: 100rpx; display: flex; flex-direction: column; align-items: center; }
 .cp-icon {
-  width: 80rpx; height: 80rpx; display: flex; align-items: center; justify-content: center;
+  width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center;
   border-radius: 16rpx; font-size: 34rpx; overflow: hidden;
   border: 2rpx solid transparent;
 }

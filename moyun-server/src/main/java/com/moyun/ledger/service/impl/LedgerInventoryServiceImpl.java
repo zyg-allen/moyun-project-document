@@ -1,6 +1,7 @@
 package com.moyun.ledger.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ledger.domain.entity.LedgerProduct;
@@ -127,6 +128,19 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteWarehouse(Long userId, Long id) {
         LedgerWarehouse db = getOwnerOnlyWarehouse(userId, id);
+        // 级联软删：货架 / 商品 / 库存行 —— 否则删了仓库，商品和数量还留在统计里
+        shelfMapper.update(null, new LambdaUpdateWrapper<LedgerShelf>()
+                .eq(LedgerShelf::getWarehouseId, id)
+                .set(LedgerShelf::getStatus, LedgerShelf.STATUS_DISABLED));
+        productMapper.update(null, new LambdaUpdateWrapper<LedgerProduct>()
+                .eq(LedgerProduct::getWarehouseId, id)
+                .set(LedgerProduct::getStatus, LedgerProduct.STATUS_DELETED));
+        stockMapper.update(null, new LambdaUpdateWrapper<LedgerStock>()
+                .eq(LedgerStock::getWarehouseId, id)
+                .set(LedgerStock::getStatus, LedgerStock.STATUS_DELETED));
+        // 成员关系一并失效，避免还在别人仓库列表里
+        memberMapper.delete(new LambdaQueryWrapper<LedgerWarehouseMember>()
+                .eq(LedgerWarehouseMember::getWarehouseId, id));
         db.setStatus(LedgerWarehouse.STATUS_DELETED);
         warehouseMapper.updateById(db);
     }

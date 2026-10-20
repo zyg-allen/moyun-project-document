@@ -210,6 +210,11 @@ public class LedgerShelfServiceImpl implements ILedgerShelfService {
         if (occupied != null && occupied > 0) {
             throw new ServiceException("该货架还有库存，请先移库后再删除");
         }
+        // 货架没货，把它上面的库存行也软删，避免商品列表还残留 0 库存的「幽灵货架」
+        stockMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.moyun.ledger.domain.entity.LedgerStock>()
+                .eq(com.moyun.ledger.domain.entity.LedgerStock::getShelfId, id)
+                .set(com.moyun.ledger.domain.entity.LedgerStock::getStatus,
+                        com.moyun.ledger.domain.entity.LedgerStock.STATUS_DELETED));
         s.setStatus(LedgerShelf.STATUS_DISABLED);
         shelfMapper.updateById(s);
     }

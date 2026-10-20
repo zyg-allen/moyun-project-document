@@ -164,6 +164,11 @@ export default {
       this.showSub = false;
       this.collapsed = true;
       this.emit(k ? k.id : this.innerTopId, this.innerTopId);
+    },
+    /** 对外抛出选中结果 */
+    emit(value, topId) {
+      this.$emit('update:modelValue', value);
+      this.$emit('change', { id: value, topId });
     }
   }
 };

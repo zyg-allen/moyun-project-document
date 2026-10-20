@@ -577,7 +577,9 @@ export default {
       } catch (e) { this.txnCategories = []; }
       try {
         const list = (await listAssets()) || [];
-        this.txnAccounts = Array.isArray(list) ? list : (list.records || []);
+        // 资金账户只能是「流动资金」类，与记一笔页一致（应收/投资/固定资产不能当钱包）
+        const all = Array.isArray(list) ? list : (list.records || []);
+        this.txnAccounts = all.filter(a => a.accountType === 'fund' && (a.status === undefined || a.status === 1));
       } catch (e) { /* 忽略 */ }
     },
     async pickTxnCategory() {

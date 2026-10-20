@@ -247,6 +247,34 @@
         </view>
       </view>
 
+      <!-- 支出分类：两级树 + 图标 -->
+      <view class="mask" v-if="txnCatSheet" @tap="txnCatSheet = false">
+        <view class="sheet" @tap.stop>
+          <view class="sheet-title">选择支出分类</view>
+          <scroll-view scroll-y class="cat-tree">
+            <view v-if="!txnCategories.length" class="empty" @tap="txnCatSheet = false; goCategories()">
+              还没有记账分类，点这里去添加 ›
+            </view>
+            <block v-for="c in txnCategories" :key="c.id">
+              <view class="ct-row lv1" :class="{ on: String(f.txnCategoryId) === String(c.id) }"
+                    @tap="pickCatNode(c)">
+                <image v-if="isImgIcon(c.icon)" :src="c.icon" class="ct-icon-img" mode="aspectFill" />
+                <text v-else class="ct-icon">{{ c.icon || '📁' }}</text>
+                <text class="ct-name">{{ c.name }}</text>
+              </view>
+              <view v-for="k in (c.children || [])" :key="k.id" class="ct-row lv2"
+                    :class="{ on: String(f.txnCategoryId) === String(k.id) }"
+                    @tap="pickCatNode(k)">
+                <image v-if="isImgIcon(k.icon)" :src="k.icon" class="ct-icon-img" mode="aspectFill" />
+                <text v-else class="ct-icon">{{ k.icon || '·' }}</text>
+                <text class="ct-name">{{ k.name }}</text>
+              </view>
+            </block>
+          </scroll-view>
+          <view class="picker-cancel" @tap="txnCatSheet = false">取消</view>
+        </view>
+      </view>
+
       <view class="mask" v-if="picker.visible" @tap="picker.visible = false">
         <view class="sheet" @tap.stop>
           <view class="sheet-title">{{ picker.title }}</view>
@@ -341,6 +369,7 @@ export default {
       submitting: false,
       sources: SOURCES,
       txnCategories: [], txnAccounts: [],
+      txnCatSheet: false,
       packTypes: PACK_TYPES,
       outTypes: OUT_TYPES,
       f: this.blankForm(),
@@ -552,20 +581,16 @@ export default {
     },
     async pickTxnCategory() {
       await this.loadTxnOptions();
-      // 有二级就展平二级，没有就列一级
-      const items = [];
-      for (const c of this.txnCategories) {
-        const kids = c.children || [];
-        if (kids.length) {
-          for (const k of kids) {
-            items.push({ id: k.id, name: c.name + ' / ' + k.name, level: 2 });
-          }
-        } else {
-          items.push({ id: c.id, name: c.name, level: 1 });
-        }
-      }
-      this.openPicker('txnCategory', '选择支出分类', items, this.f.txnCategoryId,
-        '还没有记账分类，先去「记账分类」建一个');
+      this.txnCatSheet = true;
+    },
+    /** 选中一级或二级分类 */
+    pickCatNode(node) {
+      this.f.txnCategoryId = node.id;
+      this.txnCatSheet = false;
+    },
+    /** 图标是图片 URL 还是 emoji */
+    isImgIcon(icon) {
+      return !!icon && (icon.indexOf('http') === 0 || icon.indexOf('/') === 0 || icon.indexOf('data:') === 0);
     },
     async pickTxnAccount() {
       await this.loadTxnOptions();
@@ -957,4 +982,14 @@ export default {
 .src-hint { font-size: 21rpx; color: var(--primary); }
 /* 非采购来源时成本字段置灰 */
 .f-input.dis { color: var(--text-muted); opacity: .6; }
+
+/* 支出分类树（两级 + 图标） */
+.cat-tree { max-height: 56vh; }
+.ct-row { display: flex; align-items: center; gap: 12rpx; padding: 18rpx 12rpx; border-bottom: 1rpx solid var(--border); }
+.ct-row.lv2 { padding-left: 52rpx; }
+.ct-row.on { background: rgba(95,167,122,.10); }
+.ct-row.on .ct-name { color: var(--primary); font-weight: 600; }
+.ct-icon { width: 44rpx; text-align: center; font-size: 30rpx; flex: 0 0 auto; }
+.ct-icon-img { width: 44rpx; height: 44rpx; border-radius: 8rpx; flex: 0 0 auto; }
+.ct-name { font-size: 26rpx; color: var(--text-main); }
 </style>

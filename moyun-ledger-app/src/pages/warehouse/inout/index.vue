@@ -178,6 +178,7 @@
               <text class="f-label">售卖渠道</text>
               <view class="tag-row wrap">
                 <view v-for="c in channels" :key="c.id" class="tag"
+                      @longpress="removeChannel(c)"
                       :class="{ on: f.channelIds.includes(c.id) }" @tap="toggleChannel(c.id)">{{ c.name }}</view>
                 <view class="tag add" @tap="addChannel">＋</view>
               </view>
@@ -221,6 +222,7 @@
               <text class="f-label">卖出渠道</text>
               <view class="tag-row wrap">
                 <view v-for="c in channels" :key="c.id" class="tag"
+              @longpress="removeChannel(c)"
                       :class="{ on: String(f.channelId) === String(c.id) }" @tap="f.channelId = c.id">{{ c.name }}</view>
               </view>
             </view>
@@ -270,7 +272,7 @@ import { getWarehouseCfg } from '@/utils/warehouseConfig';
 import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
-  createSaleChannel, createProduct, updateProduct, stockIn, stockOut,
+  createSaleChannel, deleteSaleChannel, createProduct, updateProduct, stockIn, stockOut,
   listCategories, listAssets,
   uploadFile, attachProductImage, findSimilarProducts
 } from '@/api/ledger';
@@ -597,6 +599,30 @@ export default {
             await createSaleChannel({ name });
             this.channels = (await listSaleChannels()) || [];
           } catch (e) { /* 忽略 */ }
+        }
+      });
+    },
+    /** 长按渠道：删除自建渠道（系统预设不可删，后端也会拦） */
+    removeChannel(c) {
+      if (!c) return;
+      if (c.isSystem === 1 || c.isSystem === true) {
+        uni.showToast({ title: '系统预设渠道不可删除', icon: 'none' });
+        return;
+      }
+      uni.showModal({
+        title: '删除渠道',
+        content: '删除「' + c.name + '」？已用该渠道的历史流水不受影响',
+        confirmColor: '#E8654A',
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteSaleChannel(c.id);
+            this.channels = (await listSaleChannels()) || [];
+            const idx = this.f.channelIds.indexOf(c.id);
+            if (idx >= 0) this.f.channelIds.splice(idx, 1);
+            if (String(this.f.channelId) === String(c.id)) this.f.channelId = null;
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
         }
       });
     },

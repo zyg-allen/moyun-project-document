@@ -816,7 +816,7 @@ export default {
           description: this.f.description || null,
           sourceType: this.f.sourceType || 'purchase',
           baseUnit: this.f.unit || '件',
-          remark: this.f.remark || null
+          remark: this.f.remark || null,
           channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
         });
         if (this.f.imageUrl) {
@@ -843,7 +843,7 @@ export default {
         description: this.f.description || null,
         sourceType: this.f.sourceType || 'purchase',
         baseUnit: this.f.unit || '件',
-        remark: this.f.remark || null
+        remark: this.f.remark || null,
         channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
       });
       if (!pid) { uni.showToast({ title: '建档失败', icon: 'none' }); return; }

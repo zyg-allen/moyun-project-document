@@ -23,7 +23,7 @@ public class LedgerAppFeatureConfig implements Serializable {
     @java.io.Serial
     private static final long serialVersionUID = 1L;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 功能标识（前端路由映射键） */

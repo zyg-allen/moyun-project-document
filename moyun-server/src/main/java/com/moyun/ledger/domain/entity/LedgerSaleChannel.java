@@ -15,7 +15,7 @@ public class LedgerSaleChannel {
     public static final int STATUS_ENABLED = 1;
     public static final int STATUS_DISABLED = 0;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long userId;
     private String name;

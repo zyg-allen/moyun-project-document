@@ -28,7 +28,7 @@ public class LedgerScheduleLog {
     /** 触发来源：页面主动执行（立即执行 / 重试） */
     public static final int TRIGGER_MANUAL = 2;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 任务ID（ledger_schedule_task.id） */

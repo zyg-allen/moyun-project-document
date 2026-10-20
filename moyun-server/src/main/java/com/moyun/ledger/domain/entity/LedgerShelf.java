@@ -39,7 +39,7 @@ public class LedgerShelf {
     /** sys_file.business_type：商品图片 */
     public static final String PRODUCT_FILE_BIZ_TYPE = "ledger_product";
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 归属：所属仓库 */

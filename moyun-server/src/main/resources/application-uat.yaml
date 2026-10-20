@@ -272,7 +272,7 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
   global-config:
     db-config:
-      id-type: auto
+      id-type: assign_id
       # 逻辑删除：与 sys_user / sys_dept / sys_role / portal_user 的 del_flag 字段对齐（char(1)，"0"=存在 "2"=删除）
       logic-delete-field: delFlag
       logic-delete-value: "2"

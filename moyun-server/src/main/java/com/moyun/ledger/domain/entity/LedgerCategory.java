@@ -27,7 +27,7 @@ public class LedgerCategory {
     /** 状态：停用 */
     public static final int STATUS_DISABLED = 0;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 0=系统预设，>0=用户自定义（portal_user.id） */

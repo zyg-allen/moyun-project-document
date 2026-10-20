@@ -67,7 +67,7 @@ public class LedgerTransaction {
      */
     public static final int STATUS_DELETED = 0;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**

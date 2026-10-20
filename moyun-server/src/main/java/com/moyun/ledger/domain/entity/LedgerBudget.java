@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @TableName("ledger_budget")
 public class LedgerBudget {
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 门户用户ID（portal_user.id） */

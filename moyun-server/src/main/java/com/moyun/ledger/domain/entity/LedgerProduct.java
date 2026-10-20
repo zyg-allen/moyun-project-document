@@ -20,6 +20,8 @@ public class LedgerProduct {
 
     private Long id;
     private Long warehouseId;
+    /** 所在货架（0=未上架）。一个商品只属于一个货架，要分开放就分别登记。 */
+    private Long shelfId;
     private Long userId;
     /** 提供者：谁把这批货放进仓库（NULL=仓库主） */
     private Long providerUserId;

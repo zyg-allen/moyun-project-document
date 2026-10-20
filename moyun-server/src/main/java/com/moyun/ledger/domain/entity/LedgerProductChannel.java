@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("ledger_product_channel")
 public class LedgerProductChannel {
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long productId;
     private Long channelId;

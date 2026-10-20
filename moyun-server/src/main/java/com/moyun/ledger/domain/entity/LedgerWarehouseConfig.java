@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class LedgerWarehouseConfig {
     public static final long GLOBAL_WAREHOUSE = 0L;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private Long userId;
     private Long warehouseId;

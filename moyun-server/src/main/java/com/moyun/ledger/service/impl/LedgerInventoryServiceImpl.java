@@ -708,6 +708,21 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
             throw new ServiceException("数量不能为0");
         }
         long sid = shelfId == null ? LedgerStock.NO_SHELF : shelfId;
+        // 一个商品只属于一个货架：商品已登记货架时，一律以商品的货架为准。
+        // 要分两个货架放，请分别登记两个商品（用户自己决定怎么拆）。
+        if (p.getShelfId() != null && p.getShelfId() != LedgerStock.NO_SHELF) {
+            if (sid != LedgerStock.NO_SHELF && sid != p.getShelfId()) {
+                LedgerShelf reg = shelfMapper.selectById(p.getShelfId());
+                String where = reg == null ? ("货架" + p.getShelfId()) : (reg.getCode() + " " + reg.getName());
+                throw new ServiceException("该商品登记在「" + where + "」，只能入这个货架；"
+                        + "若要放到别的货架，请单独登记一个新商品");
+            }
+            sid = p.getShelfId();
+        } else if (sid != LedgerStock.NO_SHELF) {
+            // 首次入库时把货架写到商品上，此后固定
+            p.setShelfId(sid);
+            productMapper.updateById(p);
+        }
         assertShelfBelongs(warehouseId, sid);
 
         LedgerStock s = findStock(productId, sid);

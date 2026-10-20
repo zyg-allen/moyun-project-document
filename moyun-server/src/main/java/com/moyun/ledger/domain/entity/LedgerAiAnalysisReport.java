@@ -26,7 +26,7 @@ public class LedgerAiAnalysisReport implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /** 报告ID */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 门户用户ID */

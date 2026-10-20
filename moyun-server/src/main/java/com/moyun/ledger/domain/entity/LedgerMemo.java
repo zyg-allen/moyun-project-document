@@ -43,7 +43,7 @@ public class LedgerMemo {
     /** 重要程度：紧急 */
     public static final String IMPORTANCE_URGENT = "urgent";
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 门户用户ID（portal_user.id） */

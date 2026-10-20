@@ -35,7 +35,7 @@ public class LedgerAssetAccount {
     /** 状态：停用归档（删除即归档） */
     public static final int STATUS_ARCHIVED = 0;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 门户用户ID（portal_user.id） */

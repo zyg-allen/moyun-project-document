@@ -19,7 +19,7 @@ public class LedgerInvite {
     /** 去掉易混字符（0/O、1/I/L）的 base32 */
     private static final char[] ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ".toCharArray();
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
     private String code;
     private String type;

@@ -28,7 +28,7 @@ public class LedgerSavingRecord {
     /** 状态：失败 */
     public static final int STATUS_FAILED = 2;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 计划ID（ledger_saving_plan.id） */

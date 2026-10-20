@@ -122,9 +122,9 @@
               <input class="f-input" :class="{ dis: costFree }" type="digit" v-model="f.costTotal" :disabled="costFree" :placeholder="costFree ? '无需填写（成本为 0）' : (f.costPrice ? '≈ ' + (Number(f.costPrice) * qtyBase).toFixed(2) + '（单价 × 数量）' : '本次一共花了多少，留空则按单价×数量')" />
               <text class="unit">元</text>
             </view>
-            <view class="f-row" v-if="f.createTxn" @tap="pickTxnCategory">
-              <text class="f-label">支出分类</text>
-              <text class="f-value">{{ txnCategoryLabel || '选择分类' }} ▾</text>
+            <view class="f-row col" v-if="f.createTxn">
+              <view class="src-head"><text class="f-label">支出分类</text></view>
+              <CategoryPicker v-model="f.txnCategoryId" type="expense" />
             </view>
             <view class="f-row" v-if="f.createTxn" @tap="pickTxnAccount">
               <text class="f-label">资金账户</text>
@@ -299,6 +299,7 @@ import { useUserStore } from '@/stores/user';
 import { isWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { getWarehouseCfg } from '@/utils/warehouseConfig';
 import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
+import CategoryPicker from '@/components/CategoryPicker/CategoryPicker.vue';
 import {
   listWarehouses, listShelves, listProducts, listProductCategories, listSaleChannels,
   createSaleChannel, deleteSaleChannel, createProduct, updateProduct, stockIn, stockOut, getProductDetail,
@@ -350,7 +351,7 @@ const OUT_TYPES = [
 ];
 
 export default {
-  components: { NumberStepper },
+  components: { NumberStepper, CategoryPicker },
   data() {
     return {
       enabled: true,

@@ -48,6 +48,8 @@ public class LedgerStockFlow {
     private BigDecimal costAfter;
     /** 销售成交单价（仅出库原因为销售时填写，用于算销售额与毛利） */
     private BigDecimal salePrice;
+    /** 卖出时的额外成本（运费/包装费等），只影响本笔毛利，不摊进商品成本价 */
+    private BigDecimal extraCost;
     /** 售卖渠道ID（卖出时填，自用/损耗为空） */
     private Long channelId;
     /** 非表字段：渠道名 */

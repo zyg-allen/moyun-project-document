@@ -33,7 +33,6 @@ public class LedgerProduct {
     /** 类目ID（ledger_product_category.id） */
     private Long categoryId;
     /** 历史自由文本类目，已由 categoryId 取代，不再写入 */
-    private String category;
     private String barcode;
     private String unit;
     private BigDecimal costPrice;
@@ -46,7 +45,6 @@ public class LedgerProduct {
     /** 成本总额（权威值；单价 = cost_total ÷ 数量） */
     private BigDecimal costTotal;
     /** 其他成本（物流 / 包装 / 时间合并为一项） */
-    private BigDecimal extraCost;
     /** 基础单位（库存与成本一律按它记） */
     private String baseUnit;
     /** 包装单位（如 箱），可为空 */
@@ -66,7 +64,6 @@ public class LedgerProduct {
     /** 商品描述 */
     private String description;
     private String imageUrls;
-    private Integer isSecondhand;
     private String conditionGrade;
     private String sourceChannel;
     private String remark;

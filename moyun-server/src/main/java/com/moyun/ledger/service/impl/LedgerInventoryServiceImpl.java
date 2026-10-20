@@ -235,19 +235,16 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         p.setDescription(bo.getDescription());
         p.setSellPrice(bo.getSellPrice());
         p.setProviderUserId(bo.getProviderUserId() == null ? userId : bo.getProviderUserId());
-        p.setCategory(bo.getCategory());
         p.setUnit(bo.getUnit() == null ? "个" : bo.getUnit());
         p.setCostPrice(bo.getCostPrice());
         p.setSellPrice(bo.getSellPrice());
         p.setImageUrls(bo.getImageUrls());
-        p.setIsSecondhand(bo.getIsSecondhand() == null ? 0 : bo.getIsSecondhand());
         p.setConditionGrade(bo.getConditionGrade());
         p.setSourceChannel(bo.getSourceChannel());
         // P0：来源 / 成本总额 / 其他成本 / 单位换算
         p.setSourceType(bo.getSourceType() == null ? LedgerProduct.SRC_PURCHASE : bo.getSourceType());
         p.setSourceParty(bo.getSourceParty());
         p.setCostTotal(bo.getCostTotal());
-        p.setExtraCost(bo.getExtraCost() == null ? java.math.BigDecimal.ZERO : bo.getExtraCost());
         p.setBaseUnit(bo.getBaseUnit() == null ? (bo.getUnit() == null ? "个" : bo.getUnit()) : bo.getBaseUnit());
         p.setPackUnit(bo.getPackUnit());
         p.setPackSize(bo.getPackSize());
@@ -275,9 +272,6 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         if (bo.getCategoryId() != null) {
             db.setCategoryId(bo.getCategoryId());
         }
-        if (bo.getCategory() != null) {
-            db.setCategory(bo.getCategory());
-        }
         // 产品方案 4.3：单位 / 条码 / 成色 / 来源渠道 / 二手标记 都要可改
         if (bo.getUnit() != null && !bo.getUnit().isBlank()) {
             db.setUnit(bo.getUnit().trim());
@@ -294,9 +288,6 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         if (bo.getCostTotal() != null) {
             db.setCostTotal(bo.getCostTotal());
         }
-        if (bo.getExtraCost() != null) {
-            db.setExtraCost(bo.getExtraCost());
-        }
         if (bo.getBaseUnit() != null && !bo.getBaseUnit().isBlank()) {
             db.setBaseUnit(bo.getBaseUnit());
         }
@@ -312,9 +303,6 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
         }
         if (bo.getSourceChannel() != null) {
             db.setSourceChannel(bo.getSourceChannel());
-        }
-        if (bo.getIsSecondhand() != null) {
-            db.setIsSecondhand(bo.getIsSecondhand());
         }
         if (bo.getRemark() != null) {
             db.setRemark(bo.getRemark());
@@ -557,15 +545,27 @@ public class LedgerInventoryServiceImpl implements ILedgerInventoryService {
 
 
 
+    public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                        Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark) {
+        return stockOut(userId, warehouseId, productId, shelfId, quantity, reason, salePrice, channelId, remark, null);
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
-                                        Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark) {
+                                        Integer quantity, String reason, java.math.BigDecimal salePrice,
+                                        Long channelId, String remark, java.math.BigDecimal extraCost) {
         int qty = Math.abs(quantity == null ? 0 : quantity);
-        // 库存已并入商品表：总量校验与扣减统一由 applyStockChange 处理
-        return applyStockChange(userId, warehouseId, productId, shelfId, -qty,
+        Map<String, Object> r = applyStockChange(userId, warehouseId, productId, shelfId, -qty,
                 LedgerStockFlow.FLOW_OUT, defaultReason(reason, LedgerStockFlow.REASON_SALE),
                 null, salePrice, channelId, remark);
+        // 额外成本只记在本笔流水上，不摊进商品成本价
+        if (extraCost != null && extraCost.signum() > 0 && r != null && r.get("flowId") != null) {
+            stockFlowMapper.update(null, new LambdaUpdateWrapper<LedgerStockFlow>()
+                    .eq(LedgerStockFlow::getId, r.get("flowId"))
+                    .set(LedgerStockFlow::getExtraCost, extraCost));
+        }
+        return r;
     }
 
     @Override

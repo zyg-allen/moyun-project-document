@@ -107,6 +107,10 @@
                 <view v-for="s in sources" :key="s.key" class="tag"
                       :class="{ on: f.sourceType === s.key }" @tap="f.sourceType = s.key">{{ s.label }}</view>
               </view>
+            <view class="f-row" v-if="f.sourceType === 'used_resale'" @tap="pickCondition">
+              <text class="f-label">成色</text>
+              <text class="f-value">{{ f.conditionGrade || '全新' }} ▾</text>
+            </view>
             </view>
             <view class="f-row" v-if="f.sourceType === 'purchase'">
               <text class="f-label">记一笔支出</text>
@@ -209,6 +213,11 @@
             <view class="f-row">
               <text class="f-label">成交单价</text>
               <input class="f-input" type="digit" v-model="f.salePrice" placeholder="0.00" />
+            </view>
+            <view class="f-row">
+              <text class="f-label">额外成本</text>
+              <input class="f-input" type="digit" v-model="f.extraCost" placeholder="运费/包装费，选填" />
+              <text class="unit">元</text>
             </view>
             <view class="f-row col">
               <text class="f-label">卖出渠道</text>
@@ -496,6 +505,14 @@ export default {
     this.loadAll();
   },
   methods: {
+    /** 二手成色（来源=自用转卖时选） */
+    pickCondition() {
+      const opts = ['全新未拆', '9成新', '8成新', '7成新', '有瑕疵'];
+      uni.showActionSheet({
+        itemList: opts,
+        success: (r) => { this.f.conditionGrade = opts[r.tapIndex] || ''; }
+      });
+    },
     blankForm() {
       return {
         name: '', categoryId: null, imageUrl: '', unit: '件', quantity: '',
@@ -504,8 +521,8 @@ export default {
         packUnit: '', packSize: '', usePack: false,
         createTxn: false, txnCategoryId: null, txnAccountId: null,
         productionDate: '', shelfLifeDays: '', shelfLifeKey: 'none', expiryDate: '',
-        packagingType: 'none', tags: '', description: '', channelIds: [],
-        outType: 'sale', outQuantity: '', salePrice: '', channelId: null, remark: ''
+      packagingType: 'none', tags: '', description: '', channelIds: [], sourceType: 'purchase', conditionGrade: '', extraCost: '',
+      outType: 'sale', outQuantity: '', salePrice: '', channelId: null, remark: '', extraCost: '',
       };
     },
     goSettings() { uni.navigateTo({ url: '/pages/mine/warehouse-settings/index' }); },
@@ -818,6 +835,7 @@ export default {
           baseUnit: this.f.unit || '件',
           remark: this.f.remark || null,
           channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
+          conditionGrade: this.f.conditionGrade || null,
         });
         if (this.f.imageUrl) {
           try { await attachProductImage(this.editingId, this.f.imageUrl, 'product'); } catch (e) { /* 忽略 */ }
@@ -845,6 +863,7 @@ export default {
         baseUnit: this.f.unit || '件',
         remark: this.f.remark || null,
         channelIds: (this.f.channelIds && this.f.channelIds.length) ? this.f.channelIds : null,
+        conditionGrade: this.f.conditionGrade || null,
       });
       if (!pid) { uni.showToast({ title: '建档失败', icon: 'none' }); return; }
       if (this.f.imageUrl) {
@@ -875,7 +894,8 @@ export default {
         quantity: qty,
         salePrice: isSale && this.f.salePrice !== '' ? Number(this.f.salePrice) : undefined,
         channelId: isSale ? (this.f.channelId || undefined) : undefined,
-        remark: this.f.remark || undefined
+        remark: this.f.remark || undefined,
+        extraCost: this.f.extraCost !== '' ? Number(this.f.extraCost) : undefined
       });
       uni.showToast({ title: '已出库', icon: 'success' });
       this.f.outQuantity = '';

@@ -82,6 +82,11 @@ public interface ILedgerInventoryService {
     Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
                                  Integer quantity, String reason, java.math.BigDecimal salePrice, Long channelId, String remark);
 
+    /** 出库（带额外成本：运费/包装费，只影响本笔毛利） */
+    Map<String, Object> stockOut(Long userId, Long warehouseId, Long productId, Long shelfId,
+                                 Integer quantity, String reason, java.math.BigDecimal salePrice,
+                                 Long channelId, String remark, java.math.BigDecimal extraCost);
+
     /**
      * 库存盘点：按实盘数量与账面比对，差异写一条 adjust 流水（正=盘盈，负=盘亏）。
      * items 每项 {productId, actualQuantity}。

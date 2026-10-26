@@ -130,3 +130,6 @@ mysqldump -uroot -p --default-character-set=utf8mb4 --single-transaction --routi
 ```
 
 如需回滚：`mysql -uroot -p moyun_db < backup_before_init_xxxx.sql`。
+> **2026-10-26 变更**：`init-sql/` 与 `increment-sql/` 已删除，其内容合入本目录。
+> 执行顺序：`zyg_ddl_01` → `zyg_ddl_02` → `zyg_dml_01` → `zyg_dml_02` → `zyg_dml_03` → `zyg_dml_04` → `zyg_dml_05` → `zyg_dml_06` → **`zyg_ddl_04_delta_20261026.sql`** → `zyg_99_check.sql`。
+> 说明：delta 文件包含 2026-10-21/22 的授权审计、协议留痕、预设后台、分页索引等增量，可重复执行。

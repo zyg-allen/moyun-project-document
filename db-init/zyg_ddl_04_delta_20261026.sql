@@ -1,4 +1,57 @@
-﻿-- =============================================================================
+-- =============================================================================
+-- 2026-10-26 增量合并：将 2026-10-21/22 的 5 个增量脚本并入 db-init
+-- 执行顺序：放在 zyg_dml_06_job.sql 之后、zyg_99_check.sql 之前
+-- 幂等：全部语句可重复执行（IF NOT EXISTS / information_schema 守卫 / NOT EXISTS）
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 来源：20261021-01-订单obligation_id更名为linked_account_id.sql
+-- ---------------------------------------------------------------------------
+-- ============================================================
+-- 订单表：obligation_id 重命名为 linked_account_id
+--
+-- 方案A 后「赊账」建的是应收/应付账户（ledger_asset_account / ledger_liability_account），
+-- 不再是已删除的 ledger_obligation，列名同步更名以免误导。
+-- 幂等：information_schema 守卫，旧列不存在则跳过。
+-- ============================================================
+
+-- ① 销售订单：列改名
+SET @has := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_sale_order' AND COLUMN_NAME = 'obligation_id');
+SET @sql := IF(@has > 0,
+  'ALTER TABLE `ledger_sale_order` CHANGE COLUMN `obligation_id` `linked_account_id` bigint DEFAULT NULL COMMENT ''赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account）''',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ② 销售订单：索引改名
+SET @has := (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_sale_order' AND INDEX_NAME = 'idx_obligation');
+SET @sql := IF(@has > 0,
+  'ALTER TABLE `ledger_sale_order` RENAME INDEX `idx_obligation` TO `idx_linked_account`',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ③ 采购订单：列改名
+SET @has := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_purchase_order' AND COLUMN_NAME = 'obligation_id');
+SET @sql := IF(@has > 0,
+  'ALTER TABLE `ledger_purchase_order` CHANGE COLUMN `obligation_id` `linked_account_id` bigint DEFAULT NULL COMMENT ''赊账时关联的应收/应付账户ID（ledger_asset_account/ledger_liability_account）''',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ④ 采购订单：索引改名
+SET @has := (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_purchase_order' AND INDEX_NAME = 'idx_obligation');
+SET @sql := IF(@has > 0,
+  'ALTER TABLE `ledger_purchase_order` RENAME INDEX `idx_obligation` TO `idx_linked_account`',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
+-- ---------------------------------------------------------------------------
+-- 来源：20261021-01-记账后台管理边界（授权审计+预设后台）.sql
+-- ---------------------------------------------------------------------------
+-- =============================================================================
 -- 2026-10-21 记账后台管理边界整改：用户数据授权 + 访问审计 + 预设后台化
 -- -----------------------------------------------------------------------------
 -- 背景：后台此前可直接查看用户流水（未授权）、无访问审计；
@@ -483,3 +536,100 @@ FROM (
 JOIN `sys_dict_data` r ON r.`dict_type`='ledger_account_category' AND r.`dict_value`=c.pv AND r.`parent_dict_id`=0
 WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_data` d
                   WHERE d.`dict_type`='ledger_account_category' AND d.`dict_value`=c.val AND d.`parent_dict_id`=r.`dict_code`);
+
+
+-- ---------------------------------------------------------------------------
+-- 来源：20261022-01-分类账户图标支持图片URL.sql
+-- ---------------------------------------------------------------------------
+-- ============================================================
+-- 分类/账户图标支持图片 URL：icon 列由 varchar(50) 扩宽到 varchar(255)
+--
+-- 原 icon 存 emoji key（如 food），现同时允许存上传图片地址
+-- （如 /profile/upload/2026/10/18/xxx.png），50 长度不够。
+-- 幂等：仅当当前长度小于 255 时才 MODIFY。
+-- ============================================================
+
+SET @need := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_category'
+    AND COLUMN_NAME = 'icon' AND CHARACTER_MAXIMUM_LENGTH < 255);
+SET @sql := IF(@need > 0,
+  'ALTER TABLE `ledger_category` MODIFY COLUMN `icon` varchar(255) DEFAULT NULL COMMENT ''图标：emoji key 或图片URL''',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @need := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_asset_account'
+    AND COLUMN_NAME = 'icon' AND CHARACTER_MAXIMUM_LENGTH < 255);
+SET @sql := IF(@need > 0,
+  'ALTER TABLE `ledger_asset_account` MODIFY COLUMN `icon` varchar(255) DEFAULT NULL COMMENT ''图标：emoji key 或图片URL''',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @need := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ledger_liability_account'
+    AND COLUMN_NAME = 'icon' AND CHARACTER_MAXIMUM_LENGTH < 255);
+SET @sql := IF(@need > 0,
+  'ALTER TABLE `ledger_liability_account` MODIFY COLUMN `icon` varchar(255) DEFAULT NULL COMMENT ''图标：emoji key 或图片URL''',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
+-- ---------------------------------------------------------------------------
+-- 来源：20261022-01-门户用户协议同意记录.sql
+-- ---------------------------------------------------------------------------
+-- ==============================================================================
+-- 20261022-01 门户用户协议同意记录（与门户账号体系共用）
+-- 幂等：表存在则跳过；本脚本不涉及 sys_menu
+-- ==============================================================================
+
+SET @tbl_exists := (
+  SELECT COUNT(*) FROM information_schema.TABLES
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_user_agreement'
+);
+
+SET @ddl := IF(@tbl_exists = 0,
+  'CREATE TABLE `portal_user_agreement` (
+     `id` bigint NOT NULL AUTO_INCREMENT COMMENT ''主键'',
+     `user_id` bigint NOT NULL COMMENT ''门户用户ID'',
+     `doc_type` varchar(32) NOT NULL COMMENT ''文档类型：terms/privacy'',
+     `version` varchar(32) NOT NULL COMMENT ''协议版本'',
+     `agreed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT ''同意时间'',
+     `ip` varchar(64) DEFAULT NULL COMMENT ''客户端IP'',
+     `user_agent` varchar(255) DEFAULT NULL COMMENT ''客户端UA'',
+     PRIMARY KEY (`id`),
+     UNIQUE KEY `uk_user_doc_version` (`user_id`,`doc_type`,`version`),
+     KEY `idx_user` (`user_id`)
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT=''门户用户协议同意记录（注册/换版重签留痕）''',
+  'SELECT ''portal_user_agreement already exists'' AS msg');
+
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+
+-- ---------------------------------------------------------------------------
+-- 来源：20261022-02-记账流水分页索引.sql
+-- ---------------------------------------------------------------------------
+-- ==============================================================================
+-- 20261022-02 记账流水分页复合索引
+-- 背景：分页固定按 (user_id, status) 过滤、按 transaction_date/id 倒序；
+--       原 idx_user_status_id 缺少 date，数据量上来后会 filesort。
+-- 幂等：索引存在则跳过；不涉及 sys_menu。
+-- ==============================================================================
+
+SET @idx_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'ledger_transaction'
+    AND INDEX_NAME = 'idx_user_status_date'
+);
+
+SET @ddl := IF(@idx_exists = 0,
+  'ALTER TABLE `ledger_transaction` ADD INDEX `idx_user_status_date` (`user_id`,`status`,`transaction_date`,`id`)',
+  'SELECT ''idx_user_status_date already exists'' AS msg');
+
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+

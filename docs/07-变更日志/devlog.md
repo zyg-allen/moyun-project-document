@@ -2,6 +2,12 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v14.92 (2026-10-26) 数据库脚本收敛到 db-init
+
+- 删除 `moyun-server/src/main/resources/init-sql`（8 个）与 `increment-sql`（76 个）。
+- 将 2026-10-21/22 的 5 个增量脚本合并为 `db-init/zyg_ddl_04_delta_20261026.sql`（幂等，含授权审计、协议留痕、预设后台、分页索引），执行顺序追加在 `zyg_dml_06_job.sql` 之后。
+- 同步调整：`DdlConventionGuardTest`、`IncrementSqlIdempotencyGuardTest` 因目标文件已删除而移除；`db-init/zyg_README_初始化说明.md`、上线检查清单、`application.yaml` 注释更新路径。
+- 风险提示：db-init 是 2026-10-20 快照，delta 只覆盖 10-21/22 增量；若需从零重建，请先用开发库校验或重新生成完整快照。
 ## v14.91 (2026-10-22) 生产上线检查：修复 5 个生产阻断项
 
 - **校验器断言写反**：`ConfigWiringValidator` 的 `token.admin/portal.secret` 接线断言把 `equals` 当正常，导致正确配置独立密钥的生产环境无法启动；已改为 `!equals`。

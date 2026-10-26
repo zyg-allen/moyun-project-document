@@ -1,4 +1,4 @@
-server:
+﻿server:
   port: 8080
 
 spring:
@@ -48,7 +48,7 @@ spring:
   #   见 com.moyun.core.config.QuartzConfig：显式定义 SchedulerFactoryBean，把**物理主库**
   #   masterDataSource 注入进去（不能用 @Primary 的 dynamicDataSource 路由数据源，否则启动抛
   #   "No local DataSource found for configuration"），并开启 isClustered=true / instanceId=AUTO。
-  #   前置条件：目标库 qrtz_* 表（Quartz 2.x schema，11 张）已就绪 —— init-sql/moyun-db-ddl.sql 已含。
+  #   前置条件：目标库 qrtz_* 表（Quartz 2.x schema，11 张）已就绪 —— db-init/zyg_ddl_01_sys_ai.sql 已含。
   #   多实例语义：同一触发器同一时刻只在一个节点执行（qrtz_locks 行锁竞争）；
   #   启动注册改为 sys_job → JobStore 的**幂等同步**（不再 scheduler.clear()，见 SysJobServiceImpl#init）。
   #   @Scheduled 注解类任务（ledger 三个等）不走 Quartz，仍由 DistributedLockUtil 互斥。

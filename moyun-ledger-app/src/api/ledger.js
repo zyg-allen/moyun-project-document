@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记账模块 API（后端 com.moyun.ledger，路径 /portal/ledger/**）
  * 金额单位：元（人民币 CNY），BigDecimal/DECIMAL(18,2) 全链路统一
  */
@@ -17,6 +17,10 @@ export const login = (data) => post('/portal/login', data);
  * 所以「设置」页读邮箱/开关必须现调本接口，不能依赖登录时那一份。
  */
 export const getUserInfo = () => get('/portal/user/me');
+
+/** 协议同意记录（门户共用） */
+export const listAgreements = () => get('/portal/user/agreement/list');
+export const consentAgreement = (version) => post('/portal/user/agreement/consent', { version });
 
 /** 更新个人资料（部分更新；绑定邮箱即传 { email }，切换邮件提醒传 { notifySchedule }） */
 export const updateProfile = (data) => put('/portal/user/profile', data);
@@ -270,6 +274,24 @@ export const updateAiProfile = (data) => post('/portal/ledger/ai/profile', data)
 
 /** 可见功能入口列表（后台配置；失败时前端回退内置默认清单） */
 export const getAppFeatures = () => get('/portal/ledger/app-features');
+
+// ---------------- 数据授权（隐私与授权） ----------------
+
+/**
+ * 授权告知：可选范围 + 文案 + 政策版本
+ * 返回 { version, scopes: [{key,label,desc}], notice }
+ */
+export const getDataAuthPolicy = () => get('/portal/ledger/data-auth/policy');
+
+/** 当前授权状态：{ granted, status, scopes[], purpose, grantedAt, expireAt } */
+export const getDataAuth = () => get('/portal/ledger/data-auth');
+
+/** 发起授权：{ scopes: [], purpose, hours }（hours 1~168，默认 24） */
+export const grantDataAuth = (data) => post('/portal/ledger/data-auth/grant', data);
+
+/** 撤回授权（立即生效） */
+export const revokeDataAuth = (reason) => put('/portal/ledger/data-auth/revoke', { reason: reason || '' });
+
 // ---------------- 存钱计划 ----------------
 
 /** 存钱计划列表 + 汇总（剩余需存/累计存入/目标金额） */

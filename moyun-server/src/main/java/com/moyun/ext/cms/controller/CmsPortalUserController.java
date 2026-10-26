@@ -48,11 +48,70 @@ public class CmsPortalUserController extends BaseController {
     /**
      * 根据门户用户编号获取详细信息
      */
-    @Operation(summary = "获取门户用户详情", description = "根据用户ID获取门户用户详细信息")
+    @Operation(summary = "获取门户用户详情", description = "根据用户ID获取门户用户详细信息（联系方式脱敏）")
     @PreAuthorize("@ss.hasPermi('cms:user:query')")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "用户ID") @PathVariable("id") Long id) {
-        return success(cmsPortalUserService.selectUserById(id));
+        return success(maskContact(cmsPortalUserService.selectUserById(id)));
+    }
+
+    /**
+     * 获取联系方式明文（手机号/邮箱）
+     *
+     * <p>编辑用户时单独调用：列表/详情默认掩码，只有具备 {@code cms:user:contact} 权限才可取明文，
+     * 且每次查看都写入操作日志（{@link Log}）。</p>
+     */
+    @Operation(summary = "获取联系方式明文", description = "手机号/邮箱明文，需 cms:user:contact 权限并留痕")
+    @PreAuthorize("@ss.hasPermi('cms:user:contact')")
+    @Log(title = "门户用户管理-查看联系方式", businessType = BusinessType.OTHER)
+    @GetMapping(value = "/{id}/contact")
+    public AjaxResult contact(@Parameter(description = "用户ID") @PathVariable("id") Long id) {
+        PortalUser user = cmsPortalUserService.selectContactById(id);
+        if (user == null) {
+            return error("用户不存在");
+        }
+        java.util.Map<String, String> data = new java.util.LinkedHashMap<>();
+        data.put("phone", user.getPhone() == null ? "" : user.getPhone());
+        data.put("email", user.getEmail() == null ? "" : user.getEmail());
+        return success(data);
+    }
+
+    /** 详情脱敏：与列表口径一致（138****5678 / ab***@example.com） */
+    private PortalUser maskContact(PortalUser user) {
+        if (user == null) {
+            return null;
+        }
+        user.setPhone(maskPhone(user.getPhone()));
+        user.setEmail(maskEmail(user.getEmail()));
+        return user;
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return phone;
+        }
+        if (phone.length() < 7) {
+            return maskMiddle(phone);
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return email;
+        }
+        int at = email.indexOf('@');
+        if (at <= 0) {
+            return maskMiddle(email);
+        }
+        return maskMiddle(email.substring(0, at)) + email.substring(at);
+    }
+
+    private String maskMiddle(String text) {
+        if (text == null || text.length() <= 2) {
+            return text == null ? null : "**";
+        }
+        return text.charAt(0) + "***" + text.charAt(text.length() - 1);
     }
 
     /**

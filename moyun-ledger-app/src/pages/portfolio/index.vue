@@ -1,16 +1,15 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- 顶部 Tab 切换 -->
     <view class="seg">
       <view class="seg-item" :class="{ on: activeTab === 'asset' }" @tap="switchTab('asset')">资产</view>
       <view class="seg-item" :class="{ on: activeTab === 'liability' }" @tap="switchTab('liability')">负债</view>
     </view>
-
-    <!-- ========== 资产视图 ========== -->
+<!-- ========== 资产视图 ========== -->
     <template v-if="activeTab === 'asset'">
       <view class="summary">
         <view class="summary-label">总资产（计入合计的账户）</view>
-        <view class="summary-amount">{{ privacyMode ? '****' : '¥ ' + assetTotalText }}</view>
+        <view class="summary-amount">{{ privacyMode ? '****' : assetTotalText + ' 元' }}</view>
         <view class="summary-sub">共 {{ assetEnabled.length }} 个账户
           <text class="link" @tap="showArchived = !showArchived">{{ showArchived ? ' · 隐藏归档' : ' · 显示归档' }}</text>
         </view>
@@ -23,7 +22,7 @@
           <text class="collapse-arrow">{{ isCollapsed('a_' + g.type) ? '▸' : '▾' }}</text>
         </view>
         <view v-if="!isCollapsed('a_' + g.type)">
-          <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
+          <view v-if="g.items.length === 0" class="empty">🗂 暂无{{ g.label }}，点右侧「＋」添加</view>
           <view v-for="a in g.items" :key="a.id" class="row" @tap="viewTxn('asset', a)">
             <view class="row-icon" :style="{ background: assetIcon(a.accountType).bg }">
               <text>{{ assetIcon(a.accountType).emoji }}</text>
@@ -38,7 +37,7 @@
             </view>
             <view class="row-actions">
               <view class="pencil-btn" @tap.stop="editAsset(a)">✎</view>
-              <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + formatAmount(a.balance) }}</view>
+              <view class="row-balance">{{ privacyMode ? '****' : formatAmount(a.balance) + ' 元' }}</view>
             </view>
           </view>
         </view>
@@ -48,7 +47,7 @@
     <template v-else>
       <view class="summary liability">
         <view class="summary-label">总负债（计入合计的账户）</view>
-        <view class="summary-amount">{{ privacyMode ? '****' : '¥ ' + liabTotalText }}</view>
+        <view class="summary-amount">{{ privacyMode ? '****' : liabTotalText + ' 元' }}</view>
         <view class="summary-sub">
           在还 {{ liabActive.length }} 笔<text v-if="settledCount > 0"> · 已结清 {{ settledCount }} 笔</text>
           <text class="link" @tap="showArchived = !showArchived">{{ showArchived ? ' · 隐藏归档' : ' · 显示归档' }}</text>
@@ -62,7 +61,7 @@
           <text class="collapse-arrow">{{ isCollapsed('l_' + g.type) ? '▸' : '▾' }}</text>
         </view>
         <view v-if="!isCollapsed('l_' + g.type)">
-          <view v-if="g.items.length === 0" class="empty">暂无{{ g.label }}，点右侧「＋」添加</view>
+          <view v-if="g.items.length === 0" class="empty">🗂 暂无{{ g.label }}，点右侧「＋」添加</view>
           <view v-for="l in g.items" :key="l.id" class="row" @tap="viewTxn('liability', l)">
             <view class="row-icon liab" :class="l.accountType">{{ liabTypeText(l.accountType).slice(0, 1) }}</view>
             <view class="flex-1">
@@ -74,14 +73,14 @@
               </view>
               <view class="row-type">
                 {{ liabTypeText(l.accountType) }}
-                <text v-if="l.monthlyPayment"> · 月供 ¥{{ formatAmount(l.monthlyPayment) }}</text>
+                <text v-if="l.monthlyPayment"> · 月供 {{ formatAmount(l.monthlyPayment) }} 元</text>
                 <text v-if="l.repaymentDay"> · {{ l.repaymentDay }}日还款</text>
                 <text v-if="l.totalTerms"> · {{ l.paidTerms || 0 }}/{{ l.totalTerms }}期</text>
               </view>
             </view>
             <view class="row-actions">
               <view class="pencil-btn" @tap.stop="editLiability(l)">✎</view>
-              <view class="row-balance liab">{{ privacyMode ? '****' : '¥ ' + formatAmount(l.balance) }}</view>
+              <view class="row-balance liab">{{ privacyMode ? '****' : formatAmount(l.balance) + ' 元' }}</view>
             </view>
           </view>
         </view>
@@ -101,9 +100,9 @@
       </view>
       <view class="field">
         <text class="field-label">类型</text>
-        <picker class="fill-picker" :range="assetTypeNames" @change="onAssetTypeChange">
+        <view class="fill-picker" @tap="openPs('assetType')">
           <view class="field-picker">{{ assetTypeText(assetForm.accountType) }} ▾</view>
-        </picker>
+        </view>
       </view>
       <view class="field">
         <text class="field-label">描述</text>
@@ -149,9 +148,9 @@
         </view>
         <view class="field">
           <text class="field-label">类型</text>
-          <picker class="fill-picker" :range="liabTypeNames" @change="onLiabTypeChange">
+          <view class="fill-picker" @tap="openPs('liabType')">
             <view class="field-picker">{{ liabTypeText(liabForm.accountType) }} ▾</view>
-          </picker>
+          </view>
         </view>
         <view class="field">
           <text class="field-label">描述</text>
@@ -185,9 +184,9 @@
         </view>
         <view class="field">
           <text class="field-label">还款日</text>
-          <picker class="fill-picker" :range="days" @change="onDayChange">
+          <view class="fill-picker" @tap="openPs('day')">
             <view class="field-picker">{{ liabForm.repaymentDay ? liabForm.repaymentDay + '日' : '选填' }} ▾</view>
-          </picker>
+          </view>
         </view>
         <view class="field">
           <text class="field-label">总期数</text>
@@ -205,6 +204,15 @@
         <view class="btn-cancel" @tap="liabEditing = false">取消</view>
       </view>
     </KeyboardAwareSheet>
+    <PickerSheet
+      :visible="ps.visible"
+      :title="ps.title"
+      :options="ps.options"
+      :selected="ps.selected"
+      @close="ps.visible = false"
+      @select="onPsSelect"
+    />
+
   </view>
 </template>
 
@@ -212,9 +220,11 @@
 import keyboardAware from '@/mixins/keyboardAware';
 import submitLock from '@/mixins/submitLock';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
 import { listAssets, listAccountTypes, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
 import { formatAmount, toFixedYuan, toNum, safeSum, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
+import { ensureLogin } from '@/utils/authGuard';
 
 const ASSET_TYPES = [
   ['fund', '资金账户'], ['receivable', '应收款'], ['investment', '投资'], ['fixed', '固定资产']
@@ -243,7 +253,7 @@ const LIAB_TYPES = [
 
 export default {
   mixins: [keyboardAware, submitLock],
-  components: { KeyboardAwareSheet },  // 键盘安全弹层
+  components: { PickerSheet, KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     return {
       activeTab: 'asset',
@@ -253,6 +263,7 @@ export default {
       privacyMode: false,
       // 分组折叠状态（key = 'a_'+类型 / 'l_'+类型，true=收起）
       collapsed: {},
+      ps: { visible: false, key: '', title: '', options: [], selected: -1 },
       assetEditing: false,
       assetForm: { id: null, name: '', accountType: 'fund', description: '', riskLevel: '正常', initialBalance: '', includeInTotal: 1 },
       assetTypes: ASSET_TYPES,
@@ -336,6 +347,7 @@ export default {
     },
   },
   onShow() {
+    if (!ensureLogin()) return;
     useThemeStore().restore();
     this.privacyMode = uni.getStorageSync('ledger_privacy') === '1';
     this.loadAssets();
@@ -347,6 +359,23 @@ export default {
   },
 
   methods: {
+    openPs(key) {
+      const map = {
+        assetType: { title: '资产类型', options: this.assetTypeNames, selected: this.assetTypes.findIndex((t) => t[0] === this.assetForm.accountType) },
+        liabType: { title: '负债类型', options: this.liabTypeNames, selected: this.liabTypes.findIndex((t) => t[0] === this.liabForm.accountType) },
+        day: { title: '还款日', options: this.days, selected: this.liabForm.repaymentDay ? this.liabForm.repaymentDay - 1 : -1 }
+      };
+      const cfg = map[key] || {};
+      this.ps = { visible: true, key, title: cfg.title || '', options: cfg.options || [], selected: cfg.selected == null ? -1 : cfg.selected };
+    },
+    onPsSelect(idx) {
+      const key = this.ps.key;
+      if (key === 'assetType') this.onAssetTypeChange({ detail: { value: idx } });
+      else if (key === 'liabType') this.onLiabTypeChange({ detail: { value: idx } });
+      else if (key === 'day') this.onDayChange({ detail: { value: idx } });
+      this.ps.visible = false;
+    },
+    formatAmount,
     /** 分组是否收起（key = 'a_'+类型 / 'l_'+类型） */
     isCollapsed(key) { return !!this.collapsed[key]; },
     /** 点分组标题收起/展开 */
@@ -588,12 +617,12 @@ export default {
   color: var(--on-primary); font-size: 28rpx; font-weight: 600; background: var(--primary);
 }
 /* 负债图标：暖橙系底（与资产主题蓝区分） */
-.row-icon.liab { background: linear-gradient(135deg, #f2913d, #e8703a); }
+.row-icon.liab { background: var(--expense-bg); color: var(--expense); }
 .row-name { font-size: 28rpx; }
 .archived-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .settle-tag { font-size: 20rpx; color: var(--income); border: 1rpx solid var(--income); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 /* 风险标记 */
-.risk-tag { font-size: 20rpx; color: #E8A33D; border: 1rpx solid #E8A33D; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
+.risk-tag { font-size: 20rpx; color: var(--warning); border: 1rpx solid var(--warning); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 /* 风险快捷标签（可自定义输入，标签可点选） */
 .risk-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 12rpx; }
 .risk-chip {
@@ -602,7 +631,8 @@ export default {
 }
 .risk-chip.on { color: var(--primary); border-color: var(--primary); background: var(--primary-soft, #eef2ff); }
 .row-type { font-size: 22rpx; color: var(--text-muted); margin-top: 4rpx; }
-.row-balance { font-size: 32rpx; font-weight: 600; }
+.row-balance {
+  font-variant-numeric: tabular-nums; font-size: 32rpx; font-weight: 600; }
 /* 负债金额：红色（欠的钱），资产金额保持默认 */
 .row-balance.liab { color: var(--expense); }
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="ops-dashboard">
     <!-- ============ ① 平台定位 / 品牌条 ============ -->
     <section class="hero">
@@ -359,7 +359,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 import useUserStore from '@/store/modules/user'
 import { getDashboardAll, refreshDashboardCache } from '@/api/system/dashboard'
 

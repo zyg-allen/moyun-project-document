@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar :title="editId ? '编辑计划' : '添加计划'">
       <view class="nav-ok" @tap="save">确定</view>
@@ -8,21 +8,21 @@
     <view class="form-card">
       <view class="form-row">
         <text class="form-label">循环周期</text>
-        <picker class="fill-picker" :range="cycleLabels" :value="cycleIndex" @change="onCycleChange">
+        <view class="fill-picker" @tap="openPs('cycle')">
           <view class="form-value">{{ cycleLabels[cycleIndex] }} ›</view>
-        </picker>
+        </view>
       </view>
       <view class="form-row" v-if="form.cycle === 'weekly'">
         <text class="form-label">每周几</text>
-        <picker class="fill-picker" :range="weekLabels" :value="form.dayOfWeek - 1" @change="(e) => form.dayOfWeek = e.detail.value + 1">
+        <view class="fill-picker" @tap="openPs('week')">
           <view class="form-value">周{{ weekLabels[form.dayOfWeek - 1] }} ›</view>
-        </picker>
+        </view>
       </view>
       <view class="form-row" v-if="form.cycle === 'monthly'">
         <text class="form-label">每月几号</text>
-        <picker class="fill-picker" :range="dayList" :value="form.dayOfMonth - 1" @change="(e) => form.dayOfMonth = e.detail.value + 1">
+        <view class="fill-picker" @tap="openPs('day')">
           <view class="form-value">{{ form.dayOfMonth }}号 ›</view>
-        </picker>
+        </view>
       </view>
       <view class="form-row" v-if="form.cycle === 'interval'">
         <text class="form-label">间隔天数</text>
@@ -30,9 +30,9 @@
       </view>
       <view class="form-row">
         <text class="form-label">执行时间</text>
-        <picker mode="time" class="fill-picker" :value="form.execTime" @change="(e) => form.execTime = e.detail.value">
+        <view class="fill-picker" @tap="openTime">
           <view class="form-value">{{ form.execTime }} ›</view>
-        </picker>
+        </view>
       </view>
       <view class="form-row">
         <text class="form-label">开始时间</text>
@@ -86,11 +86,11 @@
       </view>
       <view class="form-row">
         <text class="form-label">账户</text>
-        <picker class="fill-picker" :range="accountNames" @change="onAccountChange">
+        <view class="fill-picker" @tap="openPs('account')">
           <view class="form-value" :class="{ placeholder: !form.accountId }">
             {{ form.accountId ? accountName : '请选择资产' }} ›
           </view>
-        </picker>
+        </view>
       </view>
     </view>
 
@@ -117,6 +117,27 @@
     <view class="preview" v-if="nextExecText">下次记账时间：{{ nextExecText }}</view>
 
     <view class="submit-btn" :class="{ disabled: submitting }" @tap="!submitting && save()">确定</view>
+    <PickerSheet
+      :visible="ps.visible"
+      :title="ps.title"
+      :options="ps.options"
+      :selected="ps.selected"
+      @close="ps.visible = false"
+      @select="onPsSelect"
+    />
+
+  
+  <PickerWheel
+    :visible="timeSheet"
+    title="选择执行时间"
+    :columns="[hours, minutes]"
+    :value="timeDraft"
+    @close="timeSheet = false"
+    @confirm="onTimeConfirm"
+  />
+
+  
+
   </view>
 </template>
 
@@ -124,14 +145,18 @@
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
+import PickerWheel from '@/components/PickerWheel/PickerWheel.vue';
+import { HOURS, MINUTES, pad2 } from '@/utils/timeOptions';
 import { useThemeStore } from '@/stores/theme';
 import { listCategories, listAssets, createScheduleTask, getScheduleTask, updateScheduleTask } from '@/api/ledger';
 import { applyAmountInput } from '@/utils/money';
+import { loadDicts } from '@/utils/ledgerDict';
 import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
 
 export default {
   mixins: [submitLock],
-  components: { CalendarPicker,  NavBar },
+  components: { PickerSheet, PickerWheel, CalendarPicker,  NavBar },
   data() {
     const today = new Date();
     return {
@@ -139,6 +164,11 @@ export default {
       weekLabels: ['一', '二', '三', '四', '五', '六', '日'],
       dayList: Array.from({ length: 28 }, (_, i) => (i + 1) + '号'),
       cycleKeys: ['daily', 'weekly', 'monthly', 'interval'],
+      ps: { visible: false, key: '', title: '', options: [], selected: -1 },
+      timeSheet: false,
+      timeDraft: [0, 0],
+      hours: HOURS,
+      minutes: MINUTES,
       form: {
         name: '',
         type: 'expense',
@@ -229,6 +259,7 @@ export default {
   },
   onShow() {
     useThemeStore().restore();
+    this.loadCycleDict();
     this.loadOptions();
     // 编辑模式首次进入回填一次；用 editLoaded 兜住 onShow 的重复触发，
     // 避免从其它页返回时把用户已修改的内容覆盖掉
@@ -241,6 +272,42 @@ export default {
     }
   },
   methods: {
+    openPs(key) {
+      const map = {
+        cycle: { title: '记账周期', options: this.cycleLabels, selected: this.cycleIndex },
+        week: { title: '每周几', options: this.weekLabels, selected: this.form.dayOfWeek - 1 },
+        day: { title: '每月几号', options: this.dayList, selected: this.form.dayOfMonth - 1 },
+        account: { title: '选择资产账户', options: this.accountNames, selected: this.accountNames.indexOf(this.accountName) }
+      };
+      const cfg = map[key] || {};
+      this.ps = { visible: true, key, title: cfg.title || '', options: cfg.options || [], selected: cfg.selected == null ? -1 : cfg.selected };
+    },
+    openTime() {
+      const parts = String(this.form.execTime || '08:00').split(':');
+      this.timeDraft = [Number(parts[0]) || 0, Number(parts[1]) || 0];
+      this.timeSheet = true;
+    },
+    onTimeConfirm(idx) {
+      this.form.execTime = pad2(idx[0]) + ':' + pad2(idx[1]);
+      this.timeSheet = false;
+    },
+    onPsSelect(idx) {
+      const key = this.ps.key;
+      if (key === 'cycle') this.onCycleChange({ detail: { value: idx } });
+      else if (key === 'week') this.form.dayOfWeek = idx + 1;
+      else if (key === 'day') this.form.dayOfMonth = idx + 1;
+      else if (key === 'account') this.onAccountChange({ detail: { value: idx } });
+      this.ps.visible = false;
+    },
+    /** 周期标签走后台字典（失败保留内置「每天/每周/每月/每N天」） */
+    async loadCycleDict() {
+      const d = await loadDicts(['ledger_schedule_cycle']);
+      const items = d.ledger_schedule_cycle || [];
+      if (!items.length) return;
+      const map = {};
+      items.forEach(i => { map[i.value] = i.label; });
+      this.cycleLabels = this.cycleKeys.map(k => map[k] || k);
+    },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onAmountInput(e) { applyAmountInput(e, this, 'form.amount'); },
     /** 分类图标 emoji（与分类管理/记一笔同一份映射） */

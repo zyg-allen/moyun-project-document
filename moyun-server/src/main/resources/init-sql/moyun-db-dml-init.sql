@@ -1,4 +1,4 @@
--- 墨云数据库生产初始化种子数据（系统设置，不含业务/测试数据）
+﻿-- 墨云数据库生产初始化种子数据（系统设置，不含业务/测试数据）
 -- 由 sql/moyun-db-dml-init.sql 清理生成：去除库名前缀、剔除已删表种子与测试数据
 SET FOREIGN_KEY_CHECKS = 0;
 INSERT INTO ai_agent (name,description,system_prompt,knowledge_library_ids,knowledge_base_weights,model_config_id,model_name,temperature,max_tokens,rag_min_score,rag_max_results,enabled,welcome_message,suggested_questions,show_citations,max_history_turns,api_enabled,api_key,workflow_id,workflow_trigger_mode,workflow_trigger_keywords,publish_enabled,publish_token,publish_settings,create_time,update_time,rag_recall_multiplier,rag_enable_hybrid_search,rag_enable_query_expansion,rag_bm25_weight,rag_vector_weight,enable_self_reflection,deleted) VALUES
@@ -309,6 +309,62 @@ INSERT INTO ledger_app_feature_config (feature_key,feature_name,icon,icon_color,
 	 ('gold','记黄金','💰','#7fbf94','recommend',22,0,'dev',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02',''),
 	 ('coupon','优惠券','🎫','#7fbf94','recommend',23,0,'dev',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02',''),
 	 ('portal','墨韵社区','🌐','#7fbf94','recommend',3,1,'done',NULL,'','2026-09-14 14:04:28','','2026-09-14 14:04:28','http://localhost:3000');
+-- 2026-10-21 补齐：库存/仓库配置/商品类目三个入口此前只在交付快照里，初始化脚本缺失
+INSERT INTO ledger_app_feature_config (feature_key,feature_name,icon,icon_color,group_type,sort_num,visible,status,badge,route,create_by,create_time,update_by,update_time,remark) VALUES
+	 ('warehouse','库存管理','📦','#7fbf94','main',27,1,'done',NULL,'/pages/warehouse/index','','2026-10-20 10:00:00','','2026-10-20 10:00:00',''),
+	 ('warehouseSetting','仓库配置','🏷️','#7fbf94','main',28,1,'done',NULL,'/pages/mine/warehouse-settings/index','','2026-10-20 10:00:00','','2026-10-20 10:00:00',''),
+	 ('productCategory','商品类目','🗂️','#7fbf94','main',29,1,'done',NULL,'/pages/mine/product-categories/index','','2026-10-20 10:00:00','','2026-10-20 10:00:00','');
+-- 入口路由绑定（幂等）：后台只允许从白名单选择，未绑定的入口不可点击
+UPDATE ledger_app_feature_config SET route='/pages/mine/categories/index' WHERE feature_key='category';
+UPDATE ledger_app_feature_config SET route='/pages/mine/settings/index' WHERE feature_key='setting';
+UPDATE ledger_app_feature_config SET route='/pages/mine/savings/index' WHERE feature_key='savings';
+UPDATE ledger_app_feature_config SET route='/pages/mine/schedule/index' WHERE feature_key='schedule';
+UPDATE ledger_app_feature_config SET route='/pages/mine/feedback/index' WHERE feature_key='feedback';
+UPDATE ledger_app_feature_config SET route='/pages/mine/memo/index' WHERE feature_key='memo';
+UPDATE ledger_app_feature_config SET route='/pages/record/list' WHERE feature_key='list';
+UPDATE ledger_app_feature_config SET route='/pages/warehouse/index' WHERE feature_key='stock';
+-- 死链收敛：无路由的入口一律不展示（赞赏此前 visible=1 但 App 无对应页面，点了没反应）
+UPDATE ledger_app_feature_config SET visible=0, route=NULL,
+       remark=COALESCE(remark,'入口未上线：尚未绑定路由')
+ WHERE feature_key IN ('tip','personalize','catIcon');
+
+-- 商品类目系统预设（18 行：一级 6 + 二级 12；后台可维护，用户自建只读）
+INSERT INTO ledger_product_category (id,user_id,name,parent_id,icon,sort_order,is_system,status,create_time,update_time) VALUES
+	 (1,0,'食品',0,'🍱',10,1,1,'2026-10-18 16:12:45','2026-10-19 03:52:42'),
+	 (2,0,'饮料',0,'🥤',20,1,1,'2026-10-18 16:12:45','2026-10-19 03:52:42'),
+	 (3,0,'日用品',0,'🧴',30,1,1,'2026-10-18 16:12:45','2026-10-19 03:52:42'),
+	 (4,0,'电子产品',0,'📱',40,1,1,'2026-10-18 16:12:45','2026-10-19 03:52:42'),
+	 (5,0,'服装鞋帽',0,'👕',50,1,1,'2026-10-18 16:12:45','2026-10-19 03:52:42'),
+	 (6,0,'其他',0,'📦',90,1,1,'2026-10-18 16:12:45','2026-10-19 03:52:42'),
+	 (7,0,'零食',1,'🍿',10,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (8,0,'生鲜',1,'🥬',20,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (9,0,'米面粮油',1,'🍚',30,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (10,0,'碳酸饮料',2,'🥤',10,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (11,0,'茶饮咖啡',2,'☕',20,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (12,0,'酒水',2,'🍺',30,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (13,0,'洗护',3,'🧼',10,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (14,0,'厨房用品',3,'🍳',20,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (15,0,'数码配件',4,'🔌',10,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (16,0,'手机平板',4,'📱',20,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (17,0,'上装',5,'👔',10,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42'),
+	 (18,0,'鞋靴',5,'👟',20,1,1,'2026-10-19 03:52:42','2026-10-19 03:52:42');
+-- 售卖渠道系统预设（7 行）
+INSERT INTO ledger_sale_channel (id,user_id,name,icon,sort_order,is_system,status,create_time,update_time) VALUES
+	 (1,0,'抖音','douyin',10,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24'),
+	 (2,0,'淘宝','taobao',20,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24'),
+	 (3,0,'拼多多','pdd',30,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24'),
+	 (4,0,'闲鱼','xianyu',40,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24'),
+	 (5,0,'小红书','xhs',50,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24'),
+	 (6,0,'微信','wechat',60,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24'),
+	 (7,0,'线下','offline',70,1,1,'2026-10-19 01:39:24','2026-10-19 01:39:24');
+-- 进货渠道系统预设（5 行；该表主键为雪花/显式 id，不走自增）
+INSERT INTO ledger_source_channel (id,user_id,name,sort_order,is_system,status,create_time,update_time) VALUES
+	 (9001,0,'拼多多',1,1,1,'2026-10-20 17:39:14','2026-10-20 17:39:14'),
+	 (9002,0,'闲鱼',2,1,1,'2026-10-20 17:39:14','2026-10-20 17:39:14'),
+	 (9003,0,'淘宝',3,1,1,'2026-10-20 17:39:14','2026-10-20 17:39:14'),
+	 (9004,0,'批发市场',4,1,1,'2026-10-20 17:39:14','2026-10-20 17:39:14'),
+	 (9005,0,'朋友赠',5,1,1,'2026-10-20 17:39:14','2026-10-20 17:39:14');
+
 INSERT INTO ledger_category (user_id,name,`type`,group_name,parent_id,icon,color,sort_order,is_system,status,create_time,update_time) VALUES
 	 (0,'账户间互转','transfer','账户间',NULL,'transfer-self','#4A90D9',1,1,1,'2026-09-08 13:29:45','2026-09-08 13:29:45'),
 	 (0,'转给亲友','transfer','亲友间',NULL,'transfer-friend','#E67E22',2,1,1,'2026-09-08 13:29:45','2026-09-08 13:29:45'),
@@ -836,3 +892,168 @@ INSERT INTO sys_config (config_name, config_key, config_value, platform_code, co
 	 ('RAG-SelfRAG验证开关',    'ai.rag.enableSelfRag',            'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, 'Self-RAG 检索结果相关性 LLM 验证（过滤噪声召回，每条候选消耗 Token）开关；Agent 级 ragMinScore 阈值仍生效', '0'),
 	 ('RAG-对话摘要开关',       'ai.rag.enableConversationSummary','true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, '长对话历史滑窗摘要压缩开关（节省上下文 Token）；false=超窗直接丢弃最旧消息', '0'),
 	 ('RAG-意图识别开关',       'ai.rag.enableIntentRecognition',  'true',  NULL, 'Y', 'admin', '2026-10-05 11:20:00', '', NULL, '动态对话链路意图识别（日志/智能路由用，额外一次轻量分类调用）开关', '0');
+
+-- =============================================================================
+-- 记账字典（2026-10-21）：App 硬编码下拉改为字典驱动（14 个类型 / 90 条取值）
+-- 值锁定见 SysDictDataServiceImpl：记账字典禁止改 dict_value；交易类型与账户类型禁止新增取值。
+-- 本段幂等：类型按 dict_type、数据按 (dict_type, dict_value) 判重。
+-- =============================================================================
+INSERT INTO `sys_dict_type` (`dict_name`,`dict_type`,`status`,`is_tree`,`create_by`,`create_time`,`remark`,`del_flag`)
+SELECT t.dict_name, t.dict_type, '0', '0', 'admin', NOW(), t.remark, '0'
+FROM (
+  SELECT '交易类型' AS dict_name, 'ledger_txn_type' AS dict_type, '记账行为类型（参与统计口径，值锁定且不可新增）' AS remark
+  UNION ALL SELECT '仓库类型', 'ledger_warehouse_type', '个人仓/家庭仓/合伙仓'
+  UNION ALL SELECT '货架类型', 'ledger_shelf_type', '普通/冷藏/上锁/暂存'
+  UNION ALL SELECT '入库原因', 'ledger_stock_in_reason', '采购/赠送/其他'
+  UNION ALL SELECT '出库原因', 'ledger_stock_out_reason', '销售/自用/损耗/转出/赠送/其他'
+  UNION ALL SELECT '商品来源', 'ledger_product_source', '采购/自产/自用转卖/赠品（决定成本口径）'
+  UNION ALL SELECT '出库类型', 'ledger_out_type', '卖出/自己用/损耗'
+  UNION ALL SELECT '包装类型', 'ledger_packaging_type', '无需/标准/防摔/特殊'
+  UNION ALL SELECT '计量单位', 'ledger_product_unit', '商品计量单位（不做换算）'
+  UNION ALL SELECT '保质期预设', 'ledger_shelf_life', '按天数折算'
+  UNION ALL SELECT '二手成色', 'ledger_condition_grade', '二手商品成色档位'
+  UNION ALL SELECT '存钱方式', 'ledger_saving_method', '52周/固定/每月/自定义递增'
+  UNION ALL SELECT '定时记账周期', 'ledger_schedule_cycle', '每天/每周/每月/每N天'
+  UNION ALL SELECT '备忘提醒规则', 'ledger_remind_rule', '准时/提前30分/1小时/2小时/1天/1天上午9点'
+) t
+WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_type` x WHERE x.`dict_type` = t.dict_type);
+
+DROP TEMPORARY TABLE IF EXISTS `tmp_ledger_dict`;
+CREATE TEMPORARY TABLE `tmp_ledger_dict` (
+  `dict_type` varchar(100) NOT NULL,
+  `dict_sort` int NOT NULL DEFAULT 0,
+  `dict_label` varchar(100) NOT NULL,
+  `dict_value` varchar(100) NOT NULL
+) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT INTO `tmp_ledger_dict` (`dict_type`,`dict_sort`,`dict_label`,`dict_value`) VALUES
+  ('ledger_txn_type',1,'收入','income'),
+  ('ledger_txn_type',2,'支出','expense'),
+  ('ledger_txn_type',3,'转账','transfer'),
+  ('ledger_txn_type',4,'借出','lend'),
+  ('ledger_txn_type',5,'收款','collect'),
+  ('ledger_txn_type',6,'借款','borrow'),
+  ('ledger_txn_type',7,'还款','repayment'),
+  ('ledger_txn_type',8,'校准','adjust'),
+  ('ledger_warehouse_type',1,'个人仓','personal'),
+  ('ledger_warehouse_type',2,'家庭仓','family'),
+  ('ledger_warehouse_type',3,'合伙仓','partner'),
+  ('ledger_shelf_type',1,'普通货架','normal'),
+  ('ledger_shelf_type',2,'冷藏/冷冻','refrigerated'),
+  ('ledger_shelf_type',3,'保险柜/上锁','locked'),
+  ('ledger_shelf_type',4,'临时暂存','temp'),
+  ('ledger_stock_in_reason',1,'采购','purchase'),
+  ('ledger_stock_in_reason',2,'赠送','gift'),
+  ('ledger_stock_in_reason',3,'其他','other'),
+  ('ledger_stock_out_reason',1,'销售','sale'),
+  ('ledger_stock_out_reason',2,'自用','self_use'),
+  ('ledger_stock_out_reason',3,'损耗','loss'),
+  ('ledger_stock_out_reason',4,'转出','transfer'),
+  ('ledger_stock_out_reason',5,'赠送','gift'),
+  ('ledger_stock_out_reason',6,'其他','other'),
+  ('ledger_product_source',1,'采购','purchase'),
+  ('ledger_product_source',2,'自产','self_made'),
+  ('ledger_product_source',3,'自用转卖','used_resale'),
+  ('ledger_product_source',4,'赠品','gift'),
+  ('ledger_out_type',1,'卖出','sale'),
+  ('ledger_out_type',2,'自己用','self_use'),
+  ('ledger_out_type',3,'损耗','loss'),
+  ('ledger_packaging_type',1,'无需','none'),
+  ('ledger_packaging_type',2,'标准','standard'),
+  ('ledger_packaging_type',3,'防摔','fragile'),
+  ('ledger_packaging_type',4,'特殊','custom'),
+  ('ledger_product_unit',1,'件','件'),
+  ('ledger_product_unit',2,'个','个'),
+  ('ledger_product_unit',3,'只','只'),
+  ('ledger_product_unit',4,'条','条'),
+  ('ledger_product_unit',5,'张','张'),
+  ('ledger_product_unit',6,'份','份'),
+  ('ledger_product_unit',7,'支','支'),
+  ('ledger_product_unit',8,'台','台'),
+  ('ledger_product_unit',9,'套','套'),
+  ('ledger_product_unit',10,'双','双'),
+  ('ledger_product_unit',11,'斤','斤'),
+  ('ledger_product_unit',12,'公斤','公斤'),
+  ('ledger_product_unit',13,'克','克'),
+  ('ledger_product_unit',14,'吨','吨'),
+  ('ledger_product_unit',15,'毫升','毫升'),
+  ('ledger_product_unit',16,'升','升'),
+  ('ledger_product_unit',17,'米','米'),
+  ('ledger_product_unit',18,'厘米','厘米'),
+  ('ledger_product_unit',19,'平方米','平方米'),
+  ('ledger_product_unit',20,'立方米','立方米'),
+  ('ledger_product_unit',21,'箱','箱'),
+  ('ledger_product_unit',22,'瓶','瓶'),
+  ('ledger_product_unit',23,'包','包'),
+  ('ledger_product_unit',24,'袋','袋'),
+  ('ledger_product_unit',25,'盒','盒'),
+  ('ledger_product_unit',26,'桶','桶'),
+  ('ledger_product_unit',27,'打','打'),
+  ('ledger_shelf_life',1,'无保质期（长期有效）','none'),
+  ('ledger_shelf_life',2,'7 天','7d'),
+  ('ledger_shelf_life',3,'1 个月','30d'),
+  ('ledger_shelf_life',4,'3 个月','90d'),
+  ('ledger_shelf_life',5,'6 个月','180d'),
+  ('ledger_shelf_life',6,'12 个月（1 年）','365d'),
+  ('ledger_shelf_life',7,'24 个月（2 年）','730d'),
+  ('ledger_shelf_life',8,'36 个月（3 年）','1095d'),
+  ('ledger_shelf_life',9,'自定义天数…','custom'),
+  ('ledger_condition_grade',1,'全新','new'),
+  ('ledger_condition_grade',2,'95新','95'),
+  ('ledger_condition_grade',3,'9成新','90'),
+  ('ledger_condition_grade',4,'8成新','80'),
+  ('ledger_condition_grade',5,'7成新及以下','70'),
+  ('ledger_saving_method',1,'52周存钱法','52week'),
+  ('ledger_saving_method',2,'固定金额','fixed'),
+  ('ledger_saving_method',3,'每月固定存','monthly'),
+  ('ledger_saving_method',4,'自定义递增','custom'),
+  ('ledger_schedule_cycle',1,'每天','daily'),
+  ('ledger_schedule_cycle',2,'每周','weekly'),
+  ('ledger_schedule_cycle',3,'每月','monthly'),
+  ('ledger_schedule_cycle',4,'每N天','interval'),
+  ('ledger_remind_rule',1,'准时提醒','on_time'),
+  ('ledger_remind_rule',2,'提前 30 分钟','advance_30m'),
+  ('ledger_remind_rule',3,'提前 1 小时','advance_1h'),
+  ('ledger_remind_rule',4,'提前 2 小时','advance_2h'),
+  ('ledger_remind_rule',5,'提前 1 天','advance_1d'),
+  ('ledger_remind_rule',6,'提前 1 天上午 9 点','advance_1d_9am');
+
+INSERT INTO `sys_dict_data` (`dict_sort`,`dict_label`,`dict_value`,`dict_type`,`status`,`parent_dict_id`,`is_first_level`,`create_by`,`create_time`,`remark`,`del_flag`)
+SELECT t.dict_sort, t.dict_label, t.dict_value, t.dict_type, '0', 0, '0', 'admin', NOW(), '', '0'
+FROM `tmp_ledger_dict` t
+WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_data` d
+                  WHERE d.`dict_type` = t.dict_type AND d.`dict_value` = t.dict_value AND d.`del_flag` = '0');
+
+DROP TEMPORARY TABLE IF EXISTS `tmp_ledger_dict`;
+
+-- -----------------------------------------------------------------------------
+-- 账户类型字典（树形）：资产/负债两棵根，各挂子类型
+-- App 端 PortalLedgerAccountTypeController 读它，缺失时回退枚举；此处补齐初始化。
+-- -----------------------------------------------------------------------------
+INSERT INTO `sys_dict_type` (`dict_name`,`dict_type`,`status`,`is_tree`,`create_by`,`create_time`,`remark`,`del_flag`)
+SELECT '资产负债账户分类', 'ledger_account_category', '0', '1', 'admin', NOW(), '资产/负债账户类型（树形，值为计算口径，不可新增）', '0'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_type` x WHERE x.`dict_type` = 'ledger_account_category');
+
+INSERT INTO `sys_dict_data` (`dict_label`,`dict_value`,`dict_sort`,`dict_type`,`status`,`parent_dict_id`,`is_first_level`,`create_by`,`create_time`,`remark`,`del_flag`)
+SELECT '资产', 'asset', 1, 'ledger_account_category', '0', 0, '1', 'admin', NOW(), '资产根节点', '0'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_data` d WHERE d.`dict_type`='ledger_account_category' AND d.`dict_value`='asset' AND d.`parent_dict_id`=0);
+INSERT INTO `sys_dict_data` (`dict_label`,`dict_value`,`dict_sort`,`dict_type`,`status`,`parent_dict_id`,`is_first_level`,`create_by`,`create_time`,`remark`,`del_flag`)
+SELECT '负债', 'liability', 2, 'ledger_account_category', '0', 0, '1', 'admin', NOW(), '负债根节点', '0'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_data` d WHERE d.`dict_type`='ledger_account_category' AND d.`dict_value`='liability' AND d.`parent_dict_id`=0);
+
+INSERT INTO `sys_dict_data` (`dict_sort`,`dict_label`,`dict_value`,`dict_type`,`status`,`parent_dict_id`,`is_first_level`,`create_by`,`create_time`,`remark`,`del_flag`)
+SELECT c.sort, c.label, c.val, 'ledger_account_category', '0', r.`dict_code`, '0', 'admin', NOW(), '', '0'
+FROM (
+  SELECT 'fund' AS val, '资金账户' AS label, 1 AS sort, 'asset' AS pv
+  UNION ALL SELECT 'receivable', '应收款', 2, 'asset'
+  UNION ALL SELECT 'investment', '投资', 3, 'asset'
+  UNION ALL SELECT 'fixed', '固定资产', 4, 'asset'
+  UNION ALL SELECT 'debt', '普通负债', 1, 'liability'
+  UNION ALL SELECT 'credit', '赊账应付', 2, 'liability'
+) c
+JOIN `sys_dict_data` r ON r.`dict_type`='ledger_account_category' AND r.`dict_value`=c.pv AND r.`parent_dict_id`=0
+WHERE NOT EXISTS (SELECT 1 FROM `sys_dict_data` d
+                  WHERE d.`dict_type`='ledger_account_category' AND d.`dict_value`=c.val AND d.`parent_dict_id`=r.`dict_code`);

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- 头部 -->
     <NavBar title="个人信息维护" />
@@ -17,9 +17,9 @@
         <view class="card-title">基础画像</view>
         <view class="field">
           <text class="field-label">身份标签</text>
-          <picker class="fill-picker" :range="identityLabels" @change="onTagChange">
+          <view class="fill-picker" @tap="openPicker('tag')">
             <view class="field-picker">{{ editForm.identityTagLabel || '选择身份' }} ▾</view>
-          </picker>
+          </view>
         </view>
         <view class="field">
           <text class="field-label">生日</text>
@@ -45,17 +45,17 @@
         <view class="card-title">家庭与收入（分析重点）</view>
         <view class="field">
           <text class="field-label">婚姻状况</text>
-          <picker class="fill-picker" :range="maritalLabels" @change="onMaritalChange">
+          <view class="fill-picker" @tap="openPicker('marital')">
             <view class="field-picker">{{ editForm.maritalStatusLabel || '选择婚姻状况' }} ▾</view>
-          </picker>
+          </view>
         </view>
         <view class="field">
           <text class="field-label">是否有房贷</text>
-          <switch :checked="editForm.hasMortgage === 1" @change="e => editForm.hasMortgage = e.detail.value ? 1 : 0" color="#26a69a" />
+          <switch :checked="editForm.hasMortgage === 1" @change="e => editForm.hasMortgage = e.detail.value ? 1 : 0" :color="themeColor" />
         </view>
         <view class="field">
           <text class="field-label">是否有副业收入</text>
-          <switch :checked="editForm.hasSideIncome === 1" @change="e => editForm.hasSideIncome = e.detail.value ? 1 : 0" color="#26a69a" />
+          <switch :checked="editForm.hasSideIncome === 1" @change="e => editForm.hasSideIncome = e.detail.value ? 1 : 0" :color="themeColor" />
         </view>
         <view class="field col">
           <view class="field-label">收入类型（多选）</view>
@@ -72,22 +72,34 @@
 
     <!-- 脚部 -->
     <view class="footer">画像信息与墨韵门户共用（同一账号体系）</view>
+    <PickerSheet
+      :visible="pickerVisible"
+      :title="pickerType === 'tag' ? '身份标签' : '婚姻状况'"
+      :options="pickerType === 'tag' ? identityLabels : maritalLabels"
+      :selected="pickerType === 'tag' ? identityLabels.indexOf(editForm.identityTagLabel) : maritalLabels.indexOf(editForm.maritalStatusLabel)"
+      @close="pickerVisible = false"
+      @select="onPickerSelect"
+    />
+
   </view>
 </template>
 
 <script>
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import NavBar from '@/components/NavBar/NavBar.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
 import { getAiProfile, updateAiProfile } from '@/api/ledger';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
-  components: { CalendarPicker,  NavBar },
+  components: { PickerSheet, CalendarPicker,  NavBar },
   data() {
     return {
       saving: false,
       identityOptions: [],
+      pickerType: '',
+      pickerVisible: false,
       editForm: {
         identityTag: '', identityTagLabel: '',
         birthday: '', industry: '', position: '', company: '',
@@ -111,6 +123,8 @@ export default {
     };
   },
   computed: {
+    /** uni switch 的 color 只接受具体色值，这里取当前主题主色 */
+    themeColor() { return useThemeStore().theme['--primary']; },
     themeVars() { return useThemeStore().themeVars; },
     identityLabels() { return this.identityOptions.map(o => o.label); },
     maritalLabels() { return this.maritalOptions.map(o => o.label); },
@@ -152,6 +166,15 @@ export default {
         };
         this.incomeTypes = Array.isArray(pf.incomeTypes) ? pf.incomeTypes.filter(Boolean) : [];
       } catch (e) { /* 拦截器已提示 */ }
+    },
+    openPicker(type) {
+      this.pickerType = type;
+      this.pickerVisible = true;
+    },
+    onPickerSelect(idx) {
+      if (this.pickerType === 'tag') this.onTagChange({ detail: { value: idx } });
+      else this.onMaritalChange({ detail: { value: idx } });
+      this.pickerVisible = false;
     },
     onTagChange(e) {
       const opt = this.identityOptions[Number(e.detail.value)];

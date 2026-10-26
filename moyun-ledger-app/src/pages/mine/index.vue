@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- ==================== 头部：用户卡 ==================== -->
     <view class="user-card">
@@ -14,30 +14,11 @@
       </view>
     </view>
 
-    <!-- ==================== 内容：登录表单（未登录）/ 功能宫格（已登录） ==================== -->
-    <view class="card" v-if="!userStore.isLoggedIn">
-      <view class="field">
-        <text class="field-label">账号</text>
-        <input v-model="loginForm.username" placeholder="门户账号/邮箱" class="field-input" />
-      </view>
-      <view class="field">
-        <text class="field-label">密码</text>
-        <input v-model="loginForm.password" type="password" placeholder="密码" class="field-input" />
-      </view>
-      <view class="field" v-if="captcha.enabled">
-        <text class="field-label">验证码</text>
-        <view class="captcha-row">
-          <input v-model="captcha.code" placeholder="请输入验证码" class="field-input captcha-input" />
-          <image v-if="captcha.img" :src="captcha.img" mode="aspectFit" class="captcha-img" @tap="loadCaptcha" />
-          <view v-else class="captcha-img captcha-loading" @tap="loadCaptcha"><text>加载中</text></view>
-        </view>
-      </view>
-      <view class="btn-primary" @tap="doLogin">登录</view>
-      <view class="login-tip">与墨韵门户共用账号体系</view>
-      <view class="login-links">
-        <text class="register-link" @tap="goRegister">没有账号？立即注册 ›</text>
-        <text class="forgot-link" @tap="goForgotPassword">忘记密码？</text>
-      </view>
+    <!-- 未登录：只保留一个登录入口（表单统一在登录页，避免两套 UI） -->
+    <view class="card login-cta" v-if="!userStore.isLoggedIn">
+      <view class="login-cta-title">登录后开始理账</view>
+      <view class="login-cta-sub">资产、流水、库存都跟着账号走，换设备也不丢</view>
+      <view class="btn-primary" @tap="goLoginPage">登录 / 注册</view>
     </view>
 
     <!-- 功能宫格（已登录） -->
@@ -88,11 +69,24 @@
 
 <script>
 import { login, getCaptchaImage, getAppFeatures, getAiProfile } from '@/api/ledger';
+import { ensureLogin } from '@/utils/authGuard';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 import { applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { storage } from '@/utils/storage';
 import { APP_VERSION_TEXT } from '@/utils/appInfo';
+
+/**
+ * tabBar 页面清单：这类页面必须用 switchTab 跳转，navigateTo 会直接失败。
+ * 与 pages.json 的 tabBar.list 保持一致。
+ */
+const TAB_PAGES = new Set([
+  '/pages/dashboard/index',
+  '/pages/portfolio/index',
+  '/pages/record/index',
+  '/pages/warehouse/inout/index',
+  '/pages/mine/index'
+]);
 
 export default {
   data() {
@@ -129,12 +123,10 @@ export default {
     appVersionText() { return APP_VERSION_TEXT; }
   },
   onShow() {
+    if (!ensureLogin()) return;
     // tab 页里同步仓库入口显隐（setTabBarItem 只在 tab 页可靠）
     applyWarehouseTabBar();
     useThemeStore().restore();
-    if (!useUserStore().isLoggedIn && this.captcha.enabled && !this.captcha.img) {
-      this.loadCaptcha();
-    }
     // 备份时间 + 画像完善状态
     this.lastBackup = storage.get('last_backup') || '从未';
     if (useUserStore().isLoggedIn) {
@@ -147,32 +139,31 @@ export default {
         this.profileDone = filled >= 4;
       }).catch(() => {});
     }
-    // 功能宫格由后台可视化配置（仅展示 visible=1；失败回退内置默认）
-    this.loadFeatureConfig();
+    // 功能宫格由后台可视化配置（未登录不请求：否则 401 会把用户弹去登录页，造成闪屏）
+    if (useUserStore().isLoggedIn) this.loadFeatureConfig();
   },
   methods: {
-    /** 拉取后台功能入口配置：按分组覆盖默认宫格；未配置/接口异常保持内置清单 */
+    /** 拉取后台功能入口配置：**严格以配置为准**（配置里没有=已隐藏），仅接口失败/空配置时用内置兜底 */
     async loadFeatureConfig() {
       try {
         const rows = await getAppFeatures();
         if (!Array.isArray(rows) || !rows.length) return;
         const toMenu = (r) => ({
-          key: r.featureKey, icon: r.icon, label: r.featureName,
-          color: r.iconColor || '', badge: r.badge || undefined,
-          link: r.remark || '' // 链接型入口（如墨韵社区）：remark 承载跳转 URL，后台可视化配置
+          key: r.featureKey,
+          icon: r.icon || '',
+          label: r.featureName,
+          color: r.iconColor || '',
+          badge: r.badge || undefined,
+          // 后台配置的跳转路由（后端已按白名单校验），优先于内置 key 映射
+          route: r.route || '',
+          link: r.remark || '' // 链接型入口（如墨韵社区）：remark 承载跳转 URL
         });
         const main = rows.filter(r => r.groupType === 'main').map(toMenu);
         const recommend = rows.filter(r => r.groupType === 'recommend').map(toMenu);
-        // 后台配置掌管「顺序/名称/显隐」，但内置功能不能因为后台漏配就消失：
-        // 配置里有的按配置顺序在前，内置里未被覆盖的补在后面。
-        if (main.length) {
-          const configured = new Set(main.map(m => m.key));
-          this.mainMenus = main.concat(this.mainMenus.filter(m => !configured.has(m.key)));
-        }
-        if (recommend.length) {
-          const configured = new Set(recommend.map(m => m.key));
-          this.recommendMenus = recommend.concat(this.recommendMenus.filter(m => !configured.has(m.key)));
-        }
+        // 注意：这里不再把内置清单拼回去——否则后台「隐藏」会被内置项覆盖掉，
+        // 出现「后台关了但 App 还在」的问题。整组为空时保留内置兜底，避免出现空白宫格。
+        if (main.length) this.mainMenus = main;
+        if (recommend.length) this.recommendMenus = recommend;
       } catch (e) { /* 未登录/网络异常：回退内置默认宫格 */ }
     },
     async loadCaptcha() {
@@ -211,6 +202,19 @@ export default {
       uni.showModal({ title: '提示', content: '确定退出登录？', success: (r) => { if (r.confirm) this.userStore.logout(); } });
     },
     onMenuTap(m) {
+      // 1) 后台配置了路由：优先按 route 跳转（tabBar 页必须 switchTab）
+      if (m.route) {
+        if (TAB_PAGES.has(m.route)) {
+          uni.switchTab({ url: m.route });
+          return;
+        }
+        uni.navigateTo({
+          url: m.route,
+          fail: () => this.toastUnavailable(m)
+        });
+        return;
+      }
+      // 2) 兼容旧配置：按内置 key 映射
       const routes = {
         warehouse: '/pages/warehouse/index',
         warehouseSetting: '/pages/mine/warehouse-settings/index',
@@ -227,7 +231,7 @@ export default {
       };
       const url = routes[m.key];
       if (url) { uni.navigateTo({ url }); return; }
-      // 链接型入口：引导使用门户平台；URL 由后台功能配置下发
+      // 3) 链接型入口：引导使用门户平台；URL 由后台功能配置下发
       if (m.key === 'portal' && m.link) {
         // #ifdef H5
         window.open(m.link, '_blank');
@@ -238,16 +242,23 @@ export default {
         return;
         // #endif
       }
-      // 占位功能提示
+      // 4) 占位功能提示
       const todo = ['auto', 'backup', 'import', 'export', 'widget', 'personalize', 'catIcon',
         'tag', 'remind', 'reimburse', 'share', 'rate', 'qq',
-        'translate', 'list', 'stock', 'gold', 'coupon'];
+        'translate', 'stock', 'gold', 'coupon'];
       if (todo.includes(m.key)) {
         uni.showToast({ title: m.label + ' · 开发中', icon: 'none' });
+        return;
       }
+      this.toastUnavailable(m);
+    },
+    /** 统一兜底：未绑定路由/路由不存在时给出明确反馈，避免"点了没反应" */
+    toastUnavailable(m) {
+      uni.showToast({ title: (m && m.label ? m.label : '该功能') + ' · 暂未开放', icon: 'none' });
     },
     go(url) { uni.navigateTo({ url }); },
-    goAnalysis() { uni.switchTab({ url: '/pages/analysis/index' }); }
+    goLoginPage() { uni.navigateTo({ url: '/pages/mine/login/index' }); },
+    goAnalysis() { uni.navigateTo({ url: '/pages/analysis/index' }); }
   }
 };
 </script>
@@ -348,4 +359,6 @@ export default {
   padding: 40rpx 0 calc(32rpx + env(safe-area-inset-bottom));
   text-align: center; font-size: 22rpx; color: var(--text-muted);
 }
+.login-cta-title { font-size: var(--fs-title); font-weight: 700; color: var(--text-main); }
+.login-cta-sub { margin-top: 10rpx; margin-bottom: 24rpx; font-size: var(--fs-sub); color: var(--text-muted); line-height: 1.6; }
 </style>

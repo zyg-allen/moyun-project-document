@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="新建计划" />
 
@@ -59,12 +59,12 @@
     <!-- 52周存钱法说明 -->
     <view class="tip-card" v-if="form.method === '52week'">
       <text class="tip-title">52周存钱法</text>
-      <text class="tip-desc">第1周存¥10，第2周存¥20，……第52周存¥520，累计¥13,780。保存后自动生成52期待存期次。</text>
-      <view class="gen-btn" @tap="gen52Week">按此规则填入目标 ¥13,780</view>
+      <text class="tip-desc">第 1 周存 10 元，第 2 周存 20 元，……第 52 周存 520 元，累计 13,780 元。保存后自动生成52期待存期次。</text>
+      <view class="gen-btn" @tap="gen52Week">按此规则填入目标 13,780 元</view>
     </view>
     <view class="tip-card" v-else-if="form.method === 'custom'">
       <text class="tip-title">自定义递增存钱法</text>
-      <text class="tip-desc">例如：首期¥100，每期递增¥50，共12期 → 累计¥4,500。最后一期自动按目标金额凑整。</text>
+      <text class="tip-desc">例如：首期 100 元，每期递增 50 元，共 12 期 → 累计 4,500 元。最后一期自动按目标金额凑整。</text>
     </view>
 
     <view class="submit-btn" :class="{ disabled: submitting }" @tap="!submitting && save()">保存计划</view>
@@ -109,7 +109,7 @@ export default {
     onIncreaseStepInput(e) { applyAmountInput(e, this, 'form.increaseStep', { allowNegative: true }); },
     gen52Week() {
       this.form.targetAmount = '13780';
-      uni.showToast({ title: '已填入目标¥13,780', icon: 'none' });
+      uni.showToast({ title: '已填入目标 13,780 元', icon: 'none' });
     },
     async save() {
       return this.withSubmitLock(async () => {
@@ -167,7 +167,7 @@ export default {
 .method-tag.active { background: var(--primary-soft); color: var(--primary-text); }
 
 .tip-card {
-  background: var(--surface); border: 1rpx solid #ffe58f;
+  background: var(--surface); border: 1rpx solid var(--warning);
   margin: 0 24rpx; border-radius: 16rpx; padding: 24rpx;
 }
 .tip-title { font-size: 26rpx; font-weight: 600; color: var(--warning); }

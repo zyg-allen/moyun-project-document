@@ -193,9 +193,9 @@ public class ConfigWiringValidator implements ApplicationRunner {
         // 注：密钥"相同"本身属未分离（安全建议），由 TokenConfigValidator 分级处理
         //     （prod 阻断、非 prod 告警），此处只负责"接线是否通"。
         checks.put("token.admin.secret 已配置但未被 TokenService 消费（解析结果仍为 token.secret，专用密钥未生效）",
-                () -> !configured(adminSecret) || adminSecret.equals(tokenSecret));
+                () -> !configured(adminSecret) || !adminSecret.equals(tokenSecret));
         checks.put("token.portal.secret 已配置但未被 PortalTokenService 消费（解析结果仍为 token.secret，专用密钥未生效）",
-                () -> !configured(portalSecret) || portalSecret.equals(tokenSecret));
+                () -> !configured(portalSecret) || !portalSecret.equals(tokenSecret));
 
         // ---- W-2：图片过滤配置类是否真的被计算逻辑消费 -----------------------------
         // 背景：ext/ai/config/ImageFilterConfig 定义了 positionWeight/sizeWeight/

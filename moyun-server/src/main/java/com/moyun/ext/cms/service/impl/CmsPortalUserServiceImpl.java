@@ -106,8 +106,53 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
         List<CmsPortalUserVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsPortalUserVO.class);
         // 批量填充绑定的 sys_user 信息（列表展示"关联系统用户"列）
         fillSysUserInfo(voList);
+        // 联系方式脱敏：列表一律掩码；明文走 /cms/user/{id}/contact（单独权限 + 留痕）
+        voList.forEach(this::maskContact);
         voPage.setRecords(voList);
         return voPage;
+    }
+
+    /** 手机号/邮箱脱敏（列表与画像默认口径） */    private void maskContact(CmsPortalUserVO vo) {
+        if (vo == null) {
+            return;
+        }
+        vo.setPhone(maskPhone(vo.getPhone()));
+        vo.setEmail(maskEmail(vo.getEmail()));
+    }
+
+    /** 138****5678；长度不足时退化为首尾掩码 */
+    private String maskPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return phone;
+        }
+        if (phone.length() < 7) {
+            return maskMiddle(phone);
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
+    /** ab****@example.com（保留域名，便于核对归属） */
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return email;
+        }
+        int at = email.indexOf('@');
+        if (at <= 0) {
+            return maskMiddle(email);
+        }
+        return maskMiddle(email.substring(0, at)) + email.substring(at);
+    }
+
+    private String maskMiddle(String text) {
+        if (text == null || text.length() <= 2) {
+            return text == null ? null : "**";
+        }
+        return text.charAt(0) + "***" + text.charAt(text.length() - 1);
+    }
+
+    /** 含掩码字符的值直接丢弃（防止脱敏值被写回数据库） */
+    private String dropIfMasked(String text) {
+        return text != null && text.contains("*") ? null : text;
     }
 
     /**
@@ -165,6 +210,21 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     }
 
     @Override
+    public PortalUser selectContactById(Long id)
+    {
+        // 只回填 id/phone/email，避免把整行画像带出；调用方负责权限校验与留痕
+        PortalUser row = portalUserMapper.selectCmsUserById(id);
+        if (row == null) {
+            return null;
+        }
+        PortalUser contact = new PortalUser();
+        contact.setId(row.getId());
+        contact.setPhone(row.getPhone());
+        contact.setEmail(row.getEmail());
+        return contact;
+    }
+
+    @Override
     public CmsPortalUserProfileVO selectUserProfile(Long id)
     {
         // 后台可查看已注销（del_flag='2'）账号画像，绕开 @TableLogic
@@ -175,8 +235,9 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
 
         CmsPortalUserProfileVO profile = new CmsPortalUserProfileVO();
 
-        // 1. 用户完整画像
+        // 1. 用户完整画像（联系方式按列表口径脱敏，明文走 contact 专用接口）
         CmsPortalUserVO userVO = BeanUtil.copyProperties(user, CmsPortalUserVO.class);
+        maskContact(userVO);
         profile.setUser(userVO);
 
         // 2. 业务统计：复用成长体系已有的聚合（文章/读书/面试/粉丝/关注/签到等）
@@ -295,6 +356,10 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
         user.setUpdateTime(null);
         user.setLoginIp(null);
         user.setLoginDate(null);
+        // 联系方式防污染：编辑表单若拿到的是脱敏值（无 cms:user:contact 权限时），
+        // 直接置空让动态 SQL 跳过该列，绝不允许把 "138****5678" 写回库。
+        user.setPhone(dropIfMasked(user.getPhone()));
+        user.setEmail(dropIfMasked(user.getEmail()));
         // updateById 受 @TableLogic 影响会拼 AND del_flag='0'，已注销账号（del_flag='2'）无法命中
         // （日志表现：UPDATE ... WHERE id=? AND del_flag='0' → Updates: 0）。
         // 改用自定义 XML updatePortalUser（where id=#{id}），注销账号也可修改。

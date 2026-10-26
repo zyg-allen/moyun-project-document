@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 金额工具：全链路统一"元"（后端 BigDecimal 序列化为数值/字符串），前端直接以"元"为单位运算与展示。
  * 金额单位统一后，"分"概念已彻底移除，本文件不包含任何 ×100/÷100 换算。
  */
@@ -35,6 +35,10 @@ export const formatAmount = (yuan) => {
 export const formatAbsAmount = (yuan) => formatAmount(Math.abs(toNum(yuan)));
 
 /** 元 → 显式 +/- 千分位展示：+1,234.56 / -1,234.56 / 0.00 */
+/** 金额 + 元单位（统一展示口径） */
+export const formatYuan = (v) => formatAmount(v) + ' 元';
+export const formatAbsYuan = (v) => formatAbsAmount(v) + ' 元';
+
 export const formatSigned = (yuan) => {
   const v = toNum(yuan);
   const abs = formatAbsAmount(v);

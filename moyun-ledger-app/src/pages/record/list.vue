@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- 合并顶栏：返回 | 日历/流水切换(居中) | 公用月份选择 -->
     <view class="header-bar">
@@ -11,12 +11,12 @@
           <view class="sw-item" :class="{ active: activeTab === 'list' }" @tap="switchTab('list')">流水</view>
         </view>
       </view>
-      <picker mode="date" fields="month" :value="monthValue" @change="onMonthPick" class="header-right">
+      <view class="header-right" @tap="openMonth">
         <view class="month-picker">
           <text class="month-text">{{ year }}-{{ pad(month) }}</text>
           <text class="month-arrow">▾</text>
         </view>
-      </picker>
+      </view>
     </view>
 
     <!-- ==================== 流水视图 ==================== -->
@@ -33,9 +33,9 @@
       </view>
       <!-- 筛选栏：类型 + 月份范围（与顶栏月份联动，可手动微调） -->
       <view class="filter-bar">
-        <picker :range="typeOptions" range-key="label" @change="onTypeChange">
+        <view @tap="openPs('type')">
           <view class="filter-item">{{ currentTypeLabel }} ▾</view>
-        </picker>
+        </view>
         <CalendarPicker :value="startDate" @change="(e) => startDate = e.detail.value" @tap.stop>
           <view class="filter-item">{{ startDate || '开始日期' }}</view>
         </CalendarPicker>
@@ -57,8 +57,18 @@
 
       <!-- 流水列表（按日分组） -->
       <view class="card">
-        <view v-if="loadError && loaded" class="empty" @tap="reload">加载失败，点击重试</view>
-        <view v-else-if="list.length === 0 && loaded" class="empty">暂无流水</view>
+        <SkeletonList v-if="loadingList && !loaded" :rows="4" />
+        <view v-if="loadError && loaded" class="e-empty" @tap="reload">
+        <text class="e-empty-emoji">📡</text>
+        <text class="e-empty-title">加载失败</text>
+        <text class="e-empty-sub">检查网络后点这里重试</text>
+      </view>
+        <view v-else-if="list.length === 0 && loaded" class="e-empty">
+        <text class="e-empty-emoji">🧾</text>
+        <text class="e-empty-title">还没有流水</text>
+        <text class="e-empty-sub">记下第一笔，报表和预算才会开始有数</text>
+        <view class="e-empty-action" @tap="goRecord">去记一笔</view>
+      </view>
         <view v-for="group in groups" :key="group.date" class="day-group">
           <view class="day-header">
             <text class="day-date">{{ group.date === today ? '今天' : group.date }}</text>
@@ -69,8 +79,8 @@
             <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
             <view class="flex-1 min-w-0">
               <view class="txn-top">
-                <text class="txn-name">{{ truncate(t.description, 10) || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
-                <text class="txn-amount" :class="t.type">{{ amountOf(t) }}</text>
+                <text class="txn-name">{{ t.description || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
+                <text class="txn-amount" :class="t.type">{{ amountOf(t) }} 元</text>
               </view>
               <view class="txn-meta">
                 <text class="meta-tags">
@@ -130,22 +140,26 @@
           <text class="ds-date">{{ selectedLabel }}</text>
         </view>
         <view class="ds-right">
-          <text class="ds-in" v-if="dayIncome > 0">收入:{{ formatAmount(dayIncome) }}</text>
-          <text class="ds-out" v-if="dayExpense > 0">支出:{{ formatAmount(dayExpense) }}</text>
+          <text class="ds-in" v-if="dayIncome > 0">收入:{{ formatYuan(dayIncome) }}</text>
+          <text class="ds-out" v-if="dayExpense > 0">支出:{{ formatYuan(dayExpense) }}</text>
         </view>
       </view>
 
       <!-- 当日流水列表 -->
       <view class="card">
         <view v-if="loadError && calLoaded" class="empty" @tap="loadMonth">加载失败，点击重试</view>
-        <view v-else-if="!dayItems.length && calLoaded" class="empty">当日暂无流水</view>
+        <view v-else-if="!dayItems.length && calLoaded" class="e-empty">
+        <text class="e-empty-emoji">📅</text>
+        <text class="e-empty-title">这一天没有流水</text>
+        <text class="e-empty-sub">可以补记一笔，或换一天看看</text>
+      </view>
         <view v-for="(t, ti) in dayItems" :key="t.id" class="txn-row"
               :class="{ 'last-row': ti === dayItems.length - 1 }" @tap="goEdit(t)">
           <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
           <view class="flex-1 min-w-0">
             <view class="txn-top">
-              <text class="txn-name">{{ truncate(t.description, 10) || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
-              <text class="txn-amount" :class="t.type">{{ amountOf(t) }}</text>
+              <text class="txn-name">{{ t.description || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></text>
+              <text class="txn-amount" :class="t.type">{{ amountOf(t) }} 元</text>
             </view>
             <view class="txn-meta">
               <text class="meta-tags">
@@ -162,18 +176,43 @@
       <view class="month-summary">
         <text>{{ year }}年{{ month }}月 · 共 {{ monthCount }} 笔</text>
         <view class="ms-nums">
-          <text class="in">收 {{ formatAmount(monthIncome) }}</text>
-          <text class="out">支 {{ formatAmount(monthExpense) }}</text>
+          <text class="in">收 {{ formatYuan(monthIncome) }}</text>
+          <text class="out">支 {{ formatYuan(monthExpense) }}</text>
         </view>
       </view>
     </block>
+    <PickerSheet
+      :visible="ps.visible"
+      :title="ps.title"
+      :options="ps.options"
+      :selected="ps.selected"
+      @close="ps.visible = false"
+      @select="onPsSelect"
+    />
+
+  
+  <PickerWheel
+    :visible="monthSheet"
+    title="选择月份"
+    :columns="[monthYears, monthMonths]"
+    :value="monthDraft"
+    @close="monthSheet = false"
+    @confirm="onMonthConfirm"
+  />
+
+  
+
   </view>
 </template>
 
 <script>
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import { pageTransactions } from '@/api/ledger';
-import { toFixedYuan, formatAmount, formatSigned, typeText, toNum } from '@/utils/money';
+import { loadDicts, asOptions } from '@/utils/ledgerDict';
+import SkeletonList from '@/components/SkeletonList/SkeletonList.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
+import PickerWheel from '@/components/PickerWheel/PickerWheel.vue';
+import { toFixedYuan, formatAmount, formatSigned, typeText, toNum, formatYuan, formatAbsYuan } from '@/utils/money';
 import { truncate } from '@/utils/text';
 import { useThemeStore } from '@/stores/theme';
 
@@ -191,11 +230,16 @@ const pad = (n) => String(n).padStart(2, '0');
 const fmtDate = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
 
 export default {
-  components: { CalendarPicker },  // 自绘月历选择器
+  components: { SkeletonList, PickerSheet, PickerWheel, CalendarPicker },  // 自绘月历选择器
   data() {
     const now = new Date();
     const today = new Date();
     return {
+      ps: { visible: false, key: '', title: '', options: [], selected: -1 },
+      monthSheet: false,
+      monthDraft: [0, 0],
+      monthYears: [],
+      monthMonths: [],
       // 视图切换
       activeTab: 'list',
       // 公用月份状态
@@ -232,7 +276,7 @@ export default {
     monthEnd() { return fmtDate(this.year, this.month, this.daysInMonth()); },
     // ---- 流水视图 ----
     currentTypeLabel() {
-      const found = TYPE_OPTIONS.find(t => t.key === this.type);
+      const found = this.typeOptions.find(t => t.key === this.type);
       return found ? found.label : '全部';
     },
     hasMore() { return this.list.length < this.total; },
@@ -320,9 +364,49 @@ export default {
   },
   onShow() {
     useThemeStore().restore();
+    this.loadTxnTypes();
     this.reload();
   },
   methods: {
+    openMonth() {
+      const start = 2020;
+      const end = new Date().getFullYear() + 1;
+      this.monthMonths = Array.from({ length: 12 }, (_, i) => (i + 1 < 10 ? '0' + (i + 1) : '' + (i + 1)));
+      this.monthYears = [];
+      for (let y = start; y <= end; y++) this.monthYears.push(String(y));
+      this.monthDraft = [
+        Math.max(0, this.monthYears.indexOf(String(this.year))),
+        Math.max(0, this.month - 1)
+      ];
+      this.monthSheet = true;
+    },
+    onMonthConfirm(idx) {
+      const v = this.monthYears[idx[0]] + '-' + this.monthMonths[idx[1]];
+      this.onMonthPick({ detail: { value: v } });
+      this.monthSheet = false;
+    },
+    openPs(key) {
+      this.ps = {
+        visible: true,
+        key,
+        title: '交易类型',
+        options: this.typeOptions.map((o) => o.label),
+        selected: this.typeOptions.findIndex((o) => o.key === this.type)
+      };
+    },
+    onPsSelect(idx) {
+      this.onTypeChange({ detail: { value: idx } });
+      this.ps.visible = false;
+    },
+    formatYuan,
+    /** 空状态引导：去记一笔（tab 页用 switchTab） */
+    goRecord() { uni.switchTab({ url: '/pages/record/index' }); },
+    /** 交易类型候选走后台字典（首项保留「全部」；失败回退内置） */
+    async loadTxnTypes() {
+      const dicts = await loadDicts(['ledger_txn_type']);
+      const items = asOptions(dicts.ledger_txn_type, TYPE_OPTIONS.slice(1));
+      this.typeOptions = [{ key: '', label: '全部' }].concat(items);
+    },
     typeText,
     truncate,
     formatAmount,
@@ -392,7 +476,8 @@ export default {
       this.reload();
     },
     onTypeChange(e) {
-      this.type = TYPE_OPTIONS[e.detail.value].key;
+      const opt = this.typeOptions[e.detail.value];
+      this.type = opt ? opt.key : '';
       this.reload();
     },
     async reload() {
@@ -604,9 +689,10 @@ export default {
 .txn-icon.borrow { background: var(--type-borrow); color: var(--on-type); }
 .txn-icon.adjust { background: var(--type-adjust); color: var(--on-type); }
 .txn-top { display: flex; justify-content: space-between; align-items: baseline; }
-.txn-name { font-size: 26rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txn-name { flex: 1; min-width: 0; margin-right: 16rpx; font-size: 26rpx; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deleted-tag { font-size: 20rpx; color: var(--text-sub); background: var(--surface); border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
-.txn-amount { font-size: 28rpx; font-weight: 600; flex-shrink: 0; margin-left: 16rpx; }
+.txn-amount {
+  font-variant-numeric: tabular-nums; font-size: 28rpx; font-weight: 600; flex-shrink: 0; margin-left: 16rpx; }
 .txn-amount.income { color: var(--income); }
 .txn-amount.expense { color: var(--expense); }
 .txn-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4rpx; }

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="报表中心" />
     <!-- 年份切换 -->
@@ -13,17 +13,17 @@
       <view class="year-summary">
         <view class="ys-col">
           <view class="ys-label">年收入</view>
-          <view class="ys-value income">{{ privacyMode ? '****' : '+' + formatAbsAmount(report.yearIncome || 0) }}</view>
+          <view class="ys-value income">{{ privacyMode ? '****' : '+' + formatAbsYuan(report.yearIncome || 0) }}</view>
         </view>
         <view class="ys-divider"></view>
         <view class="ys-col">
           <view class="ys-label">年支出</view>
-          <view class="ys-value expense">{{ privacyMode ? '****' : '-' + formatAbsAmount(report.yearExpense || 0) }}</view>
+          <view class="ys-value expense">{{ privacyMode ? '****' : '-' + formatAbsYuan(report.yearExpense || 0) }}</view>
         </view>
         <view class="ys-divider"></view>
         <view class="ys-col">
           <view class="ys-label">年结余</view>
-          <view class="ys-value">{{ privacyMode ? '****' : formatAmount((report.yearIncome || 0) - (report.yearExpense || 0)) }}</view>
+          <view class="ys-value">{{ privacyMode ? '****' : formatYuan((report.yearIncome || 0) - (report.yearExpense || 0)) }}</view>
         </view>
       </view>
       <!-- 月度收支柱状图 -->
@@ -52,7 +52,7 @@
         <view class="rank-bar">
           <view class="rank-inner expense" :style="{ width: rankPercent(c.amount, expenseTotal) + '%' }"></view>
         </view>
-        <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
+        <text class="rank-amount">{{ privacyMode ? '****' : formatYuan(c.amount) }}</text>
       </view>
       <view class="chart-title" style="margin-top: 24rpx">收入分类 TOP</view>
       <view v-if="!categoryIncome.length" class="empty">暂无数据</view>
@@ -61,7 +61,7 @@
         <view class="rank-bar">
           <view class="rank-inner income" :style="{ width: rankPercent(c.amount, incomeTotal) + '%' }"></view>
         </view>
-        <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
+        <text class="rank-amount">{{ privacyMode ? '****' : formatYuan(c.amount) }}</text>
       </view>
 
       <!-- 二级分类下钻（选过二级的流水） -->
@@ -71,12 +71,12 @@
         <view v-for="(c, i) in categoryExpenseSub.slice(0, 10)" :key="'es' + i" class="rank-row">
           <text class="rank-name">{{ c.name }}</text>
           <view class="rank-bar"><view class="rank-inner expense" :style="{ width: rankPercent(c.amount, expenseTotal) + '%' }"></view></view>
-          <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
+          <text class="rank-amount">{{ privacyMode ? '****' : formatYuan(c.amount) }}</text>
         </view>
         <view v-for="(c, i) in categoryIncomeSub.slice(0, 5)" :key="'is' + i" class="rank-row">
           <text class="rank-name">{{ c.name }}</text>
           <view class="rank-bar"><view class="rank-inner income" :style="{ width: rankPercent(c.amount, incomeTotal) + '%' }"></view></view>
-          <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
+          <text class="rank-amount">{{ privacyMode ? '****' : formatYuan(c.amount) }}</text>
         </view>
       </template>
     </view>
@@ -91,7 +91,7 @@
           <view class="nw-bar-wrap">
             <view class="nw-bar" :style="{ width: nwWidth(p.netWorth) + '%' }"></view>
           </view>
-          <text class="nw-value">{{ privacyMode ? '****' : formatAmount(p.netWorth) }}</text>
+          <text class="nw-value">{{ privacyMode ? '****' : formatYuan(p.netWorth) }}</text>
         </view>
       </view>
     </view>
@@ -105,7 +105,7 @@
         <view class="rank-bar">
           <view class="rank-inner asset" :style="{ width: rankPercent(a.balance, assetTotal) + '%' }"></view>
         </view>
-        <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(a.balance) }}</text>
+        <text class="rank-amount">{{ privacyMode ? '****' : formatYuan(a.balance) }}</text>
       </view>
     </view>
 
@@ -119,8 +119,8 @@
           <view class="liab-sub">{{ l.dueDate ? '到期 ' + l.dueDate : (l.repaymentDay ? '每月 ' + l.repaymentDay + ' 日还款' : '无还款日') }}</view>
         </view>
         <view class="liab-right">
-          <view class="liab-balance">{{ privacyMode ? '****' : formatAmount(l.balance) }}</view>
-          <view class="liab-sub" v-if="l.monthlyPayment">月还 {{ privacyMode ? '****' : formatAmount(l.monthlyPayment) }}</view>
+          <view class="liab-balance">{{ privacyMode ? '****' : formatYuan(l.balance) }}</view>
+          <view class="liab-sub" v-if="l.monthlyPayment">月还 {{ privacyMode ? '****' : formatYuan(l.monthlyPayment) }}</view>
         </view>
       </view>
     </view>
@@ -146,7 +146,7 @@
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import { getReportOverview, exportTransactionsCsv } from '@/api/ledger';
-import { formatAmount, formatAbsAmount, toNum } from '@/utils/money';
+import { formatAmount, formatAbsAmount, toNum, formatYuan, formatAbsYuan } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
@@ -204,6 +204,8 @@ export default {
   },
   methods: {
     formatAmount,
+    formatYuan,
+    formatAbsYuan,
     load() {
       getReportOverview(this.year).then((data) => {
         this.report = data || {};
@@ -246,11 +248,13 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 .year-bar {
-  display: flex; align-items: center; justify-content: center; gap: 40rpx;
-  background: var(--primary-strong); color: var(--on-primary); padding: 28rpx 0;
+  display: flex; align-items: center; justify-content: center; gap: 20rpx;
+  margin: 12rpx 24rpx 0; padding: 12rpx 0;
+  background: var(--surface); color: var(--text-main);
+  border: 1rpx solid var(--border); border-radius: 999rpx;
 }
-.year-arrow { font-size: 44rpx; padding: 0 24rpx; opacity: 0.85; }
-.year-text { font-size: 34rpx; font-weight: 700; }
+.year-arrow { font-size: 32rpx; padding: 0 16rpx; color: var(--primary-text); }
+.year-text { font-size: 28rpx; font-weight: 600; color: var(--primary-text); }
 
 .card { background: var(--card); border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }
 .chart-title { font-size: 28rpx; font-weight: 600; margin: 8rpx 0 20rpx; }

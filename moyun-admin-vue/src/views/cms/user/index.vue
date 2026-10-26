@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="app-container">
     <!-- 搜索表单 -->
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
@@ -204,14 +204,15 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="手机号" prop="phone">
-              <el-input v-model="form.phone" placeholder="请输入手机号" />
+              <el-input v-model="form.phone" placeholder="请输入手机号" :disabled="!contactEditable" />
+              <div v-if="!contactEditable" class="contact-tip">无「查看联系方式」权限，仅展示脱敏值，保存不会覆盖原值</div>
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="0">
           <el-col :span="12">
             <el-form-item label="邮箱" prop="email">
-              <el-input v-model="form.email" placeholder="请输入邮箱" />
+              <el-input v-model="form.email" placeholder="请输入邮箱" :disabled="!contactEditable" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -658,7 +659,7 @@
 </template>
 
 <script setup name="CmsUser">
-import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile, bindSysUser, unbindSysUser, restoreUser } from "@/api/cms/user";
+import { listUser, getUser, getUserContact, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile, bindSysUser, unbindSysUser, restoreUser } from "@/api/cms/user";
 import { listUser as listSysUser } from "@/api/system/user";
 import ImageUpload from "@/components/ImageUpload/index.vue";
 
@@ -675,6 +676,8 @@ const single = ref(true);
 const multiple = ref(true);
 const total = ref(0);
 const title = ref("");
+/** 联系方式是否可取明文：无 cms:user:contact 权限时保持脱敏并禁用输入，避免把星号写回库 */
+const contactEditable = ref(true);
 
 // 用户画像抽屉
 const profileOpen = ref(false);
@@ -823,6 +826,7 @@ function handleSelectionChange(selection) {
 // 新增按钮操作
 function handleAdd() {
   reset();
+  contactEditable.value = true;
   open.value = true;
   title.value = "添加用户";
 }
@@ -833,8 +837,16 @@ function handleUpdate(row) {
   const id = row.id || ids.value[0];
   getUser(id).then(response => {
     form.value = response.data;
+    contactEditable.value = false;
     open.value = true;
     title.value = "修改用户";
+    // 联系方式单独取明文（需 cms:user:contact，后端会留痕）；取不到就保留脱敏并禁用输入
+    getUserContact(id).then(res => {
+      const c = res.data || {};
+      form.value.phone = c.phone || "";
+      form.value.email = c.email || "";
+      contactEditable.value = true;
+    }).catch(() => { contactEditable.value = false; });
   });
 }
 
@@ -1133,4 +1145,5 @@ getList();
     font-weight: normal;
   }
 }
+.contact-tip { font-size: 12px; color: #e6a23c; line-height: 1.5; margin-top: 4px; }
 </style>

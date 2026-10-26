@@ -106,3 +106,11 @@ export function restoreUser(id) {
     method: 'put'
   })
 }
+
+// 联系方式明文（需 cms:user:contact 权限；后端会写操作日志）
+export function getUserContact(id) {
+  return request({
+    url: '/cms/user/' + parseStrEmpty(id) + '/contact',
+    method: 'get'
+  })
+}

@@ -209,6 +209,10 @@ public class PortalUser extends BaseEntity {
     private LocalDateTime loginDate;
 
     /** 图形验证码（仅用于注册接口入参，不落库） */
+    /** 注册时同意的协议版本（仅入参，不落库；由 register 记录到 portal_user_agreement） */
+    @TableField(exist = false)
+    private String agreedVersion;
+
     @TableField(exist = false)
     private String code;
 

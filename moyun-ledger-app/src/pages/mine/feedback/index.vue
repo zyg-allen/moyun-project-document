@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="意见反馈" />
 
@@ -69,6 +69,7 @@ import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { submitFeedback, listMyFeedback } from '@/api/ledger';
+import { loadPublicDict } from '@/utils/ledgerDict';
 
 const TYPE_MAP = { suggestion: '功能建议', bug: 'Bug反馈', experience: '体验问题', other: '其他' };
 
@@ -92,8 +93,17 @@ export default {
   },
   onShow() {
     useThemeStore().restore();
+    this.loadTypeDict();
   },
   methods: {
+    /** 反馈类型走公开字典 cms_feedback_type（失败保留内置） */
+    async loadTypeDict() {
+      const items = await loadPublicDict('cms_feedback_type');
+      if (!items.length) return;
+      const map = {};
+      items.forEach(i => { map[i.dictValue] = i.dictLabel; });
+      this.typeMap = map;
+    },
     switchHistory() {
       this.tab = 'history';
       if (useUserStore().isLoggedIn && this.records.length === 0) this.load(true);
@@ -206,7 +216,7 @@ export default {
 .fb-desc { font-size: 24rpx; color: var(--text-sub); margin-top: 12rpx; line-height: 1.6; }
 .fb-time { font-size: 20rpx; color: var(--text-muted); margin-top: 12rpx; }
 .fb-result {
-  margin-top: 16rpx; background: var(--income-bg); border: 1rpx solid #b7eb8f;
+  margin-top: 16rpx; background: var(--income-bg); border: 1rpx solid var(--border);
   border-radius: 12rpx; padding: 16rpx 20rpx;
 }
 .fb-result-label { font-size: 24rpx; color: var(--income); font-weight: 600; }

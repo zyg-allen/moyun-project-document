@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="分类管理" />
 
@@ -488,22 +488,22 @@ export default {
   padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
   max-height: 72vh; display: flex; flex-direction: column;
 }
-.sheet-actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-bottom: 8rpx; }
+.sheet-actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-bottom: 4rpx; }
 .sheet-act {
   font-size: 24rpx; padding: 6rpx 28rpx; border-radius: 24rpx;
   border: 1rpx solid var(--primary); color: var(--primary);
 }
-.sheet-act.del { border-color: #E85D5D; color: #E85D5D; }
+.sheet-act.del { border-color: var(--expense); color: var(--expense); }
 /* 一级分类头部 */
 .sheet-hero {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 16rpx 0 24rpx;
+  display: flex; flex-direction: row; align-items: center; gap: 16rpx;
+  padding: 4rpx 4rpx 12rpx;
 }
 .sheet-hero-icon {
-  width: 112rpx; height: 112rpx; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: 52rpx;
+  width: 56rpx; height: 56rpx; border-radius: 16rpx;
+  display: flex; align-items: center; justify-content: center; font-size: 28rpx; flex-shrink: 0;
 }
-.sheet-hero-name { font-size: 30rpx; font-weight: 600; color: var(--text-main); margin-top: 12rpx; }
+.sheet-hero-name { font-size: 28rpx; font-weight: 600; color: var(--text-main); flex: 1; }
 /* 二级分类区 */
 .sheet-sub-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -530,7 +530,7 @@ export default {
 .sheet-sub-del {
   position: absolute; top: 4rpx; right: 10rpx;
   width: 34rpx; height: 34rpx; line-height: 32rpx; text-align: center;
-  border-radius: 50%; background: #E85D5D; color: #fff; font-size: 24rpx; z-index: 2;
+  border-radius: 50%; background: var(--expense); color: var(--on-expense); font-size: 24rpx; z-index: 2;
 }
 /* ===== 图片图标 ===== */
 .cat-img { width: 100%; height: 100%; border-radius: 50%; }

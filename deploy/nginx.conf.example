@@ -1,0 +1,93 @@
+# =============================================================================
+# Nginx 生产参考配置（示例域名：app.example.com）
+# 作用：静态资源 + 反代 API + MinIO 文件 + 压缩/缓存/安全头
+# =============================================================================
+
+# ---------- 压缩 ----------
+gzip on;
+gzip_comp_level 6;
+gzip_min_length 1024;
+gzip_types text/plain text/css application/json application/javascript text/javascript application/xml image/svg+xml;
+
+server {
+    listen 80;
+    server_name app.example.com;
+    # 强制 HTTPS（证书就绪后启用）
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name app.example.com;
+
+    ssl_certificate     /etc/nginx/ssl/app.example.com.pem;
+    ssl_certificate_key /etc/nginx/ssl/app.example.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # ---------- 安全头 ----------
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Permissions-Policy "camera=(), microphone=(self), geolocation=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    client_max_body_size 20m;
+
+    # ---------- 管理后台（Vue SPA）----------
+    root /opt/moyun/admin-dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # ---------- 后端 API ----------
+    location /prod-api/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # ---------- App H5（/app/）----------
+    location /app/ {
+        alias /opt/moyun/app-h5/;
+        try_files $uri $uri/ /app/index.html;
+    }
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---------- 门户（/portal/，若与主站分域可另建 server）----------
+    location /portal/ {
+        alias /opt/moyun/portal-dist/;
+        try_files $uri $uri/ /portal/index.html;
+    }
+
+    # ---------- MinIO 文件（建议独立域名 + CDN）----------
+    location /oss/ {
+        proxy_pass http://127.0.0.1:9001/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+
+    # ---------- 禁止访问内部路径 ----------
+    location ~ ^/(druid|actuator|doc\.html|swagger-ui|v3/api-docs) {
+        return 404;
+    }
+}

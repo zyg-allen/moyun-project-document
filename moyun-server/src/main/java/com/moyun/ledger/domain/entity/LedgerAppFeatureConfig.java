@@ -53,6 +53,16 @@ public class LedgerAppFeatureConfig implements Serializable {
     /** 角标文案（NEW 等） */
     private String badge;
 
+    /**
+     * App 路由（须在后台路由白名单内）。
+     * <p>为空表示非跳转型入口；链接型入口的 URL 仍存 remark。</p>
+     */
+    private String route;
+
+    /** 是否 App 内置入口（非表字段）：内置入口不可删除，只能隐藏 */
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private Boolean builtin;
+
     private String createBy;
 
     private LocalDateTime createTime;

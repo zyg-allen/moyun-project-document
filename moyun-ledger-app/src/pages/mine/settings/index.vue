@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="系统设置" />
     <!-- 主题切换 -->
@@ -61,6 +61,13 @@
         </view>
         <switch :checked="privacy" @change="onPrivacyChange" style="transform: scale(0.85)" />
       </view>
+      <view class="setting-row" @tap="goDataAuth">
+        <view class="flex-1">
+          <view class="setting-name">隐私与授权</view>
+          <view class="setting-sub">授权客服查看指定范围数据（默认关闭，可随时撤回）</view>
+        </view>
+        <text class="row-arrow">›</text>
+      </view>
     </view>
 
     <!-- 邮件提醒：定时记账执行结果的邮件推送 -->
@@ -79,12 +86,7 @@
       </view>
       <view class="mail-tip" v-if="!email">未绑定邮箱则收不到提醒，请先绑定</view>
 
-      <view class="mail-edit" v-if="editingMail">
-        <input class="mail-input" v-model="emailInput" placeholder="请输入邮箱地址" />
-        <view class="mail-btn" @tap="saveEmail">保存</view>
-        <view class="mail-btn ghost" @tap="cancelEditMail">取消</view>
-      </view>
-      <view class="mail-edit" v-else>
+      <view class="mail-edit right">
         <view class="mail-btn" @tap="startEditMail">{{ email ? '修改邮箱' : '绑定邮箱' }}</view>
       </view>
 
@@ -99,7 +101,25 @@
       <view class="about">{{ appVersionText }}</view>
       <view class="about-sub">个人资产管理 · 一个数字看清全部身家</view>
       <view class="about-sub">数据与墨韵门户账号云端同步</view>
+      <view class="legal-links">
+        <text class="legal-link" @tap="openLegal('terms')">用户协议</text>
+        <text class="legal-sep">·</text>
+        <text class="legal-link" @tap="openLegal('privacy')">隐私政策</text>
+      </view>
     </view>
+    <!-- 修改接收邮箱：底部弹层（长表单可滚动） -->
+    <view class="sheet-mask" v-if="mailSheet" @tap="cancelEditMail">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">接收邮箱</view>
+        <view class="sheet-tip">用于接收定时记账执行结果提醒</view>
+        <input class="mail-input" v-model="emailInput" placeholder="请输入邮箱地址" />
+        <view class="sheet-actions">
+          <view class="mail-btn ghost" @tap="cancelEditMail">取消</view>
+          <view class="mail-btn primary" @tap="saveEmail">保存</view>
+        </view>
+      </view>
+    </view>
+
   </view>
 </template>
 
@@ -127,7 +147,7 @@ export default {
       // 邮件提醒（定时记账执行结果推送）
       email: '',
       mailNotify: false,
-      editingMail: false,
+      mailSheet: false,
       emailInput: '',
       // 邮件帮助外链（utils/appInfo.js 单一来源；为空则不渲染入口）
       mailHelpUrl: MAIL_HELP_URL
@@ -147,6 +167,9 @@ export default {
       setWarehouseEnabled(this.warehouseOn);
     },
     goWarehouseCfg() { uni.navigateTo({ url: '/pages/mine/warehouse-settings/index' }); },
+    /** 隐私与授权：用户主动授权后台在限定范围内查看（合规入口） */
+    goDataAuth() { uni.navigateTo({ url: '/pages/mine/privacy/index' }); },
+    openLegal(type) { uni.navigateTo({ url: '/pages/mine/agreement/index?type=' + type }); },
     /**
      * 读取邮箱与邮件提醒开关。
      * 必须现调 /portal/user/me：stores/user 只持久化 token，userInfo 冷启动即丢失，
@@ -166,7 +189,7 @@ export default {
       // 未绑邮箱时不允许打开开关 ——「显示已开启却收不到」是最糟的状态，
       // 直接展开输入框引导绑定（开关由 :checked 受控，不更新就不会亮）
       if (on && !this.email) {
-        this.editingMail = true;
+        this.mailSheet = true;
         uni.showToast({ title: '请先绑定接收邮箱', icon: 'none' });
         return;
       }
@@ -200,10 +223,10 @@ export default {
     },
     startEditMail() {
       this.emailInput = this.email;
-      this.editingMail = true;
+      this.mailSheet = true;
     },
     cancelEditMail() {
-      this.editingMail = false;
+      this.mailSheet = false;
       this.emailInput = '';
     },
     async saveEmail() {
@@ -215,7 +238,7 @@ export default {
       try {
         await updateProfile({ email: v });
         this.email = v;
-        this.editingMail = false;
+        this.mailSheet = false;
         // 用户点「绑定邮箱」本就是为了收提醒：绑定成功后顺手开启（仅在未开时）
         if (!this.mailNotify) {
           await this.saveNotify(true);
@@ -285,9 +308,12 @@ export default {
   background: var(--surface); border-radius: 12rpx; color: var(--text-main);
 }
 .mail-btn {
-  flex-shrink: 0; font-size: 26rpx; padding: 16rpx 28rpx; border-radius: 12rpx;
-  background: var(--primary); color: var(--on-primary);
+  flex-shrink: 0; font-size: 24rpx; padding: 10rpx 26rpx; border-radius: 999rpx;
+  background: var(--primary-soft); color: var(--primary-text);
+  border: 1rpx solid var(--primary);
 }
+.mail-btn.primary { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.mail-edit.right { justify-content: flex-end; }
 .mail-btn.ghost { background: var(--surface); color: var(--text-sub); }
 /* 邮件帮助外链入口 */
 .mail-help {
@@ -296,6 +322,7 @@ export default {
   font-size: 24rpx; color: var(--primary-text);
 }
 .mail-help-arrow { color: var(--text-muted); font-size: 28rpx; }
+.row-arrow { color: var(--text-muted); font-size: 32rpx; margin-left: 12rpx; }
 
 /* ---------- 外观模式选择（日间/暗色/护眼） ---------- */
 .appearance-grid { display: flex; gap: 24rpx; margin-top: 24rpx; }
@@ -320,4 +347,21 @@ export default {
 .appearance-name { font-size: 24rpx; color: var(--text-sub); }
 .appearance-name.selected { color: var(--primary-text); font-weight: 600; }
 .row-arrow { font-size: 32rpx; color: var(--text-sub); }
+.legal-links { display: flex; align-items: center; justify-content: center; gap: 10rpx; margin-top: 16rpx; }
+.legal-link { font-size: 23rpx; color: var(--primary-text); }
+.legal-sep { font-size: 23rpx; color: var(--text-muted); }
+/* 邮箱修改弹层 */
+.sheet-mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.45); z-index: 999; display: flex; align-items: flex-end; }
+.sheet {
+  width: 100%; max-height: 80vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: var(--card); border-radius: 32rpx 32rpx 0 0;
+  padding: 24rpx 28rpx calc(28rpx + env(safe-area-inset-bottom)); box-sizing: border-box;
+}
+.sheet-title { font-size: 30rpx; font-weight: 700; text-align: center; color: var(--text-main); }
+.sheet-tip { font-size: 22rpx; color: var(--text-muted); text-align: center; margin: 8rpx 0 20rpx; }
+.sheet-actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
+.sheet-actions .mail-btn { flex: 1; text-align: center; padding: 18rpx 0; border-radius: 14rpx; font-size: 26rpx; }
+@media (min-width: 768px) {
+  .sheet { width: 560px; margin: 0 auto; border-radius: 24rpx 24rpx 0 0; }
+}
 </style>

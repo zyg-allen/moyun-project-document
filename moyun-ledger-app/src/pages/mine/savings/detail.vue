@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- NavBar 必须在 v-if 之外：原先整页（含导航栏）都在 v-if="plan" 内，
          加载中或加载失败时页面全白且**没有任何返回入口**，用户会被卡住 -->
@@ -10,12 +10,12 @@
     <view class="overview">
       <view class="ov-row">
         <view class="ov-item">
-          <text class="ov-val">¥{{ toFixedYuan(plan.currentAmount) }}</text>
+          <text class="ov-val">{{ toFixedYuan(plan.currentAmount) }} 元</text>
           <text class="ov-lab">已存入</text>
         </view>
         <view class="ov-divider"></view>
         <view class="ov-item">
-          <text class="ov-val">¥{{ toFixedYuan(plan.targetAmount) }}</text>
+          <text class="ov-val">{{ toFixedYuan(plan.targetAmount) }} 元</text>
           <text class="ov-lab">目标金额</text>
         </view>
         <view class="ov-divider"></view>
@@ -51,7 +51,7 @@
       <view class="period-card" v-for="r in records" :key="r.id">
         <view class="p-left">
           <view class="p-no">第{{ r.periodIndex }}期</view>
-          <view class="p-amount">目标 ¥{{ toFixedYuan(r.targetAmount) }}</view>
+          <view class="p-amount">目标 {{ toFixedYuan(r.targetAmount) }} 元</view>
           <view class="p-date" v-if="r.recordDate">{{ r.recordDate }}</view>
           <view class="p-reason" v-if="r.status === 2 && r.failReason">{{ r.failReason }}</view>
         </view>
@@ -63,7 +63,7 @@
             <view class="p-btn ok" @tap="deposit(r)">存入</view>
             <view class="p-btn no" @tap="fail(r)">放弃</view>
           </view>
-          <view class="p-actual" v-if="r.status === 1">实存 ¥{{ toFixedYuan(r.amount) }}</view>
+          <view class="p-actual" v-if="r.status === 1">实存 {{ toFixedYuan(r.amount) }} 元</view>
         </view>
       </view>
     </view>
@@ -124,7 +124,7 @@ export default {
     deposit(r) {
       uni.showModal({
         title: '存入第' + r.periodIndex + '期',
-        content: '按目标金额 ¥' + toFixedYuan(r.targetAmount) + ' 存入？',
+        content: '按目标金额 ' + toFixedYuan(r.targetAmount) + ' 元 存入？',
         editable: true,
         placeholderText: '可输入实际存入金额（留空按目标金额）',
         success: async (res) => {

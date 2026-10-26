@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="smart-chart">
     <el-card shadow="never">
       <template #header>
@@ -51,7 +51,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 import { TrendCharts, Download, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { sanitizeHtml } from '@/utils/index'

@@ -1,4 +1,4 @@
-spring:
+﻿spring:
   # 邮件服务（163 SMTP）—— 注册验证码 / 找回密码；授权码非登录密码，登录 mail.163.com → 设置 → POP3/SMTP/IMAP 生成
   # ⚠ 此处原提交了真实 163 授权码，已移除并改为空默认。该授权码已进入 git 历史，必须到
   #   163 邮箱后台重新生成（旧授权码作废）。就绪判定与发信消费点：
@@ -43,8 +43,8 @@ spring:
     password: ${MYSQL_PASSWORD:123456}
     druid:
       initial-size: 5
-      min-idle: 10
-      max-active: 20
+      min-idle: 20
+      max-active: 40
       max-wait: 60000
       connect-timeout: 30000
       socket-timeout: 60000

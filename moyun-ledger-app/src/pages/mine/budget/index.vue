@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="预算设置" />
     <view class="tip-card">设置后，首页将展示本月支出进度条，超出预算红色预警</view>
@@ -6,9 +6,9 @@
     <view class="card">
       <view class="field">
         <text class="field-label">月份</text>
-        <picker class="fill-picker" mode="date" fields="month" :value="monthStr" @change="onMonthChange">
+        <view class="fill-picker" @tap="openMonth">
           <view class="field-value">{{ monthStr }} ▾</view>
-        </picker>
+        </view>
       </view>
       <view class="field">
         <text class="field-label">月度总预算(元)</text>
@@ -26,6 +26,15 @@
       </view>
       <view class="btn-primary" :class="{ disabled: submitting }" @tap="!submitting && saveCategoryBudgets()">保存分类预算</view>
     </view>
+    <PickerWheel
+      :visible="monthSheet"
+      title="选择月份"
+      :columns="[years, months]"
+      :value="monthDraft"
+      @close="monthSheet = false"
+      @confirm="onMonthConfirm"
+    />
+
   </view>
 </template>
 
@@ -34,12 +43,18 @@ import submitLock from '@/mixins/submitLock';
 import { listBudgets, saveBudget, deleteBudget, listCategories } from '@/api/ledger';
 import { toNum, toFixedYuan, applyAmountInput } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
+import PickerWheel from '@/components/PickerWheel/PickerWheel.vue';
 
 export default {
+  components: { PickerWheel },
   mixins: [submitLock],
   data() {
     const now = new Date();
     return {
+      monthSheet: false,
+      monthDraft: [0, 0],
+      years: [],
+      months: [],
       year: now.getFullYear(),
       month: now.getMonth() + 1,
       totalBudgetYuan: '',
@@ -61,6 +76,23 @@ export default {
     this.load();
   },
   methods: {
+    openMonth() {
+      const now = new Date();
+      const start = 2020;
+      const end = now.getFullYear() + 1;
+      this.months = Array.from({ length: 12 }, (_, i) => (i + 1 < 10 ? '0' + (i + 1) : '' + (i + 1)));
+      this.years = [];
+      for (let y = start; y <= end; y++) this.years.push(String(y));
+      const yi = Math.max(0, this.years.indexOf(String(this.year)));
+      const mi = Math.max(0, this.month - 1);
+      this.monthDraft = [yi, mi];
+      this.monthSheet = true;
+    },
+    onMonthConfirm(idx) {
+      const v = this.years[idx[0]] + '-' + this.months[idx[1]];
+      this.onMonthChange({ detail: { value: v } });
+      this.monthSheet = false;
+    },
     /** 总预算输入净化（见 utils/money.applyAmountInput） */
     onTotalBudgetInput(e) { applyAmountInput(e, this, 'totalBudgetYuan'); },
     async load() {

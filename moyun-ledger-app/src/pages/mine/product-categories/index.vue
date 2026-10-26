@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="商品类目" />
 
@@ -243,7 +243,7 @@ export default {
 .sheet { width: 100%; max-height: 76vh; background: var(--card); border-radius: 24rpx 24rpx 0 0; padding: 20rpx 24rpx 40rpx; }
 .sheet-actions { display: flex; justify-content: flex-end; gap: 24rpx; padding: 8rpx 0; }
 .sheet-act { font-size: 26rpx; color: var(--primary); }
-.sheet-act.del { color: #E8654A; }
+.sheet-act.del { color: var(--expense); }
 .sheet-hero { display: flex; flex-direction: column; align-items: center; padding: 10rpx 0 20rpx; }
 .sheet-hero-icon { width: 110rpx; height: 110rpx; display: flex; align-items: center; justify-content: center; font-size: 52rpx; border-radius: 22rpx; overflow: hidden; }
 .sheet-hero-name { font-size: 30rpx; font-weight: 700; color: var(--text-main); margin-top: 12rpx; }
@@ -256,7 +256,7 @@ export default {
 .sub-icon.add { border: 1rpx dashed var(--border); color: var(--text-sub); }
 .sub-img { width: 100%; height: 100%; }
 .sub-name { font-size: 22rpx; color: var(--text-main); margin-top: 8rpx; text-align: center; }
-.sub-del { position: absolute; top: -8rpx; right: 12rpx; width: 34rpx; height: 34rpx; line-height: 30rpx; text-align: center; border-radius: 50%; background: #E8654A; color: #fff; font-size: 24rpx; }
+.sub-del { position: absolute; top: -8rpx; right: 12rpx; width: 34rpx; height: 34rpx; line-height: 30rpx; text-align: center; border-radius: 50%; background: var(--expense); color: var(--on-expense); font-size: 24rpx; }
 .flex-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
 /* ===== 排版统一 ===== */

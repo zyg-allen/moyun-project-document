@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="编辑流水" />
 
@@ -68,9 +68,9 @@
       <!-- 时间 -->
       <view class="info-row">
         <text class="info-label">时间</text>
-        <picker mode="time" class="fill-picker" :value="txn.transactionTime || '00:00'" @change="onTimeChange">
+        <view class="fill-picker" @tap="openTime">
           <view class="info-value pick">{{ txn.transactionTime || '00:00' }} ▾</view>
-        </picker>
+        </view>
       </view>
 
       <!-- 商户 -->
@@ -117,11 +117,21 @@
       </scroll-view>
       <view class="picker-cancel" @tap="picker.visible = false">取消</view>
     </KeyboardAwareSheet>
+    <PickerWheel
+      :visible="timeSheet"
+      title="选择时间"
+      :columns="[hours, minutes]"
+      :value="timeDraft"
+      @close="timeSheet = false"
+      @confirm="onTimeConfirm"
+    />
+
   </view>
 </template>
 
 <script>
 import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
+import PickerWheel from '@/components/PickerWheel/PickerWheel.vue';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import submitLock from '@/mixins/submitLock';
 import {
@@ -132,7 +142,7 @@ import { toFixedYuan, toNum, typeText, applyAmountInput, formatAmount, formatAbs
 import { useThemeStore } from '@/stores/theme';
 
 export default {
-  components: { CalendarPicker, KeyboardAwareSheet },
+  components: { PickerWheel, CalendarPicker, KeyboardAwareSheet },
   mixins: [submitLock],
   computed: {
     themeVars() { return useThemeStore().themeVars; },
@@ -181,6 +191,10 @@ export default {
   },
   data() {
     return {
+      timeSheet: false,
+      timeDraft: [0, 0],
+      hours: HOURS,
+      minutes: MINUTES,
       id: null,
       txn: null,
       amountYuan: '',
@@ -200,6 +214,15 @@ export default {
     useThemeStore().applyToPageBody();
   },
   methods: {
+    openTime() {
+      const parts = String((this.txn && this.txn.transactionTime) || '08:00').split(':');
+      this.timeDraft = [Number(parts[0]) || 0, Number(parts[1]) || 0];
+      this.timeSheet = true;
+    },
+    onTimeConfirm(idx) {
+      this.onTimeChange({ detail: { value: pad2(idx[0]) + ':' + pad2(idx[1]) } });
+      this.timeSheet = false;
+    },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onAmountInput(e) { applyAmountInput(e, this, 'amountYuan'); },
     typeText,
@@ -213,7 +236,7 @@ export default {
       const item = (list || []).find(x => x.id === id);
       if (item) {
         const v = label === '欠款' ? formatAbsAmount(item.balance) : formatAmount(item.balance);
-        return `${item.name}（${label} ¥${v}）`;
+        return `${item.name}（${label} ${v} 元）`;
       }
       const fallback = this.fallbackName(id);
       return fallback || '';
@@ -267,18 +290,18 @@ export default {
     },
     pickAsset() {
       this.openPicker('asset', '选择账户',
-        this.assets.map(a => ({ id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance) })),
+        this.assets.map(a => ({ id: a.id, name: a.name, sub: '余额 ' + formatAmount(a.balance) + ' 元' })),
         this.txn.accountId);
     },
     pickTarget() {
       this.openPicker('target', '选择转入账户',
         this.assets.filter(a => a.id !== this.txn.accountId)
-          .map(a => ({ id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance) })),
+          .map(a => ({ id: a.id, name: a.name, sub: '余额 ' + formatAmount(a.balance) + ' 元' })),
         this.txn.targetAccountId);
     },
     pickLiability() {
       this.openPicker('liability', '选择借款项目',
-        this.liabilities.map(l => ({ id: l.id, name: l.name, sub: '欠款 ¥' + formatAbsAmount(l.balance) })),
+        this.liabilities.map(l => ({ id: l.id, name: l.name, sub: '欠款 ' + formatAbsAmount(l.balance) + ' 元' })),
         this.txn.liabilityId);
     },
     pickSubCategory() {

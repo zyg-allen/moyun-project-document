@@ -1,0 +1,63 @@
+﻿### txn-page
+{
+  "concurrency": 40,
+  "durationSec": 15.3,
+  "total": 1488,
+  "rps": 96.9,
+  "endpoints": {
+    "txn-page": {
+      "count": 1488,
+      "rps": 96.9,
+      "ok": 1488,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 421.9,
+      "p95": 438.2,
+      "p99": 458.3,
+      "avgKB": 0.2
+    }
+  }
+}
+
+### dashboard
+{
+  "concurrency": 40,
+  "durationSec": 15,
+  "total": 6121,
+  "rps": 406.7,
+  "endpoints": {
+    "dashboard": {
+      "count": 6121,
+      "rps": 406.7,
+      "ok": 6121,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 93.5,
+      "p95": 132.5,
+      "p99": 151.6,
+      "avgKB": 0.3
+    }
+  }
+}
+
+### report
+{
+  "concurrency": 40,
+  "durationSec": 15,
+  "total": 8644,
+  "rps": 575.1,
+  "endpoints": {
+    "report": {
+      "count": 8644,
+      "rps": 575.1,
+      "ok": 8644,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 63.2,
+      "p95": 95.5,
+      "p99": 155,
+      "avgKB": 1.3
+    }
+  }
+}
+

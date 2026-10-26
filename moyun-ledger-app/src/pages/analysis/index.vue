@@ -1,5 +1,8 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
+    <!-- 从总览/更多进入的二级页：必须有返回 -->
+    <NavBar title="财务分析" />
+
     <!-- ==================== 头部：月份维度切换 ==================== -->
     <view class="month-bar">
       <view class="month-arrow" @tap="shiftMonth(-1)">‹</view>
@@ -22,19 +25,19 @@
         <view class="kpi-grid">
           <view class="fin-kpi">
             <view class="label">净资产</view>
-            <view class="value blue">¥{{ fmt(bs.netAssets) }}</view>
+            <view class="value blue">{{ fmt(bs.netAssets) }} 元</view>
           </view>
           <view class="fin-kpi">
             <view class="label">{{ periodShort }}结余</view>
-            <view class="value" :class="surplusClass">¥{{ fmt(is_.surplus) }}</view>
+            <view class="value" :class="surplusClass">{{ fmt(is_.surplus) }} 元</view>
           </view>
           <view class="fin-kpi">
             <view class="label">{{ periodShort }}收入</view>
-            <view class="value green">¥{{ fmt(is_.totalIncome) }}</view>
+            <view class="value green">{{ fmt(is_.totalIncome) }} 元</view>
           </view>
           <view class="fin-kpi">
             <view class="label">{{ periodShort }}支出</view>
-            <view class="value red">¥{{ fmt(is_.totalExpense) }}</view>
+            <view class="value red">{{ fmt(is_.totalExpense) }} 元</view>
           </view>
         </view>
 
@@ -142,8 +145,8 @@
               <!-- 核心指标 -->
               <view class="pv-sec" v-if="pvIndicators">
                 <view class="pv-sec-title">核心指标</view>
-                <view class="pv-kv"><text>总资产</text><text>¥ {{ fmt(pvIndicators.totalAsset) }}</text></view>
-                <view class="pv-kv"><text>总负债</text><text>¥ {{ fmt(pvIndicators.totalLiability) }}</text></view>
+                <view class="pv-kv"><text>总资产</text><text>{{ fmt(pvIndicators.totalAsset) }} 元</text></view>
+                <view class="pv-kv"><text>总负债</text><text>{{ fmt(pvIndicators.totalLiability) }} 元</text></view>
                 <view class="pv-kv"><text>资产负债率</text><text>{{ pvIndicators.debtRatio ?? 0 }}%</text></view>
                 <view class="pv-kv"><text>月储蓄率</text><text>{{ pvIndicators.savingRate ?? 0 }}%</text></view>
                 <view class="pv-kv" v-if="pvIndicators.emergencyFundMonths != null"><text>应急基金</text><text>{{ pvIndicators.emergencyFundMonths }} 个月支出</text></view>
@@ -192,6 +195,7 @@ import { getFinancialReport, listAiReports, getAiReportDetail, deleteAiReport,
          submitAiAnalysisTask, getAiAnalysisTask } from '@/api/ledger';
 import { formatAmount, toNum } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
+import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 
 const HINT_KEY = 'moyun_fin_hint_closed';
@@ -203,6 +207,7 @@ const TASK_KEY = 'ledger_analysis_task';
 const LEVEL_HINT = { A: { text: '优秀', cls: 'good' }, B: { text: '良好', cls: 'warn' }, C: { text: '预警', cls: 'bad' } };
 
 export default {
+  components: { NavBar },
   data() {
     return {
       /** 当前选中月份（yyyy-MM），页面以月为维度 */

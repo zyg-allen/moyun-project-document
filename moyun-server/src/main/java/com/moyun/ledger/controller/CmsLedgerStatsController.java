@@ -13,6 +13,7 @@ import com.moyun.ledger.domain.entity.LedgerMemo;
 import com.moyun.ledger.domain.entity.LedgerSavingPlan;
 import com.moyun.ledger.domain.entity.LedgerScheduleTask;
 import com.moyun.ledger.domain.entity.LedgerTransaction;
+import com.moyun.ledger.domain.entity.LedgerWarehouse;
 import com.moyun.ledger.mapper.LedgerAiAnalysisReportMapper;
 import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
 import com.moyun.ledger.mapper.LedgerBudgetMapper;
@@ -21,6 +22,7 @@ import com.moyun.ledger.mapper.LedgerMemoMapper;
 import com.moyun.ledger.mapper.LedgerSavingPlanMapper;
 import com.moyun.ledger.mapper.LedgerScheduleTaskMapper;
 import com.moyun.ledger.mapper.LedgerTransactionMapper;
+import com.moyun.ledger.mapper.LedgerWarehouseMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,19 +41,30 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * CMS 记账运营统计 Controller（扩展：模块使用 + AI/Token 消耗 + 收益现状）
+ * CMS 记账运营统计 Controller（脱敏聚合）
  *
- * <p>脱敏红线：仅返回聚合指标（用户数/流水数/模块渗透/AI 成本/打赏营收），
- * 不返回任何用户个体数据、金额明细、账户名称。
+ * <p>脱敏红线：仅返回聚合指标（用户数/流水数/模块渗透/AI 成本），
+ * 不返回任何用户个体数据、金额明细、账户名称。</p>
+ *
+ * <p>口径统一：
+ * <ul>
+ *   <li>「有效流水」= status=1；「历史总量」= 含已删；</li>
+ *   <li>活跃用户 = 近 30 日有<b>有效</b>流水的用户；</li>
+ *   <li>模块使用数 &lt; 10 时只给 masked 标记，不返回精确值（防小样本反识别）。</li>
+ * </ul>
+ *
  * <p>性能铁律：全部走 SQL 聚合（COUNT DISTINCT / SUM / GROUP BY），
- * 禁止全表 selectList 内存聚合。
+ * 禁止全表 selectList 内存聚合。</p>
  *
  * @author moyun
  */
-@Tag(name = "CMS记账运营统计", description = "脱敏聚合运营指标：用户/模块/AI/收益")
+@Tag(name = "CMS记账运营统计", description = "脱敏聚合运营指标：用户/模块/AI")
 @RestController
 @RequestMapping("/cms/ledger/stats")
 public class CmsLedgerStatsController extends BaseController {
+
+    /** 小样本抑制阈值（k-匿名） */
+    private static final int K_ANONYMITY = 10;
 
     @Autowired
     private LedgerAssetAccountMapper assetAccountMapper;
@@ -75,19 +88,22 @@ public class CmsLedgerStatsController extends BaseController {
     private LedgerMemoMapper memoMapper;
 
     @Autowired
+    private LedgerWarehouseMapper warehouseMapper;
+
+    @Autowired
     private LedgerAiAnalysisReportMapper reportMapper;
 
     @Autowired
     private AiExecuteLogMapper aiExecuteLogMapper;
 
-    @Operation(summary = "运营统计总览（脱敏聚合：用户规模 + 模块使用 + AI/Token + 收益现状）")
+    @Operation(summary = "运营统计总览（脱敏聚合：用户规模 + 模块使用 + AI/Token）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerStats:list')")
     @GetMapping("/overview")
     public AjaxResult overview() {
         Map<String, Object> data = new LinkedHashMap<>();
         LocalDate monthAgo = LocalDate.now().minusDays(30);
 
-        // ============ 1. 用户规模（持有任一启用账户的用户数：资产∪负债，SQL 单列 DISTINCT 后合并） ============
+        // ============ 1. 用户规模（持有任一启用账户的用户数） ============
         Set<Object> userRaw = new HashSet<>();
         assetAccountMapper.selectObjs(new QueryWrapper<LedgerAssetAccount>()
                         .select("DISTINCT user_id")
@@ -100,10 +116,13 @@ public class CmsLedgerStatsController extends BaseController {
         long userCount = userRaw.size();
         data.put("userCount", userCount);
 
-        // ============ 2. 流水规模（含已删除=历史记账行为量）与活跃 ============
+        // ============ 2. 流水规模（有效 / 历史总量）与活跃 ============
         data.put("transactionCount", transactionMapper.selectCount(null));
+        data.put("validTransactionCount", transactionMapper.selectCount(new QueryWrapper<LedgerTransaction>()
+                .eq("status", LedgerTransaction.STATUS_NORMAL)));
         data.put("activeUserCount30d", transactionMapper.selectObjs(new QueryWrapper<LedgerTransaction>()
                 .select("DISTINCT user_id")
+                .eq("status", LedgerTransaction.STATUS_NORMAL)
                 .ge("transaction_date", monthAgo)).size());
 
         // 记账类型分布（有效流水，SQL GROUP BY）
@@ -116,32 +135,37 @@ public class CmsLedgerStatsController extends BaseController {
         }
         data.put("typeDistribution", typeDist);
 
-        // ============ 3. 模块使用情况（各模块去重使用用户数，SQL COUNT DISTINCT） ============
+        // ============ 3. 模块使用情况（去重用户数 + 小样本抑制） ============
         List<Map<String, Object>> moduleUsage = new ArrayList<>();
-        moduleUsage.add(module("transaction", "记账流水", transactionMapper.selectObjs(
-                new QueryWrapper<LedgerTransaction>().select("DISTINCT user_id")).size()));
-        moduleUsage.add(module("budget", "预算管理", budgetMapper.selectObjs(
-                new QueryWrapper<LedgerBudget>().select("DISTINCT user_id")).size()));
-        moduleUsage.add(module("saving", "存钱计划", savingPlanMapper.selectObjs(
-                new QueryWrapper<LedgerSavingPlan>().select("DISTINCT user_id")).size()));
-        moduleUsage.add(module("schedule", "定时记账", scheduleTaskMapper.selectObjs(
-                new QueryWrapper<LedgerScheduleTask>().select("DISTINCT user_id")).size()));
-        moduleUsage.add(module("memo", "备忘录", memoMapper.selectObjs(
-                new QueryWrapper<LedgerMemo>().select("DISTINCT user_id")).size()));
-        moduleUsage.add(module("assetAccount", "资产账户", (int) userCount));
-        moduleUsage.add(module("aiReport", "AI 分析报告", reportMapper.selectObjs(
-                new QueryWrapper<LedgerAiAnalysisReport>().select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("transaction", "记账流水", transactionMapper.selectObjs(new QueryWrapper<LedgerTransaction>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("assetAccount", "资产账户", assetAccountMapper.selectObjs(new QueryWrapper<LedgerAssetAccount>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("liability", "负债账户", liabilityAccountMapper.selectObjs(new QueryWrapper<LedgerLiabilityAccount>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("budget", "预算管理", budgetMapper.selectObjs(new QueryWrapper<LedgerBudget>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("saving", "存钱计划", savingPlanMapper.selectObjs(new QueryWrapper<LedgerSavingPlan>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("schedule", "定时记账", scheduleTaskMapper.selectObjs(new QueryWrapper<LedgerScheduleTask>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("memo", "备忘录", memoMapper.selectObjs(new QueryWrapper<LedgerMemo>()
+                .select("DISTINCT user_id")).size()));
+        moduleUsage.add(module("inventory", "库存管理", warehouseMapper.selectObjs(new QueryWrapper<LedgerWarehouse>()
+                .select("DISTINCT user_id")
+                .eq("status", LedgerWarehouse.STATUS_NORMAL)).size()));
+        moduleUsage.add(module("aiReport", "AI 分析报告", reportMapper.selectObjs(new QueryWrapper<LedgerAiAnalysisReport>()
+                .select("DISTINCT user_id")).size()));
         data.put("moduleUsage", moduleUsage);
 
         // ============ 4. AI 与 Token 消耗（网关执行日志，SQL SUM/GROUP BY） ============
         Map<String, Object> aiStats = new LinkedHashMap<>();
         List<Map<String, Object>> aiTotal = aiExecuteLogMapper.selectMaps(new QueryWrapper<AiExecuteLog>()
                 .select("count(*) as calls", "sum(token_used) as tokens", "sum(cost_yuan) as cost"));
-        Map<String, Object> aiRow = aiTotal.isEmpty() ? Map.of() : aiTotal.getFirst();
+        Map<String, Object> aiRow = aiTotal.isEmpty() ? Map.of() : aiTotal.get(0);
         aiStats.put("callCount", toLong(aiRow.get("calls")));
         aiStats.put("tokenTotal", toLong(aiRow.get("tokens")));
         aiStats.put("costYuan", aiRow.get("cost"));
-        // 场景分布（按 scene_code 聚合调用/Token/成本）
         List<Map<String, Object>> sceneDist = new ArrayList<>();
         for (Map<String, Object> row : aiExecuteLogMapper.selectMaps(new QueryWrapper<AiExecuteLog>()
                 .select("scene_code", "count(*) as calls", "sum(token_used) as tokens", "sum(cost_yuan) as cost")
@@ -157,18 +181,17 @@ public class CmsLedgerStatsController extends BaseController {
         aiStats.put("sceneDistribution", sceneDist);
         data.put("aiStats", aiStats);
 
-        // ============ 5. 收益现状（打赏收益统计统一收口到收入管理模块，此页仅保留跳转入口） ============
-        data.put("revenueModulePath", "/pay/revenue");
-
         return success(data);
     }
 
-    /** 模块使用行组装 */
+    /** 模块行：userCount &lt; k 时置空并标记 masked，避免小样本反识别 */
     private Map<String, Object> module(String key, String label, int userCount) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("key", key);
         m.put("label", label);
-        m.put("userCount", userCount);
+        boolean masked = userCount > 0 && userCount < K_ANONYMITY;
+        m.put("masked", masked);
+        m.put("userCount", masked ? null : userCount);
         return m;
     }
 

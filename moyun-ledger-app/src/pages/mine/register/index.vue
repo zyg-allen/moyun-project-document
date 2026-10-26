@@ -1,6 +1,8 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="注册账号" />
+
+    <view class="value-line"><text class="value-hl">记账 + 库存</text>，个人和小生意的一本账</view>
 
     <!-- 注册方式切换 -->
     <view class="mode-bar">
@@ -66,7 +68,16 @@
         <image class="captcha-img" :src="formCaptcha.img" mode="aspectFit" @tap="loadCaptcha" />
       </view>
 
-      <view class="btn-primary" @tap="doRegister">注 册</view>
+      <!-- 协议勾选：未勾选不允许提交 -->
+    <view class="agree-row" @tap="agreed = !agreed">
+      <view class="agree-box" :class="{ on: agreed }"><text v-if="agreed">✓</text></view>
+      <text class="agree-text">我已阅读并同意</text>
+      <text class="agree-link" @tap.stop="openLegal('terms')">《用户协议》</text>
+      <text class="agree-text">和</text>
+      <text class="agree-link" @tap.stop="openLegal('privacy')">《隐私政策》</text>
+    </view>
+
+    <view class="btn-primary" @tap="doRegister">注 册</view>
       <view class="tip">注册成功将自动登录，与墨韵门户共用账号体系</view>
       <view class="link" @tap="goLogin">已有账号？返回登录</view>
     </view>
@@ -94,6 +105,7 @@ import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { register, sendEmailCode, sendSmsCode, getCaptchaImage } from '@/api/ledger';
+import { LEGAL_VERSION } from '@/utils/legal';
 
 export default {
   components: { NavBar },
@@ -110,6 +122,7 @@ export default {
       // 否则离开页面后定时器仍在跑，再次进入会叠加 → 倒计时跳得比 1 秒快）
       countdownTimers: { sms: null, email: null },
       submitting: false,
+      agreed: false,
       // 注册提交用的表单图形码（独立于发送验证码弹窗，后端 register 同步校验）
       formCaptcha: { img: '', uuid: '' },
       formCaptchaCode: '',
@@ -132,6 +145,9 @@ export default {
     this.clearCountdown('email');
   },
   methods: {
+    openLegal(type) {
+      uni.navigateTo({ url: '/pages/mine/agreement/index?type=' + type });
+    },
     async loadCaptcha() {
       // 探测开关 + 加载表单图形码（captchaEnabled 同时控制发送弹窗与表单图形码）
       try {
@@ -255,7 +271,9 @@ export default {
       try {
         const payload = {
           username: this.form.username.trim(),
-          password: this.form.password
+          password: this.form.password,
+          // 协议同意留痕：服务端写入 portal_user_agreement（terms + privacy）
+          agreedVersion: LEGAL_VERSION
         };
         // 图形码随注册提交（开关开启时；后端校验一次性消费）
         if (this.captchaEnabled) {
@@ -359,4 +377,18 @@ export default {
 .dialog-btn.cancel { background: var(--surface); color: var(--text-sub); }
 .dialog-btn.ok { background: var(--primary-strong); color: var(--on-primary); font-weight: 600; }
 .dialog-btn:active { opacity: 0.85; }
+.value-line {
+  margin: 28rpx 40rpx 0; text-align: center;
+  font-size: 26rpx; color: var(--text-sub); line-height: 1.6; letter-spacing: 0.5rpx;
+}
+.value-hl { color: var(--primary-text); font-weight: 600; }
+.agree-row { display: flex; align-items: center; flex-wrap: wrap; padding: 20rpx 8rpx 4rpx; }
+.agree-box {
+  width: 36rpx; height: 36rpx; border-radius: 8rpx; border: 2rpx solid var(--border);
+  margin-right: 12rpx; display: flex; align-items: center; justify-content: center;
+  font-size: 24rpx; color: #fff; flex-shrink: 0;
+}
+.agree-box.on { background: var(--primary); border-color: var(--primary); }
+.agree-text { font-size: 23rpx; color: var(--text-sub); }
+.agree-link { font-size: 23rpx; color: var(--primary-text); }
 </style>

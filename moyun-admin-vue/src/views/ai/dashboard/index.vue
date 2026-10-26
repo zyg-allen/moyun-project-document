@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="dashboard-container">
     <!-- 背景动效 -->
     <div class="bg-effects">
@@ -269,7 +269,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import request from '@/utils/request'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 
 const currentDate = ref('')
 const currentTime = ref('')

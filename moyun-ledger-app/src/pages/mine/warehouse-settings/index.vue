@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="仓库配置" />
 
@@ -18,36 +18,46 @@
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">在列表显示库存价值</text>
-        <switch :checked="cfg.showValue" color="#5FA77A" @change="e => { cfg.showValue = e.detail.value; saveCfg(); }" />
+        <switch :checked="cfg.showValue" :color="themeColor" @change="e => { cfg.showValue = e.detail.value; saveCfg(); }" />
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">列表显示标签</text>
-        <switch :checked="cfg.showTags" color="#5FA77A" @change="e => { cfg.showTags = e.detail.value; saveCfg(); }" />
+        <switch :checked="cfg.showTags" :color="themeColor" @change="e => { cfg.showTags = e.detail.value; saveCfg(); }" />
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">列表显示到期日期</text>
-        <switch :checked="cfg.showExpiry" color="#5FA77A" @change="e => { cfg.showExpiry = e.detail.value; saveCfg(); }" />
+        <switch :checked="cfg.showExpiry" :color="themeColor" @change="e => { cfg.showExpiry = e.detail.value; saveCfg(); }" />
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">商品列表每页条数</text>
-        <picker :range="pageSizeOptions" @change="onPageSizeChange">
+        <view @tap="openPs('pageSize')">
           <text class="cfg-value">{{ cfg.pageSize }} 条 ▾</text>
-        </picker>
+        </view>
       </view>
       <view class="cfg-row">
         <text class="flex-1 cfg-label">出入库默认原因</text>
-        <picker :range="reasonOptions" @change="onDefaultReasonChange">
+        <view @tap="openPs('reason')">
           <text class="cfg-value">{{ cfg.defaultReasonLabel }} ▾</text>
-        </picker>
+        </view>
       </view>
       <view class="hint">配置已存到账号（ledger_warehouse_config），换设备自动同步；离线时用本机缓存。</view>
     </view>
+
+    <PickerSheet
+      :visible="ps.visible"
+      :title="ps.title"
+      :options="ps.options"
+      :selected="ps.selected"
+      @close="ps.visible = false"
+      @select="onPsSelect"
+    />
 
   </view>
 </template>
 
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
 import { useThemeStore } from '@/stores/theme';
 import { isWarehouseEnabled, setWarehouseEnabled, syncWarehouseSwitch, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 
@@ -55,15 +65,18 @@ import { getWarehouseCfg, saveWarehouseCfg, loadWarehouseCfg } from '@/utils/war
 const REASONS = [['purchase', '采购'], ['sale', '销售'], ['gift', '赠送'], ['other', '其他']];
 
 export default {
-  components: { NavBar },
+  components: { PickerSheet, NavBar },
   data() {
     return {
+      ps: { visible: false, key: '', title: '', options: [], selected: -1 },
       enabled: true,
       cfg: getWarehouseCfg(),
       savedTip: false,
     };
   },
   computed: {
+    /** uni switch 的 color 只接受具体色值，这里取当前主题主色 */
+    themeColor() { return useThemeStore().theme['--primary']; },
     themeVars() { return useThemeStore().themeVars; },
     reasonOptions() { return REASONS.map(r => r[1]); },
     pageSizeOptions() { return ['10 条', '20 条', '50 条']; },
@@ -79,6 +92,18 @@ export default {
     this.loadCfg();
   },
   methods: {
+    openPs(key) {
+      if (key === 'pageSize') {
+        this.ps = { visible: true, key, title: '每页条数', options: this.pageSizeOptions, selected: this.pageSizeOptions.findIndex((x) => String(x).indexOf(String(this.cfg.pageSize)) === 0) };
+      } else {
+        this.ps = { visible: true, key, title: '出入库默认原因', options: this.reasonOptions, selected: this.reasonOptions.findIndex((x) => x === this.cfg.defaultReasonLabel) };
+      }
+    },
+    onPsSelect(idx) {
+      if (this.ps.key === 'pageSize') this.onPageSizeChange({ detail: { value: idx } });
+      else this.onDefaultReasonChange({ detail: { value: idx } });
+      this.ps.visible = false;
+    },
     async loadCfg() { this.cfg = await loadWarehouseCfg(); },
     /** 改动即存：本机立即生效 + 异步推后端，同时给出「已保存」反馈 */
     saveCfg() {

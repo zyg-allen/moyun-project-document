@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+﻿import { createApp } from 'vue'
 
 import Cookies from 'js-cookie'
 
@@ -27,9 +27,7 @@ import './permission' // permission control
 import { useDict } from '@/utils/dict'
 import { parseTime, resetForm, addDateRange, handleTree, selectDictLabel, selectDictLabels } from '@/utils/ruoyi'
 
-import VForm3 from 'vform3-builds'  //引入VForm3库
 
-import 'vform3-builds/dist/designer.style.css'  //引入VForm3样式
 
 // 分页组件
 import Pagination from '@/components/Pagination'
@@ -91,9 +89,6 @@ app.component('ImageUpload', ImageUpload)
 app.component('ImagePreview', ImagePreview)
 app.component('RightToolbar', RightToolbar)
 app.component('Editor', Editor)
-
-app.use(VForm3) 
-
 app.use(hljsVuePlugin)
 
 app.use(router)

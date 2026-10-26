@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="备忘录" />
 
@@ -67,9 +67,9 @@
             <CalendarPicker class="fill-picker" :value="form.date" @change="(e) => form.date = e.detail.value">
               <view class="f-value" :class="{ placeholder: !form.date }">{{ form.date || '选择日期' }}</view>
             </CalendarPicker>
-            <picker mode="time" class="fill-picker" :value="form.time" @change="(e) => form.time = e.detail.value" style="margin-left: 20rpx;">
+            <view class="fill-picker" style="margin-left: 20rpx;" @tap="openTime">
               <view class="f-value" :class="{ placeholder: !form.time }">{{ form.time || '选择时间' }}</view>
-            </picker>
+            </view>
           </view>
           <view class="f-row">
             <text class="f-label">是否提醒</text>
@@ -80,9 +80,9 @@
           </view>
           <view class="f-row" v-if="form.remindEnabled === 1">
             <text class="f-label">提醒方式</text>
-            <picker class="fill-picker" :range="remindLabels" :value="remindIndex" @change="(e) => form.remindRule = remindKeys[e.detail.value]">
+            <view class="fill-picker" @tap="openPs('remind')">
               <view class="f-value">{{ remindLabel(form.remindRule) }} ›</view>
-            </picker>
+            </view>
           </view>
           <view class="f-row">
             <text class="f-label">重要程度</text>
@@ -100,6 +100,27 @@
         </view>
       </view>
     </view>
+    <PickerSheet
+      :visible="ps.visible"
+      :title="ps.title"
+      :options="ps.options"
+      :selected="ps.selected"
+      @close="ps.visible = false"
+      @select="onPsSelect"
+    />
+
+  
+  <PickerWheel
+    :visible="timeSheet"
+    title="选择时间"
+    :columns="[hours, minutes]"
+    :value="timeDraft"
+    @close="timeSheet = false"
+    @confirm="onTimeConfirm"
+  />
+
+  
+
   </view>
 </template>
 
@@ -108,6 +129,9 @@ import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import submitLock from '@/mixins/submitLock';
 import keyboardAware from '@/mixins/keyboardAware';
 import NavBar from '@/components/NavBar/NavBar.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
+import PickerWheel from '@/components/PickerWheel/PickerWheel.vue';
+import { HOURS, MINUTES, pad2 } from '@/utils/timeOptions';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { listMemos, createMemo, updateMemo, toggleMemo, deleteMemo } from '@/api/ledger';
@@ -116,9 +140,11 @@ const IMPORTANCE_MAP = { urgent: '紧急', high: '重要', normal: '一般', low
 const REMIND_KEYS = ['on_time', 'advance_30m', 'advance_1h', 'advance_2h', 'advance_1d', 'advance_1d_9am'];
 const REMIND_LABELS = { on_time: '准时提醒', advance_30m: '提前30分钟', advance_1h: '提前1小时', advance_2h: '提前2小时', advance_1d: '提前1天', advance_1d_9am: '提前一天上午9点' };
 
+import { loadDicts } from '@/utils/ledgerDict';
+
 export default {
   mixins: [keyboardAware, submitLock],
-  components: { CalendarPicker,  NavBar },
+  components: { PickerSheet, PickerWheel, CalendarPicker,  NavBar },
   data() {
     return {
       todos: [],
@@ -126,7 +152,13 @@ export default {
       editingId: null,
       form: this.emptyForm(),
       importanceMap: IMPORTANCE_MAP,
+      ps: { visible: false, key: '', title: '', options: [], selected: -1 },
+      timeSheet: false,
+      timeDraft: [0, 0],
+      hours: HOURS,
+      minutes: MINUTES,
       remindKeys: REMIND_KEYS,
+      remindLabelsMap: { ...REMIND_LABELS },
       remindLabels: REMIND_KEYS.map(k => REMIND_LABELS[k])
     };
   },
@@ -137,10 +169,43 @@ export default {
     remindIndex() { return Math.max(0, REMIND_KEYS.indexOf(this.form.remindRule)); }
   },
   onShow() {
+    this.loadRemindDict();
     useThemeStore().restore();
     if (useUserStore().isLoggedIn) this.load();
   },
   methods: {
+    openPs(key) {
+      this.ps = {
+        visible: true,
+        key,
+        title: '提醒规则',
+        options: this.remindLabels,
+        selected: this.remindIndex
+      };
+    },
+    openTime() {
+      const parts = String(this.form.time || '08:00').split(':');
+      this.timeDraft = [Number(parts[0]) || 0, Number(parts[1]) || 0];
+      this.timeSheet = true;
+    },
+    onTimeConfirm(idx) {
+      this.form.time = pad2(idx[0]) + ':' + pad2(idx[1]);
+      this.timeSheet = false;
+    },
+    onPsSelect(idx) {
+      this.form.remindRule = this.remindKeys[idx];
+      this.ps.visible = false;
+    },
+    /** 提醒规则标签走后台字典（失败保留内置文案） */
+    async loadRemindDict() {
+      const d = await loadDicts(['ledger_remind_rule']);
+      const items = d.ledger_remind_rule || [];
+      if (!items.length) return;
+      const map = { ...REMIND_LABELS };
+      items.forEach(i => { map[i.value] = i.label; });
+      this.remindLabelsMap = map;
+      this.remindLabels = REMIND_KEYS.map(k => map[k]);
+    },
     emptyForm() {
       const d = new Date();
       const pad = (n) => String(n).padStart(2, '0');
@@ -151,7 +216,7 @@ export default {
       };
     },
     importanceLabel(v) { return IMPORTANCE_MAP[v || 'normal'] || v; },
-    remindLabel(v) { return REMIND_LABELS[v || 'on_time'] || v; },
+    remindLabel(v) { return this.remindLabelsMap[v || 'on_time'] || REMIND_LABELS[v || 'on_time'] || v; },
     formatTime(v) {
       if (!v) return '';
       return String(v).replace('T', ' ').slice(5, 16);
@@ -261,7 +326,7 @@ export default {
 }
 .undo-btn {
   font-size: 22rpx; padding: 8rpx 20rpx; border-radius: 26rpx;
-  background: var(--surface); color: var(--text-sub); border: 1rpx solid #e5e6e8;
+  background: var(--surface); color: var(--text-sub); border: 1rpx solid var(--border);
 }
 .todo-item.done .todo-title { color: var(--text-muted); text-decoration: line-through; font-weight: 400; }
 .todo-text { font-size: 24rpx; color: var(--text-sub); margin-top: 6rpx; display: block; }

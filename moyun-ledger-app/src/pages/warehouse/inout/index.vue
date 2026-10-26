@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
 
     <view v-if="!enabled" class="locked">
@@ -124,7 +124,7 @@
             </view>
             <view class="f-row" v-if="f.sourceType === 'purchase'">
               <text class="f-label">记一笔支出</text>
-              <switch :checked="f.createTxn" color="#5FA77A" @change="e => f.createTxn = e.detail.value" />
+              <switch :checked="f.createTxn" :color="themeColor" @change="e => f.createTxn = e.detail.value" />
             </view>
             <view class="f-row">
               <text class="f-label">成本单价</text>
@@ -151,9 +151,9 @@
             </view>
             <view class="f-row">
               <text class="f-label">生产日期</text>
-              <picker mode="date" :value="f.productionDate" @change="onProduction">
+              <CalendarPicker class="fill-picker" :value="f.productionDate" @change="onProduction">
                 <text class="f-value">{{ f.productionDate || '选择' }} ▾</text>
-              </picker>
+              </CalendarPicker>
             </view>
             <view class="f-row" @tap="pickShelfLife">
               <text class="f-label">保质期</text>
@@ -167,9 +167,9 @@
             <view class="f-row" v-if="f.shelfLifeKey !== 'none'">
               <text class="f-label">到期日期</text>
               <view class="date-wrap">
-                <picker mode="date" :value="f.expiryDate" @change="onExpiry">
+                <CalendarPicker class="fill-picker" :value="f.expiryDate" @change="onExpiry">
                   <text class="f-value">{{ f.expiryDate || '选择' }} ▾</text>
-                </picker>
+                </CalendarPicker>
                 <text v-if="expiryHint" class="date-hint" :class="{ bad: expiryHint.indexOf('已过期') === 0 }">{{ expiryHint }}</text>
               </view>
             </view>
@@ -240,8 +240,8 @@
           </template>
           <view v-else class="hint-box">
             {{ f.outType === 'self_use'
-              ? '自用：库存减少，记 ¥0，渠道记「自用」，仍计入出库统计'
-              : '损耗：过期/损坏等不可抗拒损失，库存减少，记 ¥0，不计销售额' }}
+              ? '自用：库存减少，记 0 元，渠道记「自用」，仍计入出库统计'
+              : '损耗：过期/损坏等不可抗拒损失，库存减少，记 0 元，不计销售额' }}
           </view>
 
           <view class="f-row">
@@ -304,10 +304,12 @@
 </template>
 
 <script>
+import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { isWarehouseEnabled, applyWarehouseTabBar } from '@/utils/warehouseSwitch';
 import { getWarehouseCfg } from '@/utils/warehouseConfig';
+import { loadDicts, asOptions } from '@/utils/ledgerDict';
 import NumberStepper from '@/components/NumberStepper/NumberStepper.vue';
 import CategoryPicker from '@/components/CategoryPicker/CategoryPicker.vue';
 import {
@@ -316,6 +318,7 @@ import {
   listCategories, listAssets,
   uploadFile, attachProductImage, findSimilarProducts
 } from '@/api/ledger';
+import { ensureLogin } from '@/utils/authGuard';
 
 const PACK_TYPES = [
   { key: 'none', label: '无需' },
@@ -361,7 +364,7 @@ const OUT_TYPES = [
 ];
 
 export default {
-  components: { NumberStepper, CategoryPicker },
+  components: { CalendarPicker, NumberStepper, CategoryPicker },
   data() {
     return {
       enabled: true,
@@ -379,6 +382,8 @@ export default {
       pendingOut: null,
       submitting: false,
       sources: SOURCES,
+      unitsList: UNITS,
+      shelfLifeList: SHELF_LIFE_OPTIONS,
       sourceChannels: [],
       txnCategories: [], txnAccounts: [],
       txnCatSheet: false,
@@ -389,6 +394,8 @@ export default {
     };
   },
   computed: {
+    /** uni switch 的 color 只接受具体色值，这里取当前主题主色 */
+    themeColor() { return useThemeStore().theme['--primary']; },
     /** 非采购来源：成本默认 0（钱已在别处记过），成本字段置灰 */
     costFree() {
       return this.f.sourceType !== 'purchase';
@@ -436,7 +443,7 @@ export default {
       return p ? Number(p.stockQuantity || 0) : null;
     },
     themeVars() { return useThemeStore().themeVars; },
-    units() { return UNITS; },
+    units() { return this.unitsList; },
     /** 宫格只铺常用几个，其余走「更多」（27 个全铺太占位） */
     commonUnits() { return ['件', '个', '条', '斤', '公斤', '克', '升', '箱', '瓶', '包']; },
     /** 数量单位：入库用表单选的，出库用所选商品的单位 */
@@ -447,10 +454,10 @@ export default {
       }
       return this.f.unit || '件';
     },
-    shelfLifeOptions() { return SHELF_LIFE_OPTIONS; },
-    shelfLifeNames() { return SHELF_LIFE_OPTIONS.map(o => o.label); },
+    shelfLifeOptions() { return this.shelfLifeList; },
+    shelfLifeNames() { return this.shelfLifeList.map(o => o.label); },
     shelfLifeLabel() {
-      const o = SHELF_LIFE_OPTIONS.find(x => x.key === this.f.shelfLifeKey);
+      const o = this.shelfLifeList.find(x => x.key === this.f.shelfLifeKey);
       return o ? o.label : '无保质期（长期有效）';
     },
     /** 到期提示：临期/已过期 */
@@ -499,6 +506,8 @@ export default {
     if (this.pendingOut) this.mode = 'out';
   },
   onShow() {
+    if (!ensureLogin()) return;
+    this.loadPresetDicts();
     // 从仓库页 switchTab 过来：读一次性交接参数（tab 页不能带 query）
     const handoff = uni.getStorageSync('moyun_inout_handoff');
     if (handoff && (handoff.edit || handoff.out || handoff.create)) {
@@ -765,7 +774,7 @@ export default {
       uni.showActionSheet({
         itemList: this.shelfLifeNames,
         success: (r) => {
-          const o = SHELF_LIFE_OPTIONS[r.tapIndex];
+          const o = this.shelfLifeList[r.tapIndex];
           if (!o) return;
           this.f.shelfLifeKey = o.key;
           if (o.days !== null) {
@@ -788,7 +797,27 @@ export default {
       this.f.expiryDate = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate());
     },
     /** 完整单位列表（含英文/公制） */
-    moreUnits() {
+    /** 后台字典覆盖下拉候选（失败保留内置默认；单位/保质期按标签与天数还原） */
+    async loadPresetDicts() {
+      const d = await loadDicts(['ledger_product_source', 'ledger_out_type',
+        'ledger_packaging_type', 'ledger_product_unit', 'ledger_shelf_life']);
+      this.sources = asOptions(d.ledger_product_source, SOURCES);
+      this.outTypes = asOptions(d.ledger_out_type, OUT_TYPES);
+      this.packTypes = asOptions(d.ledger_packaging_type, PACK_TYPES);
+      const units = d.ledger_product_unit || [];
+      this.unitsList = units.length ? units.map(i => i.label) : UNITS;
+      const sl = d.ledger_shelf_life || [];
+      this.shelfLifeList = sl.length
+        ? sl.map(i => ({ key: i.value, label: i.label, days: this.shelfLifeDays(i.value) }))
+        : SHELF_LIFE_OPTIONS;
+    },
+    /** 字典值 → 天数（none=0 / custom=null / 30d=30） */
+    shelfLifeDays(v) {
+      if (v === 'none') return 0;
+      if (v === 'custom') return null;
+      const m = /^(\d+)d$/.exec(String(v));
+      return m ? Number(m[1]) : null;
+    },    moreUnits() {
       uni.showActionSheet({
         itemList: this.units,
         success: (r) => { this.f.unit = this.units[r.tapIndex] || this.f.unit; }
@@ -1018,9 +1047,20 @@ export default {
 .reuse-tip { font-size: 22rpx; color: var(--text-sub); padding: 10rpx 0; }
 .hint-box { margin: 12rpx 0; padding: 16rpx; border-radius: 10rpx; background: var(--bg); font-size: 23rpx; color: var(--text-sub); line-height: 1.6; }
 
-.submit-bar { margin: 18rpx 20rpx 0; padding-bottom: 36rpx; }
-.submit-btn { text-align: center; padding: 24rpx 0; border-radius: 12rpx; background: var(--primary); color: #fff; font-size: 28rpx; font-weight: 600; }
-.submit-btn.disabled { opacity: .6; }
+.submit-bar {
+  position: sticky; bottom: 0; z-index: 10;
+  margin: 18rpx 20rpx 0;
+  padding: 16rpx 4rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--bg);
+  box-shadow: 0 -6rpx 20rpx rgba(17, 24, 39, 0.05);
+}
+.submit-btn {
+  text-align: center; padding: 26rpx 0; border-radius: 16rpx;
+  background: var(--primary); color: var(--on-primary);
+  font-size: 30rpx; font-weight: 600;
+  box-shadow: 0 8rpx 20rpx var(--primary-shadow);
+}
+.submit-btn.disabled { opacity: .5; box-shadow: none; }
 
 .mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 999; display: flex; align-items: flex-end; }
 .sheet { width: 100%; max-height: 74vh; background: var(--card); border-radius: 24rpx 24rpx 0 0; padding: 24rpx 24rpx 40rpx; }

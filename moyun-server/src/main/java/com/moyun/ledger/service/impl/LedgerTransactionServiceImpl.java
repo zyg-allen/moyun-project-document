@@ -27,6 +27,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
 /**
@@ -321,7 +322,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         return result;
     }
 
-    /** 填充列表展示用名称（账户/负债/分类），避免前端二次查询 */
+    /**
+     * 填充列表展示用名称（账户/负债/分类）。
+     *
+     * <p>优化点：名称是低频变更数据，原实现每次分页固定追加 3 次 selectBatchIds
+     * （count + page + 3 = 5 条 SQL/请求）。这里加 30 秒 TTL 的本地缓存，
+     * 命中后单请求降为 2 条 SQL；改名最长 30 秒后生效。
+     */
     private void fillDisplayNames(java.util.List<LedgerTransaction> records) {
         if (records == null || records.isEmpty()) {
             return;
@@ -336,24 +343,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             if (t.getCategoryId() != null) categoryIds.add(t.getCategoryId());
             if (t.getSubCategoryId() != null) categoryIds.add(t.getSubCategoryId());
         }
-        Map<Long, String> assetNames = new HashMap<>();
-        if (!assetIds.isEmpty()) {
-            for (LedgerAssetAccount a : assetAccountMapper.selectBatchIds(assetIds)) {
-                assetNames.put(a.getId(), a.getName());
-            }
-        }
-        Map<Long, String> liabilityNames = new HashMap<>();
-        if (!liabilityIds.isEmpty()) {
-            for (LedgerLiabilityAccount l : liabilityAccountMapper.selectBatchIds(liabilityIds)) {
-                liabilityNames.put(l.getId(), l.getName());
-            }
-        }
-        Map<Long, String> categoryNames = new HashMap<>();
-        if (!categoryIds.isEmpty()) {
-            for (com.moyun.ledger.domain.entity.LedgerCategory c : categoryMapper.selectBatchIds(categoryIds)) {
-                categoryNames.put(c.getId(), c.getName());
-            }
-        }
+        Map<Long, String> assetNames = resolveNames(assetIds, assetNameCache, this::loadAssetNames);
+        Map<Long, String> liabilityNames = resolveNames(liabilityIds, liabilityNameCache, this::loadLiabilityNames);
+        Map<Long, String> categoryNames = resolveNames(categoryIds, categoryNameCache, this::loadCategoryNames);
         for (LedgerTransaction t : records) {
             if (t.getAccountId() != null) t.setAccountName(assetNames.get(t.getAccountId()));
             if (t.getTargetAccountId() != null) t.setTargetAccountName(assetNames.get(t.getTargetAccountId()));
@@ -361,6 +353,79 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             if (t.getCategoryId() != null) t.setCategoryName(categoryNames.get(t.getCategoryId()));
             if (t.getSubCategoryId() != null) t.setSubCategoryName(categoryNames.get(t.getSubCategoryId()));
         }
+    }
+
+    /** 名称缓存 TTL：改名最迟 30 秒生效，换取分页 2 条 SQL 的稳定开销 */
+    private static final long NAME_CACHE_TTL_MS = 30_000L;
+    private static final int NAME_CACHE_MAX = 5000;
+
+    private final Map<Long, CachedName> assetNameCache = new ConcurrentHashMap<>();
+    private final Map<Long, CachedName> liabilityNameCache = new ConcurrentHashMap<>();
+    private final Map<Long, CachedName> categoryNameCache = new ConcurrentHashMap<>();
+
+    private static final class CachedName {
+        private final String name;
+        private final long expireAt;
+
+        private CachedName(String name, long expireAt) {
+            this.name = name;
+            this.expireAt = expireAt;
+        }
+    }
+
+    private Map<Long, String> resolveNames(java.util.Set<Long> ids,
+                                           Map<Long, CachedName> cache,
+                                           java.util.function.Function<java.util.Set<Long>, Map<Long, String>> loader) {
+        Map<Long, String> out = new HashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return out;
+        }
+        long now = System.currentTimeMillis();
+        java.util.Set<Long> missing = new java.util.HashSet<>();
+        for (Long id : ids) {
+            CachedName cached = cache.get(id);
+            if (cached != null && cached.expireAt > now) {
+                out.put(id, cached.name);
+            } else {
+                missing.add(id);
+            }
+        }
+        if (!missing.isEmpty()) {
+            Map<Long, String> loaded = loader.apply(missing);
+            long expireAt = now + NAME_CACHE_TTL_MS;
+            for (Map.Entry<Long, String> e : loaded.entrySet()) {
+                out.put(e.getKey(), e.getValue());
+                cache.put(e.getKey(), new CachedName(e.getValue(), expireAt));
+            }
+            if (cache.size() > NAME_CACHE_MAX) {
+                cache.clear();
+            }
+        }
+        return out;
+    }
+
+    private Map<Long, String> loadAssetNames(java.util.Set<Long> ids) {
+        Map<Long, String> map = new HashMap<>();
+        for (LedgerAssetAccount a : assetAccountMapper.selectBatchIds(ids)) {
+            map.put(a.getId(), a.getName());
+        }
+        return map;
+    }
+
+    private Map<Long, String> loadLiabilityNames(java.util.Set<Long> ids) {
+        Map<Long, String> map = new HashMap<>();
+        for (LedgerLiabilityAccount l : liabilityAccountMapper.selectBatchIds(ids)) {
+            map.put(l.getId(), l.getName());
+        }
+        return map;
+    }
+
+    private Map<Long, String> loadCategoryNames(java.util.Set<Long> ids) {
+        Map<Long, String> map = new HashMap<>();
+        for (com.moyun.ledger.domain.entity.LedgerCategory c : categoryMapper.selectBatchIds(ids)) {
+            map.put(c.getId(), c.getName());
+        }
+        return map;
     }
 
     // ------------------------------------------------------------------

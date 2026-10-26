@@ -1,4 +1,4 @@
-{
+﻿{
   "pages": [
     { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "墨韵记账", "enablePullDownRefresh": true } },
     { "path": "pages/portfolio/index", "style": { "navigationBarTitleText": "资产负债", "enablePullDownRefresh": true } },
@@ -29,6 +29,7 @@
     { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } },
     { "path": "pages/mine/forgot-password/index", "style": { "navigationBarTitleText": "找回密码" } },
     { "path": "pages/mine/profile/index", "style": { "navigationBarTitleText": "个人信息维护" } },
+    { "path": "pages/mine/privacy/index", "style": { "navigationBarTitleText": "隐私与授权" } },`r`n    { "path": "pages/mine/agreement/index", "style": { "navigationBarTitleText": "协议与政策" } },
     { "path": "pages/webview/index", "style": { "navigationBarTitleText": "外部链接", "navigationStyle": "default" } }
   ],
   "globalStyle": {
@@ -46,12 +47,11 @@
     "height": "46px",
     "fontSize": "12px",
     "list": [
-      { "pagePath": "pages/dashboard/index", "text": "总览" },
-      { "pagePath": "pages/portfolio/index", "text": "资产负债" },
-      { "pagePath": "pages/record/index", "text": "记一笔" },
-      { "pagePath": "pages/warehouse/inout/index", "text": "入库/出库" },
-      { "pagePath": "pages/analysis/index", "text": "分析" },
-      { "pagePath": "pages/mine/index", "text": "更多" }
+      { "pagePath": "pages/dashboard/index", "text": "总览", "iconPath": "static/tabbar/home.png", "selectedIconPath": "static/tabbar/home-active.png" },
+      { "pagePath": "pages/portfolio/index", "text": "资产负债", "iconPath": "static/tabbar/wallet.png", "selectedIconPath": "static/tabbar/wallet-active.png" },
+      { "pagePath": "pages/record/index", "text": "记一笔", "iconPath": "static/tabbar/add.png", "selectedIconPath": "static/tabbar/add-active.png" },
+      { "pagePath": "pages/warehouse/inout/index", "text": "出入库", "iconPath": "static/tabbar/box.png", "selectedIconPath": "static/tabbar/box-active.png" },
+      { "pagePath": "pages/mine/index", "text": "更多", "iconPath": "static/tabbar/more.png", "selectedIconPath": "static/tabbar/more-active.png" }
     ]
   }
 }

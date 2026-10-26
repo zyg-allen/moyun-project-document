@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 网络请求封装
  *
  * 约定与 moyun-portal 门户一致：
@@ -31,6 +31,13 @@ const AUTH_PAGES = [
 ];
 
 /**
+ * 不强制跳登录的页面：登录/注册/找回密码，以及总览。
+ * 总览在未登录时展示产品落地页（价值点 + 三步引导），
+ * 过期 token 触发 401 后应回到落地页，而不是把用户直接弹去登录。
+ */
+const PUBLIC_PAGES = AUTH_PAGES.concat(['pages/dashboard/index']);
+
+/**
  * 401 统一处理：登出 → 提示 → 跳登录页
  *
  * 本文件顶部注释一直写着「401 跳转登录页」，但此前只做了 logout + toast：
@@ -48,7 +55,7 @@ const handleUnauthorized = (userStore) => {
   if (typeof getCurrentPages === 'function') {
     const stack = getCurrentPages();
     const current = stack.length ? stack[stack.length - 1].route : '';
-    if (AUTH_PAGES.includes(current)) return;
+    if (PUBLIC_PAGES.includes(current)) return;
   }
   authRedirecting = true;
   uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' });

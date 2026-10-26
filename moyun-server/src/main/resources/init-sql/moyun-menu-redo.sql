@@ -132,8 +132,12 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   (117,'记账管理',0,8,'ledger-app',NULL,NULL,'',1,0,'M','0','0','','monitor','admin','2026-09-03 10:57:30','admin','2026-09-14 17:38:27','记账模块（个人资产管理）','0'),
   (118,'预设分类',117,1,'ledger-category','cms/ledger/category/index',NULL,'',1,0,'C','0','0','cms:ledgerCategory:list','tree','admin','2026-09-03 10:57:30','',NULL,'系统预设收支分类维护','0'),
   (119,'运营统计',117,2,'stats','cms/ledger/stats/index',NULL,'',1,0,'C','0','0','cms:ledgerStats:list','chart','admin','2026-09-03 10:57:31','',NULL,'记账用户/活跃度/类型分布（脱敏聚合）','0'),
-  (120,'用户管理',117,3,'users','cms/ledger/users/index',NULL,'',1,0,'C','0','0','cms:ledgerUsers:list','peoples','admin','2026-09-14 13:08:02','',NULL,'记账用户维度：流水/AI使用/token消费（脱敏）','0'),
-  (121,'功能配置',117,4,'app-feature','cms/ledger/appFeature/index',NULL,'',1,0,'C','0','0','cms:ledgerAppFeature:list','component','admin','2026-09-14 13:08:02','',NULL,'小程序"我的"页功能入口可视化配置','0');
+  (120,'用户数据',117,3,'users','cms/ledger/users/index',NULL,'',1,0,'C','0','0','cms:ledgerUsers:list','peoples','admin','2026-09-14 13:08:02','admin','2026-10-21 19:30:00','用户维度聚合 + 授权后流水（默认脱敏，查看留痕）','0'),
+  (121,'功能配置',117,4,'app-feature','cms/ledger/appFeature/index',NULL,'',1,0,'C','0','0','cms:ledgerAppFeature:list','component','admin','2026-09-14 13:08:02','',NULL,'小程序"我的"页功能入口可视化配置','0'),
+  (122,'商品类目',117,5,'product-category','cms/ledger/productCategory/index',NULL,'',1,0,'C','0','0','cms:ledgerProductCategory:list','tree-table','admin','2026-10-21 19:30:00','',NULL,'商品类目系统预设（两级树，用户自建只读）','0'),
+  (123,'渠道管理',117,6,'channel','cms/ledger/channel/index',NULL,'',1,0,'C','0','0','cms:ledgerChannel:list','link','admin','2026-10-21 19:30:00','',NULL,'售卖/进货渠道系统预设（用户自建只读）','0'),
+  (124,'授权与审计',117,7,'auth','cms/ledger/auth/index',NULL,'',1,0,'C','0','0','cms:ledgerAuth:list','lock','admin','2026-10-21 19:30:00','',NULL,'用户数据授权记录 + 敏感数据访问日志（只读）','0'),
+  (125,'记账字典',117,8,'dict','cms/ledger/dict/index',NULL,'',1,0,'C','0','0','cms:ledgerDict:list','dict','admin','2026-10-21 21:40:00','',NULL,'记账下拉字典一览（维护跳转系统字典，取值锁定）','0');
 
 -- 按钮权限（F）：不指定 menu_id，由 AUTO_INCREMENT 分配；按所属菜单分组
 INSERT INTO sys_menu (menu_name,parent_id,order_num,`path`,component,query,route_name,is_frame,is_cache,menu_type,visible,status,perms,icon,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
@@ -254,6 +258,7 @@ INSERT INTO sys_menu (menu_name,parent_id,order_num,`path`,component,query,route
   ('用户修改',3,3,'',NULL,NULL,'',1,0,'F','0','0','cms:user:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('用户删除',3,4,'',NULL,NULL,'',1,0,'F','0','0','cms:user:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('用户状态',3,5,'',NULL,NULL,'',1,0,'F','0','0','cms:user:status','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
+  ('查看联系方式',3,6,'',NULL,NULL,'',1,0,'F','0','0','cms:user:contact','#','admin','2026-10-21 22:10:00','',NULL,'手机号/邮箱明文（留痕）','0'),
   ('重置密码',3,6,'',NULL,NULL,'',1,0,'F','0','0','cms:user:resetPwd','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('绑定系统用户',3,7,'',NULL,NULL,'',1,0,'F','0','0','cms:user:bind','#','admin','2026-08-19 18:01:45','',NULL,'身份桥接：绑定/解绑后台系统用户','0'),
   ('文章查询',4,1,'',NULL,NULL,'',1,0,'F','0','0','cms:article:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -406,7 +411,13 @@ INSERT INTO sys_menu (menu_name,parent_id,order_num,`path`,component,query,route
   ('提示词删除',18,4,'',NULL,NULL,'',1,0,'F','0','0','cms:writing-prompt:remove','#','admin','2026-09-28 11:26:00','',NULL,'','0'),
   ('模板编辑',94,1,'',NULL,NULL,'',1,0,'F','0','0','cms:importTemplate:edit','#','admin','2026-09-28 11:26:00','',NULL,'','0'),
   ('用户查询',120,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerUsers:query','#','admin','2026-09-14 13:08:02','',NULL,'','0'),
-  ('配置修改',121,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerAppFeature:edit','#','admin','2026-09-14 13:08:02','',NULL,'','0');
+  ('配置修改',121,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerAppFeature:edit','#','admin','2026-09-14 13:08:02','',NULL,'','0'),
+  ('入口新增',121,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerAppFeature:add','#','admin','2026-10-21 19:30:00','',NULL,'','0'),
+  ('类目新增',122,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerProductCategory:add','#','admin','2026-10-21 19:30:00','',NULL,'','0'),
+  ('类目修改',122,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerProductCategory:edit','#','admin','2026-10-21 19:30:00','',NULL,'','0'),
+  ('渠道新增',123,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerChannel:add','#','admin','2026-10-21 19:30:00','',NULL,'','0'),
+  ('渠道修改',123,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerChannel:edit','#','admin','2026-10-21 19:30:00','',NULL,'','0'),
+  ('访问日志查询',124,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerAccessLog:list','#','admin','2026-10-21 19:30:00','',NULL,'','0');
 
 
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="定时记账" />
 
@@ -22,7 +22,7 @@
           <view class="t-name">{{ t.name }}</view>
         </view>
         <view class="t-meta">
-          <text class="t-amount" :class="t.type">{{ t.type === 'income' ? '+' : '-' }}¥{{ toFixedYuan(t.amount) }}</text>
+          <text class="t-amount" :class="t.type">{{ t.type === 'income' ? '+' : '-' }}{{ toFixedYuan(t.amount) }} 元</text>
           <text class="t-cycle">{{ cycleText(t) }}</text>
         </view>
         <view class="t-info">
@@ -94,7 +94,7 @@
                 <text class="log-date">{{ l.execDate }}</text>
                 <text class="log-trigger" :class="l.triggerType === 2 ? 'manual' : 'auto'">{{ l.triggerType === 2 ? '主动' : '自动' }}</text>
                 <text class="log-status" :class="l.status === 1 ? 'ok' : 'fail'">{{ l.status === 1 ? '成功' : '失败' }}</text>
-                <text class="log-amount">¥{{ toFixedYuan(l.amount) }}</text>
+                <text class="log-amount">{{ toFixedYuan(l.amount) }} 元</text>
                 <text class="log-more">›</text>
               </view>
               <view class="log-reason" v-if="l.status === 2">
@@ -132,7 +132,7 @@
           </view>
           <view class="d-row">
             <text class="d-k">金额</text>
-            <text class="d-v">¥{{ toFixedYuan(logDetail.amount) }}</text>
+            <text class="d-v">{{ toFixedYuan(logDetail.amount) }} 元</text>
           </view>
           <view class="d-row" v-if="logTask && logTask.description">
             <text class="d-k">备注</text>

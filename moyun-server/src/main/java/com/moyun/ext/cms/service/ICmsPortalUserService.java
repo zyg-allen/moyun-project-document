@@ -42,6 +42,17 @@ public interface ICmsPortalUserService
     PortalUser selectUserById(Long id);
 
     /**
+     * 查询联系方式明文（手机号/邮箱）
+     *
+     * <p>仅限带 {@code cms:user:contact} 权限的接口调用；调用方必须留痕（@Log）。
+     * 列表/详情/画像一律走脱敏口径，避免明文在页面与浏览器缓存中扩散。</p>
+     *
+     * @param id 用户ID
+     * @return 仅包含 id/phone/email 的实体（脱敏口径之外的最小必要字段）
+     */
+    PortalUser selectContactById(Long id);
+
+    /**
      * 查询门户用户画像（含完整画像 + 业务统计 + 快速跳转入口）
      *
      * <p>用于后台"用户画像"抽屉展示，让管理员快速掌握客户状态。</p>

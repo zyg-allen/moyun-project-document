@@ -1,0 +1,52 @@
+﻿{
+  "concurrency": 1,
+  "durationSec": 5,
+  "total": 339,
+  "rps": 67.8,
+  "endpoints": {
+    "dashboard": {
+      "count": 85,
+      "rps": 17,
+      "ok": 85,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 17.4,
+      "p95": 25.8,
+      "p99": 94.7,
+      "avgKB": 0.3
+    },
+    "txn-page": {
+      "count": 85,
+      "rps": 17,
+      "ok": 85,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 19.8,
+      "p95": 32.3,
+      "p99": 60.3,
+      "avgKB": 0.2
+    },
+    "report": {
+      "count": 85,
+      "rps": 17,
+      "ok": 85,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 12.7,
+      "p95": 18.4,
+      "p99": 26.3,
+      "avgKB": 1.3
+    },
+    "dict": {
+      "count": 84,
+      "rps": 16.8,
+      "ok": 84,
+      "fail": 0,
+      "failStatus": {},
+      "p50": 2.8,
+      "p95": 4.8,
+      "p99": 164.3,
+      "avgKB": 0.1
+    }
+  }
+}

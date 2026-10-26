@@ -1,6 +1,8 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="账号登录" />
+
+    <view class="value-line"><text class="value-hl">记账 + 库存</text>，个人和小生意的一本账</view>
 
     <view class="card">
       <view class="field">
@@ -23,20 +25,18 @@
         </view>
       </view>
       <view class="btn-primary" @tap="doLogin">登 录</view>
-      <view class="login-tip">与墨韵门户共用账号体系</view>
       <view class="login-links">
         <text class="register-link" @tap="goRegister">没有账号？立即注册 ›</text>
         <text class="forgot-link" @tap="goForgotPassword">忘记密码？</text>
       </view>
     </view>
-    <!-- 脚部 -->
-    <view class="footer">墨韵记账 · 账号安全</view>
   </view>
 </template>
 
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
-import { login, getCaptchaImage } from '@/api/ledger';
+import { login, getCaptchaImage, listAgreements, consentAgreement } from '@/api/ledger';
+import { LEGAL_VERSION } from '@/utils/legal';
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 
@@ -99,6 +99,8 @@ export default {
         useUserStore().setToken(token);
         useUserStore().setUserInfo(data.user || { username: payload.username });
         uni.showToast({ title: '登录成功', icon: 'success' });
+        // 协议换版重签：老用户登录时补一次同意留痕（接口异常不阻断登录）
+        await this.ensureAgreementConsent();
         // 登录成功后回「更多」页（tab 页用 switchTab）
     // 从邀请落地页带着邀请码来登录 → 登录成功后自动加入该仓库
     const pending = uni.getStorageSync('moyun_pending_invite') || '';
@@ -121,6 +123,26 @@ export default {
         this.loadCaptcha();
       }
       this.submitting = false;
+    },
+    /** 当前版本未同意时，登录后强制补签一次（门户共用表留痕） */
+    async ensureAgreementConsent() {
+      try {
+        const rows = await listAgreements() || [];
+        const docs = ['terms', 'privacy'];
+        const ok = docs.every(d => rows.some(r => r.docType === d && r.version === LEGAL_VERSION));
+        if (ok) return;
+        const agreed = await new Promise((resolve) => {
+          uni.showModal({
+            title: '协议更新',
+            content: '《用户协议》与《隐私政策》已更新，请阅读并同意后继续使用（全文见「我的 - 设置」）。',
+            confirmText: '同意并继续',
+            showCancel: false,
+            success: (r) => resolve(!!r.confirm),
+            fail: () => resolve(false)
+          });
+        });
+        if (agreed) await consentAgreement(LEGAL_VERSION);
+      } catch (e) { /* 接口异常不阻断登录 */ }
     },
     goRegister() {
       uni.navigateTo({ url: '/pages/mine/register/index' });
@@ -162,13 +184,27 @@ export default {
 }
 .btn-primary:active { opacity: .85; }
 
-.login-tip { text-align: center; font-size: 24rpx; color: var(--text-sub); margin-top: 20rpx; }
 .login-links { display: flex; justify-content: space-between; padding: 16rpx 0 4rpx; }
 .register-link { font-size: 26rpx; color: var(--primary-text); }
 .forgot-link { font-size: 26rpx; color: var(--text-sub); }
 
-.footer {
-  padding: 40rpx 0 calc(24rpx + env(safe-area-inset-bottom));
-  text-align: center; font-size: 22rpx; color: var(--text-muted);
+/* ---- 登录表单视觉（表单卡 / 输入框 / 主按钮） ---- */
+
+
+
+
+.card { margin: 24rpx; border-radius: 24rpx; padding: 32rpx; box-shadow: 0 8rpx 24rpx rgba(17, 24, 39, 0.05); }
+.field-input { height: 84rpx; line-height: 84rpx; border-radius: 14rpx; }
+.pwd-eye { height: 84rpx; line-height: 84rpx; }
+.captcha-img { height: 84rpx; }
+.btn-primary {
+  height: 88rpx; line-height: 88rpx; border-radius: 16rpx;
+  font-size: 30rpx; font-weight: 600;
+  box-shadow: 0 10rpx 24rpx var(--primary-shadow);
 }
+.value-line {
+  margin: 28rpx 40rpx 0; text-align: center;
+  font-size: 26rpx; color: var(--text-sub); line-height: 1.6; letter-spacing: 0.5rpx;
+}
+.value-hl { color: var(--primary-text); font-weight: 600; }
 </style>

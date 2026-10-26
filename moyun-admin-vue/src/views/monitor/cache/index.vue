@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="app-container">
     <el-row>
       <el-col :span="24" class="card-box">
@@ -66,7 +66,7 @@
 
 <script setup name="Cache">
 import { getCache } from '@/api/monitor/cache';
-import * as echarts from 'echarts';
+import echarts from '@/utils/echarts';
 
 const cache = ref([]);
 const commandstats = ref(null);

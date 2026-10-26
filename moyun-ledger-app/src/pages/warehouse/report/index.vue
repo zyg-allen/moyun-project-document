@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="仓库报表" />
 
@@ -11,7 +11,7 @@
     <!-- ① 库存概览 -->
     <view class="hero">
       <view class="hero-label">库存总价值</view>
-      <view class="hero-value">¥{{ fmt(ov.stockValue) }}</view>
+      <view class="hero-value">{{ fmt(ov.stockValue) }} 元</view>
       <view class="hero-sub">{{ ov.totalQuantity || 0 }} 件 · {{ ov.productCount || 0 }} 个商品 · {{ ov.shelfCount || 0 }} 个货架</view>
     </view>
 
@@ -34,16 +34,16 @@
       </view>
       <view class="kpi-row">
         <view class="kpi">
-          <view class="kpi-num">¥{{ fmt(ov.monthSaleAmount) }}</view>
+          <view class="kpi-num">{{ fmt(ov.monthSaleAmount) }} 元</view>
           <view class="kpi-label">销售额</view>
         </view>
         <view class="kpi">
-          <view class="kpi-num">¥{{ fmt(ov.monthSaleCost) }}</view>
+          <view class="kpi-num">{{ fmt(ov.monthSaleCost) }} 元</view>
           <view class="kpi-label">销售成本</view>
         </view>
         <view class="kpi">
           <view class="kpi-num" :class="{ in: (ov.monthGrossProfit || 0) >= 0, out: (ov.monthGrossProfit || 0) < 0 }">
-            ¥{{ fmt(ov.monthGrossProfit) }}
+            {{ fmt(ov.monthGrossProfit) }} 元
           </view>
           <view class="kpi-label">毛利</view>
         </view>
@@ -62,7 +62,7 @@
       <view v-for="m in memberSales" :key="m.userId" class="mem-row">
         <text class="flex-1 mem-name">{{ m.name }}</text>
         <text class="mem-qty">{{ m.quantity }} 件</text>
-        <text class="mem-amt">¥{{ fmt(m.amount) }}</text>
+        <text class="mem-amt">{{ fmt(m.amount) }} 元</text>
       </view>
     </view>
 
@@ -73,7 +73,7 @@
       <view v-for="c in catRows" :key="c.name" class="bar-row">
         <view class="bar-head">
           <text class="flex-1">{{ c.name }}</text>
-          <text class="bar-num">{{ c.count }} 个 · ¥{{ fmt(c.value) }}</text>
+          <text class="bar-num">{{ c.count }} 个 · {{ fmt(c.value) }} 元</text>
         </view>
         <view class="bar-bg">
           <view class="bar-fill" :style="{ width: c.pct + '%' }"></view>
@@ -110,7 +110,7 @@
           <view class="p-sub">{{ p.categoryName || '未分类' }} · 库存 {{ p.stockQuantity || 0 }} {{ p.unit || '个' }}<text v-if="p.slowDays !== null && p.slowDays !== undefined"> · {{ p.slowDays }} 天未动销</text></view>
         </view>
         <view class="p-right">
-          <view class="p-val">¥{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }}</view>
+          <view class="p-val">{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }} 元</view>
           <view class="p-tag" :class="riskTagOf(p).cls">{{ riskTagOf(p).text }}</view>
         </view>
       </view>
@@ -123,6 +123,7 @@
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
+import { formatAmount } from '@/utils/money';
 import { listWarehouses, listProducts, getWarehouseOverview } from '@/api/ledger';
 
 /** 滞销判定：上架超过 N 天仍有库存 */
@@ -194,7 +195,7 @@ export default {
     this.loadWarehouses();
   },
   methods: {
-    fmt(v) { return Number(v || 0).toFixed(2); },
+    fmt(v) { return formatAmount(v); },
     /** 滞销：优先用后端返回的 slowDays（最后动销距今天数），老数据回落上架时间 */
     isSlow(p) {
       if (!p || (p.stockQuantity || 0) <= 0) return false;
@@ -250,7 +251,10 @@ export default {
 
 .hero {
   margin: 20rpx 24rpx 0; padding: 32rpx 28rpx; border-radius: 18rpx;
-  background: linear-gradient(135deg, #5FA77A, #3D8B62); color: #fff;
+  background-color: var(--hero-block-bg, var(--primary-strong));
+  background-image: var(--hero-block-image, linear-gradient(160deg, rgba(255,255,255,.16), rgba(0,0,0,.08)));
+  color: var(--hero-block-text, #fff);
+  border: 1rpx solid transparent;
 }
 .hero-label { font-size: 24rpx; opacity: .9; }
 .hero-value { font-size: 56rpx; font-weight: 700; margin: 8rpx 0 6rpx; }

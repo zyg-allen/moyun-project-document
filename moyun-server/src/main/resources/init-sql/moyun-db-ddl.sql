@@ -1,4 +1,4 @@
--- =============================================================================
+﻿-- =============================================================================
 -- ⚠️ 危险脚本：本文件是**全新库初始化**脚本，含 49 处 DROP TABLE 与 3 处 TRUNCATE。
 --    对**已有数据的库**执行会直接删表/清表，不可逆。
 --
@@ -539,6 +539,7 @@ CREATE TABLE `ledger_app_feature_config` (
                                              `visible` tinyint NOT NULL DEFAULT '1' COMMENT '是否展示: 1-展示 0-隐藏',
                                              `status` varchar(10) NOT NULL DEFAULT 'done' COMMENT '状态: done-已上线/dev-开发中',
                                              `badge` varchar(20) DEFAULT NULL COMMENT '角标文案（NEW 等）',
+                                             `route` varchar(200) DEFAULT NULL COMMENT 'App 路由（须在后台路由白名单内；空=非跳转型入口）',
                                              `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                              `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -809,6 +810,7 @@ CREATE TABLE `ledger_transaction` (
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_user_client` (`user_id`,`client_uuid`),
                                       KEY `idx_user_status_id` (`user_id`,`status`,`id`),
+  KEY `idx_user_status_date` (`user_id`,`status`,`transaction_date`,`id`),
                                       KEY `idx_user_date` (`user_id`,`transaction_date`),
                                       KEY `idx_account` (`account_id`),
                                       KEY `idx_liability` (`liability_id`)
@@ -4439,3 +4441,131 @@ CREATE TABLE `ledger_purchase_order_item` (
     PRIMARY KEY (`id`),
     KEY `idx_purchase` (`purchase_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-采购明细';
+
+
+-- =============================================================================
+-- 用户数据授权 + 敏感数据访问审计（2026-10-21 记账后台管理边界整改）
+-- -----------------------------------------------------------------------------
+-- 合规口径：用户个体数据默认对后台保密，只有用户在 App 内主动授权后才可查看，
+-- 且每次查看（含被拒绝）都要落一条访问日志。授权表后台只读，不能代写。
+-- =============================================================================
+
+-- `moyun-db`.portal_data_auth definition
+drop table if exists `portal_data_auth`;
+CREATE TABLE `portal_data_auth` (
+                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '授权ID',
+                                    `user_id` bigint NOT NULL COMMENT '授权人 portal_user.id',
+                                    `biz_domain` varchar(20) NOT NULL DEFAULT 'ledger' COMMENT '业务域：ledger/portal/cms',
+                                    `scopes` varchar(500) NOT NULL COMMENT '授权范围，逗号分隔：transaction,account,budget,inventory,ai,profile',
+                                    `purpose` varchar(200) NOT NULL COMMENT '用途（用户可见，后台展示）',
+                                    `channel` varchar(20) NOT NULL DEFAULT 'app' COMMENT '发起渠道：app/web',
+                                    `grant_type` varchar(20) NOT NULL DEFAULT 'user_initiated' COMMENT '授权方式：user_initiated 用户主动 / requested 后台申请后用户确认',
+                                    `doc_version` varchar(20) NOT NULL DEFAULT '' COMMENT '隐私政策版本',
+                                    `granted_at` datetime NOT NULL COMMENT '授权时间',
+                                    `expire_at` datetime DEFAULT NULL COMMENT '到期时间（NULL=长期，用户可随时撤回）',
+                                    `revoked_at` datetime DEFAULT NULL COMMENT '撤回时间（NULL=未撤回）',
+                                    `revoke_reason` varchar(200) DEFAULT NULL COMMENT '撤回原因',
+                                    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                    PRIMARY KEY (`id`),
+                                    KEY `idx_user_domain` (`user_id`,`biz_domain`,`revoked_at`),
+                                    KEY `idx_expire` (`expire_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户数据授权（个体数据查看的唯一准入凭证）';
+
+
+-- `moyun-db`.sys_data_access_log definition
+drop table if exists `sys_data_access_log`;
+CREATE TABLE `sys_data_access_log` (
+                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+                                       `operator_id` bigint NOT NULL COMMENT '操作人 sys_user.user_id',
+                                       `operator_name` varchar(64) NOT NULL COMMENT '操作人账号',
+                                       `target_user_id` bigint NOT NULL COMMENT '被查看用户 portal_user.id',
+                                       `biz_domain` varchar(20) NOT NULL DEFAULT 'ledger' COMMENT '业务域',
+                                       `scope` varchar(50) NOT NULL COMMENT '访问的授权范围',
+                                       `auth_id` bigint DEFAULT NULL COMMENT '关联授权ID（拒绝时为空）',
+                                       `action` varchar(20) NOT NULL DEFAULT 'query' COMMENT '动作：query/export',
+                                       `query_desc` varchar(500) DEFAULT NULL COMMENT '查询条件与条数（不含字段值）',
+                                       `result` varchar(20) NOT NULL COMMENT '结果：allowed/denied',
+                                       `client_ip` varchar(64) DEFAULT NULL COMMENT '客户端IP',
+                                       `access_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '访问时间',
+                                       PRIMARY KEY (`id`),
+                                       KEY `idx_target_time` (`target_user_id`,`access_time`),
+                                       KEY `idx_operator_time` (`operator_id`,`access_time`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='敏感数据访问日志（只增不改）';
+
+
+-- =============================================================================
+-- 预设表补齐（2026-10-21）：此前这三张表只由 increment-sql 创建，
+-- init-sql 全新库缺失 ⇒ 商品类目/渠道在全新环境直接不可用。现按增量脚本的
+-- 最终结构补进初始化 DDL，保证"全新库 / 存量库"两条路径等价。
+-- =============================================================================
+
+-- `moyun-db`.ledger_product_category definition
+drop table if exists `ledger_product_category`;
+CREATE TABLE `ledger_product_category` (
+    `id`          bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `user_id`     bigint       NOT NULL DEFAULT 0 COMMENT '归属用户，0=系统预设',
+    `name`        varchar(50)  NOT NULL COMMENT '类目名称',
+    `parent_id`   bigint       NOT NULL DEFAULT 0 COMMENT '父类目ID，0=一级',
+    `icon`        varchar(255) DEFAULT NULL COMMENT '图标：emoji key 或图片URL',
+    `sort_order`  int          NOT NULL DEFAULT 0 COMMENT '排序',
+    `is_system`   tinyint      NOT NULL DEFAULT 0 COMMENT '1=系统预设 0=用户自建',
+    `status`      tinyint      NOT NULL DEFAULT 1 COMMENT '状态：1=启用 0=停用',
+    `create_time` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_parent_name` (`user_id`, `parent_id`, `name`),
+    KEY `idx_user` (`user_id`),
+    KEY `idx_parent` (`parent_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品类目（两级树）';
+
+
+-- `moyun-db`.ledger_sale_channel definition
+drop table if exists `ledger_sale_channel`;
+CREATE TABLE `ledger_sale_channel` (
+    `id`         bigint      NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `user_id`    bigint      NOT NULL DEFAULT 0 COMMENT '归属用户，0=系统预设',
+    `name`       varchar(50) NOT NULL COMMENT '渠道名称（抖音/淘宝/闲鱼…）',
+    `icon`       varchar(255) DEFAULT NULL COMMENT '图标：emoji key 或图片URL',
+    `sort_order` int         NOT NULL DEFAULT 0 COMMENT '排序',
+    `is_system`  tinyint     NOT NULL DEFAULT 0 COMMENT '1=系统预设 0=用户自建',
+    `status`     tinyint     NOT NULL DEFAULT 1 COMMENT '状态：1=启用 0=停用',
+    `create_time` datetime   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_name` (`user_id`, `name`),
+    KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='售卖渠道';
+
+
+-- `moyun-db`.ledger_source_channel definition
+drop table if exists `ledger_source_channel`;
+CREATE TABLE `ledger_source_channel` (
+    `id`          bigint       NOT NULL COMMENT '主键（雪花ID）',
+    `user_id`     bigint       NOT NULL COMMENT '归属用户（0=系统预设）',
+    `name`        varchar(50)  NOT NULL COMMENT '渠道名称',
+    `icon`        varchar(255) DEFAULT NULL COMMENT '图标（emoji 或图片地址）',
+    `sort_order`  int          NOT NULL DEFAULT 0 COMMENT '排序',
+    `is_system`   tinyint      NOT NULL DEFAULT 0 COMMENT '是否系统预设：1=是 0=用户自建',
+    `status`      tinyint      NOT NULL DEFAULT 1 COMMENT '状态：1=启用 0=停用',
+    `create_time` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_src_channel_user` (`user_id`),
+    KEY `idx_src_channel_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='进货渠道';
+
+-- ----------------------------
+-- 门户用户协议同意记录（与门户账号体系共用）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `portal_user_agreement` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint NOT NULL COMMENT '门户用户ID',
+  `doc_type` varchar(32) NOT NULL COMMENT '文档类型：terms/privacy',
+  `version` varchar(32) NOT NULL COMMENT '协议版本',
+  `agreed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '同意时间',
+  `ip` varchar(64) DEFAULT NULL COMMENT '客户端IP',
+  `user_agent` varchar(255) DEFAULT NULL COMMENT '客户端UA',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_doc_version` (`user_id`,`doc_type`,`version`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='门户用户协议同意记录（注册/换版重签留痕）';

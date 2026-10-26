@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia';
+﻿import { defineStore } from 'pinia';
 
 /**
  * 主题配置：CSS 变量注入页面根元素，全页面 var(--xxx) 引用
@@ -59,6 +59,13 @@ export const APPEARANCES = {
     name: '日间',
     '--bg': '#F7F8FA',
     '--card': '#FFFFFF',
+    /* 首屏主视觉背景：浅色/护眼用主题淡渐变，暗色用纯卡片色（避免灰雾感） */
+    '--hero-bg': 'linear-gradient(165deg, var(--primary-soft) 0%, var(--card) 64%)',
+    '--hero-row-bg': 'rgba(255, 255, 255, 0.72)',
+    /* 报表类大色块：浅色/护眼用主题色渐变，暗色退为卡片面 */
+    '--hero-block-bg': 'var(--primary-strong)',
+    '--hero-block-image': 'linear-gradient(160deg, rgba(255,255,255,.16), rgba(0,0,0,.08))',
+    '--hero-block-text': '#FFFFFF',
     '--surface': '#F0F2F6',
     '--border': '#E5E8EF',
     '--border-strong': '#D3D8E2',
@@ -89,6 +96,11 @@ export const APPEARANCES = {
        （--text-sub 5.78→6.73、--text-muted 3.12→4.39）。 */
     '--bg': '#1B2129',
     '--card': '#262E39',
+    '--hero-bg': 'var(--card)',
+    '--hero-row-bg': 'rgba(255, 255, 255, 0.06)',
+    '--hero-block-bg': 'var(--surface)',
+    '--hero-block-image': 'none',
+    '--hero-block-text': 'var(--text-main)',
     '--surface': '#313B48',
     '--border': '#44505F',
     '--border-strong': '#566476',
@@ -113,6 +125,12 @@ export const APPEARANCES = {
     name: '护眼',
     '--bg': '#F4F1EA',
     '--card': '#FBF9F4',
+    '--hero-bg': 'linear-gradient(165deg, var(--primary-soft) 0%, var(--card) 64%)',
+    '--hero-row-bg': 'rgba(255, 255, 255, 0.72)',
+    /* 报表类大色块：浅色/护眼用主题色渐变，暗色退为卡片面 */
+    '--hero-block-bg': 'var(--primary-strong)',
+    '--hero-block-image': 'linear-gradient(160deg, rgba(255,255,255,.16), rgba(0,0,0,.08))',
+    '--hero-block-text': '#FFFFFF',
     '--surface': '#ECE7DA',
     '--border': '#DDD6C8',
     '--border-strong': '#C9C1AE',
@@ -136,6 +154,15 @@ export const APPEARANCES = {
 };
 
 const APPEARANCE_KEY = 'ledger_appearance';
+
+/** #RRGGBB → rgba(r,g,b,a)：暗色下把浅色软底换成低透明度主题色 */
+const hexToRgba = (hex, alpha) => {
+  const h = String(hex || '').replace('#', '');
+  const full = h.length === 3 ? h.split('').map((ch) => ch + ch).join('') : h;
+  const n = parseInt(full, 16);
+  if (Number.isNaN(n)) return hex;
+  return 'rgba(' + ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ', ' + alpha + ')';
+};
 
 const KEY = 'ledger_theme';
 
@@ -302,7 +329,7 @@ export const useThemeStore = defineStore('theme', {
     themeVars() {
       const textTable = PRIMARY_TEXT[this.themeKey] || PRIMARY_TEXT.mint;
       const appearance = this.appearanceTheme;
-      return {
+      const vars = {
         ...appearance,
         ...this.theme,
         '--on-primary': ON_PRIMARY,
@@ -320,6 +347,12 @@ export const useThemeStore = defineStore('theme', {
         // 页面根都会显式设色，其子树一律跟随当前外观 —— 全局一次解决。
         color: appearance['--text-main']
       };
+      // 暗色：--primary-soft 默认是近白浅底，会在深色页面上形成刺眼亮块；
+      // 改为主题色 + 低透明度，图标底/选中态/提示条自动柔和。
+      if (this.appearanceKey === 'dark') {
+        vars['--primary-soft'] = hexToRgba(this.theme['--primary'], 0.18);
+      }
+      return vars;
     },
     themeName() { return this.theme.name; },
     themeList() { return Object.keys(THEMES).map(k => ({ key: k, name: THEMES[k].name, color: THEMES[k]['--primary'] })); }

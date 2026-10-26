@@ -26,6 +26,7 @@ import com.moyun.core.base.model.LoginBody;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.model.PortalLoginUser;
 import com.moyun.portal.security.auth.PortalTokenService;
+import com.moyun.portal.service.IPortalAgreementService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.portal.service.impl.PortalLoginServiceImpl;
 import com.moyun.util.security.SecurityUtils;
@@ -52,6 +53,8 @@ public class PortalLoginController {
 
     @Autowired
     private IPortalUserService portalUserService;
+    @Autowired
+    private IPortalAgreementService portalAgreementService;
 
     @Autowired
     private PortalLoginServiceImpl portalLoginService;
@@ -186,6 +189,11 @@ public class PortalLoginController {
             // 生成token
             PortalLoginUser loginUser = (PortalLoginUser) authentication.getPrincipal();
             String token = portalTokenService.createToken(loginUser);
+
+            // 协议留痕：注册入参带同意版本时记录（terms + privacy 各一条，幂等）
+            if (StringUtils.isNotEmpty(portalUser.getAgreedVersion())) {
+                portalAgreementService.recordConsent(loginUser.getUser().getId(), portalUser.getAgreedVersion(), null, null);
+            }
 
             // 构建响应数据
             java.util.Map<String, Object> data = new java.util.HashMap<>();

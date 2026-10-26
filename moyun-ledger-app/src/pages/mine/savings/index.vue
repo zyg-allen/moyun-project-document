@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="存钱">
       <view class="nav-add" @tap="goCreate">新建计划</view>
@@ -7,10 +7,10 @@
     <!-- 总览卡片 -->
     <view class="overview-card">
       <view class="ov-label">剩余需存(元)</view>
-      <view class="ov-amount">¥ {{ toFixedYuan(overview.totalRemaining) }}</view>
+      <view class="ov-amount">{{ toFixedYuan(overview.totalRemaining) }} 元</view>
       <view class="ov-sub">
-        <text>累计存入 ¥{{ toFixedYuan(overview.totalSaved) }}</text>
-        <text>目标金额 ¥{{ toFixedYuan(overview.totalTarget) }}</text>
+        <text>累计存入 {{ toFixedYuan(overview.totalSaved) }} 元</text>
+        <text>目标金额 {{ toFixedYuan(overview.totalTarget) }} 元</text>
       </view>
     </view>
 
@@ -23,12 +23,12 @@
           <text class="plan-name">{{ p.name }}</text>
           <text class="plan-method">{{ methodLabel(p.method) }}</text>
         </view>
-        <view class="plan-amount">¥ {{ toFixedYuan(p.targetAmount) }}</view>
+        <view class="plan-amount">{{ toFixedYuan(p.targetAmount) }} 元</view>
         <view class="progress-bar">
           <view class="progress-fill" :style="{ width: progressPercent(p) + '%' }"></view>
         </view>
         <view class="plan-footer">
-          <text>已存入：¥{{ toFixedYuan(p.currentAmount) }}</text>
+          <text>已存入：{{ toFixedYuan(p.currentAmount) }} 元</text>
           <text :class="['plan-status', statusClass(p.status)]">{{ statusText(p.status) }}</text>
         </view>
       </view>
@@ -49,6 +49,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { listSavingPlans } from '@/api/ledger';
 import { toFixedYuan } from '@/utils/money';
+import { loadDicts, asLabelMap } from '@/utils/ledgerDict';
 
 const METHOD_LABELS = {
   '52week': '52周存钱法',
@@ -63,6 +64,7 @@ export default {
   data() {
     return {
       plans: [],
+      methodLabels: { ...METHOD_LABELS },
       overview: { totalTarget: 0, totalSaved: 0, totalRemaining: 0 }
     };
   },
@@ -71,11 +73,17 @@ export default {
   },
   onShow() {
     useThemeStore().restore();
+    this.loadSavingDict();
     if (useUserStore().isLoggedIn) this.load();
   },
   methods: {
+    /** 存钱方式标签走后台字典（失败保留内置） */
+    async loadSavingDict() {
+      const d = await loadDicts(['ledger_saving_method']);
+      this.methodLabels = asLabelMap(d.ledger_saving_method, METHOD_LABELS);
+    },
     toFixedYuan,
-    methodLabel(m) { return METHOD_LABELS[m] || m; },
+    methodLabel(m) { return this.methodLabels[m] || m; },
     statusText(s) { return STATUS_TEXT[s] || ''; },
     statusClass(s) { return s === 2 ? 'ok' : (s === 3 ? 'fail' : ''); },
     progressPercent(p) {

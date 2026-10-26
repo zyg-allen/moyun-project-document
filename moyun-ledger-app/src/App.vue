@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 import { useThemeStore } from '@/stores/theme';
 import { applyWarehouseTabBar, syncWarehouseSwitch } from '@/utils/warehouseSwitch';
 
@@ -194,4 +194,19 @@ page {
   flex: 1;
   min-width: 0;
 }
-</style>
+/* ============================================================
+ * 空状态（列表页统一）：emoji + 主文案 + 辅助文案 + 可选动作
+ * 用全局类而非 scoped，保证各页视觉一致
+ * ============================================================ */
+.e-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 72rpx 40rpx; text-align: center;
+}
+.e-empty-emoji { font-size: 64rpx; line-height: 1; opacity: 0.85; }
+.e-empty-title { margin-top: 20rpx; font-size: var(--fs-subtitle); color: var(--text-main); font-weight: 500; }
+.e-empty-sub { margin-top: 10rpx; font-size: var(--fs-sub); color: var(--text-muted); line-height: 1.6; }
+.e-empty-action {
+  margin-top: 28rpx; padding: 14rpx 40rpx; border-radius: 40rpx;
+  background: var(--primary); color: var(--on-primary); font-size: var(--fs-body); font-weight: 600;
+  box-shadow: 0 8rpx 20rpx var(--primary-shadow);
+}</style>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 仓库管理开关。
  *
  * 开启后底部导航展示「入库/出库」入口，关闭则退回纯记账。
@@ -8,7 +8,7 @@
 
 const KEY = 'moyun_warehouse_enabled';
 
-/** 底部导航里「入库/出库」的下标（总览0 资产负债1 记一笔2 入库出库3 分析4 我的5） */
+/** 底部导航里「入库/出库」的下标（总览0 资产负债1 记一笔2 出入库3 更多4） */
 const TAB_INDEX = 3;
 
 /** tabBar 页面路由：只有这些页面上才能调 setTabBarItem */
@@ -17,11 +17,10 @@ const TAB_PAGES = [
   'pages/record/index',
   'pages/portfolio/index',
   'pages/warehouse/inout/index',
-  'pages/analysis/index',
   'pages/mine/index'
 ];
 
-const TAB_TEXT = '入库/出库';
+const TAB_TEXT = '出入库';
 
 /** 是否开启仓库管理（本地缓存，默认开启） */
 export function isWarehouseEnabled() {
@@ -36,6 +35,9 @@ export function isWarehouseEnabled() {
 /** 从服务端同步开关并刷新 tabBar */
 export async function syncWarehouseSwitch() {
   try {
+    // 未登录（冷启动/新装）：不要请求 /portal/user/me，
+    // 否则会拿到 401 并触发「登录已过期」提示，破坏未登录落地页的第一印象。
+    if (!uni.getStorageSync('moyun_token')) return;
     // 动态 import：避免模块循环依赖，同时 Vite/ESM 下不能用 require
     const { getUserInfo } = await import('@/api/ledger');
     const u = await getUserInfo();
@@ -65,12 +67,11 @@ export function setWarehouseEnabled(on) {
  *   ② uni.setTabBarItem 返回 Promise，try/catch 抓不到异步拒绝 → 必须挂 catch
  */
 export function applyWarehouseTabBar() {
-  const on = isWarehouseEnabled();
   try {
     const stack = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
     const cur = stack.length ? (stack[stack.length - 1].route || '') : '';
     if (!cur || TAB_PAGES.indexOf(cur) < 0) return;
-    const res = uni.setTabBarItem({ index: TAB_INDEX, text: on ? TAB_TEXT : '' });
+    const res = uni.setTabBarItem({ index: TAB_INDEX, text: TAB_TEXT });
     if (res && typeof res.catch === 'function') res.catch(() => { /* 忽略 */ });
   } catch (e) {
     /* 忽略 */

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="token-usage-stats" v-loading="loading">
     <div class="stats-header">
       <div class="header-left">
@@ -224,7 +224,7 @@
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 
 // 图表相关
 const trendChart = ref(null)

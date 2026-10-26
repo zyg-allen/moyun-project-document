@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <!-- 顶部：类型Tab + 语义提示 -->
     <view class="type-bar">
@@ -120,9 +120,9 @@
         <CalendarPicker :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
           <view class="pick-value">{{ form.transactionDate }} ▾</view>
         </CalendarPicker>
-        <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker pick-picker-time">
+        <view class="pick-picker pick-picker-time" @tap="openTime">
           <view class="pick-value">{{ form.transactionTime }} ▾</view>
-        </picker>
+        </view>
         <view class="today-btn" @tap="setToday">今天</view>
       </view>
       <view class="pick-row" v-if="form.type === 'expense'">
@@ -221,6 +221,15 @@
         </scroll-view>
       </view>
     </view>
+    <PickerWheel
+      :visible="timeSheet"
+      title="选择时间"
+      :columns="[hours, minutes]"
+      :value="timeDraft"
+      @close="timeSheet = false"
+      @confirm="onTimeConfirm"
+    />
+
   </view>
 </template>
 
@@ -229,6 +238,10 @@ import CalendarPicker from '@/components/CalendarPicker/CalendarPicker.vue';
 import keyboardAware from '@/mixins/keyboardAware';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet/KeyboardAwareSheet.vue';
 import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, uploadVoucher } from '@/api/ledger';
+import { ensureLogin } from '@/utils/authGuard';
+import { loadDicts, asOptions } from '@/utils/ledgerDict';
+import PickerWheel from '@/components/PickerWheel/PickerWheel.vue';
+import { HOURS, MINUTES, pad2 } from '@/utils/timeOptions';
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
@@ -262,7 +275,7 @@ const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', le
 
 export default {
   mixins: [keyboardAware],
-  components: { CalendarPicker,  KeyboardAwareSheet },  // 键盘安全弹层
+  components: { PickerWheel, CalendarPicker,  KeyboardAwareSheet },  // 键盘安全弹层
   data() {
     const today = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -277,6 +290,10 @@ export default {
       quickAdd: { visible: false, name: '', balanceYuan: '' },
       /** 用户是否手动改过备注（未改过时自动跟随类型/分类/日期刷新默认前缀） */
       descEdited: false,
+      timeSheet: false,
+      timeDraft: [0, 0],
+      hours: HOURS,
+      minutes: MINUTES,
       form: {
         type: 'expense', accountId: null, targetAccountId: null, liabilityId: null, receivableId: null, payableId: null, isBudget: 1,
         categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
@@ -426,6 +443,7 @@ export default {
     }
   },
   onShow() {
+    if (!ensureLogin()) return;
     useThemeStore().restore();
     if (!this.userStore.isLoggedIn) {
       this.assets = [];
@@ -435,8 +453,23 @@ export default {
       return;
     }
     this.loadOptions();
+    this.loadTxnTypes();
   },
   methods: {
+    openTime() {
+      const parts = String(this.form.transactionTime || '08:00').split(':');
+      this.timeDraft = [Number(parts[0]) || 0, Number(parts[1]) || 0];
+      this.timeSheet = true;
+    },
+    onTimeConfirm(idx) {
+      this.onTimeChange({ detail: { value: pad2(idx[0]) + ':' + pad2(idx[1]) } });
+      this.timeSheet = false;
+    },
+    /** 交易类型走后台字典（失败回退内置 8 类，保证离线可用） */
+    async loadTxnTypes() {
+      const dicts = await loadDicts(['ledger_txn_type']);
+      this.types = asOptions(dicts.ledger_txn_type, TYPE_DEFS);
+    },
     iconOf(icon) { return categoryIcon(icon); },
     /** icon 是否为图片地址（上传的自定义图标） */
     isImg(icon) { return isImageIcon(icon); },
@@ -592,29 +625,29 @@ export default {
     },
     pickAsset() {
       this.openPicker('asset', '选择资金账户', this.fundAccounts.map(a => ({
-        id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance)
+        id: a.id, name: a.name, sub: '余额 ' + formatAmount(a.balance) + ' 元'
       })), this.form.accountId);
     },
     pickTarget() {
       this.openPicker('target', '选择转入账户', this.fundAccounts.filter(a => a.id !== this.form.accountId)
-        .map(a => ({ id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance) })), this.form.targetAccountId);
+        .map(a => ({ id: a.id, name: a.name, sub: '余额 ' + formatAmount(a.balance) + ' 元' })), this.form.targetAccountId);
     },
     pickLiability() {
       this.openPicker('liability', '选择借款项目', this.liabilities.map(l => ({
-        id: l.id, name: l.name, sub: '欠款 ¥' + formatAbsAmount(l.balance)
+        id: l.id, name: l.name, sub: '欠款 ' + formatAbsAmount(l.balance) + ' 元'
       })), this.form.liabilityId);
     },
     pickReceivable() {
       this.openPicker('receivable', '选择应收款', this.receivables.map(a => {
         const outstanding = Number(a.totalAmount || 0) - Number(a.paidAmount || 0);
-        return { id: a.id, name: a.name, sub: '待收 ¥' + formatAbsAmount(outstanding) };
+        return { id: a.id, name: a.name, sub: '待收 ' + formatAbsAmount(outstanding) + ' 元' };
       }), this.form.receivableId);
     },
     /** 借出对象：已有应收款 或 新建 */
     pickLendTarget() {
       const items = this.receivables.map(a => {
         const outstanding = Number(a.totalAmount || 0) - Number(a.paidAmount || 0);
-        return { id: a.id, name: a.name, sub: '待收 ¥' + formatAbsAmount(outstanding) };
+        return { id: a.id, name: a.name, sub: '待收 ' + formatAbsAmount(outstanding) + ' 元' };
       });
       items.push({ id: '__new__', name: '＋ 新建应收款' });
       this.openPicker('lendTarget', '借给谁', items, this.form.receivableId);
@@ -622,7 +655,7 @@ export default {
     /** 借入对象：已有应付款 或 新建 */
     pickBorrowTarget() {
       const items = this.payables.map(l => ({
-        id: l.id, name: l.name, sub: '欠 ¥' + formatAbsAmount(l.balance)
+        id: l.id, name: l.name, sub: '欠 ' + formatAbsAmount(l.balance) + ' 元'
       }));
       items.push({ id: '__new__', name: '＋ 新建应付款' });
       this.openPicker('borrowTarget', '向谁借', items, this.form.payableId);
@@ -829,7 +862,7 @@ export default {
           const label = this.form.type === 'expense' ? '支出' : '转出';
           uni.showModal({
             title: '账户余额不足',
-            content: `「${acc.name}」当前余额 ¥${formatAmount(acc.balance)}，不足以覆盖此笔${label} ¥${formatAmount(amountNum)}。\n支出的钱必须有来源：请先记一笔该账户的收入（如工资、奖金），或从余额充足的账户转账过来，再记此笔${label}。`,
+            content: `「${acc.name}」当前余额 ${formatAmount(acc.balance)} 元，不足以覆盖此笔${label} ${formatAmount(amountNum)} 元。\n支出的钱必须有来源：请先记一笔该账户的收入（如工资、奖金），或从余额充足的账户转账过来，再记此笔${label}。`,
             confirmText: '去记收入',
             cancelText: '去转账',
             success: (r) => {
@@ -850,7 +883,7 @@ export default {
           const that = this;
           uni.showModal({
             title: '账户余额不足',
-            content: `「${acc.name}」当前余额 ¥${formatAmount(acc.balance)}，不足以覆盖此笔还款 ¥${formatAmount(amountNum)}。\n若钱实际已到位（如刚到账的奖金未记账），请先补录一笔该账户的收入说明资金来源，再保存此笔还款。`,
+            content: `「${acc.name}」当前余额 ${formatAmount(acc.balance)} 元，不足以覆盖此笔还款 ${formatAmount(amountNum)} 元。\n若钱实际已到位（如刚到账的奖金未记账），请先补录一笔该账户的收入说明资金来源，再保存此笔还款。`,
             confirmText: '去补录收入',
             cancelText: '仍要保存',
             success: (r) => {
@@ -874,18 +907,18 @@ export default {
       const acc = this.selectedAssetName || '未选账户';
       switch (this.form.type) {
         case 'adjust':
-          return `将在「${acc}」当前余额上${amountNum > 0 ? '加' : '减'} ¥${amt}（不是设为该值），确认无误？`;
+          return `将在「${acc}」当前余额上${amountNum > 0 ? '加' : '减'}  元${amt}（不是设为该值），确认无误？`;
         case 'lend':
-          return `记借出 ¥${amt}：「${acc}」扣款，等额记入应收款。确认？`;
+          return `记借出 ${amt} 元：「${acc}」扣款，等额记入应收款。确认？`;
         case 'collect':
-          return `记收款 ¥${amt}：「${acc}」入账，等额核销应收款。确认？`;
+          return `记收款 ${amt} 元：「${acc}」入账，等额核销应收款。确认？`;
         case 'borrow': {
           const li = this.selectedLiabilityName || '自动新建借款项目';
-          return `记借款 ¥${amt}：欠款增加（${li}）${this.form.accountId ? `，资金进入「${acc}」` : '，不入资产账户'}。确认？`;
+          return `记借款 ${amt} 元：欠款增加（${li}）${this.form.accountId ? `，资金进入「${acc}」` : '，不入资产账户'}。确认？`;
         }
         case 'repayment': {
           const li = this.selectedLiabilityName || '';
-          return `记还款 ¥${amt}：「${acc}」扣款，${li || '指定借款项目'}欠款减少。确认？`;
+          return `记还款 ${amt} 元：「${acc}」扣款，${li || '指定借款项目'}欠款减少。确认？`;
         }
         default:
           return '';
@@ -1003,7 +1036,13 @@ export default {
 .type-item.active { background: var(--primary); color: var(--on-primary); font-weight: 600; }
 
 /* 类型语义提示 */
-.type-hint { background: var(--primary-soft); color: var(--primary-text); font-size: 22rpx; padding: 10rpx 32rpx; }
+.type-hint {
+  margin: 6rpx 24rpx 0; padding: 8rpx 20rpx;
+  background: var(--surface); color: var(--text-muted);
+  font-size: 21rpx; line-height: 1.5;
+  border-radius: 10rpx;
+  border-left: 4rpx solid var(--primary);
+}
 
 /* 分类宫格 */
 .cat-section { background: var(--card); margin: 20rpx 24rpx; border-radius: 20rpx; padding: 24rpx 12rpx 8rpx; }
@@ -1066,6 +1105,7 @@ export default {
 .amount-input {
   flex: 1; min-width: 0; text-align: right;
   font-size: 56rpx; font-weight: 700; color: var(--text-main);
+  font-variant-numeric: tabular-nums; letter-spacing: 1rpx;
 }
 .amount-suffix { font-size: 28rpx; color: var(--text-sub); margin-left: 8rpx; flex-shrink: 0; }
 
@@ -1127,7 +1167,13 @@ export default {
 .voucher-add-text { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }
 
 
-.save-bar { background: var(--card); padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
+.save-bar {
+  position: sticky; bottom: 0; z-index: 10;
+  background: var(--card);
+  padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid var(--border);
+  box-shadow: 0 -6rpx 20rpx rgba(17, 24, 39, 0.05);
+}
 .btn-save {
   background: var(--primary); color: var(--on-primary); border-radius: 44rpx; height: 84rpx;
   line-height: 84rpx; text-align: center; font-size: 32rpx; font-weight: 600;
@@ -1161,7 +1207,7 @@ export default {
 }
 .qa-title { font-size: 26rpx; font-weight: 600; color: var(--primary-text); margin-bottom: 12rpx; }
 .qa-tip {
-  font-size: 22rpx; color: var(--warning); background: #fdf3e7;
+  font-size: 22rpx; color: var(--warning); background: var(--warning-bg);
   border-radius: 8rpx; padding: 12rpx 16rpx; margin-bottom: 8rpx; line-height: 1.6;
 }
 .qa-row { display: flex; align-items: center; padding: 12rpx 0; }

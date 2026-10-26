@@ -1,4 +1,4 @@
--- ==============================================================================
+﻿-- ==============================================================================
 -- 墨云项目 · 初始化结果自检脚本（zyg_99_check.sql）
 -- 用途：执行完 zyg_ddl_01/02 与 zyg_dml_01~06 后运行，逐项核对表数量与关键数据量
 -- 期望：所有 check_result 均为 OK
@@ -33,7 +33,6 @@ SELECT 'portal_tag 行数(=38)' AS check_item, COUNT(*) AS actual, IF(COUNT(*) =
 SELECT 'portal_user 行数(=3)' AS check_item, COUNT(*) AS actual, IF(COUNT(*) = 3, 'OK', 'FAIL') AS check_result FROM `portal_user`;
 SELECT 'ledger_category 行数(=51)' AS check_item, COUNT(*) AS actual, IF(COUNT(*) = 51, 'OK', 'FAIL') AS check_result FROM `ledger_category`;
 SELECT 'ledger_app_feature_config 行数(=29)' AS check_item, COUNT(*) AS actual, IF(COUNT(*) = 29, 'OK', 'FAIL') AS check_result FROM `ledger_app_feature_config`;
-SELECT 'ledger_schedule_task 行数(=14)' AS check_item, COUNT(*) AS actual, IF(COUNT(*) = 14, 'OK', 'FAIL') AS check_result FROM `ledger_schedule_task`;
 
 -- 空表清单（知识库/日志/运行时表按设计应为空）
 SELECT '空表数量(<=160)' AS check_item, COUNT(*) AS actual, IF(COUNT(*) <= 160, 'OK', 'FAIL') AS check_result

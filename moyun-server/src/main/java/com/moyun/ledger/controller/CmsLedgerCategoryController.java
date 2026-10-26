@@ -1,14 +1,18 @@
 package com.moyun.ledger.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.common.annotation.Log;
+import com.moyun.common.annotation.RepeatSubmit;
+import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
+import com.moyun.core.base.TableDataInfo;
 import com.moyun.ledger.domain.entity.LedgerCategory;
+import com.moyun.ledger.domain.entity.LedgerTransaction;
+import com.moyun.ledger.mapper.LedgerTransactionMapper;
 import com.moyun.ledger.service.ILedgerCategoryService;
-import com.moyun.portal.domain.entity.PortalUser;
-import com.moyun.portal.mapper.PortalUserMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,17 +28,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * CMS 记账分类管理 Controller
+ * 后台-记账分类管理
  *
- * <p>层级模型：大类（交易类型）→ 一级分类（parent_id=0）→ 二级分类（parent_id=一级ID），最多两级。
- * <p>归属：系统预设（user_id=0 + is_system=1）由后台维护；
- * 用户自定义（user_id>0）只读展示、可查看不可改删（避免后台误删用户数据）。
- * <p>删除红线：已绑定有效流水（category_id 或 sub_category_id）、或存在子分类 → 一律拒绝。
+ * <p>层级：交易类型 → 一级分类（parent_id=0）→ 二级分类（parent_id=一级 id），最多两级。</p>
+ *
+ * <p>合规口径：
+ * <ul>
+ *   <li>系统预设（user_id=0 + is_system=1）可维护；</li>
+ *   <li>用户自建（user_id&gt;0）属用户数据，<b>只读</b>，且列表只显示「用户#编号」，不暴露昵称；</li>
+ *   <li>已绑定有效流水 / 被作为二级引用 / 存在子分类 → 禁止删除，只能停用。</li>
+ * </ul>
  *
  * @author moyun
  */
@@ -47,40 +56,37 @@ public class CmsLedgerCategoryController extends BaseController {
     private ILedgerCategoryService categoryService;
 
     @Autowired
-    private PortalUserMapper portalUserMapper;
+    private LedgerTransactionMapper transactionMapper;
 
-    /**
-     * 分类树列表（一级分页，自带其二级子分类）
-     *
-     * @param type     大类筛选（空=全部）
-     * @param name     名称模糊搜索
-     * @param owner    归属：system=系统预设 / user=用户自定义
-     * @param pageNum  页码
-     * @param pageSize 每页条数（按一级分类计数）
-     */
-    @Operation(summary = "分类树列表（一级分页 + 二级嵌套）")
+    @Operation(summary = "分类树列表（一级分页 + 二级嵌套 + 引用笔数）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:list')")
     @GetMapping("/list")
-    public AjaxResult list(String type, String name, String owner,
-                           @RequestParam(defaultValue = "1") Integer pageNum,
-                           @RequestParam(defaultValue = "10") Integer pageSize) {
+    public TableDataInfo list(@RequestParam(required = false) String type,
+                              @RequestParam(required = false) String name,
+                              @RequestParam(required = false) String owner,
+                              @RequestParam(required = false) Integer status,
+                              @RequestParam(defaultValue = "1") Integer pageNum,
+                              @RequestParam(defaultValue = "10") Integer pageSize) {
         LambdaQueryWrapper<LedgerCategory> qw = new LambdaQueryWrapper<>();
         // 只分页一级分类，二级随父一起返回
-        qw.apply("(parent_id IS NULL OR parent_id = 0)");
+        qw.and(w -> w.isNull(LedgerCategory::getParentId).or().eq(LedgerCategory::getParentId, 0L));
         if (type != null && !type.isEmpty()) {
             qw.eq(LedgerCategory::getType, type);
         }
-        if (name != null && !name.isEmpty()) {
+        if (name != null && !name.isBlank()) {
             qw.like(LedgerCategory::getName, name.trim());
         }
         if ("system".equals(owner)) {
-            qw.eq(LedgerCategory::getUserId, 0).eq(LedgerCategory::getIsSystem, 1);
+            qw.eq(LedgerCategory::getUserId, 0L).eq(LedgerCategory::getIsSystem, 1);
         } else if ("user".equals(owner)) {
-            qw.gt(LedgerCategory::getUserId, 0);
+            qw.gt(LedgerCategory::getUserId, 0L);
+        }
+        if (status != null) {
+            qw.eq(LedgerCategory::getStatus, status);
         }
         qw.orderByAsc(LedgerCategory::getType).orderByAsc(LedgerCategory::getSortOrder);
 
-        IPage<LedgerCategory> page = categoryService.page(new Page<>(pageNum, pageSize), qw);
+        Page<LedgerCategory> page = categoryService.page(new Page<>(pageNum, pageSize), qw);
         List<LedgerCategory> roots = page.getRecords();
 
         if (!roots.isEmpty()) {
@@ -91,41 +97,66 @@ public class CmsLedgerCategoryController extends BaseController {
             Map<Long, List<LedgerCategory>> byParent = children.stream()
                     .collect(Collectors.groupingBy(LedgerCategory::getParentId));
             roots.forEach(r -> r.setChildren(byParent.getOrDefault(r.getId(), new ArrayList<>())));
-            fillUserNames(roots);
-            roots.forEach(r -> fillUserNames(r.getChildren()));
+            fillOwnerLabels(roots);
+            fillOwnerLabels(children);
+            fillUsedCounts(roots, children);
         }
-        return success(Map.of("records", roots, "total", page.getTotal()));
+        return getDataTable(roots, page.getTotal());
     }
 
-    /** 回填归属用户名（user_id=0 显示"系统预设"，>0 取 portal_user 昵称/账号） */
-    private void fillUserNames(List<LedgerCategory> list) {
+    /** 只回填「用户#编号」，不返回昵称（用户数据最小必要） */
+    private void fillOwnerLabels(List<LedgerCategory> list) {
         if (list == null || list.isEmpty()) {
             return;
         }
-        List<Long> userIds = list.stream().map(LedgerCategory::getUserId)
-                .filter(uid -> uid != null && uid > 0).distinct().toList();
-        Map<Long, PortalUser> userMap = userIds.isEmpty() ? Map.of()
-                : portalUserMapper.selectBatchIds(userIds).stream()
-                        .collect(Collectors.toMap(PortalUser::getId, u -> u));
         list.forEach(c -> {
             Long uid = c.getUserId();
-            if (uid == null || uid == 0) {
-                c.setUserName("系统预设");
-                return;
-            }
-            PortalUser u = userMap.get(uid);
-            if (u == null) {
-                c.setUserName("用户#" + uid);
-            } else if (u.getNickname() != null && !u.getNickname().isBlank()) {
-                c.setUserName(u.getNickname());
-            } else {
-                c.setUserName(u.getUsername());
-            }
+            c.setUserName(uid == null || uid == 0 ? "系统预设" : "用户#" + uid);
         });
+    }
+
+    /** 引用笔数：category_id 与 sub_category_id 分别聚合，父类目含子类目汇总 */
+    private void fillUsedCounts(List<LedgerCategory> roots, List<LedgerCategory> children) {
+        List<Long> allIds = new ArrayList<>(roots.stream().map(LedgerCategory::getId).toList());
+        children.forEach(c -> allIds.add(c.getId()));
+        Map<Long, Long> byCategory = countByColumn("category_id", allIds);
+        Map<Long, Long> bySubCategory = countByColumn("sub_category_id", allIds);
+
+        children.forEach(c -> c.setUsedCount(
+                byCategory.getOrDefault(c.getId(), 0L) + bySubCategory.getOrDefault(c.getId(), 0L)));
+        roots.forEach(r -> {
+            long total = byCategory.getOrDefault(r.getId(), 0L) + bySubCategory.getOrDefault(r.getId(), 0L);
+            for (LedgerCategory child : r.getChildren()) {
+                total += byCategory.getOrDefault(child.getId(), 0L) + bySubCategory.getOrDefault(child.getId(), 0L);
+            }
+            r.setUsedCount(total);
+        });
+    }
+
+    private Map<Long, Long> countByColumn(String column, List<Long> ids) {
+        Map<Long, Long> result = new HashMap<>();
+        if (ids.isEmpty()) {
+            return result;
+        }
+        QueryWrapper<LedgerTransaction> qw = new QueryWrapper<>();
+        qw.select(column, "COUNT(*) AS cnt")
+                .eq("status", LedgerTransaction.STATUS_NORMAL)
+                .in(column, ids)
+                .groupBy(column);
+        for (Map<String, Object> row : transactionMapper.selectMaps(qw)) {
+            Object id = row.get(column);
+            Object cnt = row.get("cnt");
+            if (id != null) {
+                result.put(Long.valueOf(id.toString()), Long.valueOf(cnt.toString()));
+            }
+        }
+        return result;
     }
 
     @Operation(summary = "新增系统预设分类（可挂一级或二级）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:add')")
+    @RepeatSubmit(interval = 3000)
+    @Log(title = "记账-预设分类", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody LedgerCategory category) {
         category.setId(null);
@@ -151,6 +182,8 @@ public class CmsLedgerCategoryController extends BaseController {
 
     @Operation(summary = "修改系统预设分类")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
+    @RepeatSubmit(interval = 3000)
+    @Log(title = "记账-预设分类", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody LedgerCategory category) {
         LedgerCategory exist = categoryService.getById(id);
@@ -188,6 +221,7 @@ public class CmsLedgerCategoryController extends BaseController {
 
     @Operation(summary = "启用/停用系统预设分类")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
+    @Log(title = "记账-预设分类", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/status/{status}")
     public AjaxResult changeStatus(@PathVariable Long id, @PathVariable Integer status) {
         LedgerCategory exist = categoryService.getById(id);
@@ -204,6 +238,7 @@ public class CmsLedgerCategoryController extends BaseController {
 
     @Operation(summary = "删除系统预设分类（校验流水与子分类引用）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
+    @Log(title = "记账-预设分类", businessType = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         LedgerCategory exist = categoryService.getById(id);

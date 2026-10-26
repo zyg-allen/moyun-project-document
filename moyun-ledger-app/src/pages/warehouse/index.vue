@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page" :style="themeVars">
     <NavBar title="仓库" />
 
@@ -11,7 +11,7 @@
       </view>
       <view class="wh-tag add" @tap="openWhSheet()">＋ 新建</view>
     </scroll-view>
-    <view v-else class="empty" @tap="openWhSheet()">还没有仓库，点此新建第一个仓库</view>
+    <view v-else class="empty" @tap="openWhSheet()">📦 还没有仓库，点此新建第一个仓库</view>
     <view class="mem-bar" v-if="currentId">
       <text class="mem-link" @tap="openMembers">👥 成员</text>
       <text class="mem-link" @tap="manageWarehouse"> ⚙️ 管理</text>
@@ -29,7 +29,7 @@
         <text class="flex-1">货架 · 存放位置</text>
         <text class="link" @tap="openShelfSheet()">＋新增货架</text>
       </view>
-      <view v-if="!shelves.length" class="empty">还没有货架，点「＋新增货架」添加存放位置</view>
+      <view v-if="!shelves.length" class="empty">🧩 还没有货架，点「＋新增货架」添加存放位置</view>
       <view class="shelf-grid">
         <view v-for="s in shelves" :key="s.id" class="shelf-cell" @tap="openShelfDetail(s)">
           <view class="shelf-cover">
@@ -102,7 +102,7 @@
         <view class="search-btn" @tap="doSearch"><text class="search-btn-icon">🔍</text></view>
       </view>
 
-      <view v-if="!products.length" class="empty">{{ (keyword || categoryId || shelfFilterId) ? '没有匹配的商品' : '还没有商品，点「＋新增商品」添加' }}</view>
+      <view v-if="!products.length" class="empty">{{ (keyword || categoryId || shelfFilterId) ? '🔍 没有匹配的商品' : '🛒 还没有商品，点「＋新增商品」添加' }}</view>
       <view v-for="p in products" :key="p.id" class="prod-row" @tap="openProductDetail(p)">
         <image v-if="p.coverUrl" :src="p.coverUrl" class="prod-img" mode="aspectFill" />
         <view v-else class="prod-img prod-img-ph">{{ (p.name || '?')[0] }}</view>
@@ -113,14 +113,14 @@
             <text v-if="cfg.showTags && p.tags"> · {{ p.tags }}</text>
           </view>
           <view class="row-sub2">
-            <text>成本 ¥{{ fmt(p.costPrice) }}</text>
-            <text v-if="p.sellPrice"> · 售价 ¥{{ fmt(p.sellPrice) }}</text>
+            <text>成本 {{ fmt(p.costPrice) }} 元</text>
+            <text v-if="p.sellPrice"> · 售价 {{ fmt(p.sellPrice) }} 元</text>
             <text v-if="cfg.showExpiry && p.expiryDate"> · 到期 {{ String(p.expiryDate).slice(0,10) }}</text>
           </view>
         </view>
         <view class="row-right">
           <view class="qty" :class="{ warn: (p.stockQuantity || 0) <= (cfg.lowStock || 0) }">{{ p.stockQuantity || 0 }} {{ p.unit || '个' }}</view>
-          <view class="price" v-if="cfg.showValue">¥{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }}</view>
+          <view class="price" v-if="cfg.showValue">{{ fmt((p.costPrice || 0) * (p.stockQuantity || 0)) }} 元</view>
         </view>
       </view>
 
@@ -139,9 +139,9 @@
         <view class="f-row"><text class="f-label">名称</text>
           <input class="f-input" v-model="whForm.name" placeholder="如：我的小店" /></view>
         <view class="f-row"><text class="f-label">模式</text>
-          <picker :range="whTypeNames" @change="onWhTypeChange">
+          <view class="picker-wrap" @tap="openPs('whType','仓库类型',whTypeNames,-1)">
             <view class="f-value">{{ whTypeNames[whTypeIndex] }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="sheet-actions">
           <view class="btn ghost" @tap="whSheet = false">取消</view>
           <view class="btn" @tap="saveWh">保存</view>
@@ -170,9 +170,9 @@
         </view>
 
         <view class="f-row"><text class="f-label">类目</text>
-          <picker :range="categoryPickerNames" @change="onProductCategoryChange">
+          <view class="picker-wrap" @tap="openPs('productCategory','商品分类',categoryPickerNames,-1)">
             <view class="f-value">{{ pForm.categoryName || '未分类' }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="f-row"><text class="f-label">成本价</text>
           <input class="f-input" type="digit" v-model="pForm.costPrice" placeholder="选填" /></view>
         <view class="f-row"><text class="f-label">售价</text>
@@ -183,13 +183,13 @@
           <input class="f-input" v-model="pForm.barcode" placeholder="选填，可扫码" />
           <text class="scan-btn" @tap="scanBarcode">扫码</text></view>
         <view class="f-row"><text class="f-label">成色</text>
-          <picker :range="conditionNames" @change="onConditionChange">
+          <view class="picker-wrap" @tap="openPs('condition','成色',conditionNames,-1)">
             <view class="f-value">{{ pForm.conditionGrade || '全新' }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="f-row"><text class="f-label">来源</text>
-          <picker :range="channelNames" @change="onChannelChange">
+          <view class="picker-wrap" @tap="openPs('channel','来源渠道',channelNames,-1)">
             <view class="f-value">{{ pForm.sourceChannel || '未设置' }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="sheet-actions">
           <view class="btn ghost" @tap="productSheet = false">取消</view>
           <view class="btn" @tap="saveProduct">保存</view>
@@ -212,15 +212,15 @@
         </view>
         <view class="f-row">
           <text class="f-label">货架</text>
-          <picker :range="stockShelfNames" @change="onStockShelfChange">
+          <view class="picker-wrap" @tap="openPs('stockShelf','存放货架',stockShelfNames,-1)">
             <view class="f-value">{{ stockShelfLabel }} ▾</view>
-          </picker>
+          </view>
         </view>
         <view class="f-row">
           <text class="f-label">原因</text>
-          <picker :range="reasonNames" @change="onStockReasonChange">
+          <view class="picker-wrap" @tap="openPs('stockReason','出入库原因',reasonNames,-1)">
             <view class="f-value">{{ reasonLabel }} ▾</view>
-          </picker>
+          </view>
         </view>
         <view class="f-row">
           <text class="f-label">{{ qtyLabelOf(stockMode) }}</text>
@@ -254,9 +254,9 @@
           <input class="f-input" type="number" v-model="shelfForm.positionNo" placeholder="位" />
         </view>
         <view class="f-row"><text class="f-label">类型</text>
-          <picker :range="shelfTypeNames" @change="onShelfTypeChange">
+          <view class="picker-wrap" @tap="openPs('shelfType','货架类型',shelfTypeNames,-1)">
             <view class="f-value">{{ shelfTypeNameOf(shelfForm.shelfType) }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="f-row"><text class="f-label">容量</text>
           <input class="f-input" type="number" v-model="shelfForm.capacity" placeholder="选填，件" /></view>
         <view class="f-row"><text class="f-label">备注</text>
@@ -294,17 +294,17 @@
           <text class="over-tip">已超容量（仅提示，不影响使用）</text>
         </view>
 
-        <view class="sheet-sub">本货架 · {{ shelfDetail.totalQuantity }} 件 · ¥{{ fmt(shelfDetail.totalCostValue) }}</view>
+        <view class="sheet-sub">本货架 · {{ shelfDetail.totalQuantity }} 件 · {{ fmt(shelfDetail.totalCostValue) }} 元</view>
         <scroll-view scroll-y class="detail-items">
           <view v-if="!shelfDetail.items.length" class="empty">该货架暂无库存</view>
           <view v-for="it in shelfDetail.items" :key="it.productId" class="row" @tap="openProductDetail({ id: it.productId })">
             <view class="flex-1 min-w-0">
               <view class="row-name">{{ it.productName }}</view>
-              <view class="row-sub">{{ it.unit || '个' }} · 成本 ¥{{ fmt(it.costPrice) }}</view>
+              <view class="row-sub">{{ it.unit || '个' }} · 成本 {{ fmt(it.costPrice) }} 元</view>
             </view>
             <view class="row-right">
               <view class="qty">{{ it.quantity }} 件</view>
-              <view class="price">¥{{ fmt(it.costValue) }}</view>
+              <view class="price">{{ fmt(it.costValue) }} 元</view>
             </view>
           </view>
         </scroll-view>
@@ -322,15 +322,15 @@
       <view class="sheet" @tap.stop>
         <view class="sheet-title">移库</view>
         <view class="f-row"><text class="f-label">商品</text>
-          <picker :range="transferItemNames" @change="onTransferProduct">
+          <view class="picker-wrap" @tap="openPs('transferProduct','移库商品',transferItemNames,-1)">
             <view class="f-value">{{ transferForm.itemName || '选择本货架商品' }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="f-row"><text class="f-label">从</text>
           <text class="f-value">{{ shelfDetail.shelf.name }}</text></view>
         <view class="f-row"><text class="f-label">到</text>
-          <picker :range="transferTargetNames" @change="onTransferTarget">
+          <view class="picker-wrap" @tap="openPs('transferTarget','目标货架',transferTargetNames,-1)">
             <view class="f-value">{{ transferForm.targetName || '选择目标货架' }} ▾</view>
-          </picker></view>
+          </view></view>
         <view class="f-row"><text class="f-label">数量</text>
           <input class="f-input" type="number" v-model="transferForm.quantity" placeholder="0" /></view>
         <view class="sheet-actions">
@@ -365,11 +365,11 @@
         <view class="f-row" v-if="productDetail.product.sourceChannel"><text class="f-label">来源</text>
           <text class="f-value">{{ productDetail.product.sourceChannel }}</text></view>
         <view class="f-row"><text class="f-label">成本价</text>
-          <text class="f-value">¥{{ fmt(productDetail.product.costPrice) }}</text></view>
+          <text class="f-value">{{ fmt(productDetail.product.costPrice) }} 元</text></view>
         <view class="f-row"><text class="f-label">售价</text>
-          <text class="f-value">¥{{ fmt(productDetail.product.sellPrice) }}</text></view>
+          <text class="f-value">{{ fmt(productDetail.product.sellPrice) }} 元</text></view>
         <view class="f-row"><text class="f-label">总库存</text>
-          <text class="f-value">{{ productDetail.totalQuantity }} 件 · ¥{{ fmt(productDetail.totalCostValue) }}</text></view>
+          <text class="f-value">{{ productDetail.totalQuantity }} 件 · {{ fmt(productDetail.totalCostValue) }} 元</text></view>
         <!-- 盘点补充：保质期 / 包装 / 标签 / 描述 / 动销 -->
         <view class="f-row" v-if="productDetail.product.productionDate"><text class="f-label">生产日期</text>
           <text class="f-value">{{ productDetail.product.productionDate }}</text></view>
@@ -401,7 +401,7 @@
             </view>
             <view class="row-right">
               <view class="qty">{{ r.quantity }} 件</view>
-              <view class="price">¥{{ fmt(r.costValue) }}</view>
+              <view class="price">{{ fmt(r.costValue) }} 元</view>
             </view>
           </view>
         </scroll-view>
@@ -420,7 +420,7 @@
       <view class="sheet" @tap.stop>
         <view class="sheet-title">库存流水（{{ flowTotal }} 条）</view>
         <scroll-view scroll-y class="detail-items">
-          <view v-if="!flows.length" class="empty">还没有流水，出入库后这里会出现记录</view>
+          <view v-if="!flows.length" class="empty">🧾 还没有流水，出入库后这里会出现记录</view>
           <view v-for="f in flows" :key="f.id" class="fl-row">
             <view class="fl-badge" :class="{ inn: f.quantityChange > 0 }">{{ f.flowTypeLabel || f.flowType }}</view>
             <view class="flex-1 min-w-0">
@@ -442,7 +442,7 @@
     <!-- 盘点简报（仓库维度概览，放底部：先看货、再看数） -->
     <view class="ov-card" v-if="currentId && overview && overview.productCount !== undefined">
       <view class="ov-row">
-        <view class="ov-cell"><view class="ov-num">¥{{ fmt(overview.stockValue) }}</view><view class="ov-label">库存总价值</view></view>
+        <view class="ov-cell"><view class="ov-num">{{ fmt(overview.stockValue) }} 元</view><view class="ov-label">库存总价值</view></view>
         <view class="ov-cell"><view class="ov-num">{{ overview.totalQuantity || 0 }}</view><view class="ov-label">待售件数</view></view>
         <view class="ov-cell"><view class="ov-num">{{ overview.productCount || 0 }}</view><view class="ov-label">商品数</view></view>
       </view>
@@ -490,11 +490,21 @@
       </view>
     </view>
 
+    <PickerSheet
+      :visible="ps.visible"
+      :title="ps.title"
+      :options="ps.options"
+      :selected="ps.selected"
+      @close="ps.visible = false"
+      @select="onPsSelect"
+    />
+
   </view>
 </template>
 
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
+import PickerSheet from '@/components/PickerSheet/PickerSheet.vue';
 import { useThemeStore } from '@/stores/theme';
 import { getWarehouseCfg, loadWarehouseCfg } from '@/utils/warehouseConfig';
 import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, stockOut,
@@ -506,6 +516,8 @@ import { listWarehouses, createWarehouse, listProducts, createProduct, stockIn, 
   listWarehouseMembers, addWarehouseMember, removeWarehouseMember, createInvite, acceptInvite,
   updateWarehouse, deleteWarehouse, deleteProduct, listInvites, revokeInvite
  } from '@/api/ledger';
+
+import { loadDicts, asPairs } from '@/utils/ledgerDict';
 
 const WH_TYPES = [
   ['personal', '个人仓'],
@@ -528,10 +540,16 @@ const SHELF_TYPES = [
 ];
 
 export default {
-  components: { NavBar },
+  components: { PickerSheet, NavBar },
   data() {
     return {
       warehouses: [],
+      // 下拉候选：默认内置，进入页面后被后台字典覆盖（后台改字典即可生效，无需发版）
+      whTypes: WH_TYPES,
+      shelfTypes: SHELF_TYPES,
+      conditions: [...CONDITIONS],
+      inReasons: IN_REASONS,
+      outReasons: OUT_REASONS,
       currentId: null,
       products: [],
       whSheet: false,
@@ -548,6 +566,8 @@ export default {
       tab: 'goods',
       shelves: [],
       shelfSheet: false,
+      // 通用主题选择面板（替代原生 picker）
+      ps: { visible: false, key: '', title: '', options: [], selected: -1 },
       shelfForm: {
         id: null, code: '', name: '', zone: '',
         rowNo: '', layerNo: '', positionNo: '',
@@ -605,8 +625,8 @@ export default {
       return '';
     },
     themeVars() { return useThemeStore().themeVars; },
-    whTypeNames() { return WH_TYPES.map(t => t[1]); },
-    shelfTypeNames() { return SHELF_TYPES.map(t => t[1]); }, conditionNames() { return CONDITIONS; }, channelNames() { return CHANNELS; }, /** 移库可选商品（本货架上还有货的） */
+    whTypeNames() { return this.whTypes.map(t => t[1]); },
+    shelfTypeNames() { return this.shelfTypes.map(t => t[1]); }, conditionNames() { return this.conditions; }, channelNames() { return CHANNELS; }, /** 移库可选商品（本货架上还有货的） */
     transferItemNames() { return (this.shelfDetail.items || []).map(it => it.productName); },
     /** 移库可选目标货架（排除当前货架） */
     transferTargetList() {
@@ -638,7 +658,7 @@ export default {
     },
     categoryPickerNames() { return this.categoryPickerList.map(x => x.name); },
     /** 出入库原因候选 */
-    reasonList() { return this.stockMode === 'in' ? IN_REASONS : OUT_REASONS; },
+    reasonList() { return this.stockMode === 'in' ? this.inReasons : this.outReasons; },
     reasonNames() { return this.reasonList.map(x => x[1]); },
     reasonLabel() {
       const x = this.reasonList.find(i => i[0] === this.stockReason);
@@ -655,6 +675,7 @@ export default {
     this.startPoll();
     // 从服务端拉配置（换设备也能拿到最新），失败回退本机缓存
     this.cfg = await loadWarehouseCfg();
+    this.loadPresetDicts();
     useThemeStore().restore();
     this.loadWarehouses().then(() => {
       // 首次从入库/出库页跳来：默认选中指定仓库与货架
@@ -687,6 +708,22 @@ export default {
   onUnload() { this.stopPoll(); },
   /** 协作场景：定时刷新，让成员能看到别人刚卖出的变化 */
   methods: {
+    /** 打开主题选择面板（key 用于回调分发） */
+    openPs(key, title, options, selected) {
+      this.ps = { visible: true, key, title, options: options || [], selected: selected == null ? -1 : selected };
+    },
+    onPsSelect(idx) {
+      const map = {
+        whType: 'onWhTypeChange', productCategory: 'onProductCategoryChange',
+        condition: 'onConditionChange', channel: 'onChannelChange',
+        stockShelf: 'onStockShelfChange', stockReason: 'onStockReasonChange',
+        shelfType: 'onShelfTypeChange', transferProduct: 'onTransferProduct',
+        transferTarget: 'onTransferTarget'
+      };
+      const fn = map[this.ps.key];
+      if (fn && typeof this[fn] === 'function') this[fn]({ detail: { value: idx } });
+      this.ps.visible = false;
+    },
     /**
      * 跳到「入库/出库」页（tabBar 页）。
      * ⚠️ tab 页不能用 navigateTo（会静默失败），只能 switchTab；
@@ -922,17 +959,28 @@ export default {
     },
     fmt(v) { return Number(v || 0).toFixed(2); },
     // ===== 货架（存放位置）=====
-    switchTab(t) {
+    /** 后台字典覆盖下拉候选（接口失败/字典为空时保留内置默认） */
+    async loadPresetDicts() {
+      const d = await loadDicts(['ledger_warehouse_type', 'ledger_shelf_type',
+        'ledger_stock_in_reason', 'ledger_stock_out_reason', 'ledger_condition_grade']);
+      this.whTypes = asPairs(d.ledger_warehouse_type, WH_TYPES);
+      this.shelfTypes = asPairs(d.ledger_shelf_type, SHELF_TYPES);
+      this.inReasons = asPairs(d.ledger_stock_in_reason, IN_REASONS);
+      this.outReasons = asPairs(d.ledger_stock_out_reason, OUT_REASONS);
+      const cond = d.ledger_condition_grade || [];
+      // 成色在库里存的是中文标签（如「95新」），字典取标签保持历史数据兼容
+      this.conditions = cond.length ? cond.map(i => i.label) : [...CONDITIONS];
+    },    switchTab(t) {
       this.tab = t;
       if (t === 'shelf') this.loadShelves();
       else this.loadProducts();
     },
     shelfTypeNameOf(t) {
-      const x = SHELF_TYPES.find(i => i[0] === t);
+      const x = this.shelfTypes.find(i => i[0] === t);
       return x ? x[1] : '普通货架';
     },
-    onConditionChange(e) { this.pForm.conditionGrade = CONDITIONS[e.detail.value] || ''; }, onChannelChange(e) { this.pForm.sourceChannel = CHANNELS[e.detail.value] || ''; }, onShelfTypeChange(e) {
-      const x = SHELF_TYPES[e.detail.value];
+    onConditionChange(e) { this.pForm.conditionGrade = this.conditions[e.detail.value] || ''; }, onChannelChange(e) { this.pForm.sourceChannel = CHANNELS[e.detail.value] || ''; }, onShelfTypeChange(e) {
+      const x = this.shelfTypes[e.detail.value];
       if (x) this.shelfForm.shelfType = x[0];
     },
     /** 出入库所选货架（首项=未上架） */
@@ -1441,7 +1489,7 @@ export default {
       this.similarList = [];
       this.productSheet = true;
     },
-    onWhTypeChange(e) { this.whTypeIndex = e.detail.value; this.whForm.type = WH_TYPES[e.detail.value][0]; },
+    onWhTypeChange(e) { this.whTypeIndex = e.detail.value; this.whForm.type = this.whTypes[e.detail.value][0]; },
     async saveWh() {
       if (!this.whForm.name.trim()) { uni.showToast({ title: '请填名称', icon: 'none' }); return; }
       try {
@@ -1512,8 +1560,18 @@ export default {
 .qty { font-size: 26rpx; font-weight: 600; color: var(--income); }
 .qty.warn { color: var(--text-muted); }
 .price { font-size: 20rpx; color: var(--text-sub); margin-top: 4rpx; }
-.mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.45); z-index: 999; display: flex; align-items: center; justify-content: center; }
-.sheet { width: 620rpx; background: var(--card); border-radius: 24rpx; padding: 32rpx; }
+.mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.45); z-index: 999; display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  width: 100%; max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: var(--card); border-radius: 32rpx 32rpx 0 0;
+  padding: 20rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+/* 顶部拖拽提示条：明确这是可上拉的底部面板 */
+.sheet::before {
+  content: ''; display: block; width: 72rpx; height: 8rpx; border-radius: 4rpx;
+  background: var(--border-strong); margin: 0 auto 20rpx;
+}
 .sheet-title { font-size: 30rpx; font-weight: 600; text-align: center; color: var(--text-main); margin-bottom: 16rpx; }
 .sheet-sub { font-size: 24rpx; color: var(--text-sub); text-align: center; margin-bottom: 12rpx; }
 .seg { display: flex; background: var(--surface); border-radius: 12rpx; overflow: hidden; }
@@ -1535,7 +1593,7 @@ export default {
 .order-qty { flex: 0.7; }
 .order-price { flex: 0.9; }
 .order-del {
-  font-size: 32rpx; color: #E85D5D; padding: 0 8rpx; line-height: 1;
+  font-size: 32rpx; color: var(--expense); padding: 0 8rpx; line-height: 1;
 }
 /* ===== 货架 / 商品 切换 ===== */
 .seg-tabs {
@@ -1593,7 +1651,7 @@ export default {
 .detail-img-del {
   position: absolute; top: -6rpx; right: -6rpx;
   width: 34rpx; height: 34rpx; line-height: 30rpx; text-align: center;
-  border-radius: 50%; background: #E85D5D; color: #fff; font-size: 24rpx;
+  border-radius: 50%; background: var(--expense); color: #fff; font-size: 24rpx;
 }
 .detail-img-add {
   display: inline-block; width: 160rpx; height: 160rpx; line-height: 160rpx;
@@ -1601,7 +1659,7 @@ export default {
   border: 1rpx dashed var(--border); border-radius: 12rpx; vertical-align: top;
 }
 .detail-items { max-height: 460rpx; }
-.over-tip { font-size: 22rpx; color: #E8654A; }
+.over-tip { font-size: 22rpx; color: var(--expense); }
 .row-code { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
 /* ===== 仓库概览卡片 ===== */
 .ov-card {
@@ -1614,7 +1672,7 @@ export default {
 .ov-label { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
 .ov-tip {
   margin-top: 10rpx; padding-top: 10rpx; border-top: 1rpx solid var(--border);
-  font-size: 22rpx; color: #E8654A;
+  font-size: 22rpx; color: var(--expense);
 }
 
 /* ===== 盘点行 ===== */
@@ -1637,11 +1695,11 @@ export default {
 }
 .fl-badge {
   flex: 0 0 auto; padding: 4rpx 12rpx; border-radius: 6rpx;
-  font-size: 20rpx; color: #E8654A; background: rgba(232,101,74,.12);
+  font-size: 20rpx; color: var(--expense); background: var(--expense-bg);
 }
-.fl-badge.inn { color: #0EA37A; background: rgba(14,163,122,.12); }
-.fl-qty { font-size: 30rpx; font-weight: 700; color: #E8654A; }
-.fl-qty.inn { color: #0EA37A; }
+.fl-badge.inn { color: var(--income); background: var(--income-bg); }
+.fl-qty { font-size: 30rpx; font-weight: 700; color: var(--expense); }
+.fl-qty.inn { color: var(--income); }
 .fl-reason { font-size: 22rpx; color: var(--text-sub); font-weight: 400; }
 .ov-tip.warn { color: #E8A33D; }
 .ov-more { margin-top: 10rpx; padding-top: 10rpx; border-top: 1rpx solid var(--border); font-size: 23rpx; color: var(--primary); text-align: center; }
@@ -1662,7 +1720,7 @@ export default {
 .wh-name { font-size: 24rpx; }
 .exp-wrap { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8rpx; }
 .exp-tag { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; background: rgba(232,163,61,.16); color: #E8A33D; }
-.exp-tag.bad { background: rgba(232,101,74,.14); color: #E8654A; }
+.exp-tag.bad { background: rgba(232,101,74,.14); color: var(--expense); }
 .f-sub { font-size: 22rpx; color: var(--text-sub); }
 /* ===== 商品列表行（带图 + 多属性 + 分页） ===== */
 .prod-row { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; border-bottom: 1rpx solid var(--border); }
@@ -1737,7 +1795,7 @@ export default {
 .mem-name { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
 .mem-tag { font-size: 18rpx; color: var(--primary); border: 1rpx solid var(--primary); border-radius: 4rpx; padding: 0 6rpx; margin-left: 8rpx; }
 .mem-sub { font-size: 21rpx; color: var(--text-sub); margin-top: 2rpx; }
-.mem-del { font-size: 23rpx; color: #E8654A; }
+.mem-del { font-size: 23rpx; color: var(--expense); }
 .mem-join { font-size: 22rpx; color: var(--primary); padding: 0 0 12rpx; }
 /* 有效邀请码 */
 .inv-box { margin-top: 16rpx; padding-top: 12rpx; border-top: 1rpx solid var(--border); }
@@ -1745,6 +1803,7 @@ export default {
 .inv-row { display: flex; align-items: center; padding: 12rpx 0; }
 .inv-code { flex: 1; font-size: 28rpx; font-weight: 700; color: var(--primary); letter-spacing: 4rpx; }
 .inv-use { font-size: 21rpx; color: var(--text-sub); margin-right: 16rpx; }
-.inv-del { font-size: 23rpx; color: #E8654A; }
-.btn.danger { color: #E8654A; }
+.inv-del { font-size: 23rpx; color: var(--expense); }
+.btn.danger { color: var(--expense); }
+.picker-wrap { flex: 1; display: flex; justify-content: flex-end; }
 </style>

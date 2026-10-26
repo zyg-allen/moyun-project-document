@@ -1,0 +1,53 @@
+﻿{
+  "target": "H5 应用",
+  "url": "http://127.0.0.1:5173/",
+  "status": 200,
+  "bytesPlain": 858,
+  "bytesGzip": 858,
+  "compressed": false,
+  "ttfbMs": 2.1,
+  "totalMs": 2.2,
+  "headers": {
+    "cache-control": "no-cache",
+    "content-type": "text/html"
+  },
+  "html": {
+    "scripts": 2,
+    "links": 1,
+    "inline": 2
+  }
+}
+{
+  "target": "管理后台",
+  "url": "http://localhost/",
+  "status": 200,
+  "bytesPlain": 5400,
+  "bytesGzip": 5400,
+  "compressed": false,
+  "ttfbMs": 3.3,
+  "totalMs": 3.4,
+  "headers": {
+    "cache-control": "no-cache",
+    "content-type": "text/html"
+  },
+  "html": {
+    "scripts": 2,
+    "links": 1,
+    "inline": 1
+  }
+}
+{
+  "target": "后端 API",
+  "url": "http://127.0.0.1:8080/portal/ledger/dict/txn_type",
+  "status": 200,
+  "bytesPlain": 106,
+  "bytesGzip": 106,
+  "compressed": false,
+  "ttfbMs": 2.8,
+  "totalMs": 2.9,
+  "headers": {
+    "content-type": "application/json;charset=utf-8",
+    "x-frame-options": "SAMEORIGIN",
+    "x-content-type-options": "nosniff"
+  }
+}

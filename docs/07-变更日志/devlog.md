@@ -1,6 +1,102 @@
-# 开发日志（devlog）
+﻿# 开发日志（devlog）
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《项目现状总结》。v12 起新条目同样只记类目+简介。
+
+## v14.91 (2026-10-22) 生产上线检查：修复 5 个生产阻断项
+
+- **校验器断言写反**：`ConfigWiringValidator` 的 `token.admin/portal.secret` 接线断言把 `equals` 当正常，导致正确配置独立密钥的生产环境无法启动；已改为 `!equals`。
+- **生产模板缩进错误**：`application-prod.yaml(.example)` 中 `token.admin.secret` / `token.portal.secret` 缩进与父级同级，导致专用密钥不生效；已修正。
+- **生产端点硬拦截**：新增 `ProductEndpointGuard`（`@Profile("prod")`），无论配置优先级如何，`/druid`、`/doc.html`、`/swagger-ui`、`/v3/api-docs` 在生产一律拒绝；背景是 `group.prod=dev` 会让 dev 开关覆盖 prod。
+- **默认开关收紧**：生产模板 `PAY_ENABLED`、`SMS_ENABLED` 默认改为 `false`；`DRUID_USERNAME/PASSWORD` 允许为空，避免关闭控制台后仍因占位符解析失败。
+- **新增部署资产**：`deploy/prod.env.example`（23 个必填变量）、`deploy/nginx.conf.example`（gzip/缓存/安全头/反代）、`docs/03-部署运维/全端-部署-生产上线检查清单-20261022.md`。
+- **启动验证**：prod profile 在 8081 启动成功，配置接线 15/15 通过；Druid/Knife4j 已不可访问，未登录请求返回 code:401。
+- **待处理 P0**：MinIO 本机未运行、actuator/health 被鉴权拦截、prod 下匿名字典 401、Nginx/HTTPS/备份待落地。
+## v14.90 (2026-10-22) 管理后台首屏瘦身 941KB → 556KB gzip
+
+- **移除未使用依赖**：`main.js` 全量注册的 `vform3-builds`（含 designer.style.css）在项目内无任何页面使用，整体移除。
+- **ECharts 按需引入**：新增 `src/utils/echarts.js`（line/bar/pie/scatter/gauge + grid/tooltip/legend/title/dataset/dataZoom + CanvasRenderer），5 处 `import * as echarts from 'echarts'` 改为引用该模块。
+- **分包策略**：尝试 manualChunks 强制拆分 element-plus/echarts/vendor，实测首屏反而从 941KB 涨到 2214KB gzip（共享 chunk 被入口提前加载），已回退，保留 Vite 默认分包。
+- **结果**：后台首屏 940.8KB → **556.5KB gzip（-41%）**；产物 12.4MB → 9.9MB。
+- **验证**：`build:prod` ✅；`vite preview` 无头渲染登录页正常。
+- **后续**：Element Plus 仍是全量注册、highlight.js 全局注册，改按需可再降到 ~300KB。
+## v14.89 (2026-10-22) 后端性能 P0：分页名称缓存 + 连接池扩容 + 覆盖索引
+
+- **压测结论**：40 并发下 `txn-page` 仅 97 RPS / p50 422ms，其余接口 400~575 RPS；根因为每次请求 5 条 SQL（count + page + 3 次名称查询）叠加连接池排队。
+- **优化**：`fillDisplayNames` 改为 30 秒 TTL 的本地名称缓存，命中后单请求降为 2 条 SQL；Druid `max-active` 20→40、`min-idle` 10→20。
+- **索引**：新增 `idx_user_status_date (user_id,status,transaction_date,id)`，`EXPLAIN` 已确认走覆盖索引 + Backward index scan；DDL 与增量脚本 `20261022-02-记账流水分页索引.sql` 同步，已在 `moyun-db2` 执行。
+- **验证**：`mvn -o compile` ✅、全量测试 ✅、DDL/增量守卫 ✅。
+- **待复测**：需重启后端（当前进程为旧 class），重启后用 `perf-scripts/loadtest.js` 复跑 40 并发对比。
+## v14.88 (2026-10-22) 协议同意留痕（门户共用）
+
+- **表**：新增 `portal_user_agreement`（user_id/doc_type/version/agreed_at/ip/user_agent，唯一键 user+doc+version），DDL 入 `moyun-db-ddl.sql`，增量脚本 `increment-sql/20261022-01-门户用户协议同意记录.sql`（幂等，已在本机 `moyun-db2` 执行）。
+- **后端（portal 域，与门户账号共用）**：`PortalUserAgreement` + Mapper + `IPortalAgreementService`（幂等写入、按用户查询、版本校验）；`POST /portal/user/agreement/consent`、`GET /portal/user/agreement/list`。
+- **注册**：`PortalUser` 增入参字段 `agreedVersion`，注册成功即写入 terms/privacy 两条同意记录（App 注册页已在 payload 带 `LEGAL_VERSION`）。
+- **校验**：`mvn -o compile` 通过；DDL/增量守卫测试 0 违规；App `build:h5` 通过。
+- **换版重签**：登录成功后检查 `list`，当前版本缺失则弹「协议更新」并写入同意（接口异常不阻断登录）；`api/ledger.js` 新增 `listAgreements` / `consentAgreement`。
+## v14.87 (2026-10-22) 合规页面：用户协议/隐私政策 + 注册勾选
+
+- **页面**：新增 `pages/mine/agreement/index`（用户协议/隐私政策双 Tab，版本与生效日期展示）；正文抽到 `utils/legal.js`（草案，法务终稿只改这一个文件）。
+- **注册**：注册按钮上方新增「我已阅读并同意《用户协议》《隐私政策》」勾选，未勾选拦截提交并提示；协议链接可点开对应 Tab。
+- **设置**：关于卡片新增「用户协议 · 隐私政策」入口。
+- **修复**：清理资产负债页死样式时误留孤立属性导致 CSS 语法错误，已修复并重新构建通过。
+- **待办**：协议同意留痕（`portal_user_agreement` 表 + 版本记录）尚未接入，当前仅为前端勾选。
+## v14.86 (2026-10-22) UI 收尾 + 登录守卫 + 字典接入完成 + 安全规范补条
+
+- **导航/首页**：底部改为「总览 / 资产负债 / 记一笔 / 出入库 / 更多」并加 10 张线性图标（81×81）；分析从 tab 移入总览「财务报表」卡（更多页保留入口）；库存开关不再把 tab 文案置空（避免可点击的空 tab）。
+- **登录/注册**：删掉品牌大块，改为一句「记账 + 库存，个人和小生意的一本账」；去掉"与墨韵门户共用账号体系""墨韵记账·账号安全"；未登录时 `/`（总览）可访问并展示落地页，其余页面进入即弹「未登录」→ 去登录 / 回首页（新增 `utils/authGuard.js`）。
+- **列表/表单**：保存/提交按钮吸底；流水列表空状态改为「emoji + 主文案 + 去记一笔」；新增 `SkeletonList` 骨架屏；金额列等宽数字。
+- **字典**：存钱方式、定时周期、备忘提醒、反馈类型（公开字典 `cms_feedback_type`）全部接入，字典化闭环。
+- **修复**：更多页未登录仍请求功能入口导致 401 与登录页来回闪；过期 token 在总览被强跳登录；冷启动未登录误弹"登录已过期"。
+- **规范**：`docs/02-开发指南` 增补「3.4.1 敏感数据访问」（授权/校验/最小必要/脱敏/审计/值锁定/k-匿名）。
+## v14.85 (2026-10-21) 库存两页接入字典：仓库/货架/原因/成色 + 来源/出库/包装/单位/保质期
+
+- **warehouse 页**：仓库类型、货架类型、出入库原因、二手成色改读后台字典（`ledger_warehouse_type/shelf_type/stock_in_reason/stock_out_reason/condition_grade`）；数据里保留内置默认，进页面异步覆盖。
+- **inout 页**：商品来源、出库类型、包装类型、计量单位、保质期预设改读字典（`ledger_product_source/out_type/packaging_type/product_unit/shelf_life`）；过期天数由字典值（`30d`/`none`/`custom`）还原，单位直接用字典标签；picker 索引仍按字典排序（种子顺序与原硬编码一致，历史数据不受影响）。
+- **追加**：备忘录提醒规则标签也改为读 `ledger_remind_rule`（失败回退内置文案）。`npm run build:h5` ✅。剩余 savings / schedule / feedback 三页标签未切。
+## v14.84 (2026-10-21) 门户用户联系方式脱敏：列表/详情/画像掩码 + 明文单独权限
+
+- **后端**：`CmsPortalUserServiceImpl` 列表与画像统一掩码手机/邮箱；详情接口同样掩码；新增 `GET /cms/user/{id}/contact`（`cms:user:contact` + `@Log` 留痕）只回填 id/phone/email 三个字段。`updateUser` 增加"防污染"：字段含 `*` 直接置空（动态 SQL 跳过该列），杜绝把脱敏值写回库。
+- **前端**：编辑弹窗先取详情（掩码）再单独取明文；无权限时输入框禁用并提示"保存不会覆盖原值"；新增用户时可正常录入。
+- **SQL**：菜单按钮 `cms:user:contact` 写入 `moyun-menu-redo.sql` + 增量脚本（perms 反查父菜单），开发库已补。
+- **验证**：`mvn compile` ✅；`npm run build:prod` ✅；增量守卫 0 违规。
+## v14.83 (2026-10-21) App 功能入口改为"后台配置说了算"：消费 route + 隐藏真正生效
+
+- **路由**：`/portal/ledger/app-features` 返回的 `route` 现被 App 消费，点击优先按后台配置的路由跳转；tabBar 页面用 `switchTab`（否则 `navigateTo` 必失败），非 tab 页用 `navigateTo` 并在失败时提示。未绑定路由时回退旧的内置 key 映射，再回退链接型入口，最后统一提示"暂未开放"。
+- **显隐**：`loadFeatureConfig` 改为**严格以配置为准**——不再把内置清单拼回去。此前 `personalize/catIcon` 等设为隐藏后仍会出现，就是因为内置兜底覆盖了配置；整组为空时仍保留内置兜底，避免空白宫格。
+- **验证**：`npm run build:h5` ✅（`DONE Build complete.`）。
+## v14.82 (2026-10-21) 记账 App 接入字典：统一加载工具 + 交易类型/类型筛选改字典驱动
+
+- **工具**：新增 `moyun-ledger-app/src/utils/ledgerDict.js`——`/portal/ledger/dict` 批量拉取、5 分钟本地缓存、失败回退内置默认；提供 `asPairs/asOptions/asLabelMap` 三种适配，兼容各页既有数据结构。
+- **页面**：`record/index.vue` 的交易类型候选改为字典（失败仍用内置 8 类）；`record/list.vue` 的类型筛选改为字典（首项保留「全部」，computed 与 picker 统一读 `this.typeOptions`）。
+- **修复**：增量脚本把 4 个新菜单挂到了「预设分类」(118) 下，导致侧边栏看不到；改为按 `path='ledger-app' AND menu_type='M'` 反查目录（不写死 id），开发库已同步修正（现均挂在 117 下）。`npm run build:h5` ✅。
+- **剩余**：warehouse / inout / savings / schedule / memo / feedback 六页待切；feedback 需走公开字典接口 `cms_feedback_type`。
+## v14.81 (2026-10-21) 记账下拉字典化：15 类字典 104 条取值 + 后台字典总览 + 值锁定
+
+- **SQL 双轨**：`moyun-db-dml-init.sql` 与 `increment-sql/20261021-01` 同步新增 15 个 `ledger_*` 字典类型（交易类型/仓库/货架/入库原因/出库原因/商品来源/出库类型/包装/单位/保质期/成色/存钱方式/周期/提醒规则）+ 账户类型树（asset/liability 两棵根、6 个子类型），共 104 条取值，幂等（类型按 dict_type、数据按 dict_type+dict_value 判重）。
+- **后端**：`PortalLedgerDictController`（`GET /portal/ledger/dict/{type}` 与批量 `?types=`，只放行 `ledger_` 前缀，登录后可用，不复用公开字典白名单）；`CmsLedgerDictController`（`/cms/ledger/dict/overview` 给后台总览）；`SysDictDataServiceImpl` 增加记账字典写入约束——所有 `ledger_*` 禁止改 `dict_value`，`ledger_txn_type`/`ledger_account_category` 禁止新增取值（防计算口径漂移）。
+- **后台**：新增「记账字典」页（`cms/ledger/dict/index`，菜单 125）：一览 17 类字典的条数/锁定级别/初始化状态，点「去维护」跳系统字典（单一维护入口）。菜单写入 `moyun-menu-redo.sql` + 增量脚本（按 perms 反查）。
+- **验证**：`mvn -o compile` ✅；DDL/增量守卫测试 0 违规 ✅；后台 `npm run build:prod` ✅；临时库 init + 增量连跑两次 exit 0，`ledger_*` 类型 16、取值 104、树形父子正确；开发库 `moyun-db2` 已执行（幂等）。
+- **未做**：App 端页面改用字典（下一批，8 个页面需逐页回归）。产品决定：注销入口与 30 天冷静期清理不做。
+
+## v14.80 (2026-10-21) 记账数据授权 App 端闭环：隐私与授权页 + 门户授权接口
+
+- **App**：新增 `pages/mine/privacy/index`（范围多选 + 用途 + 24h/7d 期限 + 当前授权展示 + 撤回）；「系统设置」增加「隐私与授权」入口；`api/ledger.js` 增 4 个授权接口封装。未勾选范围或未填用途时前端拦截，后端同样校验。
+- **门户接口**：新增 `PortalLedgerDataAuthController`（`GET /portal/ledger/data-auth`、`GET /policy`、`POST /grant`、`PUT /revoke`），与后台 `/cms/ledger/auth/**` 完全独立。`ILedgerDataAuthService` 增 `grant/revoke`：同域只保留一条有效授权（重新授权先撤回旧记录，历史可追溯）、范围白名单、用途必填、期限 1~168 小时、撤回立即生效。
+- **验证**：`mvn -o compile` ✅；App `npm run build:h5` ✅（`DONE Build complete.`）；增量脚本已在开发库 `moyun-db2` 执行（幂等），授权表/路由/菜单校验通过。
+- **待办**：注销入口 + 冷静期清理、协议勾选（正文待产品/法务提供）、13 类下拉字典化。
+
+## v14.79 (2026-10-21) 记账后台管理边界第一批：授权+审计+商品类目/渠道后台+功能入口重构
+
+- **合规（P0）**：新增 `portal_data_auth`（用户数据授权，后台只读）与 `sys_data_access_log`（敏感数据访问日志，只增不改）；`LedgerDataAuthServiceImpl` 提供授权判定与批量判定；`/cms/ledger/users/{id}/transactions` 改为**未授权 403 并落 denied 审计**，授权后返回最小字段集并落 allowed 审计；用户列表支持按授权状态筛选，昵称/手机脱敏，分类归属改为「用户#编号」。
+- **管理（P1）**：新增 `CmsLedgerProductCategoryController`、`CmsLedgerChannelController`（售卖/进货，kind 区分）与 `ICmsLedgerPresetService`（独立于门户接口）——系统预设可维护、用户自建只读、被引用禁删（只能停用）、重名拒绝；`CmsLedgerAppFeatureController` 重构为增删 + 全字段 + 路由白名单 + 内置入口禁删；新增 3 个后台页面（商品类目/渠道管理/授权与审计），重构 4 个页面（分类/用户数据/功能入口/运营统计），修复流水状态标签反转、类型标签缺 lend/collect、统计缺负债/库存模块、小样本 <10 抑制、入口死链（route 列 + tip/personalize/catIcon 收敛隐藏）。
+- **SQL 双轨**：`moyun-db-ddl.sql` 增 2 表 + `ledger_app_feature_config.route` + **补齐此前只由 increment-sql 创建的三张预设表**（全新库此前缺表）；`moyun-db-dml-init.sql` 补 18/7/5 条预设种子、3 个缺失入口与路由绑定；`moyun-menu-redo.sql` 增 122 商品类目/123 渠道管理/124 授权与审计 + 按钮权限；新增 `increment-sql/20261021-01-记账后台管理边界（授权审计+预设后台）.sql`（幂等，菜单按 perms 反查）。
+- **验证**：`mvn -o compile` ✅；DDL/增量守卫测试 0 违规 ✅；后台 `npm run build:prod` ✅；临时库实跑 init 三件套 + 增量脚本连跑两次 exit 0，种子/菜单/授权行数符合预期。
+
+## v14.78 (2026-10-21) 评审：记账 App 后台管理边界审计（文档，无代码变更）
+
+- **文档**：新增 `docs/09-临时报告/全端-评审-记账App后台管理边界-20261021.md`。内容：记账 App 21 项系统预设的后台覆盖审计（1 完整 / 3 部分 / 17 缺失）、4 个 `CmsLedger*` 接口与 2 个字典的现状盘点、P0~P2 问题清单（未授权可查个体数据、零访问审计、注销不删数、明文手机邮箱、初始化脚本含真实用户数据、隐藏入口失效、流水状态标签反转等）、三档管理边界（A 系统预设 / B 运营参数 / C 用户数据授权可见 / D 客户端表现不入后台）+ 授权链路与增量表结构 + 分批实施与验收口径。
+- **代码**：本次仅文档，无代码 / 表结构 / SQL 变更；P0 实施时同步 `init-sql` + `increment-sql` 双轨与开发规范安全章节。
+- **v1.1 复核（同日）**：补 §10 可行性复核（逐项 A/B/C 分级、P0 工期由 1.5~2 人日上修至 5~6 人日、6 条风险、调整后实施顺序）；修正 3 处口径——菜单权威源为 `init-sql/moyun-menu-redo.sql`（`db-init` 是交付快照）、"真实用户数据"由 P0 降为 P1（仅快照含、部署脚本无）、新增 P1-10「商品类目/渠道预设未进规范初始化脚本」并注明评分卡「旧报告冻结」在实时计算下不成立。
 
 ## v14.77 (2026-10-17) 字典管理扩展树形字典：两表加列 + 树形维护页 + 路由分发 + 缓存化公共树查询
 

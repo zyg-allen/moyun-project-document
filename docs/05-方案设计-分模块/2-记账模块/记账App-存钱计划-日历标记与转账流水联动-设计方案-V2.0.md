@@ -1,11 +1,11 @@
 # 记账 App · 存钱计划：日历标记 + 流水按需关联 设计方案
 
-> 版本：V1.1（2026-10-26，替代 V1.0 的"强制转账/只进不出"方案）
+> 版本：V2.0（2026-10-28，三状态实现对齐；V1.1 的日历/流水联动方案保留）
 > 变更：**不做任何拦截**；存入是否关联流水由用户选择；计划记录与资金账户解耦。
 
 ---
 
-## 1. 设计原则（V1.1）
+## 1. 设计原则（V2.0）
 
 1. **用户主导**：每期"成功/失败/跳过"由用户自己标记，系统不替用户判断；
 2. **关联可选**：记计划时可不关联流水、可关联已有流水、可现场创建一笔转账；
@@ -179,7 +179,7 @@ ALTER TABLE ledger_saving_record ADD UNIQUE KEY uk_record_txn (transaction_id);
 
 ---
 
-## 11. 与 V1.0 的差异
+## 11. 与 V1.0 的差异（V2.0 状态模型见第 8 节）
 
 | 项 | V1.0 | V1.1 |
 |---|---|---|
@@ -188,3 +188,42 @@ ALTER TABLE ledger_saving_record ADD UNIQUE KEY uk_record_txn (transaction_id);
 | 计划账户 | 必填 | 可空，仅作默认值 |
 | 账户同步 | 计划与账户双写 | 只由流水驱动，计划只统计 |
 | 提醒 | 未展开 | 站内消息 + 本地/微信 |
+
+
+---
+
+## 8. 实现对齐（2026-10-28）
+
+> 以代码为准；下文替代前文关于状态/接口的部分。
+
+### 8.1 三状态
+
+| 展示状态 | 判定 | 颜色 |
+|---|---|---|
+| 未到期 | `status=0` 且 `record_date >= 今天` | 系统浅色 |
+| 未完成 | `status=0` 且已过期，或 `status=2` | 红色 |
+| 已完成 | `status=1` | 绿色 |
+
+- 不再使用“跳过 / 已撤销”；
+- 已完成可回退为未完成（先解除流水关联，不删除流水）；
+- 逾期不自动改状态，只按未完成展示。
+
+### 8.2 接口（现行）
+
+| 方法 | 路径 |
+|---|---|
+| GET | `/portal/ledger/savings/{id}` → `{plan, records}`（VO） |
+| POST | `/{id}/records/{recordId}/mark` body `{status, amount, reason}` |
+| POST | `/{id}/records/{recordId}/link` body `{transactionId}` |
+| POST | `/{id}/records/{recordId}/transfer` body `{accountId,targetAccountId,amount,transactionDate,remark}` |
+| POST | `/{id}/records/{recordId}/unlink` body `{deleteTransaction}` |
+| GET | `/{id}/linkable?date&amount` |
+| PUT | `/{id}/accounts` body `{sourceAccountId,savingsAccountId}` |
+
+`deposit` / `fail` 保留兼容，新代码不再使用。
+
+### 8.3 进度与流水标记
+
+- 进度 = 已完成期数 / 总期数（不用金额）；
+- 存钱转账：`type=transfer`、`biz_type=saving`、`description=计划名-第N期`；
+- 首页/流水列表显示「存钱转入」，图标「存」。

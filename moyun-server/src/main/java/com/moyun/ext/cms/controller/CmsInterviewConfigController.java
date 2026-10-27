@@ -48,6 +48,8 @@ public class CmsInterviewConfigController extends BaseController {
 
     @Operation(summary = "新增面试配置")
     @PreAuthorize("@ss.hasPermi('cms:interview:config:create')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewconfig:", time = 60, count = 30)
     @PostMapping
     public AjaxResult create(@RequestBody PortalInterviewConfig config) {
         if (config.getConfigName() == null || config.getConfigName().isBlank()) {
@@ -58,6 +60,8 @@ public class CmsInterviewConfigController extends BaseController {
 
     @Operation(summary = "修改面试配置")
     @PreAuthorize("@ss.hasPermi('cms:interview:config:update')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewconfig:", time = 60, count = 30)
     @PutMapping
     public AjaxResult update(@RequestBody PortalInterviewConfig config) {
         if (config.getId() == null) {
@@ -68,6 +72,8 @@ public class CmsInterviewConfigController extends BaseController {
 
     @Operation(summary = "删除面试配置")
     @PreAuthorize("@ss.hasPermi('cms:interview:config:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewconfig:", time = 60, count = 30)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         PortalInterviewConfig config = interviewConfigService.getById(id);

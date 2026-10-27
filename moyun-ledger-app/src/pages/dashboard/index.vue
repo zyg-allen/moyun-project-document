@@ -232,12 +232,12 @@
         <view class="e-empty-action" @tap="goTab('/pages/record/index')">去记一笔</view>
       </view>
       <view v-for="t in recentList" :key="t.id" class="txn-row" @tap="goEdit(t)">
-        <view class="txn-icon" :class="t.type">{{ typeText(t.type).slice(0, 1) }}</view>
+        <view class="txn-icon" :class="[t.type, t.bizType === 'saving' ? 'saving' : '']">{{ txnType(t).slice(0, 1) }}</view>
         <!-- min-w-0 必须加：flex:1 的默认 min-width:auto 会让长备注撑破整行，
              把金额挤出屏幕，同时使 .txn-name 的 ellipsis 失效 -->
         <view class="flex-1 min-w-0">
-          <view class="txn-name">{{ truncate(t.description, 14) || typeText(t.type) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></view>
-          <view class="txn-date">{{ t.transactionDate }} · {{ typeText(t.type) }}</view>
+          <view class="txn-name">{{ truncate(t.description, 14) || txnType(t) }}<text v-if="t.status === 0" class="deleted-tag">已删除</text></view>
+          <view class="txn-date">{{ t.transactionDate }} · {{ txnType(t) }}</view>
         </view>
         <view class="txn-amount" :class="t.type">{{ amountOf(t) }}<text class="txn-unit">元</text></view>
       </view>
@@ -358,6 +358,7 @@ export default {
     formatAmount,
     formatSigned,
     typeText,
+    txnType(t) { return t.bizType === 'saving' ? '存钱转入' : typeText(t.type); },
     truncate,
     togglePrivacy() {
       this.privacyMode = !this.privacyMode;

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 记账模块 API（后端 com.moyun.ledger，路径 /portal/ledger/**）
  * 金额单位：元（人民币 CNY），BigDecimal/DECIMAL(18,2) 全链路统一
  */
@@ -566,3 +566,39 @@ export const createSourceChannel = (name) => post('/portal/ledger/source-channel
 
 /** 删除进货渠道 */
 export const deleteSourceChannel = (id) => del('/portal/ledger/source-channels/' + id);
+
+// ---------------- 消息通知 ----------------
+
+/** 消息列表 */
+export const listNotifications = (params) => get('/portal/notification/list', params);
+
+/** 未读数 */
+export const notificationUnreadCount = () => get('/portal/notification/unread-count');
+
+/** 标记单条已读 */
+export const markNotificationRead = (id) => post(`/portal/notification/${id}/read`);
+
+/** 全部已读 */
+export const markAllNotificationsRead = () => post('/portal/notification/read-all');
+
+/** 注销账号（合规） */
+export const deactivateAccount = (confirmText) => put('/portal/user/deactivate', { confirmText });
+// ---------------- 存钱计划：标记 / 关联 / 转账 ----------------
+
+export const markSavingRecord = (planId, recordId, data) =>
+  post(`/portal/ledger/savings/${planId}/records/${recordId}/mark`, data);
+
+export const linkSavingTransaction = (planId, recordId, transactionId) =>
+  post(`/portal/ledger/savings/${planId}/records/${recordId}/link`, { transactionId });
+
+export const unlinkSavingTransaction = (planId, recordId, deleteTransaction) =>
+  post(`/portal/ledger/savings/${planId}/records/${recordId}/unlink`, { deleteTransaction });
+
+export const createSavingTransfer = (planId, recordId, data) =>
+  post(`/portal/ledger/savings/${planId}/records/${recordId}/transfer`, data);
+
+export const listLinkableTransactions = (planId, params) =>
+  get(`/portal/ledger/savings/${planId}/linkable`, params);
+
+export const updateSavingAccounts = (planId, data) =>
+  put(`/portal/ledger/savings/${planId}/accounts`, data);

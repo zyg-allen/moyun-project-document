@@ -55,6 +55,8 @@ public class KnowledgeBaseController {
     private VectorMigrationService vectorMigrationService;
 
     @Operation(summary = "上传知识库文件")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:add')")
     public AjaxResult uploadFile(
@@ -200,6 +202,8 @@ public class KnowledgeBaseController {
     }
 
     @Operation(summary = "删除知识库")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:remove')")
     public AjaxResult delete(@PathVariable("id") Long id) {
@@ -218,6 +222,8 @@ public class KnowledgeBaseController {
     }
 
     @Operation(summary = "重新处理文件")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/reprocess/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult reprocess(@PathVariable("id") Long id) {
@@ -532,6 +538,8 @@ public class KnowledgeBaseController {
     }
 
     @Operation(summary = "配置知识库")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/configure")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult configureKnowledge(
@@ -648,6 +656,8 @@ public class KnowledgeBaseController {
     }
 
     @Operation(summary = "重置处理状态")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/reset-status/{knowledgeId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult resetStatus(@PathVariable Long knowledgeId) {
@@ -672,6 +682,8 @@ public class KnowledgeBaseController {
     }
 
     @Operation(summary = "开始处理知识库")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/start-processing/{knowledgeId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult startProcessing(@PathVariable Long knowledgeId) {
@@ -752,6 +764,8 @@ public class KnowledgeBaseController {
     }
     
     @Operation(summary = "更新知识库元数据")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PutMapping("/{id}/metadata")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult updateMetadata(
@@ -790,6 +804,8 @@ public class KnowledgeBaseController {
     }
     
     @Operation(summary = "测试知识库检索")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/{id}/test-retrieval")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:query')")
     public AjaxResult testRetrieval(
@@ -805,6 +821,8 @@ public class KnowledgeBaseController {
     }
     
     @Operation(summary = "修复向量维度")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/fix-vector-dimension")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult fixVectorDimension(
@@ -823,6 +841,8 @@ public class KnowledgeBaseController {
     }
 
     @Operation(summary = "从数据库迁移向量到JVector", description = "从ai_document_segment表读取向量数据，重建JVector索引并落盘。可安全重复执行")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgebase:", time = 60, count = 120)
     @PostMapping("/migrate-vectors")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
     public AjaxResult migrateVectors(

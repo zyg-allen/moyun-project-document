@@ -73,6 +73,8 @@ public class SysSensitiveWordController extends BaseController {
     @Operation(summary = "新增敏感词", description = "新增敏感词，自动去空白、小写归一、触发词树刷新")
     @PreAuthorize("@ss.hasPermi('system:sensitiveWord:add')")
     @Log(title = "敏感词管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syssensitiveword:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody SysSensitiveWord word) {
         return toAjax(sensitiveWordService.insertWord(word));
@@ -84,6 +86,8 @@ public class SysSensitiveWordController extends BaseController {
     @Operation(summary = "修改敏感词", description = "修改敏感词，自动触发词树刷新")
     @PreAuthorize("@ss.hasPermi('system:sensitiveWord:edit')")
     @Log(title = "敏感词管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syssensitiveword:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@RequestBody SysSensitiveWord word) {
         return toAjax(sensitiveWordService.updateWord(word));
@@ -95,6 +99,8 @@ public class SysSensitiveWordController extends BaseController {
     @Operation(summary = "删除敏感词", description = "批量删除敏感词，自动触发词树刷新")
     @PreAuthorize("@ss.hasPermi('system:sensitiveWord:remove')")
     @Log(title = "敏感词管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syssensitiveword:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(sensitiveWordService.deleteWordByIds(ids));
@@ -105,6 +111,8 @@ public class SysSensitiveWordController extends BaseController {
      */
     @Operation(summary = "刷新词树", description = "手动重新加载敏感词词库到内存")
     @PreAuthorize("@ss.hasPermi('system:sensitiveWord:edit')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syssensitiveword:", time = 60, count = 120)
     @PutMapping("/reload")
     public AjaxResult reload() {
         sensitiveWordService.reload();

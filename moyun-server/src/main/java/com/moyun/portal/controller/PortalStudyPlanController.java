@@ -33,6 +33,8 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "创建/修改学习计划", description = "id 为空时创建（校验计划数量上限），非空时修改（校验归属）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalstudyplan:", time = 60, count = 120)
     @PostMapping("/save")
     public AjaxResult save(@RequestBody StudyPlanVO vo) {
         Long userId = currentUserId();
@@ -65,6 +67,8 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "记录今日完成数", description = "增量记录今日完成数（delta 可为负，结果不低于 0）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalstudyplan:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/progress")
     public AjaxResult recordProgress(@PathVariable("id") Long id,
                                      @RequestParam(defaultValue = "1") int delta) {
@@ -76,6 +80,8 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "切换计划状态", description = "状态：active/completed/abandoned")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalstudyplan:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/status")
     public AjaxResult changeStatus(@PathVariable("id") Long id,
                                     @RequestParam String status) {
@@ -87,6 +93,8 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "删除计划", description = "仅作者本人，级联删除进度日志")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalstudyplan:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -100,6 +108,8 @@ public class PortalStudyPlanController extends BaseController {
             description = "v5.9 阶段3：根据用户画像快照（薄弱点 + 岗位必备技能）自动生成针对性学习计划。"
                     + "自动去重：跳过已存在同 targetCategory 的 active 计划；受计划数量上限限制。"
                     + "无画像或无薄弱点时返回空列表。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalstudyplan:", time = 60, count = 120)
     @PostMapping("/auto-generate")
     public AjaxResult autoGenerate() {
         Long userId = currentUserId();

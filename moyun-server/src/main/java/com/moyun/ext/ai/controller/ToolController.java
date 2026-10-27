@@ -57,6 +57,8 @@ public class ToolController {
     }
 
     @Operation(summary = "为智能体绑定工具")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tool:", time = 60, count = 120)
     @PostMapping("/agent/{agentId}/bind")
     @PreAuthorize("@ss.hasPermi('cms:ai:tool:edit')")
     public AjaxResult bindToolsToAgent(@PathVariable Long agentId, @RequestBody List<Long> toolIds) {
@@ -65,6 +67,8 @@ public class ToolController {
     }
 
     @Operation(summary = "创建自定义工具")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tool:", time = 60, count = 120)
     @PostMapping
     @PreAuthorize("@ss.hasPermi('cms:ai:tool:add')")
     public AjaxResult createTool(@RequestBody AgentTool tool) {
@@ -72,6 +76,8 @@ public class ToolController {
     }
 
     @Operation(summary = "更新工具")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tool:", time = 60, count = 120)
     @PutMapping
     @PreAuthorize("@ss.hasPermi('cms:ai:tool:edit')")
     public AjaxResult updateTool(@RequestBody AgentTool tool) {
@@ -80,6 +86,8 @@ public class ToolController {
     }
 
     @Operation(summary = "删除工具")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tool:", time = 60, count = 120)
     @DeleteMapping("/{toolId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:tool:remove')")
     public AjaxResult deleteTool(@PathVariable Long toolId) {
@@ -92,6 +100,8 @@ public class ToolController {
     }
 
     @Operation(summary = "切换工具启用状态")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tool:", time = 60, count = 120)
     @PutMapping("/{toolId}/toggle")
     @PreAuthorize("@ss.hasPermi('cms:ai:tool:edit')")
     public AjaxResult toggleToolEnabled(@PathVariable Long toolId, @RequestParam boolean enabled) {
@@ -100,6 +110,8 @@ public class ToolController {
     }
 
     @Operation(summary = "测试工具执行")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tool:", time = 60, count = 120)
     @PostMapping("/test/{toolName}")
     @PreAuthorize("@ss.hasPermi('cms:ai:tool:query')")
     public AjaxResult testTool(@PathVariable String toolName,

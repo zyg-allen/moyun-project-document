@@ -46,6 +46,8 @@ public class PortalLedgerWarehouseConfigController {
     }
 
     @Operation(summary = "保存仓库配置（部分更新）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerwarehouseconfig:", time = 60, count = 120)
     @PutMapping
     public AjaxResult save(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();

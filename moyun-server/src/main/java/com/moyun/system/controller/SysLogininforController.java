@@ -47,6 +47,8 @@ public class SysLogininforController extends BaseController {
     @Operation(summary = "导出登录日志")
     @Log(title = "登录日志", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('monitor:logininfor:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syslogininfor:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, LogininforQuery query) {
         List<SysLogininfor> list = logininforService.selectLogininforList(query);
@@ -57,6 +59,8 @@ public class SysLogininforController extends BaseController {
     @Operation(summary = "删除登录日志")
     @PreAuthorize("@ss.hasPermi('monitor:logininfor:remove')")
     @Log(title = "登录日志", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syslogininfor:", time = 60, count = 120)
     @DeleteMapping("/{infoIds}")
     public AjaxResult remove(@PathVariable Long[] infoIds) {
         return toAjax(logininforService.deleteLogininforByIds(infoIds));
@@ -65,6 +69,8 @@ public class SysLogininforController extends BaseController {
     @Operation(summary = "清空登录日志")
     @PreAuthorize("@ss.hasPermi('monitor:logininfor:remove')")
     @Log(title = "登录日志", businessType = BusinessType.CLEAN)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syslogininfor:", time = 60, count = 120)
     @DeleteMapping("/clean")
     public AjaxResult clean() {
         logininforService.cleanLogininfor();

@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+﻿import request from '@/utils/request'
 
 /**
  * 记账模块后台接口（管理端专用）
@@ -72,10 +72,6 @@ export function updateAppFeature(id, data) {
 }
 export function delAppFeature(id) {
   return request({ url: '/cms/ledger/app-feature/' + id, method: 'delete' })
-}
-/** App 内置路由白名单（只读）：后台只能从白名单里选，避免配置出死链 */
-export function getAppFeatureRoutes() {
-  return request({ url: '/cms/ledger/app-feature/routes', method: 'get' })
 }
 
 // ---------------- 运营统计 ----------------

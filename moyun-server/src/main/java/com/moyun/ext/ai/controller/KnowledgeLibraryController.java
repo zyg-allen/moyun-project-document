@@ -23,6 +23,8 @@ public class KnowledgeLibraryController {
     @Autowired
     private KnowledgeLibraryService knowledgeLibraryService;
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @PostMapping
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:add')")
     public AjaxResult createLibrary(@RequestBody KnowledgeLibraryDTO dto) {
@@ -37,6 +39,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @PutMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:edit')")
     public AjaxResult updateLibrary(@PathVariable Long id, @RequestBody KnowledgeLibraryDTO dto) {
@@ -50,6 +54,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:remove')")
     public AjaxResult deleteLibrary(@PathVariable Long id) {
@@ -105,6 +111,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @PostMapping("/{libraryId}/documents")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:add')")
     public AjaxResult uploadDocument(
@@ -122,6 +130,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @PostMapping("/{libraryId}/documents/batch")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:add')")
     public AjaxResult uploadDocuments(
@@ -139,6 +149,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @DeleteMapping("/{libraryId}/documents/{documentId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:remove')")
     public AjaxResult deleteDocument(
@@ -153,6 +165,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @PostMapping("/{libraryId}/process")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:process')")
     public AjaxResult processDocuments(@PathVariable Long libraryId) {
@@ -165,6 +179,8 @@ public class KnowledgeLibraryController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "knowledgelibrary:", time = 60, count = 120)
     @PostMapping("/{libraryId}/test-retrieval")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-library:query')")
     public AjaxResult testRetrieval(

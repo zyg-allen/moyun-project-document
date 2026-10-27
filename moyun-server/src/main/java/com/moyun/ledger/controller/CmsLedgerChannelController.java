@@ -57,6 +57,7 @@ public class CmsLedgerChannelController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerChannel:add')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-渠道", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerchannel:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody CmsChannelVO body) {
         presetService.createChannel(body.getKind(), body);
@@ -67,6 +68,7 @@ public class CmsLedgerChannelController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerChannel:edit')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-渠道", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerchannel:", time = 60, count = 120)
     @PutMapping("/{kind}/{id}")
     public AjaxResult edit(@PathVariable String kind, @PathVariable Long id, @RequestBody CmsChannelVO body) {
         presetService.updateChannel(kind, id, body);
@@ -76,6 +78,8 @@ public class CmsLedgerChannelController extends BaseController {
     @Operation(summary = "启用/停用系统预设渠道")
     @PreAuthorize("@ss.hasPermi('cms:ledgerChannel:edit')")
     @Log(title = "记账-渠道", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerchannel:", time = 60, count = 120)
     @PutMapping("/{kind}/{id}/status/{status}")
     public AjaxResult changeStatus(@PathVariable String kind, @PathVariable Long id, @PathVariable Integer status) {
         presetService.changeChannelStatus(kind, id, status);
@@ -85,6 +89,8 @@ public class CmsLedgerChannelController extends BaseController {
     @Operation(summary = "删除系统预设渠道（被引用时拒绝）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerChannel:edit')")
     @Log(title = "记账-渠道", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerchannel:", time = 60, count = 120)
     @DeleteMapping("/{kind}/{id}")
     public AjaxResult remove(@PathVariable String kind, @PathVariable Long id) {
         presetService.deleteChannel(kind, id);

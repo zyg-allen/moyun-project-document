@@ -54,6 +54,8 @@ public class PortalBookAdminController extends BaseController {
     @Operation(summary = "新增书籍")
     @PreAuthorize("@ss.hasPermi('portal:book:add')")
     @Log(title = "读书空间-书籍", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookadmin:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody PortalBook portalBook) {
         int result = portalBookService.insertPortalBook(portalBook);
@@ -69,6 +71,8 @@ public class PortalBookAdminController extends BaseController {
     @Operation(summary = "修改书籍")
     @PreAuthorize("@ss.hasPermi('portal:book:edit')")
     @Log(title = "读书空间-书籍", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookadmin:", time = 60, count = 120)
     @PutMapping
     public AjaxResult update(@RequestBody PortalBook portalBook) {
         int result = portalBookService.updatePortalBook(portalBook);
@@ -78,6 +82,8 @@ public class PortalBookAdminController extends BaseController {
     @Operation(summary = "删除书籍")
     @PreAuthorize("@ss.hasPermi('portal:book:remove')")
     @Log(title = "读书空间-书籍", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookadmin:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable Long id) {
         int result = portalBookService.deletePortalBookById(id);
@@ -87,6 +93,8 @@ public class PortalBookAdminController extends BaseController {
     @Operation(summary = "批量删除书籍")
     @PreAuthorize("@ss.hasPermi('portal:book:remove')")
     @Log(title = "读书空间-书籍", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookadmin:", time = 60, count = 120)
     @DeleteMapping("/ids/{ids}")
     public AjaxResult deleteBatch(@PathVariable Long[] ids) {
         int result = portalBookService.deletePortalBookByIds(ids);

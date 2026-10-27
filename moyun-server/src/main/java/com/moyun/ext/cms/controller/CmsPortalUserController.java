@@ -137,6 +137,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "新增门户用户", description = "创建新门户用户")
     @PreAuthorize("@ss.hasPermi('cms:user:add')")
     @Log(title = "门户用户管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalUser user) {
         return toAjax(cmsPortalUserService.insertUser(user));
@@ -148,6 +150,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "修改门户用户", description = "更新门户用户信息")
     @PreAuthorize("@ss.hasPermi('cms:user:edit')")
     @Log(title = "门户用户管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalUser user) {
         return toAjax(cmsPortalUserService.updateUser(user));
@@ -159,6 +163,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "修改门户用户状态", description = "启用或禁用门户用户")
     @PreAuthorize("@ss.hasPermi('cms:user:status')")
     @Log(title = "门户用户管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PutMapping("/changeStatus")
     public AjaxResult changeStatus(@RequestBody PortalUser user) {
         return toAjax(cmsPortalUserService.changeStatus(user));
@@ -170,6 +176,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "重置门户用户密码", description = "重置用户密码")
     @PreAuthorize("@ss.hasPermi('cms:user:resetPwd')")
     @Log(title = "门户用户管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PutMapping("/resetPwd")
     public AjaxResult resetPwd(@RequestBody PortalUser user) {
         return toAjax(cmsPortalUserService.resetUserPwd(user));
@@ -181,6 +189,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "删除门户用户", description = "批量删除门户用户")
     @PreAuthorize("@ss.hasPermi('cms:user:remove')")
     @Log(title = "门户用户管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable("ids") Long[] ids) {
         return toAjax(cmsPortalUserService.deleteUserByIds(ids));
@@ -195,6 +205,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "恢复注销账号", description = "将已注销的门户用户恢复正常（del_flag 2->0）")
     @PreAuthorize("@ss.hasPermi('cms:user:edit')")
     @Log(title = "门户用户管理-恢复注销账号", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PutMapping("/restore/{id}")
     public AjaxResult restore(@Parameter(description = "门户用户ID") @PathVariable("id") Long id) {
         return toAjax(cmsPortalUserService.restoreUser(id));
@@ -211,6 +223,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "绑定系统用户", description = "将门户用户绑定到后台系统用户，建立身份桥接关系")
     @PreAuthorize("@ss.hasPermi('cms:user:bind')")
     @Log(title = "门户用户管理-绑定系统用户", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PutMapping("/bindSysUser")
     public AjaxResult bindSysUser(@Validated @RequestBody BindSysUserDTO dto) {
         return toAjax(cmsPortalUserService.bindSysUser(dto.getPortalUserId(), dto.getSysUserId()));
@@ -224,6 +238,8 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "解绑系统用户", description = "清空门户用户绑定的系统用户ID")
     @PreAuthorize("@ss.hasPermi('cms:user:bind')")
     @Log(title = "门户用户管理-解绑系统用户", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsportaluser:", time = 60, count = 120)
     @PutMapping("/unbindSysUser/{id}")
     public AjaxResult unbindSysUser(@Parameter(description = "门户用户ID") @PathVariable("id") Long id) {
         return toAjax(cmsPortalUserService.unbindSysUser(id));

@@ -64,6 +64,8 @@ public class SysLoginController {
             @ApiResponse(responseCode = "200", description = "登录成功"),
             @ApiResponse(responseCode = "401", description = "认证失败")
     })
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syslogin:", time = 60, count = 120)
     @PostMapping("/login")
     public AjaxResult login(
             @Parameter(description = "登录信息", required = true)

@@ -80,6 +80,8 @@ public class SysMenuController extends BaseController {
     @Operation(summary = "新增菜单", description = "创建新菜单")
     @PreAuthorize("@ss.hasPermi('system:menu:add')")
     @Log(title = "菜单管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysmenu:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysMenu menu) {
         if (!menuService.checkMenuNameUnique(menu)) {
@@ -97,6 +99,8 @@ public class SysMenuController extends BaseController {
     @Operation(summary = "修改菜单", description = "更新菜单信息")
     @PreAuthorize("@ss.hasPermi('system:menu:edit')")
     @Log(title = "菜单管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysmenu:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysMenu menu) {
         if (!menuService.checkMenuNameUnique(menu)) {
@@ -116,6 +120,8 @@ public class SysMenuController extends BaseController {
     @Operation(summary = "删除菜单", description = "删除指定菜单")
     @PreAuthorize("@ss.hasPermi('system:menu:remove')")
     @Log(title = "菜单管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysmenu:", time = 60, count = 120)
     @DeleteMapping("/{menuId}")
     public AjaxResult remove(@Parameter(description = "菜单ID") @PathVariable("menuId") Long menuId) {
         if (menuService.hasChildByMenuId(menuId)) {

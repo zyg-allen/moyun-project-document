@@ -41,6 +41,8 @@ public class PortalWrongQuestionController extends BaseController {
     }
 
     @Operation(summary = "标记已掌握", description = "将指定题目标记为已掌握（status -> mastered）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalwrongquestion:", time = 60, count = 120)
     @PostMapping("/{questionId}/master")
     public AjaxResult markMastered(@PathVariable("questionId") Long questionId) {
         Long userId = currentUserId();

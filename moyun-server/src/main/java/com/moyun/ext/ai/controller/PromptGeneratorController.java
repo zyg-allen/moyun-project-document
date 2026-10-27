@@ -31,6 +31,8 @@ public class PromptGeneratorController {
     /**
      * 根据描述生成专业系统提示词
      */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "promptgenerator:", time = 60, count = 120)
     @PostMapping("/generate")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:list')")
     public AjaxResult generate(@Valid @RequestBody PromptGenerateRequest request) {

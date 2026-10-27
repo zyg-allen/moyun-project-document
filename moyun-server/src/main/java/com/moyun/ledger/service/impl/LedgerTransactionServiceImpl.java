@@ -585,6 +585,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         txn.setMerchant(dto.getMerchant());
         txn.setVoucherUrl(dto.getVoucherUrl());
         txn.setClientUuid(dto.getClientUuid());
+  txn.setBizType(dto.getBizType());
         txn.setTransactionDate(dto.getTransactionDate() != null ? dto.getTransactionDate() : LocalDate.now());
         // 交易时间必填：前端必传，缺省时兜底当前时间（补录场景自动补时间）
         txn.setTransactionTime(dto.getTransactionTime() != null && !dto.getTransactionTime().isEmpty()

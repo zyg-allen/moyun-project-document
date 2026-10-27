@@ -72,6 +72,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "新增文章", description = "创建新文章")
     @PreAuthorize("@ss.hasPermi('cms:article:add')")
     @Log(title = "文章管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Valid @RequestBody PortalArticle article) {
         // 敏感词前置拦截
@@ -94,6 +96,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "修改文章", description = "更新文章信息")
     @PreAuthorize("@ss.hasPermi('cms:article:edit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Valid @RequestBody PortalArticle article) {
         // 标签绑定下沉到 Service 层，与文章更新纳入同一事务
@@ -110,6 +114,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "审核文章", description = "审核文章内容")
     @PreAuthorize("@ss.hasPermi('cms:article:audit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PutMapping("/audit")
     public AjaxResult audit(@RequestBody PortalArticle article) {
         int result = cmsArticleService.auditArticle(article);
@@ -122,6 +128,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "文章上下架", description = "发布或下架文章")
     @PreAuthorize("@ss.hasPermi('cms:article:edit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PutMapping("/publish")
     public AjaxResult publish(@RequestBody PortalArticle article) {
         int result = cmsArticleService.publishArticle(article);
@@ -134,6 +142,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "设置推荐", description = "设置文章是否推荐")
     @PreAuthorize("@ss.hasPermi('cms:article:edit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PutMapping("/featured")
     public AjaxResult featured(@RequestBody PortalArticle article) {
         int result = cmsArticleService.setFeatured(article);
@@ -146,6 +156,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "设置置顶", description = "设置文章是否置顶")
     @PreAuthorize("@ss.hasPermi('cms:article:edit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PutMapping("/top")
     public AjaxResult top(@RequestBody PortalArticle article) {
         int result = cmsArticleService.setTop(article);
@@ -158,6 +170,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "设置轮播", description = "设置文章是否轮播")
     @PreAuthorize("@ss.hasPermi('cms:article:edit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @PutMapping("/carousel")
     public AjaxResult carousel(@RequestBody PortalArticle article) {
         int result = cmsArticleService.setCarousel(article);
@@ -170,6 +184,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "批量删除文章", description = "通过 ID 数组批量删除文章")
     @PreAuthorize("@ss.hasPermi('cms:article:remove')")
     @Log(title = "文章管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @DeleteMapping("/batch")
     public AjaxResult removeBatch(@RequestBody Long[] ids) {
         // 标签解绑下沉到 Service 层，与文章删除纳入同一事务
@@ -184,6 +200,8 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "删除文章", description = "根据 ID 删除文章，支持逗号分隔多个")
     @PreAuthorize("@ss.hasPermi('cms:article:remove')")
     @Log(title = "文章管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsarticle:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "文章ID，多个用逗号分隔", required = true)
                              @PathVariable @NotNull(message = "文章ID不能为空") String ids) {

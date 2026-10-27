@@ -206,6 +206,8 @@ public class AiExecuteLogController extends BaseController {
     @Operation(summary = "删除执行日志", description = "批量物理删除，用于过期数据清理（日志只增不改）")
     @PreAuthorize("@ss.hasPermi('cms:ai:execute-log:remove')")
     @Log(title = "AI执行日志", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aiexecutelog:", time = 60, count = 30)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable("ids") Long[] ids) {
         if (ids == null || ids.length == 0) {

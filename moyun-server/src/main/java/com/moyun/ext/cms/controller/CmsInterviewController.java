@@ -89,6 +89,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "新增题目", description = "创建新题目")
     @PreAuthorize("@ss.hasPermi('cms:interview:add')")
     @Log(title = "面试题目", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/question")
     public AjaxResult addQuestion(@Validated @RequestBody PortalInterviewQuestion question) {
         return toAjax(portalInterviewService.insertQuestion(question));
@@ -97,6 +99,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "修改题目", description = "更新题目信息")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "面试题目", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PutMapping("/question")
     public AjaxResult editQuestion(@Validated @RequestBody PortalInterviewQuestion question) {
         return toAjax(portalInterviewService.updateQuestion(question));
@@ -105,6 +109,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "批量删除题目", description = "批量删除题目")
     @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
     @Log(title = "面试题目", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @DeleteMapping("/question")
     public AjaxResult removeQuestion(@RequestBody Long[] ids) {
         int result = portalInterviewService.deleteQuestionByIds(ids);
@@ -128,6 +134,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "导出题目", description = "按筛选条件导出题目列表到 Excel")
     @PreAuthorize("@ss.hasPermi('cms:interview:export')")
     @Log(title = "面试题目", businessType = BusinessType.EXPORT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/question/export")
     public void exportQuestion(jakarta.servlet.http.HttpServletResponse response, InterviewQuestionQuery query) {
         List<PortalInterviewQuestion> list = portalInterviewService.selectQuestionList(query);
@@ -144,6 +152,8 @@ public class CmsInterviewController extends BaseController {
      */
     @Operation(summary = "下载导入模板", description = "下载题目导入模板（动态字段配置优先，回退 @Excel 注解）")
     @PreAuthorize("@ss.hasPermi('cms:interview:import')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/question/importTemplate")
     public void importQuestionTemplate(jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
         List<com.moyun.portal.domain.entity.PortalImportTemplateConfig> configs =
@@ -169,6 +179,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "导入题目数据", description = "上传 Excel 文件批量导入题目，返回成功/失败明细")
     @PreAuthorize("@ss.hasPermi('cms:interview:import')")
     @Log(title = "面试题目", businessType = BusinessType.IMPORT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/question/importData")
     public AjaxResult importQuestionData(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws java.io.IOException {
         if (file == null || file.isEmpty()) {
@@ -224,6 +236,8 @@ public class CmsInterviewController extends BaseController {
      */
     @Operation(summary = "下载失败行", description = "导出导入失败行 Excel（含失败原因、原行号）供修正后重导")
     @PreAuthorize("@ss.hasPermi('cms:interview:import')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/question/exportFailRows")
     public void exportQuestionFailRows(jakarta.servlet.http.HttpServletResponse response,
                                        @RequestBody ExportFailRowsBody body) throws java.io.IOException {
@@ -270,6 +284,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "新增分类", description = "创建新分类")
     @PreAuthorize("@ss.hasPermi('cms:interview:category:add')")
     @Log(title = "面试分类", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/category")
     public AjaxResult addCategory(@Validated @RequestBody PortalInterviewCategory category) {
         return toAjax(portalInterviewService.insertCategory(category));
@@ -278,6 +294,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "修改分类", description = "更新分类信息")
     @PreAuthorize("@ss.hasPermi('cms:interview:category:edit')")
     @Log(title = "面试分类", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PutMapping("/category")
     public AjaxResult editCategory(@Validated @RequestBody PortalInterviewCategory category) {
         return toAjax(portalInterviewService.updateCategory(category));
@@ -286,6 +304,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "删除分类", description = "删除分类")
     @PreAuthorize("@ss.hasPermi('cms:interview:category:remove')")
     @Log(title = "面试分类", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @DeleteMapping("/category/{ids}")
     public AjaxResult removeCategory(@Parameter(description = "分类ID数组") @PathVariable Long[] ids) {
         return toAjax(portalInterviewService.deleteCategoryByIds(ids));
@@ -313,6 +333,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "新增公司", description = "创建新公司标签")
     @PreAuthorize("@ss.hasPermi('cms:interview:company:add')")
     @Log(title = "公司标签", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PostMapping("/company")
     public AjaxResult addCompany(@Validated @RequestBody PortalInterviewCompany company) {
         return toAjax(portalInterviewService.insertCompany(company));
@@ -321,6 +343,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "修改公司", description = "更新公司标签信息")
     @PreAuthorize("@ss.hasPermi('cms:interview:company:edit')")
     @Log(title = "公司标签", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PutMapping("/company")
     public AjaxResult editCompany(@Validated @RequestBody PortalInterviewCompany company) {
         return toAjax(portalInterviewService.updateCompany(company));
@@ -329,6 +353,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "删除公司", description = "删除公司标签")
     @PreAuthorize("@ss.hasPermi('cms:interview:company:remove')")
     @Log(title = "公司标签", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @DeleteMapping("/company/{ids}")
     public AjaxResult removeCompany(@Parameter(description = "公司ID数组") @PathVariable Long[] ids) {
         return toAjax(portalInterviewService.deleteCompanyByIds(ids));
@@ -365,6 +391,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "采纳笔记为精选", description = "将用户提交的笔记采纳为精选笔记，触发 note_adopted 成长事件")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "精选笔记", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PutMapping("/submission/featured")
     public AjaxResult featureSubmission(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
@@ -377,6 +405,8 @@ public class CmsInterviewController extends BaseController {
     @Operation(summary = "取消精选笔记", description = "取消笔记的精选状态")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "精选笔记", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterview:", time = 60, count = 30)
     @PutMapping("/submission/unfeatured")
     public AjaxResult unfeatureSubmission(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));

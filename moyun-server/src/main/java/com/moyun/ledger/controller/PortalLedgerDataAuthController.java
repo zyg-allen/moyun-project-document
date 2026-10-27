@@ -89,6 +89,8 @@ public class PortalLedgerDataAuthController {
 
     /** 发起授权（同域只保留最新一条有效授权） */
     @Operation(summary = "发起授权", description = "scopes 多选 + purpose 用途 + hours 有效小时（1~168，默认 24）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerdataauth:", time = 60, count = 120)
     @PostMapping("/grant")
     public AjaxResult grant(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -104,6 +106,8 @@ public class PortalLedgerDataAuthController {
 
     /** 撤回授权（立即生效） */
     @Operation(summary = "撤回授权")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerdataauth:", time = 60, count = 120)
     @PutMapping("/revoke")
     public AjaxResult revoke(@RequestBody(required = false) Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();

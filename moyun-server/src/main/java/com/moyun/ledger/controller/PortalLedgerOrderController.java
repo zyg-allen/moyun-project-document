@@ -34,6 +34,8 @@ public class PortalLedgerOrderController {
     private ILedgerOrderService orderService;
 
     @Operation(summary = "销售下单（赊销自动建应收 + 出库）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerorder:", time = 60, count = 120)
     @PostMapping("/sale")
     public AjaxResult createSaleOrder(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -57,6 +59,8 @@ public class PortalLedgerOrderController {
     }
 
     @Operation(summary = "采购下单（赊购自动建应付 + 入库）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerorder:", time = 60, count = 120)
     @PostMapping("/purchase")
     public AjaxResult createPurchaseOrder(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();

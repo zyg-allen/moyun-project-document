@@ -81,6 +81,8 @@ public class WorkflowController {
     }
 
     @Operation(summary = "创建工作流", description = "创建一个新的工作流，初始状态为草稿")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:add')")
     public AjaxResult create(@Valid @RequestBody Workflow workflow) {
@@ -95,6 +97,8 @@ public class WorkflowController {
     }
 
     @Operation(summary = "更新工作流", description = "更新工作流的名称、描述等基本信息")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PutMapping("/update")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult update(@Valid @RequestBody Workflow workflow) {
@@ -108,6 +112,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/graph")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult saveGraph(@PathVariable Long id, @RequestBody Map<String, String> body) {
@@ -121,6 +127,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/publish")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:publish')")
     public AjaxResult publish(@PathVariable Long id) {
@@ -133,6 +141,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/toggle")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult toggle(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
@@ -150,6 +160,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/execute")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:execute')")
     public AjaxResult execute(
@@ -290,6 +302,8 @@ public class WorkflowController {
         return emitter;
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:remove')")
     public AjaxResult delete(@PathVariable Long id) {
@@ -302,6 +316,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/bind/{agentId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult bindToAgent(@PathVariable Long id, @PathVariable Long agentId) {
@@ -314,6 +330,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @DeleteMapping("/{id}/unbind/{agentId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult unbindFromAgent(@PathVariable Long id, @PathVariable Long agentId) {
@@ -338,6 +356,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/version")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:add')")
     public AjaxResult createVersion(@PathVariable Long id, @RequestBody Map<String, String> body) {
@@ -352,6 +372,8 @@ public class WorkflowController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflow:", time = 60, count = 120)
     @PostMapping("/{id}/rollback")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult rollbackVersion(@PathVariable Long id, @RequestBody Map<String, Integer> body) {

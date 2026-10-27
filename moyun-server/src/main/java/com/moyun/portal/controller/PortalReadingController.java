@@ -227,6 +227,8 @@ public class PortalReadingController extends BaseController {
      * 书单收藏/取消收藏
      */
     @Operation(summary = "书单收藏", description = "收藏/取消收藏书单，需登录")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreading:", time = 60, count = 120)
     @PostMapping("/book-lists/{id}/bookmark")
     public AjaxResult toggleBookListBookmark(@Parameter(description = "书单ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -319,6 +321,8 @@ public class PortalReadingController extends BaseController {
      * 切换金句点赞（toggle，已点赞则取消，未点赞则新增）
      */
     @Operation(summary = "金句点赞切换", description = "已点赞则取消，未点赞则新增，需登录")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreading:", time = 60, count = 120)
     @PostMapping("/quote/{id}/like")
     public AjaxResult toggleQuoteLike(@Parameter(description = "金句ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -349,6 +353,8 @@ public class PortalReadingController extends BaseController {
      * 切换书单点赞（toggle，已点赞则取消，未点赞则新增）
      */
     @Operation(summary = "书单点赞切换", description = "已点赞则取消，未点赞则新增，需登录")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreading:", time = 60, count = 120)
     @PostMapping("/book-list/{id}/like")
     public AjaxResult toggleBookListLike(@Parameter(description = "书单ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -509,6 +515,8 @@ public class PortalReadingController extends BaseController {
      * 上报章节级阅读进度（前端 30s 节流调用，章节切换时强制调用）
      */
     @Operation(summary = "上报章节级阅读进度", description = "前端节流 30s 上报，章节切换时强制上报")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreading:", time = 60, count = 120)
     @PostMapping("/progress")
     public AjaxResult reportProgress(@RequestBody PortalReadingProgress progress) {
         Long userId = PortalSecurityUtils.getUserId();

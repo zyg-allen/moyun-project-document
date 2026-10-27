@@ -51,6 +51,8 @@ public class ChatController {
     private AiExecuteLogService aiExecuteLogService;
 
     @Operation(summary = "流式对话", description = "使用SSE实现实时对话，支持多模态图片输入")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "chat:", time = 60, count = 120)
     @PostMapping(value = "/stream", produces = "text/stream;charset=utf-8")
     @PreAuthorize("@ss.hasPermi('cms:ai:chat:list')")
     public Flux<String> chat(@RequestBody ChatRequest chatRequest) {
@@ -94,6 +96,8 @@ public class ChatController {
     }
 
     @Operation(summary = "中断对话", description = "停止正在生成的AI响应")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "chat:", time = 60, count = 120)
     @PostMapping("/abort/{conversationId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:chat:list')")
     public AjaxResult abortChat(@PathVariable Long conversationId) {
@@ -110,6 +114,8 @@ public class ChatController {
     }
 
     @Operation(summary = "重新生成", description = "重新生成AI的最后一条回复")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "chat:", time = 60, count = 120)
     @PostMapping(value = "/regenerate", produces = "text/stream;charset=utf-8")
     @PreAuthorize("@ss.hasPermi('cms:ai:chat:list')")
     public Flux<String> regenerate(@RequestBody ChatRequest chatRequest) {

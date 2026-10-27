@@ -1,228 +1,311 @@
 ﻿<template>
   <view class="page" :style="themeVars">
-    <!-- NavBar 必须在 v-if 之外：原先整页（含导航栏）都在 v-if="plan" 内，
-         加载中或加载失败时页面全白且**没有任何返回入口**，用户会被卡住 -->
-    <NavBar :title="plan ? plan.name : '计划详情'" />
+    <NavBar title="存钱详情" />
 
-    <template v-if="plan">
+    <view v-if="loading" class="tip">加载中…</view>
+    <view v-else-if="error" class="tip" @tap="load">加载失败，点击重试</view>
 
-    <!-- 概览 -->
-    <view class="overview">
-      <view class="ov-row">
-        <view class="ov-item">
-          <text class="ov-val">{{ toFixedYuan(plan.currentAmount) }} 元</text>
-          <text class="ov-lab">已存入</text>
+    <block v-else>
+      <view class="summary">
+        <view class="row"><text class="label">存钱方式</text><text class="val">{{ methodText }}</text></view>
+        <view class="row"><text class="label">目标</text><text class="val">{{ money(plan.targetAmount) }} 元</text></view>
+        <view class="row"><text class="label">进度</text><text class="val">{{ successCount }}/{{ periods.length }} 期 · {{ progress }}%</text></view>
+        <view class="row"><text class="label">已攒</text><text class="val">{{ money(plan.currentAmount) }} 元</text></view>
+        <view class="bar"><view class="fill" :style="{ width: progress + '%' }"></view></view>
+      </view>
+
+      <view class="card">
+        <view class="grid">
+          <template v-for="g in groups" :key="g.year">
+            <view class="year">{{ g.year }} 年</view>
+            <view v-for="r in g.items" :key="r.id" class="cell" :class="cellClass(r)" @tap="select(r)">
+              <text v-if="r.id === selectedId && r.recordDate" class="cell-text">{{ shortDate(r.recordDate) }}</text>
+              <text v-else class="cell-text">{{ r.periodIndex }}</text>
+            </view>
+          </template>
         </view>
-        <view class="ov-divider"></view>
-        <view class="ov-item">
-          <text class="ov-val">{{ toFixedYuan(plan.targetAmount) }} 元</text>
-          <text class="ov-lab">目标金额</text>
-        </view>
-        <view class="ov-divider"></view>
-        <view class="ov-item">
-          <text class="ov-val">{{ progressPercent }}%</text>
-          <text class="ov-lab">完成进度</text>
+        <view class="legend">
+          <text class="dot pending"></text><text>未到期</text>
+          <text class="dot unfinished"></text><text>未完成</text>
+          <text class="dot done"></text><text>已完成</text>
         </view>
       </view>
-      <view class="progress-bar">
-        <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
+
+      <view class="actions" v-if="selected">
+        <template v-if="selected.status === 1">
+          <view class="btn" @tap="revertDone">回退为未完成</view>
+        </template>
+        <template v-else-if="isUnfinished(selected)">
+          <view class="btn primary" @tap="openTransfer">补录</view>
+          <view class="btn" @tap="doneSheet = true">完成</view>
+        </template>
+        <template v-else>
+          <view class="btn primary" @tap="doneSheet = true">提前完成</view>
+        </template>
+      </view>
+
+      <view class="card info">
+        <view class="info-row"><text>转出账户</text><text>{{ sourceName || '未绑定' }}</text></view>
+        <view class="info-row"><text>存钱账户</text><text>{{ savingsName || '未绑定' }}</text></view>
+        <view class="info-row" v-if="selected"><text>选中期次</text><text>第 {{ selected.periodIndex }} 期 · {{ selected.recordDate || '日期待定' }}</text></view>
+      </view>
+    </block>
+
+    <view class="mask" v-if="doneSheet" @tap="doneSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">第 {{ selected && selected.periodIndex }} 期完成</view>
+        <view class="sheet-item" @tap="quickMark(1)">仅标记完成</view>
+        <view class="sheet-item" @tap="finishLink">完成并关联流水</view>
+        <view class="sheet-item" @tap="finishTransfer">完成并创建流水</view>
+        <view class="sheet-cancel" @tap="doneSheet = false">取消</view>
       </view>
     </view>
 
-    <!-- 统计 -->
-    <view class="stats-row">
-      <view class="stat success">
-        <text class="stat-num">{{ successCount }}</text>
-        <text class="stat-lab">成功</text>
-      </view>
-      <view class="stat fail">
-        <text class="stat-num">{{ failCount }}</text>
-        <text class="stat-lab">失败</text>
-      </view>
-      <view class="stat pending">
-        <text class="stat-num">{{ pendingCount }}</text>
-        <text class="stat-lab">待存</text>
-      </view>
-    </view>
-
-    <!-- 期次列表 -->
-    <view class="period-list">
-      <view class="period-title">存钱记录（{{ records.length }}期）</view>
-      <view class="period-card" v-for="r in records" :key="r.id">
-        <view class="p-left">
-          <view class="p-no">第{{ r.periodIndex }}期</view>
-          <view class="p-amount">目标 {{ toFixedYuan(r.targetAmount) }} 元</view>
-          <view class="p-date" v-if="r.recordDate">{{ r.recordDate }}</view>
-          <view class="p-reason" v-if="r.status === 2 && r.failReason">{{ r.failReason }}</view>
-        </view>
-        <view class="p-right">
-          <view class="p-status" :class="statusClass(r.status)">
-            {{ statusText(r.status) }}
+    <view class="mask" v-if="linkSheet" @tap="linkSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">选择要关联的流水</view>
+        <scroll-view scroll-y class="link-list">
+          <view v-for="t in linkable" :key="t.id" class="link-item" @tap="doLink(t)">
+            <view class="link-main">
+              <text class="link-name">{{ t.description || typeText(t.type) }}</text>
+              <text class="link-sub">{{ t.transactionDate }}</text>
+            </view>
+            <text class="link-amt">{{ money(t.amount) }}</text>
           </view>
-          <view class="p-actions" v-if="r.status === 0">
-            <view class="p-btn ok" @tap="deposit(r)">存入</view>
-            <view class="p-btn no" @tap="fail(r)">放弃</view>
-          </view>
-          <view class="p-actual" v-if="r.status === 1">实存 {{ toFixedYuan(r.amount) }} 元</view>
-        </view>
+          <view v-if="!linkable.length" class="tip">近 15 天没有可关联的流水</view>
+        </scroll-view>
+        <view class="sheet-cancel" @tap="linkSheet = false">取消</view>
       </view>
     </view>
 
-    <!-- 删除计划 -->
-    <view class="delete-btn" @tap="delPlan">删除计划</view>
-    </template>
-
-    <!-- 加载中 / 加载失败占位：有 NavBar 兜底，用户始终能返回 -->
-    <view v-else class="detail-placeholder">{{ loadFailed ? '计划不存在或已删除' : '加载中…' }}</view>
+    <view class="mask" v-if="transferSheet" @tap="transferSheet = false">
+      <view class="sheet" @tap.stop>
+        <view class="sheet-title">创建转账并关联</view>
+        <view class="f-row"><text class="f-label">金额</text><input class="f-input" type="digit" v-model="transfer.amount" /></view>
+        <view class="f-row"><text class="f-label">日期</text><input class="f-input" type="text" v-model="transfer.date" placeholder="YYYY-MM-DD" /></view>
+        <view class="f-row" @tap="pickSource"><text class="f-label">转出账户</text><text class="f-value">{{ sourceName || '请选择' }} ›</text></view>
+        <view class="f-row"><text class="f-label">存入账户</text><text class="f-value">{{ savingsName || '按计划绑定' }}</text></view>
+        <view class="btn primary" @tap="doTransfer">确认转账</view>
+        <view class="sheet-cancel" @tap="transferSheet = false">取消</view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { getSavingPlan, depositSavingRecord, failSavingRecord, deleteSavingPlan } from '@/api/ledger';
-import { toFixedYuan } from '@/utils/money';
+import {
+  getSavingPlan, markSavingRecord, linkSavingTransaction, unlinkSavingTransaction,
+  createSavingTransfer, listLinkableTransactions, listAssets
+} from '@/api/ledger';
+import { listOf } from '@/utils/response';
+import { formatAmount } from '@/utils/money';
+
+const TYPE_LABELS = { income: '收入', expense: '支出', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' };
 
 export default {
   components: { NavBar },
   data() {
-    return { planId: null, plan: null, records: [], loadFailed: false };
+    return {
+      id: null, loading: true, error: false,
+      plan: {}, records: [], selectedId: null,
+      doneSheet: false, linkSheet: false, transferSheet: false,
+      linkable: [], assets: [],
+      transfer: { amount: '', date: '', sourceAccountId: null, targetAccountId: null }
+    };
   },
   computed: {
     themeVars() { return useThemeStore().themeVars; },
-    progressPercent() {
-      if (!this.plan || !this.plan.targetAmount) return 0;
-      return Math.min(100, Math.round((this.plan.currentAmount / this.plan.targetAmount) * 100));
+    periods() { return this.records.slice().sort((a, b) => (a.periodIndex || 0) - (b.periodIndex || 0)); },
+    groups() {
+      const m = new Map();
+      this.periods.forEach(r => {
+        const y = (r.recordDate || '').slice(0, 4) || '待定';
+        if (!m.has(y)) m.set(y, []);
+        m.get(y).push(r);
+      });
+      return Array.from(m, ([year, items]) => ({ year, items }));
     },
     successCount() { return this.records.filter(r => r.status === 1).length; },
-    failCount() { return this.records.filter(r => r.status === 2).length; },
-    pendingCount() { return this.records.filter(r => r.status === 0).length; }
+    progress() {
+      const total = this.periods.length;
+      return total ? Math.round((this.successCount / total) * 100) : 0;
+    },
+    selected() { return this.records.find(r => r.id === this.selectedId) || null; },
+    methodText() {
+      return { '52week': '52周存钱法', fixed: '固定金额分期', monthly: '每月固定存', custom: '自定义递增' }[this.plan.method] || '';
+    },
+    sourceName() { return this.accountName(this.plan.sourceAccountId); },
+    savingsName() { return this.accountName(this.plan.savingsAccountId); }
   },
-  onLoad(options) {
-    this.planId = options.id;
-  },
-  onShow() {
-    useThemeStore().restore();
-    if (this.planId) this.load();
-  },
+  onLoad(o) { this.id = o.id; this.load(); },
   methods: {
-    toFixedYuan,
-    statusText(s) { return s === 1 ? '成功' : (s === 2 ? '失败' : '待存'); },
-    statusClass(s) { return s === 1 ? 'success' : (s === 2 ? 'failed' : 'pending'); },
+    money(v) { return formatAmount(Number(v || 0)); },
+    typeText(t) { return TYPE_LABELS[t] || t || '流水'; },
+    shortDate(d) { return d.slice(5).replace('-', '/'); },
+    today() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
+    isUnfinished(r) {
+      return r.status === 2 || (r.status === 0 && r.recordDate && r.recordDate < this.today());
+    },
+    accountName(id) {
+      if (!id) return '';
+      const a = this.assets.find(x => String(x.id) === String(id));
+      return a ? a.name : '';
+    },
     async load() {
+      this.loading = true; this.error = false;
       try {
-        const data = await getSavingPlan(this.planId) || {};
-        this.plan = data.plan || null;
-        this.records = data.records || [];
-        // 接口成功但没返回 plan（如已被删除）也算失败，避免永远停在"加载中…"
-        this.loadFailed = !this.plan;
-      } catch (e) {
-        this.loadFailed = true;
-        /* 拦截器已提示 */
-      }
+        const data = await getSavingPlan(this.id);
+        this.plan = (data && data.plan) || {};
+        this.records = (data && data.records) || [];
+        if (!this.selectedId && this.periods.length) {
+          const p = this.periods.find(r => r.status === 0);
+          this.selectedId = (p || this.periods[0]).id;
+        }
+        try { this.assets = listOf(await listAssets()); } catch (e) { this.assets = []; }
+      } catch (e) { this.error = true; } finally { this.loading = false; }
     },
-    deposit(r) {
+    select(r) { if (r) this.selectedId = r.id; },
+    cellClass(r) {
+      return {
+        done: r.status === 1,
+        unfinished: this.isUnfinished(r),
+        active: r.id === this.selectedId
+      };
+    },
+    async quickMark(status, reason) {
+      if (!this.selected) return;
+      const amount = status === 1 ? Number(this.selected.amount || this.selected.targetAmount || 0) : null;
+      try {
+        await markSavingRecord(this.id, this.selected.id, { status, amount, reason: reason || null });
+        this.doneSheet = false;
+        uni.showToast({ title: '已更新', icon: 'success' });
+        await this.load();
+      } catch (e) { /* 提示 */ }
+    },
+    revertDone() {
       uni.showModal({
-        title: '存入第' + r.periodIndex + '期',
-        content: '按目标金额 ' + toFixedYuan(r.targetAmount) + ' 元 存入？',
-        editable: true,
-        placeholderText: '可输入实际存入金额（留空按目标金额）',
-        success: async (res) => {
-          if (!res.confirm) return;
-          const actual = res.content ? parseFloat(res.content) : null;
+        title: '回退为未完成',
+        content: '会解除该期与流水的关联（不删除流水），状态变为未完成。',
+        success: async (r) => {
+          if (!r.confirm) return;
           try {
-            await depositSavingRecord(this.planId, r.id, actual && actual > 0 ? actual : null);
-            uni.showToast({ title: '存入成功', icon: 'success' });
-            this.load();
-          } catch (e) { /* 拦截器已提示 */ }
+            if (this.selected.transactionId) {
+              await unlinkSavingTransaction(this.id, this.selected.id, false);
+            }
+            await markSavingRecord(this.id, this.selected.id, { status: 2, amount: null, reason: '手动回退' });
+            uni.showToast({ title: '已回退', icon: 'none' });
+            await this.load();
+          } catch (e) { /* 提示 */ }
         }
       });
     },
-    fail(r) {
-      uni.showModal({
-        title: '放弃第' + r.periodIndex + '期',
-        content: '标记为本期失败（记录失败原因，可后续补存）？',
-        editable: true,
-        placeholderText: '失败原因（留空=主动放弃）',
-        success: async (res) => {
-          if (!res.confirm) return;
-          try {
-            await failSavingRecord(this.planId, r.id, res.content || null);
-            this.load();
-          } catch (e) { /* 拦截器已提示 */ }
+    finishLink() { this.doneSheet = false; this.openLink(); },
+    finishTransfer() { this.doneSheet = false; this.openTransfer(); },
+    async openLink() {
+      try {
+        this.linkable = listOf(await listLinkableTransactions(this.id, {
+          date: this.selected && this.selected.recordDate,
+          amount: this.selected && this.selected.targetAmount
+        }));
+        this.linkSheet = true;
+      } catch (e) { /* 提示 */ }
+    },
+    async doLink(t) {
+      try {
+        await linkSavingTransaction(this.id, this.selected.id, t.id);
+        this.linkSheet = false;
+        uni.showToast({ title: '已关联', icon: 'success' });
+        await this.load();
+      } catch (e) { /* 提示 */ }
+    },
+    openTransfer() {
+      const r = this.selected || {};
+      this.transfer = {
+        amount: String(r.targetAmount || ''),
+        date: r.recordDate || this.today(),
+        sourceAccountId: this.plan.sourceAccountId || null,
+        targetAccountId: this.plan.savingsAccountId || null
+      };
+      this.transferSheet = true;
+    },
+    pickSource() {
+      if (!this.assets.length) { uni.showToast({ title: '暂无可用账户', icon: 'none' }); return; }
+      uni.showActionSheet({
+        itemList: this.assets.slice(0, 6).map(a => a.name),
+        success: (res) => {
+          const a = this.assets[res.tapIndex];
+          if (a) this.transfer.sourceAccountId = a.id;
         }
       });
     },
-    delPlan() {
-      uni.showModal({
-        title: '删除计划',
-        content: '删除后不可恢复（期次记录保留），确定删除？',
-        success: async (res) => {
-          if (!res.confirm) return;
-          try {
-            await deleteSavingPlan(this.planId);
-            uni.showToast({ title: '已删除', icon: 'success' });
-            setTimeout(() => uni.navigateBack(), 600);
-          } catch (e) { /* 拦截器已提示 */ }
-        }
-      });
+    async doTransfer() {
+      if (!this.transfer.sourceAccountId) { uni.showToast({ title: '请选择转出账户', icon: 'none' }); return; }
+      try {
+        await createSavingTransfer(this.id, this.selected.id, {
+          accountId: this.transfer.sourceAccountId,
+          targetAccountId: this.transfer.targetAccountId,
+          amount: Number(this.transfer.amount || 0),
+          transactionDate: this.transfer.date,
+          remark: '存钱：第 ' + (this.selected.periodIndex || '') + ' 期'
+        });
+        this.transferSheet = false;
+        uni.showToast({ title: '已转入并关联', icon: 'success' });
+        await this.load();
+      } catch (e) { /* 提示 */ }
     }
   }
 };
 </script>
 
 <style scoped>
-.page { padding-bottom: 60rpx; min-height: 100vh; background: var(--surface); }
-.overview {
-  background: var(--card); margin: 24rpx; border-radius: 20rpx; padding: 32rpx;
-}
-.ov-row { display: flex; align-items: center; margin-bottom: 24rpx; }
-.ov-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
-.ov-val { font-size: 32rpx; font-weight: 700; color: var(--primary-text); }
-.ov-lab { font-size: 22rpx; color: var(--text-sub); margin-top: 8rpx; }
-.ov-divider { width: 1rpx; height: 48rpx; background: var(--surface); }
-.progress-bar { height: 16rpx; background: var(--surface); border-radius: 8rpx; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--primary-strong); border-radius: 8rpx; transition: width 0.3s; }
-
-.stats-row { display: flex; gap: 20rpx; margin: 0 24rpx 24rpx; }
-.stat {
-  flex: 1; background: var(--card); border-radius: 16rpx; padding: 24rpx;
-  display: flex; flex-direction: column; align-items: center;
-}
-.stat-num { font-size: 36rpx; font-weight: 700; }
-.stat-lab { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; }
-.stat.success .stat-num { color: var(--income); }
-.stat.fail .stat-num { color: var(--expense); }
-.stat.pending .stat-num { color: var(--warning); }
-
-.period-list { margin: 0 24rpx; }
-.period-title { font-size: 28rpx; font-weight: 600; color: var(--text-main); margin-bottom: 16rpx; }
-.period-card {
-  background: var(--card); border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.p-no { font-size: 26rpx; font-weight: 600; color: var(--text-main); }
-.p-amount { font-size: 24rpx; color: var(--text-sub); margin-top: 6rpx; }
-.p-date { font-size: 20rpx; color: var(--text-muted); margin-top: 4rpx; }
-.p-reason { font-size: 20rpx; color: var(--expense); margin-top: 4rpx; }
-.p-right { display: flex; flex-direction: column; align-items: flex-end; }
-.p-status { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 16rpx; }
-.p-status.success { color: var(--income); background: var(--income-bg); }
-.p-status.failed { color: var(--expense); background: var(--expense-bg); }
-.p-status.pending { color: var(--warning); background: var(--surface); }
-.p-actions { display: flex; gap: 12rpx; margin-top: 12rpx; }
-.p-btn { font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 20rpx; }
-.p-btn.ok { background: var(--primary-strong); color: var(--on-primary); }
-.p-btn.no { background: var(--expense-bg); color: var(--expense); }
-.p-actual { font-size: 20rpx; color: var(--text-sub); margin-top: 8rpx; }
-
-.delete-btn {
-  margin: 40rpx 24rpx 0; text-align: center; padding: 24rpx;
-  background: var(--card); border-radius: 16rpx; color: var(--expense); font-size: 28rpx;
-}
-/* 加载中 / 加载失败占位（与 NavBar 一起保证页面不会全白无出口） */
-.detail-placeholder {
-  padding: 160rpx 0; text-align: center;
-  color: var(--text-muted); font-size: 28rpx;
-}
+.page { min-height: 100vh; background: var(--surface); padding-bottom: 40rpx; }
+.tip { padding: 120rpx 0; text-align: center; color: var(--text-muted); font-size: 26rpx; }
+.summary { margin: 20rpx; padding: 20rpx 24rpx; border-radius: 18rpx; background: var(--card); }
+.row { display: flex; justify-content: space-between; padding: 8rpx 0; font-size: 24rpx; }
+.label { color: var(--text-sub); }
+.val { color: var(--text-main); font-weight: 600; }
+.bar { height: 8rpx; border-radius: 999rpx; background: var(--surface); margin-top: 12rpx; overflow: hidden; }
+.fill { height: 100%; background: var(--primary); border-radius: 999rpx; }
+.card { margin: 0 20rpx 14rpx; padding: 18rpx; border-radius: 18rpx; background: var(--card); }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6rpx; justify-items: center; }
+.year { grid-column: 1 / -1; font-size: 20rpx; color: var(--text-muted); padding: 10rpx 0 4rpx; }
+.cell { width: 58rpx; height: 58rpx; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; border: 2rpx solid transparent; }
+.cell-text { font-size: 22rpx; font-weight: 600; color: var(--text-muted); }
+.cell.done { background: var(--income); }
+.cell.done .cell-text { color: var(--on-income); }
+.cell.unfinished { background: rgba(232, 101, 74, 0.14); }
+.cell.unfinished .cell-text { color: var(--expense); }
+.cell.active { transform: scale(1.22); border-color: var(--primary); z-index: 2; box-shadow: 0 4rpx 12rpx rgba(0,0,0,.12); }
+.cell.active .cell-text { font-size: 20rpx; }
+.cell.done.active { box-shadow: 0 0 0 3rpx var(--income); }
+.cell.unfinished.active { box-shadow: 0 0 0 3rpx var(--expense); }
+.legend { display: flex; align-items: center; gap: 6rpx; margin-top: 14rpx; font-size: 18rpx; color: var(--text-muted); }
+.dot { width: 14rpx; height: 14rpx; border-radius: 50%; display: inline-block; margin-left: 10rpx; }
+.dot.pending { background: var(--border); }
+.dot.unfinished { background: var(--expense); }
+.dot.done { background: var(--income); }
+.actions { display: flex; gap: 12rpx; margin: 0 20rpx 14rpx; }
+.btn { flex: 1; text-align: center; padding: 16rpx 0; border-radius: 12rpx; font-size: 25rpx; background: var(--card); color: var(--text-main); border: 1rpx solid var(--border); }
+.btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.info-row { display: flex; justify-content: space-between; padding: 8rpx 0; font-size: 23rpx; color: var(--text-sub); }
+.mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2000; display: flex; align-items: flex-end; }
+.sheet { width: 100%; background: var(--card); border-radius: 24rpx 24rpx 0 0; padding: 28rpx; padding-bottom: calc(28rpx + env(safe-area-inset-bottom)); }
+.sheet-title { text-align: center; font-size: 28rpx; font-weight: 600; color: var(--text-main); margin-bottom: 12rpx; }
+.sheet-item { padding: 26rpx 8rpx; font-size: 28rpx; color: var(--text-main); border-top: 1rpx solid var(--border); }
+.sheet-cancel { margin-top: 16rpx; text-align: center; padding: 22rpx; font-size: 26rpx; color: var(--text-muted); }
+.link-list { max-height: 520rpx; }
+.link-item { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 4rpx; border-top: 1rpx solid var(--border); }
+.link-main { display: flex; flex-direction: column; gap: 4rpx; }
+.link-name { font-size: 26rpx; color: var(--text-main); }
+.link-sub { font-size: 21rpx; color: var(--text-muted); }
+.link-amt { font-size: 26rpx; color: var(--text-main); }
+.f-row { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 0; border-top: 1rpx solid var(--border); }
+.f-label { font-size: 26rpx; color: var(--text-sub); }
+.f-input { text-align: right; font-size: 26rpx; color: var(--text-main); flex: 1; }
+.f-value { font-size: 26rpx; color: var(--text-main); }
 </style>

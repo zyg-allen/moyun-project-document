@@ -47,6 +47,8 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "新增推荐")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:add')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookrecommendadmin:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody PortalBookRecommend bookRecommend) {
         return toAjax(bookRecommendService.insertBookRecommend(bookRecommend));
@@ -54,6 +56,8 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "修改推荐")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:edit')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookrecommendadmin:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@RequestBody PortalBookRecommend bookRecommend) {
         return toAjax(bookRecommendService.updateBookRecommend(bookRecommend));
@@ -61,6 +65,8 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "删除推荐")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookrecommendadmin:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(bookRecommendService.deleteBookRecommendByIds(ids));
@@ -68,6 +74,8 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "上下架切换")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:edit')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookrecommendadmin:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/toggle")
     public AjaxResult toggle(@PathVariable Long id, @RequestParam Boolean isActive) {
         return toAjax(bookRecommendService.toggleActive(id, isActive));
@@ -75,6 +83,8 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "批量排序")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:edit')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookrecommendadmin:", time = 60, count = 120)
     @PutMapping("/sort")
     public AjaxResult sort(@RequestBody List<PortalBookRecommend> list) {
         return toAjax(bookRecommendService.batchUpdateSort(list));

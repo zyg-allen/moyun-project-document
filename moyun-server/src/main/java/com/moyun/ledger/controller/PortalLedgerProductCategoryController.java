@@ -39,12 +39,16 @@ public class PortalLedgerProductCategoryController {
     }
 
     @Operation(summary = "新增类目")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerproductcategory:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody LedgerProductCategory bo) {
         return AjaxResult.success(categoryService.create(PortalSecurityUtils.getUserId(), bo));
     }
 
     @Operation(summary = "修改类目")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerproductcategory:", time = 60, count = 120)
     @PutMapping("/{id}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody LedgerProductCategory bo) {
         categoryService.update(PortalSecurityUtils.getUserId(), id, bo);
@@ -52,6 +56,8 @@ public class PortalLedgerProductCategoryController {
     }
 
     @Operation(summary = "删除类目")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerproductcategory:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         categoryService.delete(PortalSecurityUtils.getUserId(), id);

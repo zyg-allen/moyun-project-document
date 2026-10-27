@@ -50,6 +50,8 @@ public class DataAnalysisController {
     }
 
     @Operation(summary = "创建数据源")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @PostMapping("/datasources")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:add')")
     public AjaxResult createDataSource(@RequestBody DataSourceConfig config) {
@@ -73,6 +75,8 @@ public class DataAnalysisController {
     }
 
     @Operation(summary = "更新数据源")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @PutMapping("/datasources/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:edit')")
     public AjaxResult updateDataSource(@PathVariable Long id, 
@@ -89,6 +93,8 @@ public class DataAnalysisController {
     }
 
     @Operation(summary = "删除数据源")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @DeleteMapping("/datasources/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:remove')")
     public AjaxResult deleteDataSource(@PathVariable Long id) {
@@ -97,6 +103,8 @@ public class DataAnalysisController {
     }
 
     @Operation(summary = "测试数据源连接")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @PostMapping("/datasources/test")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
     public AjaxResult testDataSource(@RequestBody DataSourceConfig config) {
@@ -109,6 +117,8 @@ public class DataAnalysisController {
     }
     
     @Operation(summary = "测试已有数据源连接", description = "通过ID测试数据源连接状态")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @PostMapping("/datasource/test-connection")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
     public AjaxResult testConnectionById(@RequestBody java.util.Map<String, Object> request) {
@@ -165,6 +175,8 @@ public class DataAnalysisController {
     }
 
     @Operation(summary = "同步表元数据")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @PostMapping("/datasources/{id}/sync")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:sync')")
     public AjaxResult syncMetadata(@PathVariable Long id) {
@@ -173,6 +185,8 @@ public class DataAnalysisController {
     }
 
     @Operation(summary = "智能数据查询", description = "使用自然语言查询数据,自动生成SQL并分析")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "dataanalysis:", time = 60, count = 120)
     @PostMapping("/query")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
     public AjaxResult intelligentQuery(@RequestBody DataQueryRequest request) {

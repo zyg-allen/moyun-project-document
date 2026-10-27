@@ -55,6 +55,7 @@ public class PortalEmailController {
      */
     @Operation(summary = "发送邮箱验证码", description = "注册/找回密码场景")
     @RateLimiter(time = 60, count = 3, limitType = LimitType.IP)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/code")
     public AjaxResult sendCode(@Parameter(description = "邮箱与场景") @RequestBody Map<String, String> body) {
         // 图形验证码人机校验（开关开启时；逻辑与 PortalSmsController 一致）
@@ -99,6 +100,7 @@ public class PortalEmailController {
      */
     @Operation(summary = "找回密码", description = "邮箱+验证码+新密码重置密码")
     @RateLimiter(time = 60, count = 5, limitType = LimitType.IP)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/reset-password")
     public AjaxResult resetPassword(@Parameter(description = "重置密码参数") @RequestBody Map<String, String> body) {
         String email = body.get("email");

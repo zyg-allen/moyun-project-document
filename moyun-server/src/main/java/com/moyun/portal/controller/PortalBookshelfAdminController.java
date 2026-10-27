@@ -45,6 +45,8 @@ public class PortalBookshelfAdminController extends BaseController {
 
     @Operation(summary = "移出书架（后台批量）")
     @PreAuthorize("@ss.hasPermi('portal:bookshelf:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookshelfadmin:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(bookshelfService.deleteBookshelfByIds(ids));

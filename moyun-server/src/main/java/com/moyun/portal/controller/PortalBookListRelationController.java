@@ -55,6 +55,8 @@ public class PortalBookListRelationController extends BaseController {
     @Operation(summary = "新增书单项", description = "向书单添加单本书籍，body: bookId/sortOrder/remark")
     @PreAuthorize("@ss.hasPermi('portal:bookList:edit')")
     @Log(title = "读书空间-书单书籍", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistrelation:", time = 60, count = 120)
     @PostMapping("/{bookListId}/items")
     public AjaxResult addItem(@Parameter(description = "书单ID") @PathVariable Long bookListId,
                               @RequestBody Map<String, Object> body) {
@@ -75,6 +77,8 @@ public class PortalBookListRelationController extends BaseController {
     @Operation(summary = "修改书单项", description = "按书单项ID修改排序与说明，body: sortOrder/remark")
     @PreAuthorize("@ss.hasPermi('portal:bookList:edit')")
     @Log(title = "读书空间-书单书籍", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistrelation:", time = 60, count = 120)
     @PutMapping("/items/{id}")
     public AjaxResult updateItem(@Parameter(description = "书单项ID") @PathVariable Long id,
                                  @RequestBody Map<String, Object> body) {
@@ -90,6 +94,8 @@ public class PortalBookListRelationController extends BaseController {
     @Operation(summary = "删除书单项", description = "按书单项ID从书单移除单本书籍")
     @PreAuthorize("@ss.hasPermi('portal:bookList:edit')")
     @Log(title = "读书空间-书单书籍", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistrelation:", time = 60, count = 120)
     @DeleteMapping("/items/{id}")
     public AjaxResult deleteItem(@Parameter(description = "书单项ID") @PathVariable Long id) {
         int rows = portalBookListService.deleteBookListItem(id);
@@ -103,6 +109,8 @@ public class PortalBookListRelationController extends BaseController {
     @Operation(summary = "批量更新书单内书籍排序", description = "body: [{id, sortOrder}]")
     @PreAuthorize("@ss.hasPermi('portal:bookList:edit')")
     @Log(title = "读书空间-书单书籍排序", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistrelation:", time = 60, count = 120)
     @PutMapping("/{bookListId}/sort")
     public AjaxResult updateSort(@Parameter(description = "书单ID") @PathVariable Long bookListId,
                                  @RequestBody List<Map<String, Object>> sortItems) {

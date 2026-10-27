@@ -39,6 +39,8 @@ public class PortalAgreementController {
         return AjaxResult.success(agreementService.listByUser(userId));
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalagreement:", time = 60, count = 120)
     @PostMapping("/consent")
     public AjaxResult consent(@RequestBody Map<String, String> body, HttpServletRequest request) {
         Long userId = PortalSecurityUtils.getUserId();

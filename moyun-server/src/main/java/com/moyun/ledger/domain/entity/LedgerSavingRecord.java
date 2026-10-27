@@ -55,8 +55,17 @@ public class LedgerSavingRecord {
     /** 备注 */
     private String remark;
 
+    /** 关联的转账流水ID */
+    private Long transactionId;
+
     /** 存入/失败日期 */
     private LocalDate recordDate;
+
+    /** 已提醒次数（防重复轰炸） */
+    private Integer notifyCount;
+
+    /** 最近提醒时间 */
+    private java.time.LocalDateTime lastNotifiedAt;
 
     private LocalDateTime createTime;
 

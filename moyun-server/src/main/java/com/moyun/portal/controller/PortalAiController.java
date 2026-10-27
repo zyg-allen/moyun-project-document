@@ -76,6 +76,8 @@ public class PortalAiController extends BaseController {
 
     @Operation(summary = "内容分析（统一入口）",
             description = "按场景分析标题+正文，返回结构化结果。scene: article-meta=文章元信息(摘要/SEO/关键词)，tags=标签提取。AI 未配置时返回本地兜底结果（source=fallback）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalai:", time = 60, count = 30)
     @PostMapping("/analyze")
     public AjaxResult analyze(@RequestBody AnalyzeQuery query) {
         String scene = query.getScene();

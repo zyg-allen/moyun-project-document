@@ -136,6 +136,8 @@ public class CmsCreatorCertificationController extends BaseController {
     @Operation(summary = "审核认证申请", description = "通过或驳回认证申请，status=approved/rejected")
     @PreAuthorize("@ss.hasPermi('cms:certification:audit')")
     @Log(title = "创作者认证", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscreatorcertification:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/audit")
     public AjaxResult audit(@Parameter(description = "认证申请ID") @PathVariable Long id,
                             @RequestBody Map<String, Object> body) {

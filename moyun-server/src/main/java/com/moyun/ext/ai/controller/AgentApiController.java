@@ -34,6 +34,8 @@ public class AgentApiController {
     }
     
     @Operation(summary = "API对话（流式）", description = "通过API Key调用智能体进行对话")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agentapi:", time = 60, count = 120)
     @PostMapping(value = "/{id}/chat", produces = "text/event-stream;charset=utf-8")
     public Flux<String> apiChat(
             @PathVariable Long id,
@@ -77,6 +79,8 @@ public class AgentApiController {
     }
     
     @Operation(summary = "API对话（非流式）", description = "通过API Key调用智能体进行对话，返回完整响应")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agentapi:", time = 60, count = 120)
     @PostMapping("/{id}/chat/sync")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent-api:query')")
     public AjaxResult apiChatSync(
@@ -152,6 +156,8 @@ public class AgentApiController {
     }
     
     @Operation(summary = "发布应用", description = "将智能体发布为可访问的应用")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agentapi:", time = 60, count = 120)
     @PostMapping("/{id}/publish")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent-api:publish')")
     public AjaxResult publishAgent(@PathVariable Long id) {
@@ -179,6 +185,8 @@ public class AgentApiController {
     }
     
     @Operation(summary = "取消发布")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agentapi:", time = 60, count = 120)
     @DeleteMapping("/{id}/publish")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent-api:publish')")
     public AjaxResult unpublishAgent(@PathVariable Long id) {
@@ -207,6 +215,8 @@ public class AgentApiController {
     }
     
     @Operation(summary = "访问已发布应用（流式）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agentapi:", time = 60, count = 120)
     @PostMapping(value = "/app/{token}/chat", produces = "text/event-stream;charset=utf-8")
     public Flux<String> appChat(
             @PathVariable String token,

@@ -55,6 +55,8 @@ public class PortalLedgerScheduleController {
     }
 
     /** 新建任务 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerschedule:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody LedgerScheduleTask task) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -63,6 +65,8 @@ public class PortalLedgerScheduleController {
     }
 
     /** 修改任务 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerschedule:", time = 60, count = 120)
     @PutMapping("/{id}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody LedgerScheduleTask task) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -71,6 +75,8 @@ public class PortalLedgerScheduleController {
     }
 
     /** 启用/停用 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerschedule:", time = 60, count = 120)
     @PostMapping("/{id}/toggle")
     public AjaxResult toggle(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -79,6 +85,8 @@ public class PortalLedgerScheduleController {
     }
 
     /** 立即执行一次（按下次执行日记账） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerschedule:", time = 60, count = 120)
     @PostMapping("/{id}/run")
     public AjaxResult run(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -89,6 +97,8 @@ public class PortalLedgerScheduleController {
     }
 
     /** 重试失败日志 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerschedule:", time = 60, count = 120)
     @PostMapping("/logs/{logId}/retry")
     public AjaxResult retry(@PathVariable("logId") Long logId) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -97,6 +107,8 @@ public class PortalLedgerScheduleController {
     }
 
     /** 删除任务（逻辑删） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerschedule:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult delete(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

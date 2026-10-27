@@ -56,6 +56,8 @@ public class CmsColumnController extends BaseController {
     @Operation(summary = "新增专栏", description = "新增专栏")
     @PreAuthorize("@ss.hasPermi('portal:column:add')")
     @Log(title = "专栏", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscolumn:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalColumn column) {
         return toAjax(cmsColumnService.insertColumn(column));
@@ -64,6 +66,8 @@ public class CmsColumnController extends BaseController {
     @Operation(summary = "修改专栏", description = "修改专栏")
     @PreAuthorize("@ss.hasPermi('portal:column:edit')")
     @Log(title = "专栏", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscolumn:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalColumn column) {
         return toAjax(cmsColumnService.updateColumn(column));
@@ -72,6 +76,8 @@ public class CmsColumnController extends BaseController {
     @Operation(summary = "删除专栏", description = "批量删除专栏")
     @PreAuthorize("@ss.hasPermi('portal:column:remove')")
     @Log(title = "专栏", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscolumn:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(cmsColumnService.deleteColumnByIds(ids));
@@ -80,6 +86,8 @@ public class CmsColumnController extends BaseController {
     @Operation(summary = "更新专栏状态", description = "状态流转（archived 等普通流转，不走审核字段写入）")
     @PreAuthorize("@ss.hasPermi('portal:column:edit')")
     @Log(title = "专栏", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscolumn:", time = 60, count = 120)
     @PutMapping("/{id}/status")
     public AjaxResult changeStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
@@ -99,6 +107,8 @@ public class CmsColumnController extends BaseController {
     @Operation(summary = "批量绑定文章到专栏", description = "CMS后台：将选定文章加入专栏，自动跳过已绑定")
     @PreAuthorize("@ss.hasPermi('portal:column:edit')")
     @Log(title = "专栏-文章绑定", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscolumn:", time = 60, count = 120)
     @PostMapping("/{id}/articles")
     public AjaxResult bindArticles(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Object articleIdsObj = body.get("articleIds");
@@ -121,6 +131,8 @@ public class CmsColumnController extends BaseController {
     @Operation(summary = "将文章移出专栏", description = "CMS后台：维护文章弹窗移除按钮")
     @PreAuthorize("@ss.hasPermi('portal:column:edit')")
     @Log(title = "专栏-文章解绑", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscolumn:", time = 60, count = 120)
     @DeleteMapping("/{id}/articles/{articleId}")
     public AjaxResult removeColumnArticle(@PathVariable("id") Long id, @PathVariable Long articleId) {
         return toAjax(cmsColumnService.removeColumnArticle(id, articleId));

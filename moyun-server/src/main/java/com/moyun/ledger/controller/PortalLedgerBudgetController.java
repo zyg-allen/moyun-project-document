@@ -37,6 +37,8 @@ public class PortalLedgerBudgetController {
     }
 
     /** 设置预算（总预算 categoryId=null，分类预算非空；存在即更新） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerbudget:", time = 60, count = 120)
     @PostMapping
     public AjaxResult save(@RequestBody LedgerBudget budget) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -50,6 +52,8 @@ public class PortalLedgerBudgetController {
      * <p>前端"清空输入框"或"填 0"都映射到本接口 —— 后端金额校验只接受大于 0，
      * 无法用 0 表达"取消"。</p>
      */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerbudget:", time = 60, count = 120)
     @DeleteMapping
     public AjaxResult remove(@RequestParam Integer year,
                              @RequestParam Integer month,

@@ -121,6 +121,8 @@ public class SysMessageController extends BaseController {
      */
     @Operation(summary = "发送消息", description = "管理员向指定用户发送私信；receiverType 留空默认 portal。已绑定门户身份的管理员以门户身份发送。")
     @PreAuthorize("@ss.hasPermi('system:message:send')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysmessage:", time = 60, count = 120)
     @PostMapping("/send")
     public AjaxResult send(@Valid @RequestBody MessageSendDTO dto) {
         ResolvedIdentity identity = resolveIdentity();
@@ -139,6 +141,8 @@ public class SysMessageController extends BaseController {
      */
     @Operation(summary = "标记会话已读", description = "清零当前管理员在该会话的未读数，并置接收消息为已读")
     @PreAuthorize("@ss.hasPermi('system:message:query')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysmessage:", time = 60, count = 120)
     @PutMapping("/session/{id}/read")
     public AjaxResult markSessionRead(@Parameter(description = "会话ID") @PathVariable("id") Long id) {
         ResolvedIdentity identity = resolveIdentity();

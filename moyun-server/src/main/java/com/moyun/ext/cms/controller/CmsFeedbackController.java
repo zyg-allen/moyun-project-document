@@ -87,6 +87,8 @@ public class CmsFeedbackController extends BaseController {
     @Operation(summary = "处理反馈", description = "处理反馈记录，标记状态并记录处理结果，可选通知提交人")
     @PreAuthorize("@ss.hasPermi('cms:feedback:handle')")
     @Log(title = "意见反馈", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsfeedback:", time = 60, count = 120)
     @PutMapping("/handle")
     public AjaxResult handle(@RequestBody PortalFeedback feedback) {
         if (feedback.getId() == null) {
@@ -155,6 +157,8 @@ public class CmsFeedbackController extends BaseController {
     @Operation(summary = "删除反馈记录", description = "批量删除反馈记录")
     @PreAuthorize("@ss.hasPermi('cms:feedback:remove')")
     @Log(title = "意见反馈", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsfeedback:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(feedbackMapper.deleteByIds(java.util.Arrays.asList(ids)));

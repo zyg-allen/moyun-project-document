@@ -174,6 +174,9 @@ public class LedgerTransaction {
      */
     private String clientUuid;
 
+    /** 业务来源：saving=存钱转入 */
+    private String bizType;
+
     /**
      * 创建人（门户用户名；后台代改时为 admin 标识，数据隔离溯源用）
      */

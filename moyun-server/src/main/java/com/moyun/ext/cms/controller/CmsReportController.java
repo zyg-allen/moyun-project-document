@@ -90,6 +90,8 @@ public class CmsReportController extends BaseController {
     @Operation(summary = "处理举报", description = "处理举报记录，标记状态并记录处理结果，resolved 时联动下架被举报内容，可选通知提交人")
     @PreAuthorize("@ss.hasPermi('cms:report:handle')")
     @Log(title = "举报管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsreport:", time = 60, count = 120)
     @PutMapping("/handle")
     public AjaxResult handle(@RequestBody PortalReport report) {
         if (report.getId() == null) {
@@ -172,6 +174,8 @@ public class CmsReportController extends BaseController {
     @Operation(summary = "删除举报记录", description = "批量删除举报记录")
     @PreAuthorize("@ss.hasPermi('cms:report:remove')")
     @Log(title = "举报管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsreport:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(reportMapper.deleteByIds(java.util.Arrays.asList(ids)));

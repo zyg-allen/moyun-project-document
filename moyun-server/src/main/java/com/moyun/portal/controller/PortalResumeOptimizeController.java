@@ -95,6 +95,8 @@ public class PortalResumeOptimizeController extends BaseController {
     }
 
     @Operation(summary = "新建岗位目标", description = "岗位名称与JD为必填")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/job-target")
     public AjaxResult createJobTarget(@RequestBody PortalResumeJobTarget dto) {
         Long userId = currentUserId();
@@ -118,6 +120,8 @@ public class PortalResumeOptimizeController extends BaseController {
     }
 
     @Operation(summary = "更新岗位目标")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PutMapping("/job-target/{id}")
     public AjaxResult updateJobTarget(@PathVariable Long id, @RequestBody PortalResumeJobTarget dto) {
         Long userId = currentUserId();
@@ -138,6 +142,8 @@ public class PortalResumeOptimizeController extends BaseController {
     }
 
     @Operation(summary = "删除岗位目标")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @DeleteMapping("/job-target/{id}")
     public AjaxResult deleteJobTarget(@PathVariable Long id) {
         Long userId = currentUserId();
@@ -164,6 +170,8 @@ public class PortalResumeOptimizeController extends BaseController {
     // ==================== 岗位匹配分析 ====================
 
     @Operation(summary = "执行岗位匹配分析", description = "LLM 四维分析（关键词/经验/技能/结构）+ 规则兜底，结果存档可追溯")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/match/{resumeId}/{jobTargetId}")
     public AjaxResult match(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
@@ -195,6 +203,8 @@ public class PortalResumeOptimizeController extends BaseController {
     // ==================== 深度优化 ====================
 
     @Operation(summary = "生成深度优化建议（同步，兼容旧版）", description = "LLM 基于JD逐项生成优化建议（需 AI 模型）。注意：长耗时场景建议改用 /deep/{resumeId}/{jobTargetId}/async 异步接口")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/deep/{resumeId}/{jobTargetId}")
     public AjaxResult deepOptimize(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
@@ -217,6 +227,8 @@ public class PortalResumeOptimizeController extends BaseController {
             description = "立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 GET /deep/task/{taskId} 轮询任务状态，"
                     + "status=success 时 result 字段为优化结果（ResumeDeepOptimizeVO）。"
                     + "解决大模型调用超时问题，支持关闭页面后回来查看。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/deep/{resumeId}/{jobTargetId}/async")
     public AjaxResult deepOptimizeAsync(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
@@ -273,6 +285,8 @@ public class PortalResumeOptimizeController extends BaseController {
 
     @Operation(summary = "采纳建议并保存优化结果",
             description = "参数：resumeId、jobTargetId、optimize(完整建议列表)、adopted(采纳的下标数组)；直接更新原简历（幂等）并记录优化历史")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/deep/apply")
     public AjaxResult applyOptimize(@RequestBody Map<String, Object> params) {
         Long userId = currentUserId();
@@ -312,6 +326,8 @@ public class PortalResumeOptimizeController extends BaseController {
 
     @Operation(summary = "字段级 AI 实时辅助",
             description = "编辑页字段旁「✨AI优化」：对工作/项目描述、自我评价、技能清单生成3个差异化优化版本，用户采纳替换")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/ai-assist")
     public AjaxResult aiAssist(@RequestBody Map<String, Object> params) {
         Long userId = currentUserId();
@@ -334,6 +350,8 @@ public class PortalResumeOptimizeController extends BaseController {
             description = "为空的工作经历/项目经历/自我介绍生成初始草稿，基于已有信息（姓名/技能/求职意向/教育经历）+ 可选目标岗位JD。"
                     + "与 ai-assist 区别：ai-assist 是对已有内容生成3个优化版本，本接口为空字段生成初始内容供用户采纳填充到表单。"
                     + "返回结构：{works:[WorkItem...], projects:[ProjectItem...], selfIntro:String, message:String}")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/ai-draft/{resumeId:[0-9]+}")
     public AjaxResult aiDraftEmptyFields(
             @PathVariable("resumeId") Long resumeId,
@@ -354,6 +372,8 @@ public class PortalResumeOptimizeController extends BaseController {
     @Operation(summary = "保存评分报告",
             description = "触发评分（同步写 portal_user_resume 评分字段）并存档为可追溯报告；"
                     + "可选参数 source（manual/optimize/template，默认 manual）、jobTargetId、position 用于标记评分来源与关联岗位")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalresumeoptimize:", time = 60, count = 30)
     @PostMapping("/score-report")
     public AjaxResult saveScoreReport(@RequestBody Map<String, Object> params) {
         Long userId = currentUserId();

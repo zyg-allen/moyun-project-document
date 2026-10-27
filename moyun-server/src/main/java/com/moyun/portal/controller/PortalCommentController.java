@@ -76,6 +76,8 @@ public class PortalCommentController extends BaseController {
     }
 
     @Operation(summary = "评论点赞/取消点赞", description = "切换评论点赞状态，幂等 toggle，返回最新点赞数和状态")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcomment:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/like")
     public AjaxResult toggleLike(@Parameter(description = "评论ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();

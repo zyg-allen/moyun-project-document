@@ -75,6 +75,8 @@ public class CmsResumeParseConfigController extends BaseController {
 
     @Operation(summary = "新增解析配置")
     @PreAuthorize("@ss.hasPermi('cms:interview:resumeParseConfig:create')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsresumeparseconfig:", time = 60, count = 30)
     @PostMapping
     public AjaxResult create(@RequestBody PortalResumeParseConfig config) {
         if (config.getConfigType() == null || config.getConfigType().isBlank()) {
@@ -102,6 +104,8 @@ public class CmsResumeParseConfigController extends BaseController {
 
     @Operation(summary = "修改解析配置")
     @PreAuthorize("@ss.hasPermi('cms:interview:resumeParseConfig:update')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsresumeparseconfig:", time = 60, count = 30)
     @PutMapping
     public AjaxResult update(@RequestBody PortalResumeParseConfig config) {
         if (config.getId() == null) {
@@ -117,6 +121,8 @@ public class CmsResumeParseConfigController extends BaseController {
 
     @Operation(summary = "删除解析配置")
     @PreAuthorize("@ss.hasPermi('cms:interview:resumeParseConfig:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsresumeparseconfig:", time = 60, count = 30)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         return toAjax(resumeParseConfigService.removeById(id));

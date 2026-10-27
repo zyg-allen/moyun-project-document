@@ -124,6 +124,8 @@ public class GenController extends BaseController {
     @Operation(summary = "导入表结构", description = "从数据库导入表结构到代码生成器")
     @PreAuthorize("@ss.hasPermi('tool:gen:import')")
     @Log(title = "代码生成", businessType = BusinessType.IMPORT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "gen:", time = 60, count = 120)
     @PostMapping("/importTable")
     public AjaxResult importTableSave(@Parameter(description = "表名称，多个用逗号分隔") String tables) {
         String[] tableNames = Convert.toStrArray(tables);
@@ -139,6 +141,8 @@ public class GenController extends BaseController {
     @Operation(summary = "创建表结构", description = "通过SQL语句创建数据库表并导入到代码生成器")
     @PreAuthorize("@ss.hasRole('admin')")
     @Log(title = "创建表", businessType = BusinessType.OTHER)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "gen:", time = 60, count = 120)
     @PostMapping("/createTable")
     public AjaxResult createTableSave(@Parameter(description = "SQL建表语句") String sql) {
         if (sql == null || sql.trim().isEmpty()) {
@@ -182,6 +186,8 @@ public class GenController extends BaseController {
     @Operation(summary = "修改代码生成配置", description = "修改并保存代码生成业务配置")
     @PreAuthorize("@ss.hasPermi('tool:gen:edit')")
     @Log(title = "代码生成", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "gen:", time = 60, count = 120)
     @PutMapping
     public AjaxResult editSave(@Validated @RequestBody GenTable genTable) {
         genTableService.validateEdit(genTable);
@@ -195,6 +201,8 @@ public class GenController extends BaseController {
     @Operation(summary = "删除代码生成", description = "删除代码生成配置")
     @PreAuthorize("@ss.hasPermi('tool:gen:remove')")
     @Log(title = "代码生成", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "gen:", time = 60, count = 120)
     @DeleteMapping("/{tableIds}")
     public AjaxResult remove(@Parameter(description = "表ID数组") @PathVariable Long[] tableIds) {
         genTableService.deleteGenTableByIds(tableIds);

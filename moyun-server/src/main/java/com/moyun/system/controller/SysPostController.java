@@ -47,6 +47,8 @@ public class SysPostController extends BaseController {
     @Operation(summary = "导出岗位", description = "导出岗位信息到Excel文件")
     @Log(title = "岗位管理", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('system:post:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syspost:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, SysPost post) {
         List<SysPost> list = postService.selectPostList(post);
@@ -70,6 +72,8 @@ public class SysPostController extends BaseController {
     @Operation(summary = "新增岗位", description = "创建新岗位")
     @PreAuthorize("@ss.hasPermi('system:post:add')")
     @Log(title = "岗位管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syspost:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysPost post) {
         if (!postService.checkPostNameUnique(post)) {
@@ -87,6 +91,8 @@ public class SysPostController extends BaseController {
     @Operation(summary = "修改岗位", description = "更新岗位信息")
     @PreAuthorize("@ss.hasPermi('system:post:edit')")
     @Log(title = "岗位管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syspost:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysPost post) {
         if (!postService.checkPostNameUnique(post)) {
@@ -104,6 +110,8 @@ public class SysPostController extends BaseController {
     @Operation(summary = "删除岗位", description = "批量删除岗位")
     @PreAuthorize("@ss.hasPermi('system:post:remove')")
     @Log(title = "岗位管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "syspost:", time = 60, count = 120)
     @DeleteMapping("/{postIds}")
     public AjaxResult remove(@Parameter(description = "岗位ID数组") @PathVariable Long[] postIds) {
         return toAjax(postService.deletePostByIds(postIds));

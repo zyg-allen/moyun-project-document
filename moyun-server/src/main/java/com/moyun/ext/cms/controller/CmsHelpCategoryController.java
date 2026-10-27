@@ -54,6 +54,8 @@ public class CmsHelpCategoryController extends BaseController {
     @Operation(summary = "新增分类", description = "新增帮助分类")
     @PreAuthorize("@ss.hasPermi('cms:help-category:add')")
     @Log(title = "帮助分类", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmshelpcategory:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalHelpCategory category) {
         category.setCreateBy(getUsername());
@@ -63,6 +65,8 @@ public class CmsHelpCategoryController extends BaseController {
     @Operation(summary = "修改分类", description = "修改帮助分类")
     @PreAuthorize("@ss.hasPermi('cms:help-category:edit')")
     @Log(title = "帮助分类", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmshelpcategory:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalHelpCategory category) {
         category.setUpdateBy(getUsername());
@@ -72,6 +76,8 @@ public class CmsHelpCategoryController extends BaseController {
     @Operation(summary = "删除分类", description = "批量删除帮助分类")
     @PreAuthorize("@ss.hasPermi('cms:help-category:remove')")
     @Log(title = "帮助分类", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmshelpcategory:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(cmsHelpCategoryService.deleteHelpCategoryByIds(ids));

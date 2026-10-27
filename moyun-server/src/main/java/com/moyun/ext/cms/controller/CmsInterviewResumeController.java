@@ -68,6 +68,8 @@ public class CmsInterviewResumeController extends BaseController {
     @Operation(summary = "新增简历模板", description = "创建新简历模板")
     @PreAuthorize("@ss.hasPermi('cms:interview:resume:add')")
     @Log(title = "简历模板", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewresume:", time = 60, count = 30)
     @PostMapping("/resume")
     public AjaxResult addResume(@Validated @RequestBody PortalInterviewResumeTemplate template) {
         return toAjax(portalInterviewService.insertResumeTemplate(template));
@@ -76,6 +78,8 @@ public class CmsInterviewResumeController extends BaseController {
     @Operation(summary = "修改简历模板", description = "更新简历模板信息")
     @PreAuthorize("@ss.hasPermi('cms:interview:resume:edit')")
     @Log(title = "简历模板", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewresume:", time = 60, count = 30)
     @PutMapping("/resume")
     public AjaxResult editResume(@Validated @RequestBody PortalInterviewResumeTemplate template) {
         return toAjax(portalInterviewService.updateResumeTemplate(template));
@@ -84,6 +88,8 @@ public class CmsInterviewResumeController extends BaseController {
     @Operation(summary = "删除简历模板", description = "删除简历模板")
     @PreAuthorize("@ss.hasPermi('cms:interview:resume:remove')")
     @Log(title = "简历模板", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewresume:", time = 60, count = 30)
     @DeleteMapping("/resume/{ids}")
     public AjaxResult removeResume(@Parameter(description = "模板ID数组") @PathVariable Long[] ids) {
         int result = portalInterviewService.deleteResumeTemplateByIds(ids);

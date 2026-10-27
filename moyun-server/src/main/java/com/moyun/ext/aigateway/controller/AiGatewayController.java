@@ -49,6 +49,8 @@ public class AiGatewayController {
      * 统一AI执行入口（同步）
      */
     @Operation(summary = "统一AI执行（同步）", description = "所有AI场景统一入口，按scene路由到对应Handler")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aigateway:", time = 60, count = 30)
     @PostMapping(value = "/execute", produces = MediaType.APPLICATION_JSON_VALUE)
     public AiExecuteResponse<?> execute(@RequestBody @Valid AiExecuteRequest request) {
         injectContext(request);
@@ -63,6 +65,8 @@ public class AiGatewayController {
      * 统一AI执行入口（流式 SSE）
      */
     @Operation(summary = "统一AI执行（流式SSE）", description = "事件流：chunk(增量文本) / done(完成) / error(错误)")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aigateway:", time = 60, count = 30)
     @PostMapping(value = "/execute/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter executeStream(@RequestBody @Valid AiExecuteRequest request) {
         injectContext(request);
@@ -113,6 +117,8 @@ public class AiGatewayController {
      * 刷新场景注册中心（Handler重注册+配置重加载）
      */
     @Operation(summary = "刷新场景注册中心", description = "ai_scene_config 配置变更后调用，无需重启服务")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aigateway:", time = 60, count = 30)
     @PostMapping("/refresh")
     public AjaxResult refresh() {
         registry.refresh();

@@ -84,6 +84,8 @@ public class CacheController {
     }
 
     @PreAuthorize("@ss.hasPermi('monitor:cache:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cache:", time = 60, count = 120)
     @DeleteMapping("/clearCacheName/{cacheName}")
     public AjaxResult clearCacheName(@PathVariable String cacheName) {
         Collection<String> cacheKeys = redisTemplate.keys(cacheName + "*");
@@ -92,6 +94,8 @@ public class CacheController {
     }
 
     @PreAuthorize("@ss.hasPermi('monitor:cache:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cache:", time = 60, count = 120)
     @DeleteMapping("/clearCacheKey/{cacheKey}")
     public AjaxResult clearCacheKey(@PathVariable String cacheKey) {
         redisTemplate.delete(cacheKey);
@@ -99,6 +103,8 @@ public class CacheController {
     }
 
     @PreAuthorize("@ss.hasPermi('monitor:cache:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cache:", time = 60, count = 120)
     @DeleteMapping("/clearCacheAll")
     public AjaxResult clearCacheAll() {
         Collection<String> cacheKeys = redisTemplate.keys("*");

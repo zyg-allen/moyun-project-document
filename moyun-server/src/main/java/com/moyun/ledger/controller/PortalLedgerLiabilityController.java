@@ -40,6 +40,8 @@ public class PortalLedgerLiabilityController {
     }
 
     /** 新增负债账户（initialBalance 初始欠款以 borrow 流水留痕） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerliability:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -91,6 +93,8 @@ public class PortalLedgerLiabilityController {
      * {@code updateById} 的"null 则跳过"语义会让清空**静默失效**（用户保存后旧值又回来）。
      * 这里显式映射白名单字段，并把 {@code body.keySet()} 透传给 service。</p>
      */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerliability:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -121,6 +125,8 @@ public class PortalLedgerLiabilityController {
     }
 
     /** 删除负债账户（status=0 停用归档，流水永久保留） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerliability:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

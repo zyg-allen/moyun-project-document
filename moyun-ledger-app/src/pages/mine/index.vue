@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page" :style="themeVars">
     <!-- ==================== 头部：用户卡 ==================== -->
     <view class="user-card">
@@ -205,7 +205,7 @@ export default {
       // 1) 后台配置了路由：优先按 route 跳转（tabBar 页必须 switchTab）
       if (m.route) {
         if (TAB_PAGES.has(m.route)) {
-          uni.switchTab({ url: m.route });
+          uni.switchTab({ url: m.route, fail: () => this.toastUnavailable(m) });
           return;
         }
         uni.navigateTo({
@@ -230,7 +230,7 @@ export default {
         feedback: '/pages/mine/feedback/index'
       };
       const url = routes[m.key];
-      if (url) { uni.navigateTo({ url }); return; }
+      if (url) { uni.navigateTo({ url, fail: () => this.toastUnavailable(m) }); return; }
       // 3) 链接型入口：引导使用门户平台；URL 由后台功能配置下发
       if (m.key === 'portal' && m.link) {
         // #ifdef H5

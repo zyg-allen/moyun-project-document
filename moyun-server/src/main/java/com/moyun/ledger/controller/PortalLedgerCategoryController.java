@@ -38,6 +38,8 @@ public class PortalLedgerCategoryController {
     }
 
     /** 新增自定义分类 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgercategory:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody LedgerCategory category) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -45,6 +47,8 @@ public class PortalLedgerCategoryController {
     }
 
     /** 修改自定义分类（系统预设不可改） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgercategory:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody LedgerCategory category) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -54,6 +58,8 @@ public class PortalLedgerCategoryController {
     }
 
     /** 停用自定义分类（系统预设不可删） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgercategory:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

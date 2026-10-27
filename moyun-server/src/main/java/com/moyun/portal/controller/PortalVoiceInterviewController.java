@@ -66,6 +66,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 用完返回 402 引导开通）
      */
     @Operation(summary = "开始语音面试", description = "创建会话并生成 agent 开场白首问（会员不限次，免费额度用完引导开通）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/start")
     @RateLimiter(key = "voice:start", time = 3600, count = 20)
     public AjaxResult start(@Valid @RequestBody VoiceStartConfig config) {
@@ -81,6 +82,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * <p>事件流：delta（面试官话术增量）→ end（roundDone/nextQaId/nextQuestion/finished）
      */
     @Operation(summary = "提交答案", description = "SSE 流式返回面试官话术（delta 打字机 + end 轮次推进）；skip=true 跳过本题")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping(value = "/{id:[0-9]+}/answer", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimiter(key = "voice:answer", time = 3600, count = 60)
     public SseEmitter answer(@PathVariable("id") Long id, @RequestBody AnswerRequest body) {
@@ -112,6 +114,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 3. 请求思考提示（V3：面试官 agent 基于滑窗上下文生成一句引导）
      */
     @Operation(summary = "请求提示", description = "面试官 agent 生成一句思考提示（不泄露答案），hint 使用次数+1")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/{id:[0-9]+}/hint")
     @RateLimiter(key = "voice:hint", time = 3600, count = 30)
     public AjaxResult hint(@PathVariable("id") Long id, @RequestBody HintRequest body) {
@@ -131,6 +134,8 @@ public class PortalVoiceInterviewController extends BaseController {
      * 前端轮询 5.1 分析状态接口，analysisStatus=2 后拉取完整报告。
      */
     @Operation(summary = "结束面试", description = "收口会话并触发异步批量分析；轮询 analysis 接口获取进度")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalvoiceinterview:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/finish")
     public AjaxResult finish(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -160,6 +165,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 前端轮询 5.1 分析状态接口，analysisStatus=2 后拉取完整报告。
      */
     @Operation(summary = "重新生成报告", description = "已结束面试重跑逐题分析+整场 LLM 复盘；轮询 analysis 接口获取进度")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/{id:[0-9]+}/regenerate-report")
     @RateLimiter(key = "voice:regenerate", time = 3600, count = 10)
     public AjaxResult regenerateReport(@PathVariable("id") Long id) {
@@ -181,6 +187,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 并发由服务端分布式锁兜底（双击双花）。</p>
      */
     @Operation(summary = "生成发展方向分析", description = "懒生成：已生成且未满 7 天返回缓存；refresh=true 强制重算")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/{id:[0-9]+}/insight")
     @RateLimiter(key = "voice:insight", time = 3600, count = 20)
     public AjaxResult industryInsight(@PathVariable("id") Long id,
@@ -197,6 +204,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 5.5 生成报告分享令牌
      */
     @Operation(summary = "生成报告分享令牌", description = "仅本人已结束的面试可分享；有效期 1-30 天，默认 7 天")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/{id:[0-9]+}/share")
     @RateLimiter(key = "voice:share", time = 3600, count = 20)
     public AjaxResult share(@PathVariable("id") Long id,
@@ -284,6 +292,8 @@ public class PortalVoiceInterviewController extends BaseController {
      * <p>通过 qaId 回查 questionId，调用 IWrongQuestionService.recordWrongQuestion（幂等）
      */
     @Operation(summary = "薄弱题加入错题本", description = "通过语音面试问答ID关联题目加入错题本（幂等）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalvoiceinterview:", time = 60, count = 30)
     @PostMapping("/qa/{qaId}/toWrongBook")
     public AjaxResult toWrongBook(@PathVariable("qaId") Long qaId) {
         Long userId = currentUserId();
@@ -305,6 +315,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 录音上传，服务端调用 DashScope 转写返回文本。
      */
     @Operation(summary = "语音转文字", description = "上传录音（WAV），DashScope ASR 转写为文本")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/asr")
     @RateLimiter(key = "voice:asr", time = 3600, count = 200)
     public AjaxResult asr(@RequestParam("audio") MultipartFile audio) {

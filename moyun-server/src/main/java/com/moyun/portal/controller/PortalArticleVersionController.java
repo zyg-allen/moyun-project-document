@@ -75,6 +75,8 @@ public class PortalArticleVersionController extends BaseController {
     }
 
     @Operation(summary = "回滚版本", description = "将文章内容覆盖回指定版本，并生成回滚后的新版本快照")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticleversion:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/rollback/{versionId}")
     public AjaxResult rollback(@PathVariable("id") Long id,
                                @PathVariable("versionId") Long versionId) {

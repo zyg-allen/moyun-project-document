@@ -55,6 +55,8 @@ public class TokenUsageController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tokenusage:", time = 60, count = 120)
     @PostMapping("/flush")
     @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:edit')")
     public AjaxResult manualFlush() {
@@ -70,6 +72,8 @@ public class TokenUsageController {
         }
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "tokenusage:", time = 60, count = 120)
     @PostMapping("/clear-price-cache")
     @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:edit')")
     public AjaxResult clearPriceCache() {

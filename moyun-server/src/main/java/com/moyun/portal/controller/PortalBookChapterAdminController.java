@@ -57,6 +57,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "新增章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:add')")
     @Log(title = "读书空间-章节", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody PortalBookChapter chapter) {
         int result = chapterService.insertChapter(chapter);
@@ -66,6 +68,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "修改章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:edit')")
     @Log(title = "读书空间-章节", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @PutMapping
     public AjaxResult update(@RequestBody PortalBookChapter chapter) {
         int result = chapterService.updateChapter(chapter);
@@ -75,6 +79,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "删除章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:remove')")
     @Log(title = "读书空间-章节", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable Long id) {
         int result = chapterService.deleteChapterById(id);
@@ -84,6 +90,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "批量删除章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:remove')")
     @Log(title = "读书空间-章节", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @DeleteMapping("/ids/{ids}")
     public AjaxResult deleteBatch(@PathVariable Long[] ids) {
         int result = chapterService.deleteChapterByIds(ids);
@@ -93,6 +101,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "发布章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:publish')")
     @Log(title = "读书空间-章节", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/publish")
     public AjaxResult publish(@PathVariable Long id) {
         int result = chapterService.publishChapter(id);
@@ -102,6 +112,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "撤回发布")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:publish')")
     @Log(title = "读书空间-章节", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/unpublish")
     public AjaxResult unpublish(@PathVariable Long id) {
         int result = chapterService.unpublishChapter(id);
@@ -111,6 +123,8 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "批量导入章节（确认入库）")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:add')")
     @Log(title = "读书空间-章节", businessType = BusinessType.IMPORT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @PostMapping("/batch-import")
     public AjaxResult batchImport(@RequestBody ChapterImportDTO dto) {
         if (dto.getBookId() == null) {
@@ -128,6 +142,8 @@ public class PortalBookChapterAdminController extends BaseController {
 
     @Operation(summary = "重新统计书籍字数与章节数（数据修复）")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:edit')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookchapteradmin:", time = 60, count = 120)
     @PostMapping("/recount/{bookId}")
     public AjaxResult recount(@PathVariable Long bookId) {
         chapterService.recountBookStats(bookId);

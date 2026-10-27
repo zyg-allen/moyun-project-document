@@ -66,6 +66,8 @@ public class PortalAiTaskController extends BaseController {
             description = "taskType 取值：resume_parse（bizRef: resumeId/fileUrl/fileName）、job_match（bizRef: resumeId/jobTargetId）、"
                     + "ai_draft（bizRef: resumeId/jobTargetId 可空）、deep_optimize（bizRef: resumeId/jobTargetId）。"
                     + "立即返回 taskId，前端通过 GET /portal/ai/task/{id} 轮询任务状态。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalaitask:", time = 60, count = 30)
     @PostMapping("/submit")
     public AjaxResult submit(@RequestBody Map<String, Object> params) {
         Long userId = currentUserId();

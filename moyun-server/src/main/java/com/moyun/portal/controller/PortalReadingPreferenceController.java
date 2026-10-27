@@ -41,6 +41,8 @@ public class PortalReadingPreferenceController extends BaseController {
     }
 
     @Operation(summary = "保存（upsert）阅读偏好")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreadingpreference:", time = 60, count = 120)
     @PutMapping
     public AjaxResult savePreference(@RequestBody PortalReadingPreference preference) {
         Long userId = PortalSecurityUtils.getUserId();

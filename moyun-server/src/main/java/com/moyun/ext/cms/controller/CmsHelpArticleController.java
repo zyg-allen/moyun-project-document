@@ -47,6 +47,8 @@ public class CmsHelpArticleController extends BaseController {
     @Operation(summary = "新增文章", description = "新增帮助文章")
     @PreAuthorize("@ss.hasPermi('cms:help-article:add')")
     @Log(title = "帮助文章", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmshelparticle:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalHelpArticle article) {
         article.setCreateBy(getUsername());
@@ -56,6 +58,8 @@ public class CmsHelpArticleController extends BaseController {
     @Operation(summary = "修改文章", description = "修改帮助文章")
     @PreAuthorize("@ss.hasPermi('cms:help-article:edit')")
     @Log(title = "帮助文章", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmshelparticle:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalHelpArticle article) {
         article.setUpdateBy(getUsername());
@@ -65,6 +69,8 @@ public class CmsHelpArticleController extends BaseController {
     @Operation(summary = "删除文章", description = "批量删除帮助文章")
     @PreAuthorize("@ss.hasPermi('cms:help-article:remove')")
     @Log(title = "帮助文章", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmshelparticle:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(cmsHelpArticleService.deleteHelpArticleByIds(ids));

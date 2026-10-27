@@ -36,6 +36,8 @@ public class PortalFileController extends BaseController {
 
     @Operation(summary = "上传文件", description = "门户用户上传文件")
     @Log(title = "门户文件管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalfile:", time = 60, count = 120)
     @PostMapping("/upload")
     public AjaxResult upload(@RequestParam("file") MultipartFile file,
                              @RequestParam(value = "businessType", required = false) String businessType,
@@ -52,6 +54,8 @@ public class PortalFileController extends BaseController {
      */
     @Operation(summary = "删除文件", description = "按文件URL删除文件（存储+记录），仅允许删除本人上传的文件")
     @Log(title = "门户文件管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalfile:", time = 60, count = 120)
     @DeleteMapping
     public AjaxResult remove(@Parameter(description = "文件访问URL") @RequestParam("fileUrl") String fileUrl) {
         Long userId = PortalSecurityUtils.getUserId();

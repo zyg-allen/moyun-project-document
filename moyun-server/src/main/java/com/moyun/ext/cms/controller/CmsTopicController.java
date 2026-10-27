@@ -72,6 +72,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "更新话题状态", description = "active/archived/deleted 状态流转")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
     @Log(title = "话题管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @PutMapping("/{id}/status")
     public AjaxResult changeStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
@@ -86,6 +88,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "置顶/取消置顶", description = "更新话题 pinned 字段：0 否/1 是")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
     @Log(title = "话题管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @PutMapping("/{id}/pinned")
     public AjaxResult changePinned(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Object pinnedObj = body.get("pinned");
@@ -107,6 +111,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "加精话题", description = "将话题设为精选（触发 topic_featured 成长事件）")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
     @Log(title = "话题管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @PutMapping("/{id}/featured")
     public AjaxResult feature(@PathVariable Long id) {
         try {
@@ -120,6 +126,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "删除话题", description = "CMS 后台软删话题（status=deleted）")
     @PreAuthorize("@ss.hasPermi('cms:topic:remove')")
     @Log(title = "话题管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@Parameter(description = "话题ID") @PathVariable Long id) {
         try {
@@ -135,6 +143,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "AI 生成今日话题草稿", description = "经统一网关（daily_topic 场景）生成话题标题/描述/分类，不落库；最近 30 条标题自动作为去重上下文")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
     @Log(title = "话题管理", businessType = BusinessType.OTHER)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @PostMapping("/ai-generate")
     public AjaxResult aiGenerate(@RequestBody Map<String, Object> body) {
         String domain = body.get("domain") == null ? null : String.valueOf(body.get("domain"));
@@ -148,6 +158,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "发布官方话题", description = "管理员确认 AI 生成草稿（或手动录入）后以官方账号发布，status=active 直接生效")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
     @Log(title = "话题管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @PostMapping("/create-official")
     public AjaxResult createOfficial(@RequestBody Map<String, Object> body) {
         com.moyun.portal.domain.entity.PortalTopic topic = new com.moyun.portal.domain.entity.PortalTopic();
@@ -179,6 +191,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "删除观点", description = "CMS 后台软删观点")
     @PreAuthorize("@ss.hasPermi('cms:topic:post:remove')")
     @Log(title = "话题观点管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @DeleteMapping("/post/{postId}")
     public AjaxResult removePost(@Parameter(description = "观点ID") @PathVariable Long postId) {
         try {
@@ -205,6 +219,8 @@ public class CmsTopicController extends BaseController {
     @Operation(summary = "删除评论", description = "CMS 后台软删评论（级联软删回复）")
     @PreAuthorize("@ss.hasPermi('cms:topic:comment:remove')")
     @Log(title = "话题评论管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstopic:", time = 60, count = 120)
     @DeleteMapping("/comment/{commentId}")
     public AjaxResult removeComment(@Parameter(description = "评论ID") @PathVariable Long commentId) {
         try {

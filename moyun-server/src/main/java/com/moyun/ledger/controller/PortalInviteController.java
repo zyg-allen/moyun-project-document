@@ -55,6 +55,8 @@ public class PortalInviteController {
     private PortalUserMapper portalUserMapper;
 
     @Operation(summary = "生成邀请码（仅仓库 owner）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinvite:", time = 60, count = 120)
     @PostMapping("/portal/ledger/invites")
     public AjaxResult create(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -111,6 +113,8 @@ public class PortalInviteController {
     }
 
     @Operation(summary = "接受邀请（需登录）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinvite:", time = 60, count = 120)
     @PostMapping("/portal/invite/{code}/accept")
     public AjaxResult accept(@PathVariable("code") String code) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -152,6 +156,8 @@ public class PortalInviteController {
     }
 
     @Operation(summary = "撤销邀请码")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinvite:", time = 60, count = 120)
     @DeleteMapping("/portal/ledger/invites/{id}")
     public AjaxResult revoke(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

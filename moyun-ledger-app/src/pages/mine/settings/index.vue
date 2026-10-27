@@ -120,6 +120,31 @@
       </view>
     </view>
 
+    <!-- 数据与账号（合规） -->
+    <view class="card">
+      <view class="setting-row" @tap="exportAll">
+        <view class="flex-1">
+          <view class="setting-name">导出全部数据</view>
+          <view class="setting-sub">导出流水为 CSV，可用于备份或迁移</view>
+        </view>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="setting-row" @tap="goPermissions">
+        <view class="flex-1">
+          <view class="setting-name">权限管理</view>
+          <view class="setting-sub">通知 / 麦克风 / 相册 / 定位</view>
+        </view>
+        <text class="row-arrow">›</text>
+      </view>
+      <view class="setting-row" @tap="closeAccount">
+        <view class="flex-1">
+          <view class="setting-name danger">注销账号</view>
+          <view class="setting-sub">注销后手机号 / 邮箱 / 微信解绑并匿名化</view>
+        </view>
+        <text class="row-arrow">›</text>
+      </view>
+    </view>
+
   </view>
 </template>
 
@@ -127,7 +152,7 @@
 import { useThemeStore } from '@/stores/theme';
 import { useUserStore } from '@/stores/user';
 import { APP_VERSION_TEXT, MAIL_HELP_URL } from '@/utils/appInfo';
-import { getUserInfo, updateProfile } from '@/api/ledger';
+import { getUserInfo, updateProfile, deactivateAccount, exportTransactionsCsv } from '@/api/ledger';
 import { isWarehouseEnabled, setWarehouseEnabled } from '@/utils/warehouseSwitch';
 
 export default {
@@ -261,7 +286,39 @@ export default {
       this.privacy = e.detail.value;
       uni.setStorageSync('ledger_privacy', e.detail.value ? '1' : '0');
       uni.showToast({ title: e.detail.value ? '已开启' : '已关闭', icon: 'none' });
-    }
+    },
+    async exportAll() {
+      try {
+        await exportTransactionsCsv(null, null);
+        uni.showToast({ title: '已开始导出', icon: 'none' });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    goPermissions() {
+      uni.navigateTo({ url: '/pages/mine/permissions/index' });
+    },
+    closeAccount() {
+      uni.showModal({
+        title: '注销账号',
+        content: '注销后不可恢复，手机号/邮箱/微信将解绑并匿名化。',
+        editable: true,
+        placeholderText: '请输入“注销账号”确认',
+        success: async (r) => {
+          if (!r.confirm) return;
+          if ((r.content || '').trim() !== '注销账号') {
+            uni.showToast({ title: '请输入“注销账号”确认', icon: 'none' });
+            return;
+          }
+          try {
+            await deactivateAccount('注销账号');
+            uni.showToast({ title: '账号已注销', icon: 'success' });
+            setTimeout(() => {
+              useUserStore().logout();
+              uni.reLaunch({ url: '/pages/mine/login/index' });
+            }, 800);
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
   }
 };
 </script>
@@ -322,6 +379,7 @@ export default {
   font-size: 24rpx; color: var(--primary-text);
 }
 .mail-help-arrow { color: var(--text-muted); font-size: 28rpx; }
+.setting-name.danger { color: var(--expense); }
 .row-arrow { color: var(--text-muted); font-size: 32rpx; margin-left: 12rpx; }
 
 /* ---------- 外观模式选择（日间/暗色/护眼） ---------- */

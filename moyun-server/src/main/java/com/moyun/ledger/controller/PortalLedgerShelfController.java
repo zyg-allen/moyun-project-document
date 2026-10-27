@@ -73,12 +73,16 @@ public class PortalLedgerShelfController {
     }
 
     @Operation(summary = "新增货架")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgershelf:", time = 60, count = 120)
     @PostMapping("/shelves")
     public AjaxResult create(@RequestBody LedgerShelf bo) {
         return AjaxResult.success(shelfService.createShelf(PortalSecurityUtils.getUserId(), bo));
     }
 
     @Operation(summary = "修改货架")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgershelf:", time = 60, count = 120)
     @PutMapping("/shelves/{id}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody LedgerShelf bo) {
         shelfService.updateShelf(PortalSecurityUtils.getUserId(), id, bo);
@@ -86,6 +90,8 @@ public class PortalLedgerShelfController {
     }
 
     @Operation(summary = "删除货架（仍有库存时拒绝）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgershelf:", time = 60, count = 120)
     @DeleteMapping("/shelves/{id}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         shelfService.deleteShelf(PortalSecurityUtils.getUserId(), id);
@@ -128,6 +134,8 @@ public class PortalLedgerShelfController {
     }
 
     @Operation(summary = "给货架挂一张已上传的图片")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgershelf:", time = 60, count = 120)
     @PostMapping("/shelves/{id}/images")
     public AjaxResult attachShelfImage(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -136,6 +144,8 @@ public class PortalLedgerShelfController {
     }
 
     @Operation(summary = "给商品挂一张已上传的图片")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgershelf:", time = 60, count = 120)
     @PostMapping("/products/{id}/images")
     public AjaxResult attachProductImage(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -144,6 +154,8 @@ public class PortalLedgerShelfController {
     }
 
     @Operation(summary = "删除图片（同时删存储与记录）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgershelf:", time = 60, count = 120)
     @DeleteMapping("/images/{fileId}")
     public AjaxResult removeImage(@PathVariable("fileId") Long fileId) {
         Long userId = PortalSecurityUtils.getUserId();

@@ -115,6 +115,8 @@ public class AuditTaskController extends BaseController {
     @Operation(summary = "处理审核任务", description = "同意/驳回审核任务，驳回时审核意见原因必填")
     @PreAuthorize("@ss.hasPermi('system:auditTask:handle')")
     @Log(title = "统一审核任务", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "audittask:", time = 60, count = 120)
     @PostMapping("/handle")
     public AjaxResult handle(@RequestBody AuditTaskHandleDTO dto) {
         AuditTaskVO vo = auditTaskService.handle(dto);

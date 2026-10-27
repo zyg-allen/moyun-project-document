@@ -34,6 +34,8 @@ public class PortalCodeRunController extends BaseController {
     }
 
     @Operation(summary = "执行代码", description = "沙箱执行 java/python/javascript 代码，超时 5s，输出截断 1MB，同步返回结果")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcoderun:", time = 60, count = 120)
     @PostMapping("/run")
     public AjaxResult run(@RequestBody CodeRunRequest body) {
         // 安全风险：当前 CodeExecutorService 基于 ProcessBuilder 直接执行用户代码，

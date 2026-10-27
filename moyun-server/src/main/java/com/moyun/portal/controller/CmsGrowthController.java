@@ -72,6 +72,8 @@ public class CmsGrowthController extends BaseController {
     @Operation(summary = "新增成长规则", description = "创建新的成长规则")
     @PreAuthorize("@ss.hasPermi('cms:growth:add')")
     @Log(title = "成长规则", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowth:", time = 60, count = 120)
     @PostMapping("/rule")
     public AjaxResult addRule(@RequestBody PortalGrowthRule rule) {
         return toAjax(portalGrowthRuleMapper.insert(rule));
@@ -80,6 +82,8 @@ public class CmsGrowthController extends BaseController {
     @Operation(summary = "修改成长规则", description = "更新成长规则信息")
     @PreAuthorize("@ss.hasPermi('cms:growth:edit')")
     @Log(title = "成长规则", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowth:", time = 60, count = 120)
     @PutMapping("/rule")
     public AjaxResult editRule(@RequestBody PortalGrowthRule rule) {
         return toAjax(portalGrowthRuleMapper.updateById(rule));
@@ -88,6 +92,8 @@ public class CmsGrowthController extends BaseController {
     @Operation(summary = "删除成长规则", description = "批量删除成长规则")
     @PreAuthorize("@ss.hasPermi('cms:growth:remove')")
     @Log(title = "成长规则", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowth:", time = 60, count = 120)
     @DeleteMapping("/rule/{ids}")
     public AjaxResult removeRule(@Parameter(description = "规则ID数组") @PathVariable Long[] ids) {
         return toAjax(portalGrowthRuleMapper.deleteBatchIds(Arrays.asList(ids)));
@@ -126,6 +132,8 @@ public class CmsGrowthController extends BaseController {
     @Operation(summary = "新增成就", description = "创建新的成就定义")
     @PreAuthorize("@ss.hasPermi('cms:growth:add')")
     @Log(title = "成就定义", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowth:", time = 60, count = 120)
     @PostMapping("/achievement")
     public AjaxResult addAchievement(@RequestBody PortalAchievement achievement) {
         return toAjax(portalAchievementMapper.insert(achievement));
@@ -134,6 +142,8 @@ public class CmsGrowthController extends BaseController {
     @Operation(summary = "修改成就", description = "更新成就定义信息")
     @PreAuthorize("@ss.hasPermi('cms:growth:edit')")
     @Log(title = "成就定义", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowth:", time = 60, count = 120)
     @PutMapping("/achievement")
     public AjaxResult editAchievement(@RequestBody PortalAchievement achievement) {
         return toAjax(portalAchievementMapper.updateById(achievement));
@@ -142,6 +152,8 @@ public class CmsGrowthController extends BaseController {
     @Operation(summary = "删除成就", description = "批量删除成就定义")
     @PreAuthorize("@ss.hasPermi('cms:growth:remove')")
     @Log(title = "成就定义", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowth:", time = 60, count = 120)
     @DeleteMapping("/achievement/{ids}")
     public AjaxResult removeAchievement(@Parameter(description = "成就ID数组") @PathVariable Long[] ids) {
         return toAjax(portalAchievementMapper.deleteBatchIds(Arrays.asList(ids)));

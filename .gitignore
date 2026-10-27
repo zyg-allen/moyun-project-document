@@ -64,3 +64,6 @@ pnpm-lock.yaml
 
 # Vite 构建期临时配置产物（含时间戳，不应入库）
 vite.config.js.timestamp-*.mjs
+*.log
+_recovered_*/
+tmp_*.vue

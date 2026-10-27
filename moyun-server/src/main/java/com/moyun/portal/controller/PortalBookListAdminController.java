@@ -56,6 +56,8 @@ public class PortalBookListAdminController extends BaseController {
     @Operation(summary = "新增书单")
     @PreAuthorize("@ss.hasPermi('portal:bookList:add')")
     @Log(title = "读书空间-书单", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistadmin:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody PortalBookList bookList) {
         int result = portalBookListService.insertPortalBookList(bookList);
@@ -65,6 +67,8 @@ public class PortalBookListAdminController extends BaseController {
     @Operation(summary = "修改书单")
     @PreAuthorize("@ss.hasPermi('portal:bookList:edit')")
     @Log(title = "读书空间-书单", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistadmin:", time = 60, count = 120)
     @PutMapping
     public AjaxResult update(@RequestBody PortalBookList bookList) {
         int result = portalBookListService.updatePortalBookList(bookList);
@@ -74,6 +78,8 @@ public class PortalBookListAdminController extends BaseController {
     @Operation(summary = "删除书单")
     @PreAuthorize("@ss.hasPermi('portal:bookList:remove')")
     @Log(title = "读书空间-书单", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistadmin:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable Long id) {
         int result = portalBookListService.deletePortalBookListById(id);
@@ -83,6 +89,8 @@ public class PortalBookListAdminController extends BaseController {
     @Operation(summary = "批量删除书单")
     @PreAuthorize("@ss.hasPermi('portal:bookList:remove')")
     @Log(title = "读书空间-书单", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbooklistadmin:", time = 60, count = 120)
     @DeleteMapping("/ids/{ids}")
     public AjaxResult deleteBatch(@PathVariable Long[] ids) {
         int result = portalBookListService.deletePortalBookListByIds(ids);

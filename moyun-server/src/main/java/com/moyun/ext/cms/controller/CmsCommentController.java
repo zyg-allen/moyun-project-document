@@ -60,6 +60,8 @@ public class CmsCommentController extends BaseController {
     @Operation(summary = "审核评论", description = "审核评论内容")
     @PreAuthorize("@ss.hasPermi('cms:comment:audit')")
     @Log(title = "评论管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscomment:", time = 60, count = 120)
     @PutMapping("/audit")
     public AjaxResult audit(@RequestBody PortalComment comment) {
         return toAjax(cmsCommentService.auditComment(comment));
@@ -71,6 +73,8 @@ public class CmsCommentController extends BaseController {
     @Operation(summary = "删除评论", description = "批量删除评论")
     @PreAuthorize("@ss.hasPermi('cms:comment:remove')")
     @Log(title = "评论管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscomment:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "评论ID数组") @PathVariable Long[] ids) {
         return toAjax(cmsCommentService.deleteCommentByIds(ids));

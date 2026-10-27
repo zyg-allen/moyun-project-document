@@ -45,6 +45,8 @@ public class PortalLedgerMemoController {
     }
 
     /** 新增待办 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgermemo:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -56,6 +58,8 @@ public class PortalLedgerMemoController {
     }
 
     /** 更新待办（title/content/提醒设置/done 任意，null 跳过） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgermemo:", time = 60, count = 120)
     @PutMapping("/{id}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -71,6 +75,8 @@ public class PortalLedgerMemoController {
     }
 
     /** 切换完成状态 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgermemo:", time = 60, count = 120)
     @PostMapping("/{id}/toggle")
     public AjaxResult toggle(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -79,6 +85,8 @@ public class PortalLedgerMemoController {
     }
 
     /** 删除待办 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgermemo:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult delete(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

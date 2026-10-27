@@ -87,6 +87,8 @@ public class PortalNotificationController extends BaseController {
 
     @Operation(summary = "标记单条通知已读", description = "将指定通知标记为已读（INSERT IGNORE 防重复，幂等操作）")
     @Log(title = "门户通知", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalnotification:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/read")
     public AjaxResult markAsRead(@Parameter(description = "通知ID") @PathVariable("id") Long id) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
@@ -100,6 +102,8 @@ public class PortalNotificationController extends BaseController {
 
     @Operation(summary = "全部通知标记已读", description = "将当前用户所有未读通知（含个人通知+广播）批量标记为已读，避免前端逐条标记遗漏分页数据")
     @Log(title = "门户通知", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalnotification:", time = 60, count = 120)
     @PostMapping("/read-all")
     public AjaxResult markAllAsRead() {
         PortalUser currentUser = PortalSecurityUtils.getUser();

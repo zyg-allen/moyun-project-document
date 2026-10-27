@@ -146,6 +146,8 @@ public class CmsGrowthUserController extends BaseController {
     @Operation(summary = "手动授予徽章", description = "为指定用户手动授予某成就对应的徽章")
     @PreAuthorize("@ss.hasPermi('cms:growth:add')")
     @Log(title = "用户徽章", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowthuser:", time = 60, count = 120)
     @PostMapping("/badge")
     public AjaxResult grantBadge(@RequestBody Map<String, Object> body) {
         Long userId = Long.valueOf(String.valueOf(body.get("userId")));
@@ -156,6 +158,8 @@ public class CmsGrowthUserController extends BaseController {
     @Operation(summary = "撤销徽章", description = "撤销指定用户的某成就徽章")
     @PreAuthorize("@ss.hasPermi('cms:growth:remove')")
     @Log(title = "用户徽章", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsgrowthuser:", time = 60, count = 120)
     @DeleteMapping("/badge")
     public AjaxResult revokeBadge(@RequestBody Map<String, Object> body) {
         Long userId = Long.valueOf(String.valueOf(body.get("userId")));

@@ -73,6 +73,12 @@ public class LedgerSavingPlan {
     /** 开始日期 */
     private LocalDate startDate;
 
+    /** 转出账户 */
+    private Long sourceAccountId;
+
+    /** 存钱账户 */
+    private Long savingsAccountId;
+
     /** 结束日期（可选） */
     private LocalDate endDate;
 

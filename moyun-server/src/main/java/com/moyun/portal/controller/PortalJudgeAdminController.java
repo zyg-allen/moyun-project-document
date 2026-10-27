@@ -53,6 +53,8 @@ public class PortalJudgeAdminController extends BaseController {
 
     @Operation(summary = "CMS-新增测试用例", description = "为题目新增测试用例")
     @PreAuthorize("@ss.hasPermi('cms:interview:add')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaljudgeadmin:", time = 60, count = 30)
     @PostMapping("/cases")
     public AjaxResult createCase(@Valid @RequestBody TestCaseUpsertDTO dto) {
         TestCaseVO vo = portalJudgeService.createTestCase(dto);
@@ -61,6 +63,8 @@ public class PortalJudgeAdminController extends BaseController {
 
     @Operation(summary = "CMS-修改测试用例", description = "修改指定测试用例")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaljudgeadmin:", time = 60, count = 30)
     @PutMapping("/cases/{id}")
     public AjaxResult updateCase(@PathVariable Long id, @Valid @RequestBody TestCaseUpsertDTO dto) {
         TestCaseVO vo = portalJudgeService.updateTestCase(id, dto);
@@ -69,6 +73,8 @@ public class PortalJudgeAdminController extends BaseController {
 
     @Operation(summary = "CMS-删除测试用例", description = "删除指定测试用例")
     @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaljudgeadmin:", time = 60, count = 30)
     @DeleteMapping("/cases/{id}")
     public AjaxResult deleteCase(@PathVariable Long id) {
         portalJudgeService.deleteTestCase(id);

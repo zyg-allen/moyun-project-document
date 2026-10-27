@@ -56,6 +56,7 @@ public class CmsLedgerProductCategoryController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerProductCategory:add')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-商品类目", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerproductcategory:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody LedgerProductCategory body) {
         presetService.createProductCategory(body);
@@ -66,6 +67,7 @@ public class CmsLedgerProductCategoryController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerProductCategory:edit')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-商品类目", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerproductcategory:", time = 60, count = 120)
     @PutMapping("/{id}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody LedgerProductCategory body) {
         presetService.updateProductCategory(id, body);
@@ -75,6 +77,8 @@ public class CmsLedgerProductCategoryController extends BaseController {
     @Operation(summary = "启用/停用系统预设类目")
     @PreAuthorize("@ss.hasPermi('cms:ledgerProductCategory:edit')")
     @Log(title = "记账-商品类目", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerproductcategory:", time = 60, count = 120)
     @PutMapping("/{id}/status/{status}")
     public AjaxResult changeStatus(@PathVariable Long id, @PathVariable Integer status) {
         presetService.changeProductCategoryStatus(id, status);
@@ -84,6 +88,8 @@ public class CmsLedgerProductCategoryController extends BaseController {
     @Operation(summary = "删除系统预设类目（有子类目/被商品引用时拒绝）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerProductCategory:edit')")
     @Log(title = "记账-商品类目", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerproductcategory:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         presetService.deleteProductCategory(id);

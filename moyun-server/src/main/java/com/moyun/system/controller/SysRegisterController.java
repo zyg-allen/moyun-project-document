@@ -28,6 +28,8 @@ public class SysRegisterController extends BaseController {
     private ISysConfigService configService;
 
     @Operation(summary = "用户注册", description = "新用户注册接口")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysregister:", time = 60, count = 120)
     @PostMapping("/register")
     public AjaxResult register(@RequestBody RegisterBody user) {
         if (!("true".equals(configService.selectConfigByKey("sys.account.registerUser")))) {

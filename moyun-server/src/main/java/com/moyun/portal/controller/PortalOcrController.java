@@ -41,6 +41,8 @@ public class PortalOcrController extends BaseController {
      * @param side 识别面：front=人像面 / back=国徽面
      */
     @Operation(summary = "身份证 OCR 识别", description = "上传身份证图片，识别姓名/号码等字段，自动回填到认证表单")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalocr:", time = 60, count = 120)
     @PostMapping("/id-card")
     public AjaxResult recognizeIdCard(
             @Parameter(description = "身份证图片文件") @RequestParam("file") MultipartFile file,

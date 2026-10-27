@@ -133,6 +133,8 @@ public class SysDashboardController extends BaseController {
      */
     @Operation(summary = "刷新首页缓存", description = "手动清空首页所有Redis缓存，下次请求重新加载")
     @PreAuthorize("@ss.hasPermi('system:dashboard:refresh')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdashboard:", time = 60, count = 120)
     @PostMapping("/refresh-cache")
     public AjaxResult refreshCache() {
         dashboardService.refreshCache();

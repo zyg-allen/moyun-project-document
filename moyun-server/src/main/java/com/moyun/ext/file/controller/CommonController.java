@@ -72,6 +72,8 @@ public class CommonController {
      * 返回字段兼容前端 ImageUpload 组件（fileName 存访问 URL，组件内部拼接 baseUrl）。
      */
     @Operation(summary = "单文件上传", description = "上传单个文件")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "common:", time = 60, count = 120)
     @PostMapping("/upload")
     public AjaxResult uploadFile(
             @Parameter(description = "上传的文件") MultipartFile file) {
@@ -96,6 +98,8 @@ public class CommonController {
      * 循环调用 {@link ISysFileService#uploadFile}，兼容 MinIO / 本地存储。
      */
     @Operation(summary = "多文件上传", description = "上传多个文件")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "common:", time = 60, count = 120)
     @PostMapping("/uploads")
     public AjaxResult uploadFiles(
             @Parameter(description = "上传的文件列表") List<MultipartFile> files) {

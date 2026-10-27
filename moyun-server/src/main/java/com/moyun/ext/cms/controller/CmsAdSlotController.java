@@ -47,6 +47,8 @@ public class CmsAdSlotController extends BaseController
     @Operation(summary = "新增广告位", description = "创建新广告位")
     @PreAuthorize("@ss.hasPermi('cms:ad:add')")
     @Log(title = "广告位管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsadslot:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalAdSlot portalAdSlot)
     {
@@ -56,6 +58,8 @@ public class CmsAdSlotController extends BaseController
     @Operation(summary = "修改广告位", description = "更新广告位信息")
     @PreAuthorize("@ss.hasPermi('cms:ad:edit')")
     @Log(title = "广告位管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsadslot:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalAdSlot portalAdSlot)
     {
@@ -65,6 +69,8 @@ public class CmsAdSlotController extends BaseController
     @Operation(summary = "删除广告位", description = "批量删除广告位")
     @PreAuthorize("@ss.hasPermi('cms:ad:remove')")
     @Log(title = "广告位管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsadslot:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "广告位ID数组") @PathVariable Long[] ids)
     {

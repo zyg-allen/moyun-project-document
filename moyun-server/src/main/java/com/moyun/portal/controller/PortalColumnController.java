@@ -61,6 +61,8 @@ public class PortalColumnController extends BaseController {
     // ==================== 专栏管理（需登录） ====================
 
     @Operation(summary = "创建/修改专栏", description = "id 为空时创建（校验专栏数量上限），非空时修改（校验归属）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @PostMapping("/save")
     public AjaxResult save(@RequestBody ColumnVO vo) {
         Long userId = currentUserId();
@@ -73,6 +75,8 @@ public class PortalColumnController extends BaseController {
     @Operation(summary = "提交专栏审核",
             description = "作者主动送审：draft/rejected → pending，并创建统一审核任务；仅作者本人可调用")
     @Log(title = "门户专栏", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/submit")
     public AjaxResult submitForAudit(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -87,6 +91,8 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "完结/恢复连载", description = "切换 is_finished 状态，仅作者本人；返回切换后的专栏详情")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}/finish")
     public AjaxResult toggleFinish(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -99,6 +105,8 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "删除专栏", description = "仅作者本人，级联删除关联与订阅")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -109,6 +117,8 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "切换订阅", description = "订阅/取消订阅（toggle）；返回切换后的专栏详情（含 isSubscribed 与权威 subscribeCount）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/subscribe")
     public AjaxResult toggleSubscribe(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -145,6 +155,8 @@ public class PortalColumnController extends BaseController {
     // ==================== 专栏文章管理（需登录） ====================
 
     @Operation(summary = "加入文章", description = "将文章加入专栏（校验专栏归属、文章归属）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @PostMapping("/{columnId}/article/{articleId}")
     public AjaxResult addArticle(@PathVariable("columnId") Long columnId,
                                  @PathVariable("articleId") Long articleId) {
@@ -156,6 +168,8 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "移出文章", description = "将文章移出专栏（仅作者本人）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @DeleteMapping("/{columnId}/article/{articleId}")
     public AjaxResult removeArticle(@PathVariable("columnId") Long columnId,
                                     @PathVariable("articleId") Long articleId) {
@@ -167,6 +181,8 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "批量排序", description = "批量调整专栏内文章顺序（id=文章ID, sortOrder=新顺序）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcolumn:", time = 60, count = 120)
     @PutMapping("/{columnId}/sort")
     public AjaxResult sortArticles(@PathVariable("columnId") Long columnId,
                                    @RequestBody List<ColumnArticleSortItem> list) {

@@ -81,6 +81,8 @@ public class SysDeptController extends BaseController {
     @Operation(summary = "新增部门", description = "创建新部门")
     @PreAuthorize("@ss.hasPermi('system:dept:add')")
     @Log(title = "部门管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdept:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysDept dept) {
         if (!deptService.checkDeptNameUnique(dept)) {
@@ -96,6 +98,8 @@ public class SysDeptController extends BaseController {
     @Operation(summary = "修改部门", description = "更新部门信息")
     @PreAuthorize("@ss.hasPermi('system:dept:edit')")
     @Log(title = "部门管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdept:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysDept dept) {
         Long deptId = dept.getDeptId();
@@ -117,6 +121,8 @@ public class SysDeptController extends BaseController {
     @Operation(summary = "删除部门", description = "删除指定部门")
     @PreAuthorize("@ss.hasPermi('system:dept:remove')")
     @Log(title = "部门管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdept:", time = 60, count = 120)
     @DeleteMapping("/{deptId}")
     public AjaxResult remove(@Parameter(description = "部门ID") @PathVariable Long deptId) {
         if (deptService.hasChildByDeptId(deptId)) {

@@ -71,6 +71,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "新增面经", description = "CMS 后台直接创建面经（后台发布默认已发布状态）")
     @PreAuthorize("@ss.hasPermi('cms:interview:add')")
     @Log(title = "面试面经", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @PostMapping("/experience")
     public AjaxResult addExperience(@RequestBody PortalInterviewExperience experience) {
         Long userId = SecurityUtils.getUserId();
@@ -80,6 +82,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "修改面经", description = "更新面经内容")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "面试面经", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @PutMapping("/experience")
     public AjaxResult editExperience(@RequestBody PortalInterviewExperience experience) {
         Long userId = SecurityUtils.getUserId();
@@ -89,6 +93,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "审核面经", description = "审核面经内容")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "面试面经", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @PutMapping("/experience/audit")
     public AjaxResult auditExperience(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
@@ -100,6 +106,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "面经置顶", description = "设置面经是否置顶")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "面试面经", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @PutMapping("/experience/top")
     public AjaxResult topExperience(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
@@ -110,6 +118,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "删除面经", description = "删除面经")
     @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
     @Log(title = "面试面经", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @DeleteMapping("/experience/{id}")
     public AjaxResult removeExperience(@Parameter(description = "面经ID") @PathVariable Long id) {
         int result = portalInterviewService.deleteExperienceById(id, null);
@@ -147,6 +157,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "审核评论", description = "审核评论内容")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "面试评论", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @PutMapping("/comment/audit")
     public AjaxResult auditComment(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
@@ -158,6 +170,8 @@ public class CmsInterviewExperienceController extends BaseController {
     @Operation(summary = "删除评论", description = "删除评论")
     @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
     @Log(title = "面试评论", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsinterviewexperience:", time = 60, count = 30)
     @DeleteMapping("/comment/{id}")
     public AjaxResult removeComment(@Parameter(description = "评论ID") @PathVariable Long id) {
         return toAjax(portalInterviewService.deleteCommentById(id, null));

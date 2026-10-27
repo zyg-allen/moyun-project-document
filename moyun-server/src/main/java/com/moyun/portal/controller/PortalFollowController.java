@@ -44,6 +44,8 @@ public class PortalFollowController extends BaseController {
      */
     @Operation(summary = "关注用户", description = "当前登录用户关注目标用户（幂等，已关注不会重复插入）")
     @Log(title = "门户关注", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalfollow:", time = 60, count = 120)
     @PostMapping("/{userId}")
     public AjaxResult follow(@Parameter(description = "被关注用户ID") @PathVariable Long userId) {
         Long currentUserId = PortalSecurityUtils.getUserId();
@@ -58,6 +60,8 @@ public class PortalFollowController extends BaseController {
      */
     @Operation(summary = "取消关注", description = "当前登录用户取消关注目标用户（幂等，未关注不会报错）")
     @Log(title = "门户关注", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalfollow:", time = 60, count = 120)
     @DeleteMapping("/{userId}")
     public AjaxResult unfollow(@Parameter(description = "被取消关注用户ID") @PathVariable Long userId) {
         Long currentUserId = PortalSecurityUtils.getUserId();

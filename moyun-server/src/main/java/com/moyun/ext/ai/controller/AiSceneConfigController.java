@@ -108,6 +108,8 @@ public class AiSceneConfigController {
     }
 
     @Operation(summary = "新增场景配置")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aisceneconfig:", time = 60, count = 30)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:scene:create')")
     public AjaxResult create(@RequestBody AiSceneConfig config) {
@@ -142,6 +144,8 @@ public class AiSceneConfigController {
     }
 
     @Operation(summary = "更新场景配置")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aisceneconfig:", time = 60, count = 30)
     @PutMapping("/update")
     @PreAuthorize("@ss.hasPermi('cms:ai:scene:update')")
     public AjaxResult update(@RequestBody AiSceneConfig config) {
@@ -168,6 +172,8 @@ public class AiSceneConfigController {
     }
 
     @Operation(summary = "删除场景配置")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aisceneconfig:", time = 60, count = 30)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:scene:remove')")
     public AjaxResult delete(@PathVariable("id") Long id) {
@@ -193,6 +199,8 @@ public class AiSceneConfigController {
      * 回滚可再回滚）。会话一致性：进行中会话按首轮锁定版本读快照，回滚仅影响新会话。
      */
     @Operation(summary = "回滚配置到指定版本")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aisceneconfig:", time = 60, count = 30)
     @PostMapping("/{id}/rollback/{version:[0-9]+}")
     @PreAuthorize("@ss.hasPermi('cms:ai:scene:update')")
     public AjaxResult rollback(@PathVariable("id") Long id, @PathVariable("version") Integer version) {
@@ -216,6 +224,8 @@ public class AiSceneConfigController {
     }
 
     @Operation(summary = "测试场景配置（查看解析后的绑定摘要）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aisceneconfig:", time = 60, count = 30)
     @PostMapping("/{id}/test")
     @PreAuthorize("@ss.hasPermi('cms:ai:scene:query')")
     public AjaxResult test(@PathVariable("id") Long id) {

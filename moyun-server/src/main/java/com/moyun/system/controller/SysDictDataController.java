@@ -50,6 +50,8 @@ public class SysDictDataController extends BaseController {
     @Operation(summary = "导出字典数据", description = "导出字典数据到Excel文件")
     @Log(title = "字典数据", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('system:dict:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdictdata:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, SysDictData dictData) {
         List<SysDictData> list = dictDataService.selectDictDataList(dictData);
@@ -115,6 +117,8 @@ public class SysDictDataController extends BaseController {
     @Operation(summary = "新增字典数据", description = "创建新字典数据")
     @PreAuthorize("@ss.hasPermi('system:dict:add')")
     @Log(title = "字典数据", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdictdata:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysDictData dict) {
         dict.setCreateBy(getUsername());
@@ -127,6 +131,8 @@ public class SysDictDataController extends BaseController {
     @Operation(summary = "修改字典数据", description = "更新字典数据信息")
     @PreAuthorize("@ss.hasPermi('system:dict:edit')")
     @Log(title = "字典数据", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdictdata:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysDictData dict) {
         dict.setUpdateBy(getUsername());
@@ -139,6 +145,8 @@ public class SysDictDataController extends BaseController {
     @Operation(summary = "删除字典数据", description = "批量删除字典数据")
     @PreAuthorize("@ss.hasPermi('system:dict:remove')")
     @Log(title = "字典类型", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdictdata:", time = 60, count = 120)
     @DeleteMapping("/{dictCodes}")
     public AjaxResult remove(@Parameter(description = "字典编码数组") @PathVariable Long[] dictCodes) {
         dictDataService.deleteDictDataByIds(dictCodes);

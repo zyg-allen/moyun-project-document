@@ -54,6 +54,8 @@ public class SysFileController extends BaseController {
     @Operation(summary = "上传文件", description = "上传文件并保存到文件管理系统")
     @PreAuthorize("@ss.hasPermi('system:file:add')")
     @Log(title = "文件管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysfile:", time = 60, count = 120)
     @PostMapping("/upload")
     public AjaxResult upload(@RequestParam("file") MultipartFile file,
                              @RequestParam(value = "businessType", required = false) String businessType,
@@ -65,6 +67,8 @@ public class SysFileController extends BaseController {
     @Operation(summary = "删除文件", description = "根据文件ID删除文件")
     @PreAuthorize("@ss.hasPermi('system:file:remove')")
     @Log(title = "文件管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysfile:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@Parameter(description = "文件ID") @PathVariable Long id) {
         return toAjax(sysFileService.deleteFileById(id));
@@ -79,6 +83,8 @@ public class SysFileController extends BaseController {
     @Operation(summary = "按URL删除文件", description = "根据文件访问URL删除文件（存储+记录），用于附件替换/删除清理")
     @PreAuthorize("@ss.hasPermi('system:file:remove')")
     @Log(title = "文件管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysfile:", time = 60, count = 120)
     @DeleteMapping("/byUrl")
     public AjaxResult removeByUrl(@Parameter(description = "文件访问URL") @RequestParam("fileUrl") String fileUrl) {
         boolean ok = sysFileService.deleteFileByUrl(fileUrl, null);
@@ -88,6 +94,8 @@ public class SysFileController extends BaseController {
     @Operation(summary = "批量删除文件", description = "根据文件ID列表批量删除文件")
     @PreAuthorize("@ss.hasPermi('system:file:remove')")
     @Log(title = "文件管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysfile:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult removeByIds(@Parameter(description = "文件ID列表") @PathVariable Long[] ids) {
         return toAjax(sysFileService.deleteFileByIds(ids));
@@ -120,6 +128,8 @@ public class SysFileController extends BaseController {
     @Operation(summary = "切换存储模式", description = "手动切换 MinIO/本地 存储模式，运行期生效，无需重启")
     @PreAuthorize("@ss.hasPermi('system:file:add')")
     @Log(title = "文件管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysfile:", time = 60, count = 120)
     @PutMapping("/storage/switch")
     public AjaxResult switchStorage(@Parameter(description = "目标模式：minio 或 local") @RequestParam String mode) {
         if (!"minio".equalsIgnoreCase(mode) && !"local".equalsIgnoreCase(mode)) {

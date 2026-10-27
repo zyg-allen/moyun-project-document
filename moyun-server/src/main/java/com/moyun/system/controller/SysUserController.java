@@ -66,6 +66,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "导出用户", description = "导出用户数据到Excel文件")
     @Log(title = "用户管理", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('system:user:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, SysUser user) {
         List<SysUser> list = userService.selectUserList(user);
@@ -76,6 +78,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "导入用户", description = "从Excel文件导入用户数据")
     @Log(title = "用户管理", businessType = BusinessType.IMPORT)
     @PreAuthorize("@ss.hasPermi('system:user:import')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PostMapping("/importData")
     public AjaxResult importData(MultipartFile file, boolean updateSupport) throws Exception {
         ExcelUtil<SysUser> util = new ExcelUtil<SysUser>(SysUser.class);
@@ -86,6 +90,8 @@ public class SysUserController extends BaseController {
     }
 
     @Operation(summary = "下载导入模板", description = "下载用户数据导入模板")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PostMapping("/importTemplate")
     public void importTemplate(HttpServletResponse response) {
         ExcelUtil<SysUser> util = new ExcelUtil<SysUser>(SysUser.class);
@@ -119,6 +125,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "新增用户", description = "创建新用户")
     @PreAuthorize("@ss.hasPermi('system:user:add')")
     @Log(title = "用户管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysUser user) {
         deptService.checkDeptDataScope(user.getDeptId());
@@ -141,6 +149,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "修改用户", description = "更新用户信息")
     @PreAuthorize("@ss.hasPermi('system:user:edit')")
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysUser user) {
         userService.checkUserAllowed(user);
@@ -164,6 +174,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "删除用户", description = "批量删除用户")
     @PreAuthorize("@ss.hasPermi('system:user:remove')")
     @Log(title = "用户管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @DeleteMapping("/{userIds}")
     public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable Long[] userIds) {
         if (ArrayUtils.contains(userIds, getUserId())) {
@@ -178,6 +190,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "重置密码", description = "重置用户密码")
     @PreAuthorize("@ss.hasPermi('system:user:resetPwd')")
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PutMapping("/resetPwd")
     public AjaxResult resetPwd(@RequestBody SysUser user) {
         userService.checkUserAllowed(user);
@@ -193,6 +207,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "修改用户状态", description = "启用或禁用用户")
     @PreAuthorize("@ss.hasPermi('system:user:edit')")
     @Log(title = "用户管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PutMapping("/changeStatus")
     public AjaxResult changeStatus(@RequestBody SysUser user) {
         userService.checkUserAllowed(user);
@@ -222,6 +238,8 @@ public class SysUserController extends BaseController {
     @Operation(summary = "用户授权角色", description = "为用户分配角色")
     @PreAuthorize("@ss.hasPermi('system:user:edit')")
     @Log(title = "用户管理", businessType = BusinessType.GRANT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysuser:", time = 60, count = 120)
     @PutMapping("/authRole")
     public AjaxResult insertAuthRole(Long userId, Long[] roleIds) {
         userService.checkUserDataScope(userId);

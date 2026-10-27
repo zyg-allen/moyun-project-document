@@ -62,6 +62,8 @@ public class CmsJobTemplateController extends BaseController {
 
     @Operation(summary = "新增岗位模板")
     @PreAuthorize("@ss.hasPermi('cms:interview:jobTemplate:create')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsjobtemplate:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody PortalJobTemplate template) {
         if (template.getName() == null || template.getName().isBlank()) {
@@ -75,6 +77,8 @@ public class CmsJobTemplateController extends BaseController {
 
     @Operation(summary = "修改岗位模板")
     @PreAuthorize("@ss.hasPermi('cms:interview:jobTemplate:update')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsjobtemplate:", time = 60, count = 120)
     @PutMapping
     public AjaxResult update(@RequestBody PortalJobTemplate template) {
         if (template.getId() == null) {
@@ -85,6 +89,8 @@ public class CmsJobTemplateController extends BaseController {
 
     @Operation(summary = "删除岗位模板")
     @PreAuthorize("@ss.hasPermi('cms:interview:jobTemplate:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsjobtemplate:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         return toAjax(jobTemplateService.removeById(id));
@@ -92,6 +98,8 @@ public class CmsJobTemplateController extends BaseController {
 
     @Operation(summary = "JD 关键词 LLM 提取（失败自动回退规则分词）")
     @PreAuthorize("@ss.hasPermi('cms:interview:jobTemplate:create')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsjobtemplate:", time = 60, count = 120)
     @PostMapping("/extract-keywords")
     public AjaxResult extractKeywords(@RequestBody Map<String, String> body) {
         String jdText = body == null ? null : body.get("jdText");
@@ -101,6 +109,8 @@ public class CmsJobTemplateController extends BaseController {
 
     @Operation(summary = "关联题目（全量覆盖题目归属）")
     @PreAuthorize("@ss.hasPermi('cms:interview:jobTemplate:update')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsjobtemplate:", time = 60, count = 120)
     @PostMapping("/{id}/questions")
     public AjaxResult bindQuestions(@PathVariable Long id, @RequestBody List<Long> questionIds) {
         return success(jobTemplateService.bindQuestions(id, questionIds));

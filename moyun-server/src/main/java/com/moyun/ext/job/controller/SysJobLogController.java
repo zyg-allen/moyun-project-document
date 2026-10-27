@@ -37,6 +37,8 @@ public class SysJobLogController extends BaseController {
     }
 
     @Log(title = "调度日志", businessType = BusinessType.EXPORT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysjoblog:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, SysJobLog sysJobLog) {
         List<SysJobLog> list = jobLogService.selectJobLogList(sysJobLog);
@@ -49,11 +51,15 @@ public class SysJobLogController extends BaseController {
         return success(jobLogService.selectJobLogById(jobLogId));
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysjoblog:", time = 60, count = 120)
     @DeleteMapping("/{logIds}")
     public AjaxResult remove(@PathVariable Long[] logIds) {
         return toAjax(jobLogService.deleteJobLogByIds(logIds));
     }
 
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysjoblog:", time = 60, count = 120)
     @DeleteMapping("/clean")
     public AjaxResult clean() {
         jobLogService.cleanJobLog();

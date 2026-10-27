@@ -58,6 +58,8 @@ public class CmsCategoryController extends BaseController {
     @Operation(summary = "新增分类", description = "创建新分类")
     @PreAuthorize("@ss.hasPermi('cms:category:add')")
     @Log(title = "分类管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscategory:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalCategory category) {
         try {
@@ -73,6 +75,8 @@ public class CmsCategoryController extends BaseController {
     @Operation(summary = "修改分类", description = "更新分类信息")
     @PreAuthorize("@ss.hasPermi('cms:category:edit')")
     @Log(title = "分类管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscategory:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalCategory category) {
         try {
@@ -88,6 +92,8 @@ public class CmsCategoryController extends BaseController {
     @Operation(summary = "删除分类", description = "批量删除分类")
     @PreAuthorize("@ss.hasPermi('cms:category:remove')")
     @Log(title = "分类管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscategory:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "分类ID数组") @PathVariable Long[] ids) {
         for (Long id : ids) {
@@ -104,6 +110,8 @@ public class CmsCategoryController extends BaseController {
     @Operation(summary = "修改分类状态", description = "启用或禁用分类")
     @PreAuthorize("@ss.hasPermi('cms:category:edit')")
     @Log(title = "分类管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscategory:", time = 60, count = 120)
     @PutMapping("/changeStatus")
     public AjaxResult changeStatus(@RequestBody PortalCategory category) {
         return toAjax(cmsCategoryService.changeStatus(category));
@@ -115,6 +123,8 @@ public class CmsCategoryController extends BaseController {
     @Operation(summary = "批量删除分类", description = "批量删除分类")
     @PreAuthorize("@ss.hasPermi('cms:category:remove')")
     @Log(title = "分类管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscategory:", time = 60, count = 120)
     @DeleteMapping("/batch")
     public AjaxResult removeBatch(@RequestBody Long[] ids) {
         for (Long id : ids) {

@@ -75,6 +75,9 @@ public class PortalUser extends BaseEntity {
     @Size(min = 0, max = 100, message = "微信号长度不能超过100个字符")
     private String wechat;
 
+    /** 微信小程序 openid（绑定订阅消息用） */
+    private String wxOpenid;
+
     /** 性别 */
     @Size(min = 0, max = 20, message = "性别长度不能超过20个字符")
     private String gender;

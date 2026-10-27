@@ -21,6 +21,8 @@ public class DiagramStreamController {
     private final DiagramChatService diagramChatService;
 
     @Operation(summary = "流式生成架构图")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "diagramstream:", time = 60, count = 120)
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @PreAuthorize("@ss.hasPermi('cms:ai:diagram:list')")
     public SseEmitter chatStream(@RequestBody DiagramChatDTO dto) {

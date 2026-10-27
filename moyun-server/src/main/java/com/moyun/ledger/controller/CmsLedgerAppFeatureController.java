@@ -52,32 +52,9 @@ import java.util.regex.Pattern;
 @RequestMapping("/cms/ledger/app-feature")
 public class CmsLedgerAppFeatureController extends BaseController {
 
-    /** App 已注册页面路由（value=路由，label=可读名）——新增入口只能从中选择 */
-    private static final Map<String, String> APP_ROUTES = new LinkedHashMap<>();
-
-    /** App 内置入口 key（与 App 端兜底清单一致）：不可删除，只能隐藏 */
     private static final Set<String> BUILTIN_KEYS = new LinkedHashSet<>();
 
     private static final Pattern KEY_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9]{1,39}$");
-
-    static {
-        APP_ROUTES.put("/pages/warehouse/index", "库存管理");
-        APP_ROUTES.put("/pages/mine/warehouse-settings/index", "仓库配置");
-        APP_ROUTES.put("/pages/mine/categories/index", "记账分类");
-        APP_ROUTES.put("/pages/mine/product-categories/index", "商品类目");
-        APP_ROUTES.put("/pages/mine/budget/index", "预算设置");
-        APP_ROUTES.put("/pages/record/list", "流水明细");
-        APP_ROUTES.put("/pages/record/calendar", "日历账单");
-        APP_ROUTES.put("/pages/report/index", "报表中心");
-        APP_ROUTES.put("/pages/analysis/index", "财务分析");
-        APP_ROUTES.put("/pages/mine/savings/index", "存钱计划");
-        APP_ROUTES.put("/pages/mine/schedule/index", "定时记账");
-        APP_ROUTES.put("/pages/mine/memo/index", "备忘录");
-        APP_ROUTES.put("/pages/mine/settings/index", "系统设置");
-        APP_ROUTES.put("/pages/mine/profile/index", "个人信息");
-        APP_ROUTES.put("/pages/mine/feedback/index", "意见反馈");
-        APP_ROUTES.put("/pages/invite/index", "仓库邀请");
-    }
 
     static {
         // 与 App pages.json / 内置兜底清单对齐（新增内置项时需同步这里，否则会被当成自定义入口允许删除）
@@ -109,6 +86,7 @@ public class CmsLedgerAppFeatureController extends BaseController {
         BUILTIN_KEYS.add("portal");
         BUILTIN_KEYS.add("warehouse");
         BUILTIN_KEYS.add("warehouseSetting");
+        BUILTIN_KEYS.add("notifications");
         BUILTIN_KEYS.add("productCategory");
     }
 
@@ -128,19 +106,11 @@ public class CmsLedgerAppFeatureController extends BaseController {
         return AjaxResult.success(rows);
     }
 
-    @Operation(summary = "App 支持的路由白名单")
-    @PreAuthorize("@ss.hasPermi('cms:ledgerAppFeature:list')")
-    @GetMapping("/routes")
-    public AjaxResult routes() {
-        return AjaxResult.success(APP_ROUTES.entrySet().stream()
-                .map(e -> Map.of("value", e.getKey(), "label", e.getValue()))
-                .toList());
-    }
-
     @Operation(summary = "新增自定义入口（默认隐藏）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerAppFeature:add')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-功能入口", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerappfeature:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody LedgerAppFeatureConfig body) {
         String key = requireKey(body.getFeatureKey());
@@ -172,6 +142,7 @@ public class CmsLedgerAppFeatureController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerAppFeature:edit')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-功能入口", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerappfeature:", time = 60, count = 120)
     @PutMapping("/{id}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody LedgerAppFeatureConfig body) {
         LedgerAppFeatureConfig db = featureMapper.selectById(id);
@@ -201,6 +172,8 @@ public class CmsLedgerAppFeatureController extends BaseController {
     @Operation(summary = "删除自定义入口（内置入口不可删除）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerAppFeature:edit')")
     @Log(title = "记账-功能入口", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgerappfeature:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         LedgerAppFeatureConfig db = featureMapper.selectById(id);
@@ -251,14 +224,16 @@ public class CmsLedgerAppFeatureController extends BaseController {
         return "dev".equals(status) ? "dev" : "done";
     }
 
-    /** 路由白名单校验：空=非跳转；非空必须命中白名单 */
+    /** 路由格式：功能入口由 admin 配置，后端只校验路径形态，不维护 App 页面清单 */
+    private static final Pattern ROUTE_PATTERN = Pattern.compile("^/pages/[A-Za-z0-9_\\-/]+$");
+
     private String validateRoute(String route) {
         String r = trimToNull(route);
         if (r == null) {
             return null;
         }
-        if (!APP_ROUTES.containsKey(r)) {
-            throw new ServiceException("路由「" + r + "」不在 App 支持的白名单内");
+        if (r.length() > 200 || !ROUTE_PATTERN.matcher(r).matches() || r.contains("..")) {
+            throw new ServiceException("路由格式不合法，应以 /pages/ 开头且只含字母、数字、下划线、斜杠");
         }
         return r;
     }

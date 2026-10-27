@@ -47,6 +47,8 @@ public class DomainDictionaryController {
     }
 
     @Operation(summary = "创建词典")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "domaindictionary:", time = 60, count = 30)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:domain-dictionary:add')")
     public AjaxResult create(@RequestBody DomainDictionary dictionary) {
@@ -68,6 +70,8 @@ public class DomainDictionaryController {
     }
 
     @Operation(summary = "更新词典")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "domaindictionary:", time = 60, count = 30)
     @PutMapping("/update")
     @PreAuthorize("@ss.hasPermi('cms:ai:domain-dictionary:edit')")
     public AjaxResult update(@RequestBody DomainDictionary dictionary) {
@@ -83,6 +87,8 @@ public class DomainDictionaryController {
     }
 
     @Operation(summary = "删除词典")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "domaindictionary:", time = 60, count = 30)
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:domain-dictionary:remove')")
     public AjaxResult delete(@PathVariable Long id) {
@@ -97,6 +103,8 @@ public class DomainDictionaryController {
     }
 
     @Operation(summary = "重新加载词典到内存")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "domaindictionary:", time = 60, count = 30)
     @PostMapping("/reload")
     @PreAuthorize("@ss.hasPermi('cms:ai:domain-dictionary:edit')")
     public AjaxResult reload() {

@@ -38,6 +38,12 @@ public class LedgerSavingServiceImpl extends ServiceImpl<LedgerSavingPlanMapper,
     @Autowired
     private LedgerSavingRecordMapper recordMapper;
 
+    @Autowired
+    private com.moyun.ledger.mapper.LedgerTransactionMapper transactionMapper;
+
+    @Autowired
+    private com.moyun.ledger.service.ILedgerTransactionService transactionService;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createPlan(Long userId, LedgerSavingPlan plan) {
@@ -63,6 +69,14 @@ public class LedgerSavingServiceImpl extends ServiceImpl<LedgerSavingPlanMapper,
             r.setPlanId(plan.getId());
             r.setUserId(userId);
             r.setStatus(LedgerSavingRecord.STATUS_PENDING);
+            // 计划日期：按月或按周从开始日期推算，供日历/年份分组使用
+            LocalDate planned;
+            if ("monthly".equals(method)) {
+                planned = plan.getStartDate().plusMonths(r.getPeriodIndex() - 1);
+            } else {
+                planned = plan.getStartDate().plusWeeks(r.getPeriodIndex() - 1);
+            }
+            r.setRecordDate(planned);
             recordMapper.insert(r);
         }
         return plan.getId();
@@ -149,16 +163,25 @@ public class LedgerSavingServiceImpl extends ServiceImpl<LedgerSavingPlanMapper,
     }
 
     @Override
-    public Map<String, Object> planDetail(Long userId, Long planId) {
+    public com.moyun.ledger.domain.vo.SavingPlanDetailVO planDetail(Long userId, Long planId) {
         LedgerSavingPlan plan = getOwnedPlan(userId, planId);
         LambdaQueryWrapper<LedgerSavingRecord> q = new LambdaQueryWrapper<>();
         q.eq(LedgerSavingRecord::getPlanId, planId)
                 .eq(LedgerSavingRecord::getUserId, userId)
                 .orderByAsc(LedgerSavingRecord::getPeriodIndex);
-        Map<String, Object> result = new HashMap<>();
-        result.put("plan", plan);
-        result.put("records", recordMapper.selectList(q));
-        return result;
+        java.util.List<LedgerSavingRecord> records = recordMapper.selectList(q);
+        com.moyun.ledger.domain.vo.SavingPlanDetailVO vo = new com.moyun.ledger.domain.vo.SavingPlanDetailVO();
+        com.moyun.ledger.domain.vo.SavingPlanDetailVO.Plan pv = new com.moyun.ledger.domain.vo.SavingPlanDetailVO.Plan();
+        org.springframework.beans.BeanUtils.copyProperties(plan, pv);
+        java.util.List<com.moyun.ledger.domain.vo.SavingPlanDetailVO.Record> rvs = new ArrayList<>();
+        for (LedgerSavingRecord r : records) {
+            com.moyun.ledger.domain.vo.SavingPlanDetailVO.Record rv = new com.moyun.ledger.domain.vo.SavingPlanDetailVO.Record();
+            org.springframework.beans.BeanUtils.copyProperties(r, rv);
+            rvs.add(rv);
+        }
+        vo.setPlan(pv);
+        vo.setRecords(rvs);
+        return vo;
     }
 
     @Override
@@ -220,6 +243,158 @@ public class LedgerSavingServiceImpl extends ServiceImpl<LedgerSavingPlanMapper,
                 .eq(LedgerSavingRecord::getUserId, userId)
                 .orderByAsc(LedgerSavingRecord::getPeriodIndex);
         return recordMapper.selectList(q);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void markRecord(Long userId, Long planId, Long recordId, Integer status, BigDecimal amount, String reason) {
+        LedgerSavingPlan plan = getOwnedPlan(userId, planId);
+        LedgerSavingRecord r = getOwnedRecord(userId, recordId, planId);
+        int st = status == null ? 1 : status;
+        if (st == 0) {
+            r.setStatus(LedgerSavingRecord.STATUS_PENDING);
+            r.setAmount(null);
+            r.setFailReason(null);
+            r.setTransactionId(null);
+        } else if (st == 1) {
+            BigDecimal amt = amount != null ? amount : r.getTargetAmount();
+            if (amt == null || amt.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ServiceException("金额必须大于0");
+            }
+            r.setStatus(LedgerSavingRecord.STATUS_SUCCESS);
+            r.setAmount(amt);
+            r.setFailReason(null);
+        } else if (st == 2) {
+            r.setStatus(LedgerSavingRecord.STATUS_FAILED);
+            r.setFailReason(reason == null || reason.isBlank() ? "未完成" : reason);
+        } else {
+            throw new ServiceException("状态不合法");
+        }
+        if (r.getRecordDate() == null) {
+            r.setRecordDate(LocalDate.now());
+        }
+        recordMapper.updateById(r);
+        recalcPlan(plan);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void linkTransaction(Long userId, Long planId, Long recordId, Long transactionId) {
+        LedgerSavingPlan plan = getOwnedPlan(userId, planId);
+        LedgerSavingRecord r = getOwnedRecord(userId, recordId, planId);
+        com.moyun.ledger.domain.entity.LedgerTransaction txn = transactionMapper.selectById(transactionId);
+        if (txn == null || !userId.equals(txn.getUserId())) {
+            throw new ServiceException("流水不存在");
+        }
+        r.setTransactionId(txn.getId());
+        r.setStatus(LedgerSavingRecord.STATUS_SUCCESS);
+        r.setAmount(txn.getAmount());
+        if (txn.getTransactionDate() != null) {
+            r.setRecordDate(txn.getTransactionDate());
+        }
+        recordMapper.updateById(r);
+        recalcPlan(plan);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unlinkTransaction(Long userId, Long planId, Long recordId, boolean deleteTransaction) {
+        LedgerSavingPlan plan = getOwnedPlan(userId, planId);
+        LedgerSavingRecord r = getOwnedRecord(userId, recordId, planId);
+        if (deleteTransaction && r.getTransactionId() != null) {
+            transactionMapper.deleteById(r.getTransactionId());
+        }
+        r.setTransactionId(null);
+        if (r.getStatus() == LedgerSavingRecord.STATUS_SUCCESS) {
+            r.setStatus(LedgerSavingRecord.STATUS_PENDING);
+            r.setAmount(null);
+        }
+        recordMapper.updateById(r);
+        recalcPlan(plan);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createTransferAndLink(Long userId, Long planId, Long recordId, com.moyun.ledger.domain.dto.TransactionCreateDTO dto) {
+        LedgerSavingPlan plan = getOwnedPlan(userId, planId);
+        LedgerSavingRecord r = getOwnedRecord(userId, recordId, planId);
+        com.moyun.ledger.domain.dto.TransactionCreateDTO t = new com.moyun.ledger.domain.dto.TransactionCreateDTO();
+        t.setType("transfer");
+        t.setAccountId(dto.getAccountId() != null ? dto.getAccountId() : plan.getSourceAccountId());
+        t.setTargetAccountId(dto.getTargetAccountId() != null ? dto.getTargetAccountId() : plan.getSavingsAccountId());
+        t.setAmount(dto.getAmount() != null ? dto.getAmount() : r.getTargetAmount());
+        t.setTransactionDate(dto.getTransactionDate() != null ? dto.getTransactionDate() : LocalDate.now());
+        t.setDescription(dto.getDescription() != null ? dto.getDescription() : ("存钱计划：" + plan.getName()));
+        t.setClientUuid("saving:" + recordId);
+        t.setBizType("saving");
+        t.setDescription(plan.getName() + "-第" + r.getPeriodIndex() + "期");
+        if (t.getAccountId() == null || t.getTargetAccountId() == null) {
+            throw new ServiceException("请先绑定转出与存钱账户");
+        }
+        if (t.getAccountId().equals(t.getTargetAccountId())) {
+            throw new ServiceException("转出与存入账户不能相同");
+        }
+        Long txnId = transactionService.createTransaction(userId, t);
+        linkTransaction(userId, planId, recordId, txnId);
+        return txnId;
+    }
+
+    @Override
+    public List<com.moyun.ledger.domain.vo.LedgerTransactionVO> listLinkableTransactions(Long userId, LocalDate date, BigDecimal amount) {
+        LambdaQueryWrapper<com.moyun.ledger.domain.entity.LedgerTransaction> q = new LambdaQueryWrapper<>();
+        q.eq(com.moyun.ledger.domain.entity.LedgerTransaction::getUserId, userId)
+                .eq(com.moyun.ledger.domain.entity.LedgerTransaction::getStatus,
+                        com.moyun.ledger.domain.entity.LedgerTransaction.STATUS_NORMAL);
+        if (date != null) {
+            q.between(com.moyun.ledger.domain.entity.LedgerTransaction::getTransactionDate,
+                    date.minusDays(7), date.plusDays(7));
+        } else {
+            q.ge(com.moyun.ledger.domain.entity.LedgerTransaction::getTransactionDate, LocalDate.now().minusDays(15));
+        }
+        if (amount != null) {
+            q.eq(com.moyun.ledger.domain.entity.LedgerTransaction::getAmount, amount);
+        }
+        q.orderByDesc(com.moyun.ledger.domain.entity.LedgerTransaction::getTransactionDate).last("LIMIT 50");
+        java.util.List<com.moyun.ledger.domain.entity.LedgerTransaction> list = transactionMapper.selectList(q);
+        List<com.moyun.ledger.domain.vo.LedgerTransactionVO> vos = new ArrayList<>();
+        for (com.moyun.ledger.domain.entity.LedgerTransaction txn : list) {
+            com.moyun.ledger.domain.vo.LedgerTransactionVO v = new com.moyun.ledger.domain.vo.LedgerTransactionVO();
+            org.springframework.beans.BeanUtils.copyProperties(txn, v);
+            vos.add(v);
+        }
+        return vos;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateAccounts(Long userId, Long planId, Long sourceAccountId, Long savingsAccountId) {
+        LedgerSavingPlan plan = getOwnedPlan(userId, planId);
+        plan.setSourceAccountId(sourceAccountId);
+        plan.setSavingsAccountId(savingsAccountId);
+        this.updateById(plan);
+    }
+
+    /** 重算已存金额与计划状态 */
+    private void recalcPlan(LedgerSavingPlan plan) {
+        LambdaQueryWrapper<LedgerSavingRecord> done = new LambdaQueryWrapper<>();
+        done.eq(LedgerSavingRecord::getPlanId, plan.getId())
+                .eq(LedgerSavingRecord::getStatus, LedgerSavingRecord.STATUS_SUCCESS);
+        java.math.BigDecimal sum = recordMapper.selectList(done).stream()
+                .map(LedgerSavingRecord::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        plan.setCurrentAmount(sum);
+        LambdaQueryWrapper<LedgerSavingRecord> pending = new LambdaQueryWrapper<>();
+        pending.eq(LedgerSavingRecord::getPlanId, plan.getId())
+                .eq(LedgerSavingRecord::getStatus, LedgerSavingRecord.STATUS_PENDING);
+        long left = recordMapper.selectCount(pending);
+        boolean reached = plan.getTargetAmount() != null && sum.compareTo(plan.getTargetAmount()) >= 0;
+        if (left == 0 || reached) {
+            plan.setStatus(LedgerSavingPlan.STATUS_SUCCESS);
+        } else if (plan.getStatus() != null && plan.getStatus() == LedgerSavingPlan.STATUS_SUCCESS) {
+            plan.setStatus(LedgerSavingPlan.STATUS_RUNNING);
+        }
+        this.updateById(plan);
     }
 
     private LedgerSavingPlan getOwnedPlan(Long userId, Long planId) {

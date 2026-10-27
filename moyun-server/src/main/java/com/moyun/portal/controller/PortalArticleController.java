@@ -174,6 +174,8 @@ public class PortalArticleController extends BaseController {
      * 复用打赏订单表 portal_tip_order，target_type='article_paid'，amount=文章价格
      */
     @Operation(summary = "购买付费阅读（已下线）", description = "全站免费化：付费阅读已下线，所有文章免费阅读")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/purchase")
     public AjaxResult purchase(@Parameter(description = "文章ID") @PathVariable Long id) {
         // 【合规改造（2026-10）】平台不提供有偿信息服务 → 付费阅读整体下线。
@@ -204,6 +206,7 @@ public class PortalArticleController extends BaseController {
     @Operation(summary = "前台发布文章", description = "用户在前台发布新文章，发布后进入待审核状态")
     @Log(title = "门户文章", businessType = BusinessType.INSERT)
     @RepeatSubmit(interval = 5000, message = "请勿重复提交文章")
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @PostMapping("/publish")
     public AjaxResult publish(@Validated @RequestBody ArticlePublishDTO publishDTO) {
         // 敏感词前置拦截：扫描标题 + 摘要 + 正文 + Markdown 原文
@@ -274,6 +277,8 @@ public class PortalArticleController extends BaseController {
      */
     @Operation(summary = "前台保存草稿", description = "保存文章草稿，真实入库并返回草稿详情（含id）")
     @Log(title = "门户文章-草稿", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @PostMapping("/draft")
     public AjaxResult saveDraft(@RequestBody PortalArticle portalArticle) {
         try {
@@ -293,6 +298,8 @@ public class PortalArticleController extends BaseController {
 
     @Operation(summary = "修改文章", description = "更新文章信息")
     @Log(title = "门户文章", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalArticle portalArticle) {
         try {
@@ -315,6 +322,8 @@ public class PortalArticleController extends BaseController {
 
     @Operation(summary = "删除文章", description = "批量删除文章")
     @Log(title = "门户文章", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "文章ID数组") @PathVariable Long[] ids) {
         try {
@@ -340,6 +349,8 @@ public class PortalArticleController extends BaseController {
      * 4. 返回最新点赞数和点赞状态
      */
     @Operation(summary = "文章点赞/取消点赞", description = "点赞或取消点赞文章，返回最新点赞数")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/like")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult toggleLikeArticle(@PathVariable Long id) {
@@ -429,6 +440,8 @@ public class PortalArticleController extends BaseController {
      * 3. 记录每次浏览历史，用于数据分析
      */
     @Operation(summary = "增加浏览量", description = "增加文章浏览量，支持防刷逻辑")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalarticle:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/view")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult incrementView(@PathVariable Long id, HttpServletRequest request) {

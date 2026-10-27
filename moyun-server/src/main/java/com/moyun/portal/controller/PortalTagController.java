@@ -104,6 +104,8 @@ public class PortalTagController extends BaseController {
     }
 
     @Operation(summary = "创建标签", description = "创建新标签（需登录）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltag:", time = 60, count = 120)
     @PostMapping("/create")
     public AjaxResult createTag(@RequestBody PortalTag portalTag) {
         if (PortalSecurityUtils.getUserId() == null) {
@@ -118,6 +120,8 @@ public class PortalTagController extends BaseController {
 
     @Operation(summary = "绑定标签到实体", description = "根据 entityType/entityId 绑定标签，支持按 id 或名称自动创建（需登录）")
     @Log(title = "门户标签-绑定", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltag:", time = 60, count = 120)
     @PostMapping("/bind")
     public AjaxResult bindTags(@Validated @RequestBody PortalTagBindDTO dto) {
         if (PortalSecurityUtils.getUserId() == null) {

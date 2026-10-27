@@ -81,6 +81,8 @@ public class SysNotificationController extends BaseController {
     @Operation(summary = "新增通知", description = "创建新通知（scope=user 为个人通知，需指定 userId 和 userType）")
     @PreAuthorize("@ss.hasPermi('system:notification:add')")
     @Log(title = "通知管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysnotification:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysNotification notification) {
         // 默认为个人通知
@@ -102,6 +104,8 @@ public class SysNotificationController extends BaseController {
     @Operation(summary = "发送广播通知", description = "群发系统通知给所有用户（scope=all，单条记录，已读按需记录）")
     @PreAuthorize("@ss.hasPermi('system:notification:add')")
     @Log(title = "通知管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysnotification:", time = 60, count = 120)
     @PostMapping("/send-all")
     public AjaxResult sendAll(@Validated @RequestBody SysNotification notification) {
         return toAjax(sysNotificationService.sendBroadcastNotification(notification));
@@ -113,6 +117,8 @@ public class SysNotificationController extends BaseController {
     @Operation(summary = "修改通知", description = "更新通知信息")
     @PreAuthorize("@ss.hasPermi('system:notification:edit')")
     @Log(title = "通知管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysnotification:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysNotification notification) {
         return toAjax(sysNotificationService.updateNotification(notification));
@@ -124,6 +130,8 @@ public class SysNotificationController extends BaseController {
     @Operation(summary = "删除通知", description = "批量删除通知")
     @PreAuthorize("@ss.hasPermi('system:notification:remove')")
     @Log(title = "通知管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysnotification:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "通知ID数组") @PathVariable("ids") Long[] ids) {
         return toAjax(sysNotificationService.deleteNotificationByIds(ids));

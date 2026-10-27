@@ -68,6 +68,8 @@ public class PortalBookmarkController extends BaseController {
      * 4. 返回最新收藏状态
      */
     @Operation(summary = "文章收藏/取消收藏", description = "收藏或取消收藏文章，返回最新状态")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookmark:", time = 60, count = 120)
     @PostMapping("/{articleId}/toggle")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult toggleBookmark(@PathVariable Long articleId) {

@@ -83,6 +83,8 @@ public class AgentController {
     }
 
     @Operation(summary = "创建智能体")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agent:", time = 60, count = 120)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:add')")
     public AjaxResult create(@RequestBody Agent agent) {
@@ -111,6 +113,8 @@ public class AgentController {
     }
 
     @Operation(summary = "更新智能体")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agent:", time = 60, count = 120)
     @PutMapping("/update")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:edit')")
     public AjaxResult update(@RequestBody Agent agent) {
@@ -135,6 +139,8 @@ public class AgentController {
     }
 
     @Operation(summary = "删除智能体")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agent:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:remove')")
     public AjaxResult delete(@PathVariable("id") Long id) {
@@ -187,6 +193,8 @@ public class AgentController {
     }
 
     @Operation(summary = "更新智能体关联的词典")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agent:", time = 60, count = 120)
     @PostMapping("/{id}/dictionaries")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:edit')")
     public AjaxResult updateAgentDictionaries(
@@ -259,6 +267,8 @@ public class AgentController {
     }
     
     @Operation(summary = "清空智能体对话历史")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "agent:", time = 60, count = 120)
     @DeleteMapping("/{id}/history")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:remove')")
     public AjaxResult clearAgentHistory(@PathVariable Long id) {

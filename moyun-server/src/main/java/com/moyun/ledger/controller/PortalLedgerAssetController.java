@@ -54,6 +54,8 @@ public class PortalLedgerAssetController {
     }
 
     /** 新增资产账户（initialBalance 初始余额以 adjust 流水留痕） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerasset:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -84,6 +86,8 @@ public class PortalLedgerAssetController {
      * "null 则跳过"语义会让"清空"静默失效，且会把整表写回（详见 service 内注释）。
      * 这里把 {@code body.keySet()}（显式出现的字段名）一并透传给 service。</p>
      */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerasset:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}")
     public AjaxResult update(@PathVariable("id") Long id, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -104,6 +108,8 @@ public class PortalLedgerAssetController {
     }
 
     /** 删除资产账户（status=0 停用归档，流水永久保留） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerasset:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

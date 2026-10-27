@@ -33,6 +33,8 @@ public class DocumentImportController extends BaseController {
 
     @Operation(summary = "上传文档并解析（不入库，仅返回解析结果供预览）")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:add')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "documentimport:", time = 60, count = 120)
     @PostMapping("/parse")
     public AjaxResult parse(@RequestParam("file") MultipartFile file,
                             ChapterSplitRule rule) {
@@ -48,6 +50,8 @@ public class DocumentImportController extends BaseController {
 
     @Operation(summary = "解析文本内容（不依赖文件上传，用于直接粘贴文本）")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:add')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "documentimport:", time = 60, count = 120)
     @PostMapping("/parse-text")
     public AjaxResult parseText(@RequestBody Map<String, Object> body) {
         String text = body.get("text") == null ? null : String.valueOf(body.get("text"));

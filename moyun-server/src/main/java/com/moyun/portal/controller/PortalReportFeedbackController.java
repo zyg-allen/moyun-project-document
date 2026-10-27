@@ -53,6 +53,8 @@ public class PortalReportFeedbackController extends BaseController {
      * 提交举报
      */
     @Operation(summary = "提交举报", description = "前台用户提交内容举报")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreportfeedback:", time = 60, count = 120)
     @PostMapping("/portal/report/submit")
     public AjaxResult submitReport(@Validated @RequestBody PortalReport report, HttpServletRequest request) {
         PortalLoginUser loginUser = PortalSecurityUtils.getLoginUser();
@@ -121,6 +123,8 @@ public class PortalReportFeedbackController extends BaseController {
      * 提交反馈
      */
     @Operation(summary = "提交反馈", description = "前台用户提交意见反馈")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalreportfeedback:", time = 60, count = 120)
     @PostMapping("/portal/feedback/submit")
     public AjaxResult submitFeedback(@Validated @RequestBody PortalFeedback feedback, HttpServletRequest request) {
         PortalLoginUser loginUser = PortalSecurityUtils.getLoginUser();

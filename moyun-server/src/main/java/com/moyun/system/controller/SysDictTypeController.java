@@ -44,6 +44,8 @@ public class SysDictTypeController extends BaseController {
     @Operation(summary = "导出字典类型", description = "导出字典类型到Excel文件")
     @Log(title = "字典类型", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('system:dict:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdicttype:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, SysDictType dictType) {
         List<SysDictType> list = dictTypeService.selectDictTypeList(dictType);
@@ -67,6 +69,8 @@ public class SysDictTypeController extends BaseController {
     @Operation(summary = "新增字典类型", description = "创建新字典类型")
     @PreAuthorize("@ss.hasPermi('system:dict:add')")
     @Log(title = "字典类型", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdicttype:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysDictType dict) {
         if (!dictTypeService.checkDictTypeUnique(dict)) {
@@ -82,6 +86,8 @@ public class SysDictTypeController extends BaseController {
     @Operation(summary = "修改字典类型", description = "更新字典类型信息")
     @PreAuthorize("@ss.hasPermi('system:dict:edit')")
     @Log(title = "字典类型", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdicttype:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysDictType dict) {
         if (!dictTypeService.checkDictTypeUnique(dict)) {
@@ -97,6 +103,8 @@ public class SysDictTypeController extends BaseController {
     @Operation(summary = "删除字典类型", description = "批量删除字典类型")
     @PreAuthorize("@ss.hasPermi('system:dict:remove')")
     @Log(title = "字典类型", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdicttype:", time = 60, count = 120)
     @DeleteMapping("/{dictIds}")
     public AjaxResult remove(@Parameter(description = "字典ID数组") @PathVariable Long[] dictIds) {
         dictTypeService.deleteDictTypeByIds(dictIds);
@@ -109,6 +117,8 @@ public class SysDictTypeController extends BaseController {
     @Operation(summary = "刷新字典缓存", description = "清空并重新加载字典缓存")
     @PreAuthorize("@ss.hasPermi('system:dict:remove')")
     @Log(title = "字典类型", businessType = BusinessType.CLEAN)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysdicttype:", time = 60, count = 120)
     @DeleteMapping("/refreshCache")
     public AjaxResult refreshCache() {
         dictTypeService.resetDictCache();

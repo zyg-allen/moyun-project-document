@@ -58,6 +58,8 @@ public class PortalSmsController {
      * 开关，开启时前端弹窗输入，验证码一次性作废防重放）；reset_password 额外要求手机号已注册
      */
     @Anonymous
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalsms:", time = 60, count = 120)
     @PostMapping("/code/send")
     public AjaxResult sendCode(@RequestBody Map<String, String> body) {
         String phone = body.get("phone");
@@ -130,6 +132,8 @@ public class PortalSmsController {
      * 校验验证码（前端主动校验用；银行卡绑定等敏感操作由服务端在业务流程内二次校验，
      * 本端点仅作交互辅助，不替代业务侧校验）
      */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalsms:", time = 60, count = 120)
     @PostMapping("/code/verify")
     public AjaxResult verifyCode(@RequestBody Map<String, String> body) {
         String phone = body.get("phone");
@@ -151,6 +155,7 @@ public class PortalSmsController {
      */
     @Anonymous
     @com.moyun.common.annotation.RateLimiter(time = 60, count = 5, limitType = com.moyun.common.enums.LimitType.IP)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/reset-password")
     public AjaxResult resetPassword(@RequestBody Map<String, String> body) {
         String phone = body.get("phone");

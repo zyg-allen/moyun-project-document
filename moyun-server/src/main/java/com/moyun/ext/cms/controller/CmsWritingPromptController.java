@@ -47,6 +47,8 @@ public class CmsWritingPromptController extends BaseController {
     @Operation(summary = "新增 prompt", description = "新增写作 prompt")
     @PreAuthorize("@ss.hasPermi('cms:writing-prompt:add')")
     @Log(title = "写作Prompt", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmswritingprompt:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalWritingPrompt prompt) {
         prompt.setCreateBy(getUsername());
@@ -56,6 +58,8 @@ public class CmsWritingPromptController extends BaseController {
     @Operation(summary = "修改 prompt", description = "修改写作 prompt")
     @PreAuthorize("@ss.hasPermi('cms:writing-prompt:edit')")
     @Log(title = "写作Prompt", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmswritingprompt:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalWritingPrompt prompt) {
         prompt.setUpdateBy(getUsername());
@@ -65,6 +69,8 @@ public class CmsWritingPromptController extends BaseController {
     @Operation(summary = "删除 prompt", description = "批量删除写作 prompt")
     @PreAuthorize("@ss.hasPermi('cms:writing-prompt:remove')")
     @Log(title = "写作Prompt", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmswritingprompt:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(cmsWritingPromptService.deletePromptByIds(ids));
@@ -73,6 +79,8 @@ public class CmsWritingPromptController extends BaseController {
     @Operation(summary = "AI 生成 prompt", description = "AI 为指定日期生成写作提示（已存在则跳过）；结合节日/节气上下文，AI 失败回退内置主题池")
     @PreAuthorize("@ss.hasPermi('cms:writing-prompt:add')")
     @Log(title = "写作Prompt", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmswritingprompt:", time = 60, count = 120)
     @PostMapping("/ai-generate")
     public AjaxResult aiGenerate(@RequestParam(value = "date", required = false)
                                  @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
@@ -84,6 +92,8 @@ public class CmsWritingPromptController extends BaseController {
     @Operation(summary = "AI 批量补生成", description = "从起始日起连续 N 天补生成缺失的写作提示（已存在跳过），用于初始化或补漏")
     @PreAuthorize("@ss.hasPermi('cms:writing-prompt:add')")
     @Log(title = "写作Prompt", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmswritingprompt:", time = 60, count = 120)
     @PostMapping("/ai-generate-range")
     public AjaxResult aiGenerateRange(@RequestParam(value = "startDate", required = false)
                                       @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
@@ -98,6 +108,8 @@ public class CmsWritingPromptController extends BaseController {
     @Operation(summary = "AI 重新生成", description = "AI 覆盖式重新生成指定 prompt 的内容（保留日期与ID）")
     @PreAuthorize("@ss.hasPermi('cms:writing-prompt:edit')")
     @Log(title = "写作Prompt", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmswritingprompt:", time = 60, count = 120)
     @PutMapping("/ai-regenerate/{id}")
     public AjaxResult aiRegenerate(@PathVariable Long id) {
         return success(cmsWritingPromptService.aiRegenerate(id));

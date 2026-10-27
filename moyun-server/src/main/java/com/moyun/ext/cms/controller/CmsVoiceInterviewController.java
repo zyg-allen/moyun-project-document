@@ -77,6 +77,8 @@ public class CmsVoiceInterviewController extends BaseController {
 
     @Operation(summary = "删除语音面试会话（逻辑删除）")
     @PreAuthorize("@ss.hasPermi('cms:voiceInterview:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsvoiceinterview:", time = 60, count = 30)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         return toAjax(voiceInterviewService.adminDelete(id));

@@ -45,6 +45,8 @@ public class PortalLedgerAiController {
      * 同用户已有进行中任务时复用（防重复烧 token）。
      * 会员付费点（@VipOnly：记账端 ai_analysis 权益，free tier 每月 3 次）。
      */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerai:", time = 60, count = 30)
     @PostMapping("/analysis/task")
     public AjaxResult submitTask(@RequestBody(required = false) Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -75,6 +77,8 @@ public class PortalLedgerAiController {
     }
 
     /** 删除报告版本 */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerai:", time = 60, count = 30)
     @DeleteMapping("/reports/{id}")
     public AjaxResult deleteReport(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -90,6 +94,8 @@ public class PortalLedgerAiController {
     }
 
     /** 更新用户画像（职位/公司/身份标签，与门户共用 portal_user 表） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerai:", time = 60, count = 30)
     @PostMapping("/profile")
     public AjaxResult updateProfile(@RequestBody Map<String, String> body) {
         Long userId = PortalSecurityUtils.getUserId();

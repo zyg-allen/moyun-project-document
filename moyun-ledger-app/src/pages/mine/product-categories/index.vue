@@ -244,9 +244,9 @@ export default {
 .sheet-actions { display: flex; justify-content: flex-end; gap: 24rpx; padding: 8rpx 0; }
 .sheet-act { font-size: 26rpx; color: var(--primary); }
 .sheet-act.del { color: var(--expense); }
-.sheet-hero { display: flex; flex-direction: column; align-items: center; padding: 10rpx 0 20rpx; }
-.sheet-hero-icon { width: 110rpx; height: 110rpx; display: flex; align-items: center; justify-content: center; font-size: 52rpx; border-radius: 22rpx; overflow: hidden; }
-.sheet-hero-name { font-size: 30rpx; font-weight: 700; color: var(--text-main); margin-top: 12rpx; }
+.sheet-hero { display: flex; flex-direction: column; align-items: center; padding: 6rpx 0 12rpx; }
+.sheet-hero-icon { width: 76rpx; height: 76rpx; display: flex; align-items: center; justify-content: center; font-size: 34rpx; border-radius: 16rpx; overflow: hidden; }
+.sheet-hero-name { font-size: 26rpx; font-weight: 700; color: var(--text-main); margin-top: 8rpx; }
 .sheet-sub-head { display: flex; align-items: center; justify-content: space-between; padding: 12rpx 0; border-top: 1rpx solid var(--border); }
 .sheet-sub-title { font-size: 26rpx; color: var(--text-sub); }
 .sheet-sub-body { max-height: 46vh; }

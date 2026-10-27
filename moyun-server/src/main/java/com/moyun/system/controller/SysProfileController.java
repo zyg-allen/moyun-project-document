@@ -58,6 +58,8 @@ public class SysProfileController extends BaseController {
      */
     @Operation(summary = "修改个人信息", description = "更新当前登录用户的个人信息")
     @Log(title = "个人信息", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysprofile:", time = 60, count = 120)
     @PutMapping
     public AjaxResult updateProfile(@RequestBody SysUser user) {
         LoginUser loginUser = getLoginUser();
@@ -85,6 +87,8 @@ public class SysProfileController extends BaseController {
      */
     @Operation(summary = "重置密码", description = "修改当前登录用户的密码")
     @Log(title = "个人信息", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysprofile:", time = 60, count = 120)
     @PutMapping("/updatePwd")
     public AjaxResult updatePwd(@RequestBody Map<String, String> params) {
         String oldPassword = params.get("oldPassword");
@@ -118,6 +122,8 @@ public class SysProfileController extends BaseController {
      */
     @Operation(summary = "上传头像", description = "上传并更新当前登录用户的头像")
     @Log(title = "用户头像", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysprofile:", time = 60, count = 120)
     @PostMapping("/avatar")
     public AjaxResult avatar(@RequestParam("avatarfile") MultipartFile file) throws Exception {
         if (!file.isEmpty()) {

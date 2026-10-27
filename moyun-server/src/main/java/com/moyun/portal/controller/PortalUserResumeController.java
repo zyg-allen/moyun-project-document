@@ -78,6 +78,8 @@ public class PortalUserResumeController extends BaseController {
                     + "③ 返回 previewToken + 解析结果 + 原文（供左右对照校对）。"
                     + "**本接口不写库** —— 用户校对后调用 /parse/confirm 才落库，避免失败留脏数据。"
                     + "原始附件不保留，预览令牌 10 分钟有效。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping(value = "/parse/preview", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public AjaxResult previewParse(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         Long userId = currentUserId();
@@ -94,6 +96,8 @@ public class PortalUserResumeController extends BaseController {
     @Operation(summary = "确认解析预览并落库（v13.38）",
             description = "把预览结果（可经前端校对修改）保存为新简历记录，返回 {resumeId}。"
                     + "只有本接口写库，保证「解析不落库、确认才落库」。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/parse/confirm")
     public AjaxResult confirmParse(@RequestBody ResumePreviewVO body) {
         Long userId = currentUserId();
@@ -117,6 +121,8 @@ public class PortalUserResumeController extends BaseController {
                     + "③ 解析成功后由任务创建简历记录（只落结构化字段），失败则不产生任何记录。"
                     + "原始附件不保留。返回 {taskId, fileName, textLength}，"
                     + "前端通过 GET /portal/ai/task/{taskId} 轮询，成功结果中含 resumeId。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping(value = "/parse", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public AjaxResult parseAttachment(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         Long userId = currentUserId();
@@ -158,6 +164,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "保存简历", description = "新增或更新简历内容（id 为空时新增）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/save")
     public AjaxResult saveResume(@RequestBody UserResumeVO vo) {
         Long userId = currentUserId();
@@ -169,6 +177,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "删除简历", description = "仅作者可删除自己的简历")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult deleteResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -179,6 +189,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "复制为新版本", description = "基于现有简历复制为新版本（versionNo 自增）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/copy")
     public AjaxResult copyResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -199,6 +211,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "导出 PDF", description = "将简历渲染为 PDF 并返回文件 URL")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/export")
     public AjaxResult exportPdf(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -209,6 +223,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "规则评分", description = "对简历进行规则评分，返回评分明细（含岗位匹配度子项）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/score")
     public AjaxResult scoreResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -219,6 +235,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "AI 改进建议", description = "基于评分明细与岗位匹配度生成改进建议（当前规则化，后期接入 AI 模型）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/ai-advice")
     public AjaxResult getAiAdvice(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -229,6 +247,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "更新状态", description = "更新简历状态：draft/published/archived")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PutMapping("/{id:[0-9]+}/status")
     public AjaxResult updateStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> body) {
         Long userId = currentUserId();
@@ -308,6 +328,8 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "附件转在线简历", description = "将附件简历转为在线简历（source_type 改为 online，保留解析数据）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluserresume:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/convert-to-online")
     public AjaxResult convertToOnline(@PathVariable("id") Long id) {
         Long userId = currentUserId();

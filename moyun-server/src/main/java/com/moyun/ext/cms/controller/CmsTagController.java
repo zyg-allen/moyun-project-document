@@ -70,6 +70,8 @@ public class CmsTagController extends BaseController {
     @Operation(summary = "新增标签", description = "创建新标签")
     @PreAuthorize("@ss.hasPermi('cms:tag:add')")
     @Log(title = "标签管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstag:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalTag tag) {
         return toAjax(cmsTagService.insertTag(tag));
@@ -81,6 +83,8 @@ public class CmsTagController extends BaseController {
     @Operation(summary = "修改标签", description = "更新标签信息")
     @PreAuthorize("@ss.hasPermi('cms:tag:edit')")
     @Log(title = "标签管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstag:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalTag tag) {
         return toAjax(cmsTagService.updateTag(tag));
@@ -95,6 +99,8 @@ public class CmsTagController extends BaseController {
     @Operation(summary = "修改标签状态", description = "切换标签启用/停用状态")
     @PreAuthorize("@ss.hasPermi('cms:tag:edit')")
     @Log(title = "标签管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstag:", time = 60, count = 120)
     @PutMapping("/changeStatus")
     public AjaxResult changeStatus(@RequestBody PortalTag tag) {
         PortalTag update = new PortalTag();
@@ -109,6 +115,8 @@ public class CmsTagController extends BaseController {
     @Operation(summary = "删除标签", description = "批量删除标签")
     @PreAuthorize("@ss.hasPermi('cms:tag:remove')")
     @Log(title = "标签管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstag:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "标签ID数组") @PathVariable Long[] ids) {
         return toAjax(cmsTagService.deleteTagByIds(ids));
@@ -144,6 +152,8 @@ public class CmsTagController extends BaseController {
     @Operation(summary = "绑定标签到实体", description = "根据 entityType/entityId 绑定标签，支持按 id 或名称自动创建（后台版）")
     @PreAuthorize("@ss.hasPermi('cms:tag:edit')")
     @Log(title = "标签管理-绑定", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmstag:", time = 60, count = 120)
     @PostMapping("/bind")
     public AjaxResult bindTags(@Validated @RequestBody PortalTagBindDTO dto) {
         portalTagService.bindTags(

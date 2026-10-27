@@ -48,6 +48,7 @@ public class PortalJudgeController extends BaseController {
             description = "提交代码执行判题。同步场景立即返回完整结果；" +
                     "异步场景（moyun.judge.async-enabled=true）立即返回 submissionId + status=PENDING，" +
                     "前端调用 GET /portal/judge/result/{submissionId} 轮询最终结果（status 变为非 PENDING 即终态）")
+    @com.moyun.common.annotation.RateLimiter(key = "portaljudge:", time = 60, count = 30)
     @PostMapping("/submit")
     @RepeatSubmit(interval = 2000, message = "请勿重复提交判题请求")
     public AjaxResult submit(@Valid @RequestBody JudgeSubmitDTO dto) {

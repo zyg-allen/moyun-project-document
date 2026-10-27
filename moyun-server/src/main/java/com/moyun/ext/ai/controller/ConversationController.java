@@ -28,6 +28,8 @@ public class ConversationController {
     private ConversationService conversationService;
 
     @Operation(summary = "创建新会话", description = "为指定智能体创建新的对话会话")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "conversation:", time = 60, count = 120)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:conversation:add')")
     public AjaxResult create(
@@ -87,6 +89,8 @@ public class ConversationController {
     }
 
     @Operation(summary = "删除会话", description = "删除指定会话及其历史消息")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "conversation:", time = 60, count = 120)
     @DeleteMapping("/{conversationId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:conversation:remove')")
     public AjaxResult delete(@PathVariable Long conversationId) {
@@ -103,6 +107,8 @@ public class ConversationController {
     }
 
     @Operation(summary = "更新会话标题", description = "修改指定会话的标题")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "conversation:", time = 60, count = 120)
     @PutMapping("/{conversationId}/title")
     @PreAuthorize("@ss.hasPermi('cms:ai:conversation:edit')")
     public AjaxResult updateTitle(

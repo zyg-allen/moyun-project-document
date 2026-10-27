@@ -37,12 +37,16 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "新增仓库")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PostMapping("/warehouses")
     public AjaxResult createWarehouse(@RequestBody LedgerWarehouse bo) {
         return AjaxResult.success(inventoryService.createWarehouse(PortalSecurityUtils.getUserId(), bo));
     }
 
     @Operation(summary = "修改仓库")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PutMapping("/warehouses/{id}")
     public AjaxResult updateWarehouse(@PathVariable("id") Long id, @RequestBody LedgerWarehouse bo) {
         inventoryService.updateWarehouse(PortalSecurityUtils.getUserId(), id, bo);
@@ -50,6 +54,8 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "删除仓库")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @DeleteMapping("/warehouses/{id}")
     public AjaxResult deleteWarehouse(@PathVariable("id") Long id) {
         inventoryService.deleteWarehouse(PortalSecurityUtils.getUserId(), id);
@@ -80,12 +86,16 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "新增商品")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PostMapping("/products")
     public AjaxResult createProduct(@RequestBody LedgerProduct bo) {
         return AjaxResult.success(inventoryService.createProduct(PortalSecurityUtils.getUserId(), bo));
     }
 
     @Operation(summary = "修改商品")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PutMapping("/products/{id}")
     public AjaxResult updateProduct(@PathVariable("id") Long id, @RequestBody LedgerProduct bo) {
         inventoryService.updateProduct(PortalSecurityUtils.getUserId(), id, bo);
@@ -93,6 +103,8 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "删除商品")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @DeleteMapping("/products/{id}")
     public AjaxResult deleteProduct(@PathVariable("id") Long id) {
         inventoryService.deleteProduct(PortalSecurityUtils.getUserId(), id);
@@ -102,6 +114,8 @@ public class PortalLedgerInventoryController {
     // ---------------- 出入库 ----------------
 
     @Operation(summary = "入库（可选货架，缺省=未上架）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PostMapping("/stock/in")
     public AjaxResult stockIn(@RequestBody Map<String, Object> bo) {
         return AjaxResult.success(inventoryService.stockIn(
@@ -111,6 +125,8 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "出库（可选货架，缺省=未上架）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PostMapping("/stock/out")
     public AjaxResult stockOut(@RequestBody Map<String, Object> bo) {
         return AjaxResult.success(inventoryService.stockOut(
@@ -120,6 +136,8 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "库存盘点（实盘 vs 账面，差异写 adjust 流水）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PostMapping("/stock/stocktake")
     @SuppressWarnings("unchecked")
     public AjaxResult stocktake(@RequestBody Map<String, Object> bo) {
@@ -139,6 +157,8 @@ public class PortalLedgerInventoryController {
     }
 
     @Operation(summary = "移库（货架之间搬运，写 transfer 流水）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerinventory:", time = 60, count = 120)
     @PostMapping("/stock/transfer")
     public AjaxResult transferStock(@RequestBody Map<String, Object> bo) {
         return AjaxResult.success(inventoryService.transferStock(

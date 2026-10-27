@@ -38,6 +38,8 @@ public class PortalLedgerSaleChannelController {
     }
 
     @Operation(summary = "新增渠道")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgersalechannel:", time = 60, count = 120)
     @PostMapping
     public AjaxResult create(@RequestBody LedgerSaleChannel bo) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -63,6 +65,8 @@ public class PortalLedgerSaleChannelController {
     }
 
     @Operation(summary = "删除渠道（仅本人自建）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgersalechannel:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

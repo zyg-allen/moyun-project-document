@@ -90,6 +90,8 @@ public class SysNotificationInboxController extends BaseController {
     @Operation(summary = "标记通知已读", description = "将指定通知标记为已读（INSERT IGNORE 防重复，幂等操作）")
     @PreAuthorize("@ss.hasPermi('system:notification:list')")
     @Log(title = "通知收件箱", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysnotificationinbox:", time = 60, count = 120)
     @PostMapping("/{id}/read")
     public AjaxResult markAsRead(@Parameter(description = "通知ID") @PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -107,6 +109,8 @@ public class SysNotificationInboxController extends BaseController {
     @Operation(summary = "全部标记已读", description = "将当前管理员所有未读通知标记为已读（幂等操作）")
     @PreAuthorize("@ss.hasPermi('system:notification:list')")
     @Log(title = "通知收件箱", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysnotificationinbox:", time = 60, count = 120)
     @PostMapping("/read-all")
     public AjaxResult markAllAsRead() {
         Long userId = currentUserId();

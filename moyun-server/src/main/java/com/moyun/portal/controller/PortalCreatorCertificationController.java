@@ -34,6 +34,8 @@ public class PortalCreatorCertificationController extends BaseController {
     }
 
     @Operation(summary = "提交认证申请", description = "提交创作者认证申请，同用户已有 pending 申请时拒绝重复提交")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcreatorcertification:", time = 60, count = 120)
     @PostMapping("/apply")
     public AjaxResult apply(@RequestBody PortalCreatorCertification dto) {
         Long userId = currentUserId();

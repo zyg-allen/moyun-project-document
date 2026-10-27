@@ -20,6 +20,8 @@ public class ReferenceFeedbackController {
     private ReferenceFeedbackService feedbackService;
 
     @Operation(summary = "提交参考来源反馈")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "referencefeedback:", time = 60, count = 120)
     @PostMapping("/reference")
     @PreAuthorize("@ss.hasPermi('cms:ai:reference-feedback:add')")
     public AjaxResult submitFeedback(@RequestBody ReferenceFeedback feedback) {

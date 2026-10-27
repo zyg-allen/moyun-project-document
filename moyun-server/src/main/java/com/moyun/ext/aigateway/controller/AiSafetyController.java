@@ -51,6 +51,8 @@ public class AiSafetyController extends BaseController {
     @Operation(summary = "文本敏感内容检测", description = "检测文本是否包含敏感内容（涉政/色情/暴恐/辱骂/违法广告等），返回命中词/风险分级/处理建议")
     @PreAuthorize("@ss.hasPermi('cms:ai:safety:detect')")
     @Log(title = "AI内容安全检测", businessType = BusinessType.OTHER)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aisafety:", time = 60, count = 30)
     @PostMapping("/detect")
     public AjaxResult detect(@RequestBody Map<String, String> body) {
         String text = body == null ? null : body.get("text");

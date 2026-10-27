@@ -77,6 +77,8 @@ public class PortalLedgerWarehouseMemberController {
     }
 
     @Operation(summary = "添加成员（按手机号或用户名）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerwarehousemember:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@PathVariable("warehouseId") Long warehouseId, @RequestBody Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -128,6 +130,8 @@ public class PortalLedgerWarehouseMemberController {
     }
 
     @Operation(summary = "移除成员")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgerwarehousemember:", time = 60, count = 120)
     @DeleteMapping("/{memberUserId}")
     public AjaxResult remove(@PathVariable("warehouseId") Long warehouseId,
                              @PathVariable("memberUserId") Long memberUserId) {

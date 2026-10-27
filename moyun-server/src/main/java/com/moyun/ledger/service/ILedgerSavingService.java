@@ -5,6 +5,7 @@ import com.moyun.ledger.domain.entity.LedgerSavingPlan;
 import com.moyun.ledger.domain.entity.LedgerSavingRecord;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -34,7 +35,25 @@ public interface ILedgerSavingService extends IService<LedgerSavingPlan> {
     Map<String, Object> listPlans(Long userId);
 
     /** 计划详情（计划 + 期次流水列表） */
-    Map<String, Object> planDetail(Long userId, Long planId);
+    com.moyun.ledger.domain.vo.SavingPlanDetailVO planDetail(Long userId, Long planId);
+
+    /** 标记期次：0=重置 1=已存 2=未完成 */
+    void markRecord(Long userId, Long planId, Long recordId, Integer status, BigDecimal amount, String reason);
+
+    /** 关联已有流水 */
+    void linkTransaction(Long userId, Long planId, Long recordId, Long transactionId);
+
+    /** 解除关联（可选删除流水） */
+    void unlinkTransaction(Long userId, Long planId, Long recordId, boolean deleteTransaction);
+
+    /** 创建转账并关联 */
+    Long createTransferAndLink(Long userId, Long planId, Long recordId, com.moyun.ledger.domain.dto.TransactionCreateDTO dto);
+
+    /** 可关联流水候选 */
+    List<com.moyun.ledger.domain.vo.LedgerTransactionVO> listLinkableTransactions(Long userId, LocalDate date, BigDecimal amount);
+
+    /** 更新计划绑定账户 */
+    void updateAccounts(Long userId, Long planId, Long sourceAccountId, Long savingsAccountId);
 
     /** 存入某一期（成功：record.status=1，plan.currentAmount 累加；全部完成或达标 → plan.status=2 成功） */
     void deposit(Long userId, Long planId, Long recordId, BigDecimal actualAmount);

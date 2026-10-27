@@ -68,6 +68,8 @@ public class PortalContestController extends BaseController {
     // ==================== 投稿 / 投票 / 我的投稿（需登录） ====================
 
     @Operation(summary = "投稿", description = "需登录，同一活动同一用户仅可投稿一次")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcontest:", time = 60, count = 30)
     @PostMapping("/{id:[0-9]+}/submit")
     public AjaxResult submit(@Parameter(description = "活动ID") @PathVariable Long id,
                              @RequestBody Map<String, Object> body) {
@@ -94,6 +96,8 @@ public class PortalContestController extends BaseController {
     }
 
     @Operation(summary = "投票", description = "需登录，toggle：再次投票取消")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalcontest:", time = 60, count = 30)
     @PostMapping("/submission/{id}/vote")
     public AjaxResult vote(@Parameter(description = "投稿ID") @PathVariable Long id) {
         Long userId = currentUserId();

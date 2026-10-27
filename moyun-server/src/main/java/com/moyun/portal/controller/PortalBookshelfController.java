@@ -42,6 +42,8 @@ public class PortalBookshelfController extends BaseController {
     private com.moyun.portal.service.IPortalBookService portalBookService;
 
     @Operation(summary = "加入书架（toggle，已收藏则取消）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookshelf:", time = 60, count = 120)
     @PostMapping("/{bookId}")
     public AjaxResult toggleBookshelf(@PathVariable Long bookId) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -59,6 +61,8 @@ public class PortalBookshelfController extends BaseController {
     }
 
     @Operation(summary = "移出书架")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookshelf:", time = 60, count = 120)
     @DeleteMapping("/{bookId}")
     public AjaxResult removeBookshelf(@PathVariable Long bookId) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -144,6 +148,8 @@ public class PortalBookshelfController extends BaseController {
     }
 
     @Operation(summary = "更新书架项的最后阅读章节（阅读时同步）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalbookshelf:", time = 60, count = 120)
     @PutMapping("/{bookId}/last-chapter")
     public AjaxResult updateLastChapter(@PathVariable Long bookId,
                                         @RequestParam(required = false) Long lastChapterId,

@@ -114,6 +114,8 @@ public class PortalGrowthController extends BaseController {
     }
 
     @Operation(summary = "每日签到", description = "签到获得成长值，连续签到有额外奖励")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalgrowth:", time = 60, count = 120)
     @PostMapping("/checkin")
     public AjaxResult checkin() {
         Long userId = PortalSecurityUtils.getUserId();

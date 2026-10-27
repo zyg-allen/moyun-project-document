@@ -57,6 +57,9 @@ public class PortalUserController extends BaseController {
     private PortalArticleMapper articleMapper;
 
     @Autowired
+    private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+
+    @Autowired
     private PortalFollowMapper followMapper;
 
     @Autowired
@@ -125,6 +128,8 @@ public class PortalUserController extends BaseController {
 
     @Operation(summary = "更新个人资料", description = "当前登录用户更新自己的个人资料")
     @Log(title = "门户用户-更新资料", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluser:", time = 60, count = 120)
     @PutMapping("/profile")
     public AjaxResult updateProfile(@RequestBody Map<String, Object> params) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
@@ -252,6 +257,8 @@ public class PortalUserController extends BaseController {
 
     @Operation(summary = "修改密码", description = "当前登录用户修改自己的密码")
     @Log(title = "门户用户-修改密码", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluser:", time = 60, count = 120)
     @PutMapping("/password")
     public AjaxResult updatePassword(@RequestBody Map<String, String> params) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
@@ -300,6 +307,8 @@ public class PortalUserController extends BaseController {
 
     @Operation(summary = "注销账号", description = "软删除当前登录用户账号，清除敏感信息")
     @Log(title = "门户用户-注销账号", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluser:", time = 60, count = 120)
     @PutMapping("/deactivate")
     public AjaxResult deactivate(@RequestBody Map<String, String> body) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
@@ -313,11 +322,17 @@ public class PortalUserController extends BaseController {
         // 【合规改造 2026-10】资金账户/提现已随收费功能下线，注销不再做资金校验
         // 软删除：设置 del_flag=2, status=1（停用）
         // 注意：MyBatis-Plus @TableLogic 不影响自定义 XML 的 updatePortalUser
-        PortalUser update = new PortalUser();
-        update.setId(currentUser.getId());
-        update.setDelFlag("2");
-        update.setStatus("1");
-        int result = portalUserService.updatePortalUser(update);
+        // 合规：软删 + 匿名化敏感字段（保留财务数据用于对账与法定义务）
+        int result = portalUserMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalUser>()
+                        .eq(PortalUser::getId, currentUser.getId())
+                        .set(PortalUser::getDelFlag, "2")
+                        .set(PortalUser::getStatus, "1")
+                        .set(PortalUser::getPhone, null)
+                        .set(PortalUser::getEmail, null)
+                        .set(PortalUser::getWxOpenid, null)
+                        .set(PortalUser::getNickname, "已注销用户")
+                        .set(PortalUser::getAvatar, null));
         if (result > 0) {
             return success("账号已注销");
         }
@@ -326,6 +341,8 @@ public class PortalUserController extends BaseController {
 
     @Operation(summary = "上传头像", description = "当前登录用户上传头像")
     @Log(title = "门户用户-上传头像", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaluser:", time = 60, count = 120)
     @PostMapping("/avatar")
     public AjaxResult uploadAvatar(@RequestParam("file") MultipartFile file) {
         PortalUser currentUser = PortalSecurityUtils.getUser();

@@ -48,6 +48,8 @@ public class CmsImportTemplateController extends BaseController {
     @Operation(summary = "保存模板字段配置", description = "整批保存某业务的字段配置（先删后插，事务保证原子性）")
     @PreAuthorize("@ss.hasPermi('cms:importTemplate:edit')")
     @Log(title = "导入模板配置", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsimporttemplate:", time = 60, count = 120)
     @PostMapping("/save")
     public AjaxResult save(@RequestBody SaveBody body) {
         if (body.getBusinessKey() == null || body.getBusinessKey().trim().isEmpty()) {

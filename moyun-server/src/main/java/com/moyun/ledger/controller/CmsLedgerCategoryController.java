@@ -157,6 +157,7 @@ public class CmsLedgerCategoryController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:add')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-预设分类", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgercategory:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@RequestBody LedgerCategory category) {
         category.setId(null);
@@ -184,6 +185,7 @@ public class CmsLedgerCategoryController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
     @RepeatSubmit(interval = 3000)
     @Log(title = "记账-预设分类", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgercategory:", time = 60, count = 120)
     @PutMapping("/{id}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody LedgerCategory category) {
         LedgerCategory exist = categoryService.getById(id);
@@ -222,6 +224,8 @@ public class CmsLedgerCategoryController extends BaseController {
     @Operation(summary = "启用/停用系统预设分类")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
     @Log(title = "记账-预设分类", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgercategory:", time = 60, count = 120)
     @PutMapping("/{id}/status/{status}")
     public AjaxResult changeStatus(@PathVariable Long id, @PathVariable Integer status) {
         LedgerCategory exist = categoryService.getById(id);
@@ -239,6 +243,8 @@ public class CmsLedgerCategoryController extends BaseController {
     @Operation(summary = "删除系统预设分类（校验流水与子分类引用）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
     @Log(title = "记账-预设分类", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsledgercategory:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
         LedgerCategory exist = categoryService.getById(id);

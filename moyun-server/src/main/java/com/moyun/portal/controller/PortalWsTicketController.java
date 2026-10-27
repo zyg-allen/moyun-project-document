@@ -35,6 +35,8 @@ public class PortalWsTicketController {
 
     @Operation(summary = "签发 WebSocket 握手票据",
             description = "需登录；返回 ticket 与有效期（秒）。握手时用 ?ticket=xxx，票据只能使用一次。")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalwsticket:", time = 60, count = 120)
     @PostMapping
     public AjaxResult issue() {
         Long userId = PortalSecurityUtils.getUserId();

@@ -43,6 +43,8 @@ public class SysOperlogController extends BaseController {
     @Operation(summary = "导出操作日志")
     @Log(title = "操作日志", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('monitor:operlog:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysoperlog:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, OperLogQuery query) {
         List<SysOperLog> list = operLogService.selectOperLogList(query);
@@ -53,6 +55,8 @@ public class SysOperlogController extends BaseController {
     @Operation(summary = "删除操作日志")
     @Log(title = "操作日志", businessType = BusinessType.DELETE)
     @PreAuthorize("@ss.hasPermi('monitor:operlog:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysoperlog:", time = 60, count = 120)
     @DeleteMapping("/{operIds}")
     public AjaxResult remove(@PathVariable Long[] operIds) {
         return toAjax(operLogService.deleteOperLogByIds(operIds));
@@ -61,6 +65,8 @@ public class SysOperlogController extends BaseController {
     @Operation(summary = "清空操作日志")
     @Log(title = "操作日志", businessType = BusinessType.CLEAN)
     @PreAuthorize("@ss.hasPermi('monitor:operlog:remove')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysoperlog:", time = 60, count = 120)
     @DeleteMapping("/clean")
     public AjaxResult clean() {
         operLogService.cleanOperLog();

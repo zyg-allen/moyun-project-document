@@ -38,6 +38,14 @@
           <input class="form-input" type="digit" v-model="form.increaseStep" placeholder="每期比上期多存（可为0）" @input="onIncreaseStepInput" />
         </view>
       </block>
+      <view class="form-row" @tap="pickAccount('source')">
+        <text class="form-label">转出账户</text>
+        <text class="form-value" :class="{ ph: !form.sourceAccountId }">{{ sourceName || '选择工资卡/零钱' }} ›</text>
+      </view>
+      <view class="form-row" @tap="pickAccount('savings')">
+        <text class="form-label">存钱账户</text>
+        <text class="form-value" :class="{ ph: !form.savingsAccountId }">{{ savingsName || '选择或新建存钱账户' }} ›</text>
+      </view>
       <view class="form-row">
         <text class="form-label">开始日期</text>
         <CalendarPicker class="fill-picker" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
@@ -77,7 +85,9 @@ import submitLock from '@/mixins/submitLock';
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
 import { createSavingPlan } from '@/api/ledger';
+import { listAssets } from '@/api/ledger';
 import { applyAmountInput } from '@/utils/money';
+import { listOf } from '@/utils/response';
 
 export default {
   mixins: [submitLock],
@@ -85,10 +95,13 @@ export default {
   data() {
     const today = new Date();
     return {
+      assets: [],
       form: {
         name: '',
         targetAmount: '',
         method: '52week',
+        sourceAccountId: null,
+        savingsAccountId: null,
         periodAmount: '',
         periodCount: '',
         increaseStep: '',
@@ -98,7 +111,12 @@ export default {
       }
     };
   },
-  computed: { themeVars() { return useThemeStore().themeVars; } },
+  computed: {
+    themeVars() { return useThemeStore().themeVars; },
+    sourceName() { return this.accountName(this.form.sourceAccountId); },
+    savingsName() { return this.accountName(this.form.savingsAccountId); }
+  },
+  onLoad() { this.loadAssets(); },
   onShow() { useThemeStore().restore(); },
   methods: {
     /** 金额输入净化（见 utils/money.applyAmountInput） */
@@ -107,6 +125,32 @@ export default {
     onPeriodAmountInput(e) { applyAmountInput(e, this, 'form.periodAmount'); },
     /** 金额输入净化（见 utils/money.applyAmountInput） */
     onIncreaseStepInput(e) { applyAmountInput(e, this, 'form.increaseStep', { allowNegative: true }); },
+    accountName(id) {
+      if (!id) return '';
+      const a = this.assets.find(x => String(x.id) === String(id));
+      return a ? a.name : '';
+    },
+    async loadAssets() {
+      try {
+
+        this.assets = listOf(await listAssets());
+      } catch (e) { this.assets = []; }
+    },
+    pickAccount(kind) {
+      if (!this.assets.length) {
+        uni.showModal({ title: '还没有资产账户', content: '请先在资产负债里添加账户', success: (r) => { if (r.confirm) uni.switchTab({ url: '/pages/portfolio/index' }); } });
+        return;
+      }
+      uni.showActionSheet({
+        itemList: this.assets.slice(0, 10).map(a => a.name),
+        success: (res) => {
+          const a = this.assets[res.tapIndex];
+          if (!a) return;
+          if (kind === 'source') this.form.sourceAccountId = a.id;
+          else this.form.savingsAccountId = a.id;
+        }
+      });
+    },
     gen52Week() {
       this.form.targetAmount = '13780';
       uni.showToast({ title: '已填入目标 13,780 元', icon: 'none' });
@@ -115,6 +159,9 @@ export default {
       return this.withSubmitLock(async () => {
               if (!this.form.name) { uni.showToast({ title: '请输入计划名称', icon: 'none' }); return; }
               const target = parseFloat(this.form.targetAmount);
+              if (!this.form.sourceAccountId) { uni.showToast({ title: '请选择转出账户', icon: 'none' }); return; }
+              if (!this.form.savingsAccountId) { uni.showToast({ title: '请选择存钱账户', icon: 'none' }); return; }
+              if (String(this.form.sourceAccountId) === String(this.form.savingsAccountId)) { uni.showToast({ title: '转出与存钱账户不能相同', icon: 'none' }); return; }
               if (!target || target <= 0) { uni.showToast({ title: '请输入目标金额', icon: 'none' }); return; }
               const payload = {
                 name: this.form.name.trim(),
@@ -122,7 +169,9 @@ export default {
                 method: this.form.method,
                 startDate: this.form.startDate,
                 endDate: this.form.endDate || null,
-                remark: this.form.remark || null
+                remark: this.form.remark || null,
+                sourceAccountId: this.form.sourceAccountId,
+                savingsAccountId: this.form.savingsAccountId
               };
               if (this.form.method === 'fixed' || this.form.method === 'monthly' || this.form.method === 'custom') {
                 const period = parseFloat(this.form.periodAmount);

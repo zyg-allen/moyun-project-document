@@ -133,6 +133,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "提交答案")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/question/{id}/submit")
     public AjaxResult submitAnswer(@PathVariable("id") Long questionId, @RequestBody Map<String, Object> body) {
         Long userId = currentUserId();
@@ -149,6 +151,8 @@ public class PortalInterviewController extends BaseController {
      * 若 body 携带 note，则同时落一条阅读笔记提交并记 write_note 成长事件。
      */
     @Operation(summary = "记录题目阅读", description = "记录阅读学习行为（每日同题幂等），可选携带学习笔记")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/question/{id}/read")
     public AjaxResult recordQuestionRead(@PathVariable("id") Long questionId,
                                          @RequestBody(required = false) Map<String, Object> body) {
@@ -160,6 +164,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "点赞/取消点赞 题目")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/question/{id}/like")
     public AjaxResult toggleQuestionLike(@PathVariable("id") Long questionId) {
         Long userId = currentUserId();
@@ -170,6 +176,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "收藏/取消收藏 题目")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/question/{id}/bookmark")
     public AjaxResult toggleQuestionBookmark(@PathVariable("id") Long questionId, @RequestBody(required = false) Map<String, String> body) {
         Long userId = currentUserId();
@@ -239,6 +247,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "点赞/取消点赞 面经")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/experience/{id}/like")
     public AjaxResult toggleExperienceLike(@PathVariable("id") Long experienceId) {
         Long userId = currentUserId();
@@ -250,6 +260,7 @@ public class PortalInterviewController extends BaseController {
 
     @Operation(summary = "发布面经", description = "用户发布面经，默认进入 pending 待审核状态")
     @RepeatSubmit(interval = 5000, message = "请勿重复提交面经")
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/experience")
     public AjaxResult publishExperience(@RequestBody PortalInterviewExperience experience) {
         Long userId = currentUserId();
@@ -268,6 +279,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "更新面经", description = "仅作者可更新自己的面经")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PutMapping("/experience")
     public AjaxResult updateExperience(@RequestBody PortalInterviewExperience experience) {
         Long userId = currentUserId();
@@ -278,6 +291,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "删除面经", description = "仅作者可删除自己的面经")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @DeleteMapping("/experience/{id}")
     public AjaxResult deleteExperience(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -297,6 +312,7 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "发表评论/回复")
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/comment")
     @RepeatSubmit(interval = 3000, message = "请勿重复提交评论")
     public AjaxResult publishComment(@RequestBody PortalInterviewComment comment) {
@@ -315,6 +331,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "点赞/取消点赞 评论")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/comment/{id}/like")
     public AjaxResult toggleCommentLike(@PathVariable("id") Long commentId) {
         Long userId = currentUserId();
@@ -325,6 +343,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "删除评论", description = "仅作者可删除自己的评论")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @DeleteMapping("/comment/{id}")
     public AjaxResult deleteComment(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -370,6 +390,8 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "点赞/取消点赞 简历模板")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalinterview:", time = 60, count = 30)
     @PostMapping("/resume/{id}/like")
     public AjaxResult toggleResumeTemplateLike(@PathVariable("id") Long templateId) {
         Long userId = currentUserId();

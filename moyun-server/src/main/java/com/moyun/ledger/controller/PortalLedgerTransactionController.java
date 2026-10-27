@@ -30,8 +30,10 @@ public class PortalLedgerTransactionController {
     private ILedgerTransactionService transactionService;
 
     /** 新增记账（联动更新余额，单事务）；返回站内预算提醒（如有） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgertransaction:", time = 60, count = 120)
     @PostMapping
-    public AjaxResult create(@RequestBody TransactionCreateDTO dto) {
+    public AjaxResult create(@jakarta.validation.Valid @RequestBody TransactionCreateDTO dto) {
         Long userId = PortalSecurityUtils.getUserId();
         // 创建人从登录态填充（数据隔离/溯源），前端不传
         String username = PortalSecurityUtils.getUsername();
@@ -60,14 +62,18 @@ public class PortalLedgerTransactionController {
     }
 
     /** 修改记账（旧记录冲正 → 新记录重放） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgertransaction:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}")
-    public AjaxResult update(@PathVariable("id") Long id, @RequestBody TransactionCreateDTO dto) {
+    public AjaxResult update(@PathVariable("id") Long id, @jakarta.validation.Valid @RequestBody TransactionCreateDTO dto) {
         Long userId = PortalSecurityUtils.getUserId();
         transactionService.updateTransaction(userId, id, dto);
         return AjaxResult.success("修改成功");
     }
 
     /** 删除记账（冲正后逻辑删除归档） */
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portalledgertransaction:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

@@ -122,14 +122,16 @@
         </view>
         <!-- 日期网格 -->
         <view class="grid">
-          <view v-for="(cell, i) in cells" :key="cell ? cell.date : 'blank-' + i" class="day-cell"
-                :class="{ empty: !cell, selected: cell && cell.date === selectedDate, today: cell && cell.date === todayStr, weekend: cell && cell.weekend }"
-                @tap="cell && pickDay(cell.date)">
-            <template v-if="cell">
-              <text class="day-num">{{ cell.day }}</text>
-              <text v-if="cell.net !== 0" class="day-net" :class="cell.net > 0 ? 'in' : 'out'">{{ cell.net > 0 ? '+' : '-' }}{{ formatNet(cell.net) }}</text>
-              <view v-else-if="cell.count" class="day-dot"></view>
-            </template>
+          <view v-for="(week, wi) in weeks" :key="wi" class="week-line">
+            <view v-for="(cell, ci) in week" :key="cell ? cell.date : 'blank-' + wi + '-' + ci" class="day-cell"
+                  :class="{ empty: !cell, selected: cell && cell.date === selectedDate, today: cell && cell.date === todayStr, weekend: cell && cell.weekend }"
+                  @tap="cell && pickDay(cell.date)">
+              <template v-if="cell">
+                <text class="day-num">{{ cell.day }}</text>
+                <text v-if="cell.net !== 0" class="day-net" :class="cell.net > 0 ? 'in' : 'out'">{{ cell.net > 0 ? '+' : '-' }}{{ formatNet(cell.net) }}</text>
+                <view v-else-if="cell.count" class="day-dot"></view>
+              </template>
+            </view>
           </view>
         </view>
       </view>
@@ -324,6 +326,11 @@ export default {
         arr.push({ day: d, date, net, count: agg ? agg.count : 0, weekend: col === 0 || col === 6 });
       }
       return arr;
+    },
+    weeks() {
+      const rows = [];
+      for (let i = 0; i < this.cells.length; i += 7) rows.push(this.cells.slice(i, i + 7));
+      return rows;
     },
     dayItems() {
       return this.monthTxns.filter(t => t.transactionDate === this.selectedDate);
@@ -728,9 +735,10 @@ export default {
 .week-row { display: flex; border-bottom: 1rpx solid var(--border); }
 .week-cell { flex: 1; text-align: center; font-size: 24rpx; color: var(--text-sub); padding: 12rpx 0; }
 .week-cell.weekend { color: var(--expense); }
-.grid { display: flex; flex-wrap: wrap; }
+.grid { display: block; }
+.week-line { display: flex; height: 96rpx; }
 .day-cell {
-  width: 14.28%; height: 104rpx; display: flex; flex-direction: column;
+  flex: 1; width: auto; height: 100%; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
 .day-cell.empty { pointer-events: none; }

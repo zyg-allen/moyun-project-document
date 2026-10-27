@@ -1,4 +1,4 @@
-﻿{
+{
   "pages": [
     { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "墨韵记账", "enablePullDownRefresh": true } },
     { "path": "pages/portfolio/index", "style": { "navigationBarTitleText": "资产负债", "enablePullDownRefresh": true } },
@@ -15,7 +15,10 @@
     { "path": "pages/mine/savings/index", "style": { "navigationBarTitleText": "存钱" } },
     { "path": "pages/mine/savings/create", "style": { "navigationBarTitleText": "新建计划" } },
     { "path": "pages/mine/savings/detail", "style": { "navigationBarTitleText": "计划详情" } },
-    { "path": "pages/warehouse/index", "style": { "navigationBarTitleText": "库存管理", "navigationStyle": "custom" } },
+        { "path": "pages/mine/notifications/index", "style": { "navigationBarTitleText": "消息" } },
+    { "path": "pages/mine/permissions/index", "style": { "navigationBarTitleText": "权限管理" } },
+
+{ "path": "pages/warehouse/index", "style": { "navigationBarTitleText": "库存管理", "navigationStyle": "custom" } },
     { "path": "pages/warehouse/inout/index", "style": { "navigationBarTitleText": "入库/出库", "navigationStyle": "custom" } },
     { "path": "pages/warehouse/report/index", "style": { "navigationBarTitleText": "仓库报表", "navigationStyle": "custom" } },
     { "path": "pages/mine/warehouse-settings/index", "style": { "navigationBarTitleText": "仓库配置", "navigationStyle": "custom" } },
@@ -29,7 +32,8 @@
     { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } },
     { "path": "pages/mine/forgot-password/index", "style": { "navigationBarTitleText": "找回密码" } },
     { "path": "pages/mine/profile/index", "style": { "navigationBarTitleText": "个人信息维护" } },
-    { "path": "pages/mine/privacy/index", "style": { "navigationBarTitleText": "隐私与授权" } },`r`n    { "path": "pages/mine/agreement/index", "style": { "navigationBarTitleText": "协议与政策" } },
+    { "path": "pages/mine/privacy/index", "style": { "navigationBarTitleText": "隐私与授权" } },
+    { "path": "pages/mine/agreement/index", "style": { "navigationBarTitleText": "协议与政策" } },
     { "path": "pages/webview/index", "style": { "navigationBarTitleText": "外部链接", "navigationStyle": "default" } }
   ],
   "globalStyle": {

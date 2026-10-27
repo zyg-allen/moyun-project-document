@@ -47,6 +47,8 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "导出参数配置", description = "导出参数配置到Excel文件")
     @Log(title = "参数管理", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('system:config:export')")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysconfig:", time = 60, count = 120)
     @PostMapping("/export")
     public void export(HttpServletResponse response, SysConfig config) {
         List<SysConfig> list = configService.selectConfigList(config);
@@ -79,6 +81,8 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "新增参数配置", description = "创建新参数配置")
     @PreAuthorize("@ss.hasPermi('system:config:add')")
     @Log(title = "参数管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysconfig:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody SysConfig config) {
         if (!configService.checkConfigKeyUnique(config)) {
@@ -94,6 +98,8 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "修改参数配置", description = "更新参数配置信息")
     @PreAuthorize("@ss.hasPermi('system:config:edit')")
     @Log(title = "参数管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysconfig:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody SysConfig config) {
         if (!configService.checkConfigKeyUnique(config)) {
@@ -109,6 +115,8 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "删除参数配置", description = "批量删除参数配置")
     @PreAuthorize("@ss.hasPermi('system:config:remove')")
     @Log(title = "参数管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysconfig:", time = 60, count = 120)
     @DeleteMapping("/{configIds}")
     public AjaxResult remove(@Parameter(description = "参数ID数组") @PathVariable Long[] configIds) {
         configService.deleteConfigByIds(configIds);
@@ -121,6 +129,8 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "刷新参数缓存", description = "清空并重新加载参数缓存")
     @PreAuthorize("@ss.hasPermi('system:config:remove')")
     @Log(title = "参数管理", businessType = BusinessType.CLEAN)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "sysconfig:", time = 60, count = 120)
     @DeleteMapping("/refreshCache")
     public AjaxResult refreshCache() {
         configService.resetConfigCache();

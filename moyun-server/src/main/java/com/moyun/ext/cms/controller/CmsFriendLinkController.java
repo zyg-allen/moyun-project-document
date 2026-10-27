@@ -48,6 +48,8 @@ public class CmsFriendLinkController extends BaseController
     @Operation(summary = "新增友情链接", description = "创建新友情链接")
     @PreAuthorize("@ss.hasPermi('cms:friend-link:add')")
     @Log(title = "友情链接管理", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsfriendlink:", time = 60, count = 120)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalFriendLink friendLink)
     {
@@ -57,6 +59,8 @@ public class CmsFriendLinkController extends BaseController
     @Operation(summary = "修改友情链接", description = "更新友情链接信息")
     @PreAuthorize("@ss.hasPermi('cms:friend-link:edit')")
     @Log(title = "友情链接管理", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsfriendlink:", time = 60, count = 120)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalFriendLink friendLink)
     {
@@ -66,6 +70,8 @@ public class CmsFriendLinkController extends BaseController
     @Operation(summary = "删除友情链接", description = "批量删除友情链接")
     @PreAuthorize("@ss.hasPermi('cms:friend-link:remove')")
     @Log(title = "友情链接管理", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmsfriendlink:", time = 60, count = 120)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "友情链接ID数组") @PathVariable Long[] ids)
     {

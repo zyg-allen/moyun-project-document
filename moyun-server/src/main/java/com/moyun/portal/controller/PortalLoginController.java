@@ -73,6 +73,7 @@ public class PortalLoginController {
      */
     @Operation(summary = "用户登录", description = "用户登录获取Token")
     @RateLimiter(time = 60, count = 5, limitType = LimitType.IP)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/login")
     public AjaxResult login(
             @Parameter(description = "登录信息") @RequestBody LoginBody loginBody) {
@@ -91,6 +92,7 @@ public class PortalLoginController {
     // NAT 共享 IP（校园网/公司）下同 IP 众多真实用户，原 3次/小时 会误伤；
     // 放宽为 20次/10分钟 防脚本轰炸，真实用户几乎无感（有双重人机校验+短信/邮箱验证码兜底）
     @RateLimiter(time = 600, count = 20, limitType = LimitType.IP)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
     @PostMapping("/register")
     public AjaxResult register(
             @Parameter(description = "用户信息") @RequestBody PortalUser portalUser) {
@@ -210,6 +212,8 @@ public class PortalLoginController {
      * 退出登录
      */
     @Operation(summary = "退出登录", description = "清除登录状态")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portallogin:", time = 60, count = 120)
     @PostMapping("/logout")
     public AjaxResult logout() {
         PortalLoginUser loginUser = getCurrentLoginUser();

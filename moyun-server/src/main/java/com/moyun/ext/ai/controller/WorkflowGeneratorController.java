@@ -25,6 +25,8 @@ public class WorkflowGeneratorController {
     private final WorkflowGeneratorService generatorService;
 
     @Operation(summary = "生成工作流", description = "根据自然语言描述生成工作流JSON，不自动保存")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "workflowgenerator:", time = 60, count = 120)
     @PostMapping("/generate")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow-generator:generate')")
     public AjaxResult generate(@Valid @RequestBody GenerateRequest request) {

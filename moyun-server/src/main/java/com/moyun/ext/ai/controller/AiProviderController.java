@@ -42,6 +42,8 @@ public class AiProviderController {
     }
 
     @Operation(summary = "创建提供商", description = "注册新的模型提供商")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aiprovider:", time = 60, count = 30)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:add')")
     public AjaxResult create(@RequestBody AiProvider provider) {
@@ -67,6 +69,8 @@ public class AiProviderController {
     }
 
     @Operation(summary = "更新提供商", description = "更新提供商能力元数据（即时生效，缓存自动失效）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aiprovider:", time = 60, count = 30)
     @PutMapping("/update")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:edit')")
     public AjaxResult update(@RequestBody AiProvider provider) {
@@ -93,6 +97,8 @@ public class AiProviderController {
     }
 
     @Operation(summary = "删除提供商", description = "物理删除（uk_code 唯一键不允许软删残留；已被模型配置引用时不建议删除，可停用）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "aiprovider:", time = 60, count = 30)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:remove')")
     public AjaxResult delete(@PathVariable("id") Long id) {

@@ -90,6 +90,7 @@ public class PortalTopicController extends BaseController {
     @Operation(summary = "创建话题", description = "登录用户发起话题")
     @Log(title = "门户话题", businessType = BusinessType.INSERT)
     @RepeatSubmit(interval = 5000, message = "请勿重复提交话题")
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PostMapping("/save")
     public AjaxResult save(@RequestBody PortalTopic topic) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -114,6 +115,8 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "编辑话题", description = "仅话题发起人可编辑")
     @Log(title = "门户话题", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PutMapping("/{id:[0-9]+}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody PortalTopic topic) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -130,6 +133,8 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "删除话题", description = "creator 或 admin 可删除（软删）")
     @Log(title = "门户话题", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -145,6 +150,8 @@ public class PortalTopicController extends BaseController {
     }
 
     @Operation(summary = "话题点赞/取消", description = "幂等 toggle，返回 isLiked 和 likeCount")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/like")
     public AjaxResult toggleTopicLike(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -186,6 +193,7 @@ public class PortalTopicController extends BaseController {
     @Operation(summary = "发表观点", description = "在某话题下发表观点（楼层号并发安全）")
     @Log(title = "话题观点", businessType = BusinessType.INSERT)
     @RepeatSubmit(interval = 3000, message = "请勿重复提交观点")
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PostMapping("/{id:[0-9]+}/post")
     public AjaxResult createPost(@Parameter(description = "话题ID") @PathVariable Long id,
                                  @Validated @RequestBody TopicPostCreateDTO dto) {
@@ -224,6 +232,8 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "删除观点", description = "作者/话题发起人/admin 可删除（软删）")
     @Log(title = "话题观点", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @DeleteMapping("/post/{postId}")
     public AjaxResult deletePost(@Parameter(description = "观点ID") @PathVariable Long postId) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -239,6 +249,8 @@ public class PortalTopicController extends BaseController {
     }
 
     @Operation(summary = "观点点赞/取消", description = "幂等 toggle，返回 isLiked 和 likeCount")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PostMapping("/post/{postId}/like")
     public AjaxResult togglePostLike(@Parameter(description = "观点ID") @PathVariable Long postId) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -281,6 +293,7 @@ public class PortalTopicController extends BaseController {
     @Operation(summary = "发表评论", description = "在话题或观点下发表评论")
     @Log(title = "话题评论", businessType = BusinessType.INSERT)
     @RepeatSubmit(interval = 3000, message = "请勿重复提交评论")
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PostMapping("/comment")
     public AjaxResult createComment(@RequestBody PortalTopicComment comment) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -304,6 +317,8 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "删除评论", description = "作者/admin 可删除（软删，级联软删回复）")
     @Log(title = "话题评论", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @DeleteMapping("/comment/{commentId}")
     public AjaxResult deleteComment(@Parameter(description = "评论ID") @PathVariable Long commentId) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -319,6 +334,8 @@ public class PortalTopicController extends BaseController {
     }
 
     @Operation(summary = "评论点赞/取消", description = "幂等 toggle，返回 isLiked 和 likeCount")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "portaltopic:", time = 60, count = 120)
     @PostMapping("/comment/{commentId}/like")
     public AjaxResult toggleCommentLike(@Parameter(description = "评论ID") @PathVariable Long commentId) {
         Long userId = PortalSecurityUtils.getUserId();

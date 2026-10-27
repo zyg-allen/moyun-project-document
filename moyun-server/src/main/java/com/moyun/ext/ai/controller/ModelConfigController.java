@@ -88,6 +88,8 @@ public class ModelConfigController {
     }
 
     @Operation(summary = "创建模型配置", description = "创建新的模型配置（流式支持按模型特征自动判定）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "modelconfig:", time = 60, count = 120)
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:add')")
     public AjaxResult create(@RequestBody ModelConfig config) {
@@ -112,6 +114,8 @@ public class ModelConfigController {
     }
 
     @Operation(summary = "更新模型配置", description = "更新现有模型配置（流式支持按模型特征自动判定）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "modelconfig:", time = 60, count = 120)
     @PutMapping("/update")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:edit')")
     public AjaxResult update(@RequestBody ModelConfig config) {
@@ -129,6 +133,8 @@ public class ModelConfigController {
     }
 
     @Operation(summary = "删除模型配置", description = "删除指定的模型配置")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "modelconfig:", time = 60, count = 120)
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:remove')")
     public AjaxResult delete(@PathVariable("id") Long id) {
@@ -148,6 +154,8 @@ public class ModelConfigController {
     }
 
     @Operation(summary = "设置默认模型", description = "将指定模型设为默认")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "modelconfig:", time = 60, count = 120)
     @PostMapping("/set-default/{id}")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:edit')")
     public AjaxResult setDefault(@PathVariable("id") Long id) {
@@ -187,6 +195,8 @@ public class ModelConfigController {
     }
 
     @Operation(summary = "测试模型连接", description = "测试与AI模型的连接（按提供商注册表 API 风格分发，chat 模型附带流式实测）")
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "modelconfig:", time = 60, count = 120)
     @PostMapping("/test")
     @PreAuthorize("@ss.hasPermi('cms:ai:model-config:query')")
     public AjaxResult testConnection(@RequestBody ModelConfig config) {

@@ -49,6 +49,8 @@ public class CmsContestController extends BaseController {
     @Operation(summary = "新增活动", description = "新增征文活动")
     @PreAuthorize("@ss.hasPermi('cms:contest:add')")
     @Log(title = "创作挑战", businessType = BusinessType.INSERT)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscontest:", time = 60, count = 30)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalWritingContest contest) {
         contest.setCreateBy(getUsername());
@@ -58,6 +60,8 @@ public class CmsContestController extends BaseController {
     @Operation(summary = "修改活动", description = "修改征文活动")
     @PreAuthorize("@ss.hasPermi('cms:contest:edit')")
     @Log(title = "创作挑战", businessType = BusinessType.UPDATE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscontest:", time = 60, count = 30)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalWritingContest contest) {
         contest.setUpdateBy(getUsername());
@@ -67,6 +71,8 @@ public class CmsContestController extends BaseController {
     @Operation(summary = "删除活动", description = "批量删除征文活动")
     @PreAuthorize("@ss.hasPermi('cms:contest:remove')")
     @Log(title = "创作挑战", businessType = BusinessType.DELETE)
+    @com.moyun.common.annotation.RepeatSubmit(interval = 2000)
+    @com.moyun.common.annotation.RateLimiter(key = "cmscontest:", time = 60, count = 30)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(cmsContestService.deleteContestByIds(ids));

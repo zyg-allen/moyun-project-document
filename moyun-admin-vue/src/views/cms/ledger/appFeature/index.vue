@@ -113,13 +113,8 @@
           <el-input v-model="form.featureName" placeholder="展示给用户的名称" maxlength="20" show-word-limit />
         </el-form-item>
         <el-form-item label="跳转路由">
-          <el-select v-model="form.route" placeholder="从 App 支持的路由中选择" clearable filterable style="width: 100%">
-            <el-option v-for="r in routeOptions" :key="r.value" :label="r.label" :value="r.value">
-              <span class="route-opt">{{ r.label }}</span>
-              <span class="route-val">{{ r.value }}</span>
-            </el-option>
-          </el-select>
-          <div class="field-hint">只允许已注册路由，避免配置出「点了没反应」的死链</div>
+          <el-input v-model="form.route" placeholder="例如 /pages/mine/notifications/index" maxlength="200" clearable style="width: 100%" />
+          <div class="field-hint">填写 App 页面路径（以 /pages/ 开头）；App 端遇到不存在的路由会隐藏该入口</div>
         </el-form-item>
         <el-form-item label="图标">
           <el-input v-model="form.icon" placeholder="emoji 或符号，如 📝" maxlength="8" style="width: 140px" />
@@ -158,7 +153,7 @@
 
 <script setup name="LedgerAppFeature">
 import {
-  listAppFeatures, addAppFeature, updateAppFeature, delAppFeature, getAppFeatureRoutes
+  listAppFeatures, addAppFeature, updateAppFeature, delAppFeature
 } from '@/api/cms/ledger'
 
 const { proxy } = getCurrentInstance()
@@ -170,7 +165,7 @@ const allRows = ref([])
 const open = ref(false)
 const submitting = ref(false)
 const formRef = ref()
-const routeOptions = ref([])
+
 const form = ref({})
 const rules = {
   featureKey: [
@@ -188,11 +183,7 @@ const visibleCount = computed(() => rows.value.filter(r => r.visible === 1).leng
 const previewList = computed(() => rows.value.filter(r => r.visible === 1))
 const dialogTitle = computed(() => (form.value.id ? '编辑功能入口' : '新增功能入口'))
 
-const routeLabel = route => {
-  if (!route) return '未绑定路由'
-  const hit = routeOptions.value.find(r => r.value === route)
-  return hit ? hit.label : route
-}
+const routeLabel = route => route || '未绑定路由'
 
 function getList() {
   loading.value = true
@@ -201,11 +192,7 @@ function getList() {
   }).finally(() => { loading.value = false })
 }
 
-function getRoutes() {
-  getAppFeatureRoutes().then(res => {
-    routeOptions.value = res.data || []
-  }).catch(() => {})
-}
+
 
 function onGroupChange() { /* 纯前端分组切换，无需重新请求 */ }
 function handleQuery() { getList() }
@@ -276,7 +263,7 @@ function onDelete(row) {
     }).catch(() => {})
 }
 
-getRoutes()
+
 getList()
 </script>
 

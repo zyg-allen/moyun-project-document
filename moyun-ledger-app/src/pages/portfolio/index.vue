@@ -120,12 +120,11 @@
         <input v-model="assetForm.riskLevel" maxlength="10" placeholder="或输入自定义标签（≤10字，如：急催 / 失联）" class="field-input"
           adjust-position :cursor-spacing="24" />
       </view>
-      <view class="field" v-if="!assetForm.id">
-        <text class="field-label">初始余额(元)</text>
-        <input v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input" @input="onAssetBalanceInput"
-          adjust-position
-          :cursor-spacing="24"
-         />
+      <view class="field">
+        <text class="field-label">{{ assetForm.id ? '当前余额(元)' : '初始余额(元)' }}</text>
+        <view v-if="assetForm.id" class="field-input readonly">{{ privacyMode ? '****' : formatAmount(assetForm.balance) }}（记账调整）</view>
+        <input v-else v-model="assetForm.initialBalance" type="digit" placeholder="0.00" class="field-input" @input="onAssetBalanceInput"
+          adjust-position :cursor-spacing="24" />
       </view>
       <view class="field">
         <text class="field-label">计入总资产</text>
@@ -265,7 +264,7 @@ export default {
       collapsed: {},
       ps: { visible: false, key: '', title: '', options: [], selected: -1 },
       assetEditing: false,
-      assetForm: { id: null, name: '', accountType: 'fund', description: '', riskLevel: '正常', initialBalance: '', includeInTotal: 1 },
+      assetForm: { id: null, name: '', accountType: 'fund', description: '', riskLevel: '正常', initialBalance: '', balance: 0, includeInTotal: 1 },
       assetTypes: ASSET_TYPES,
       // 负债
       liabilities: [],
@@ -419,7 +418,7 @@ export default {
       this.assetEditing = true;
     },
     editAsset(a) {
-      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, description: a.description || '', riskLevel: a.riskLevel || '正常', initialBalance: '', includeInTotal: a.includeInTotal };
+      this.assetForm = { id: a.id, name: a.name, accountType: a.accountType, description: a.description || '', riskLevel: a.riskLevel || '正常', initialBalance: '', balance: a.balance || 0, includeInTotal: a.includeInTotal };
       this.assetEditing = true;
     },
     onAssetTypeChange(e) { this.assetForm.accountType = this.assetTypes[e.detail.value][0]; },
@@ -647,6 +646,7 @@ export default {
 .sheet-title { font-size: 34rpx; font-weight: 600; text-align: center; margin-bottom: 32rpx; }
 .field { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid var(--border); }
 .field-label { width: 200rpx; font-size: 28rpx; color: var(--text-sub); }
+.field-input.readonly { text-align: right; color: var(--text-sub); font-size: 26rpx; }
 .field-input { flex: 1; font-size: 28rpx; text-align: right; }
 .field-picker { flex: 1; font-size: 28rpx; text-align: right; color: var(--text-main); }
 .btn-primary { margin-top: 40rpx; }
